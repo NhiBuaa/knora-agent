@@ -8,25 +8,13 @@ from knora.providers.generation import (
     GenerationEvidence,
     GenerationResult,
 )
-from knora.providers.structured_generation import (
-    PROMPT_VERSION,
-    STRUCTURED_RESULT_SCHEMA,
-    SYSTEM_PROMPT,
-    user_message,
+from knora.providers.openai_compatible.answer_blocks import compose_answer
+from knora.providers.prompts.builder import BuiltPrompt, build_prompt
+from knora.providers.prompts.policy import (
+    CLOUDFLARE_PROMPT_VERSION as CLOUDFLARE_PROMPT_VERSION,
 )
-
-CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v4"
-CLOUDFLARE_SYSTEM_PROMPT = (
-    SYSTEM_PROMPT + " For ANSWER, refusal_reason MUST be null. For REFUSAL, answer MUST be null, "
-    "cited_evidence_ids MUST be empty, and refusal_reason MUST be INSUFFICIENT_EVIDENCE. "
-    "Every ANSWER answer MUST contain the exact cited aliases in double brackets, such as [[E1]], "
-    "and cited_evidence_ids MUST list those same aliases. If no alias can support the answer, "
-    "return REFUSAL instead. Format the answer with Markdown paragraphs, headings and lists "
-    "when appropriate. Put each list item on its own line, rather than joining a list into "
-    "one long paragraph. For a list supported by one alias, put one marker after the complete "
-    "list. Use the current question's language for all answer prose. "
-    "If the question is Vietnamese, introductions, headings and explanations MUST be Vietnamese. "
-    "Preserve quoted source titles and technical terms as written."
+from knora.providers.prompts.policy import (
+    CLOUDFLARE_SYSTEM_PROMPT as CLOUDFLARE_SYSTEM_PROMPT,
 )
 
 
@@ -68,48 +56,22 @@ class OpenAICompatibleGenerationProvider:
         if self._client is None:
             self._client = httpx.AsyncClient(timeout=self._timeout_seconds)
         try:
-            request_body = {
-                "model": self._model,
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": (
-                            CLOUDFLARE_SYSTEM_PROMPT
-                            if self._provider_identity == "cloudflare-workers-ai"
-                            else SYSTEM_PROMPT
-                        ),
-                    },
-                    {"role": "user", "content": user_message(question, evidence)},
-                ],
-                "response_format": {
-                    "type": "json_schema",
-                    "json_schema": (
-                        STRUCTURED_RESULT_SCHEMA
-                        if self._direct_json_schema
-                        else {
-                            "name": "knora_structured_generation_result",
-                            "strict": True,
-                            "schema": STRUCTURED_RESULT_SCHEMA,
-                        }
-                    ),
-                },
-            }
-            if self._max_tokens is not None:
-                request_body["max_tokens"] = self._max_tokens
-            response = await self._client.post(
-                self._url,
-                headers={"Authorization": f"Bearer {self._api_key}"},
-                json=request_body,
+            cloudflare = self._provider_identity == "cloudflare-workers-ai"
+            prompt = build_prompt(
+                "cloudflare-answer" if cloudflare else "generic",
+                question=question,
+                evidence=evidence,
             )
-            response.raise_for_status()
-            payload = response.json()
-            choice = payload["choices"][0]
-            structured = json.loads(choice["message"]["content"])
-            usage = {
-                key: int(value)
-                for key, value in payload.get("usage", {}).items()
-                if isinstance(value, int)
-            }
+            version = prompt.definition.version
+            response = await self._complete(prompt)
+            payload, choice, structured = self._decode(response)
+            if cloudflare:
+                answer, cited_ids = compose_answer(structured, evidence)
+            else:
+                answer = structured["answer"]
+                cited_ids = tuple(structured["cited_evidence_ids"])
+            metadata = self._metadata(response, payload, choice, version)
+            usage = metadata["usage"]
             cost = {}
             if (
                 "prompt_tokens" in usage
@@ -129,16 +91,12 @@ class OpenAICompatibleGenerationProvider:
                 }
             return GenerationResult(
                 decision=structured["decision"],
-                answer=structured["answer"],
-                cited_evidence_ids=tuple(structured["cited_evidence_ids"]),
+                answer=answer,
+                cited_evidence_ids=cited_ids,
                 refusal_reason=structured["refusal_reason"],
                 provider=self._provider_identity,
                 model=str(payload.get("model", self._model)),
-                prompt_version=(
-                    CLOUDFLARE_PROMPT_VERSION
-                    if self._provider_identity == "cloudflare-workers-ai"
-                    else PROMPT_VERSION
-                ),
+                prompt_version=version,
                 finish_reason=choice.get("finish_reason"),
                 provider_request_id=response.headers.get("x-request-id") or payload.get("id"),
                 usage=usage,
@@ -148,6 +106,57 @@ class OpenAICompatibleGenerationProvider:
             raise KnoraError("PROVIDER_REQUEST_FAILED") from None
         except (IndexError, KeyError, TypeError, ValueError, json.JSONDecodeError):
             raise KnoraError("GENERATION_OUTPUT_INVALID") from None
+
+    async def _complete(self, prompt: BuiltPrompt) -> httpx.Response:
+        request_body = {
+            "model": self._model,
+            "messages": prompt.messages,
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": (
+                    prompt.definition.schema
+                    if self._direct_json_schema
+                    else {
+                        "name": "knora_structured_generation_result",
+                        "strict": True,
+                        "schema": prompt.definition.schema,
+                    }
+                ),
+            },
+        }
+        if self._max_tokens is not None:
+            request_body["max_tokens"] = self._max_tokens
+        response = await self._client.post(
+            self._url, headers={"Authorization": f"Bearer {self._api_key}"}, json=request_body
+        )
+        response.raise_for_status()
+        return response
+
+    def _decode(self, response: httpx.Response) -> tuple[dict, dict, object]:
+        payload = response.json()
+        choice = payload["choices"][0]
+        if (
+            self._provider_identity == "cloudflare-workers-ai"
+            and choice.get("finish_reason") == "length"
+        ):
+            raise KnoraError("GENERATION_OUTPUT_INVALID")
+        return payload, choice, json.loads(choice["message"]["content"])
+
+    def _metadata(
+        self, response: httpx.Response, payload: dict, choice: dict, version: str
+    ) -> dict:
+        return {
+            "provider": self._provider_identity,
+            "model": str(payload.get("model", self._model)),
+            "prompt_version": version,
+            "finish_reason": choice.get("finish_reason"),
+            "provider_request_id": response.headers.get("x-request-id") or payload.get("id"),
+            "usage": {
+                key: value
+                for key, value in payload.get("usage", {}).items()
+                if isinstance(value, int)
+            },
+        }
 
     async def aclose(self) -> None:
         if self._owns_client and self._client is not None:

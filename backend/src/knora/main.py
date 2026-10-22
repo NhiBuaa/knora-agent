@@ -12,6 +12,10 @@ from knora.access.keycloak import KeycloakAuthenticator
 from knora.access.workspace_authorization import WorkspaceAuthorizer
 from knora.adapters.execution.thread_attempt_runner import FixedCapacityThreadAttemptRunner
 from knora.adapters.http.conversations import router as conversations_router
+from knora.adapters.http.evaluation_catalog import router as evaluation_catalog_router
+from knora.adapters.http.evaluation_datasets import router as evaluation_datasets_router
+from knora.adapters.http.evaluation_runs import router as evaluation_runs_router
+from knora.adapters.http.evaluation_scoring import router as evaluation_scoring_router
 from knora.adapters.http.routes import router as http_router
 from knora.adapters.http.tools import router as tools_router
 from knora.adapters.http.workspaces import router as workspaces_router
@@ -24,6 +28,8 @@ from knora.adapters.postgres.answering_store import PostgresAnsweringStore
 from knora.adapters.postgres.conversation_store import PostgresConversationStore
 from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.document_reader import PostgresDocumentReader
+from knora.adapters.postgres.evaluation_datasets import PostgresDatasetStore
+from knora.adapters.postgres.evaluation_runs import PostgresEvaluationRunStore
 from knora.adapters.postgres.ingestion_job_store import PostgresIngestionJobStore
 from knora.adapters.postgres.ingestion_store import PostgresIngestionStore
 from knora.adapters.postgres.object_reconciliation import (
@@ -49,6 +55,12 @@ from knora.bootstrap import build_provider_selection
 from knora.conversations.runner import ConversationRunner
 from knora.conversations.service import ConversationService
 from knora.domain.errors import KnoraError
+from knora.evaluation.catalog import Milestone3Catalog
+from knora.evaluation.datasets import DatasetService
+from knora.evaluation.pdf_runtime import PdfRuntimeProfile
+from knora.evaluation.proposals import ProposalProfile
+from knora.evaluation.runs import EvaluationRunService, RuntimeProfile
+from knora.evaluation.scoring import EvaluationScoringService, ScoringProfile
 from knora.infrastructure.lexical_configuration import load_lexical_population
 from knora.infrastructure.settings import ObjectStoreSettings, settings
 from knora.ingestion.documents import DocumentLifecycleService, DocumentReader
@@ -85,7 +97,7 @@ from knora.ingestion.operational_observability import (
     OperationalObservability,
     OperationalTelemetry,
 )
-from knora.ingestion.pdf import PdfTextExtractor
+from knora.ingestion.pdf import PdfExtractionConfiguration, PdfTextExtractor
 from knora.ingestion.processing import DocumentProcessor
 from knora.ingestion.search_indexing import DerivationJobHandler, LexicalIndexHandler
 from knora.providers.cloudflare.pdf_understanding import CloudflarePdfUnderstandingProvider
@@ -135,6 +147,10 @@ def create_app(
     operational_telemetry: OperationalTelemetry | None = None,
     operational_alert_configuration: OperationalAlertConfigurationV1 | None = None,
     operator_observability: OperatorObservability | None = None,
+    evaluation_profiles: tuple[RuntimeProfile, ...] = (),
+    evaluation_pdf_profiles: tuple[PdfRuntimeProfile, ...] = (),
+    evaluation_proposal_profiles: dict[str, ProposalProfile] | None = None,
+    evaluation_scoring_profiles: tuple[ScoringProfile, ...] = (),
     write_proposal_workflow: WriteProposalWorkflow | None = None,
     tool_actor_context_provider: ActorContextProvider | None = None,
     read_tool: ReadTool | None = None,
@@ -319,6 +335,26 @@ def create_app(
         retry_policy=RetryPolicyV1(SystemRandomSource()),
         runner=FixedCapacityThreadAttemptRunner(max_concurrency=1),
     )
+    application.state.dataset_service = DatasetService(
+        store=PostgresDatasetStore(SessionFactory),
+        object_store=selected_object_store,
+        extractor=PypdfTextExtractor(),
+        configuration=PdfExtractionConfiguration.layout_preserving(),
+        proposal_profiles=evaluation_proposal_profiles,
+    )
+    application.state.evaluation_catalog = Milestone3Catalog()
+    # Trusted hosts may compose profiles; default wiring remains empty and live admission blocked.
+    evaluation_run_store = PostgresEvaluationRunStore(SessionFactory)
+    application.state.evaluation_runs = EvaluationRunService(
+        catalog=application.state.evaluation_catalog,
+        store=evaluation_run_store,
+        profiles=evaluation_profiles,
+        pdf_profiles=evaluation_pdf_profiles,
+        datasets=application.state.dataset_service,
+    )
+    application.state.evaluation_scoring = EvaluationScoringService(
+        application.state.evaluation_runs, evaluation_run_store, evaluation_scoring_profiles
+    )
     application.state.object_lifecycle_worker = ObjectLifecycleWorker(
         maintenance=selected_lifecycle_maintenance,
         object_store=selected_object_store,
@@ -502,6 +538,29 @@ def create_app(
             "PROVIDER_RESPONSE_INVALID": 502,
             "PERSISTENCE_OPERATION_FAILED": 500,
             "INVALID_IDEMPOTENCY_KEY": 400,
+            "EVALUATION_IDEMPOTENCY_KEY_INVALID": 400,
+            "EVALUATION_SELECTION_INVALID": 422,
+            "EVALUATION_DATASET_NOT_FOUND": 404,
+            "EVALUATION_RUN_NOT_FOUND": 404,
+            "EVALUATION_REPORT_UNAVAILABLE": 409,
+            "EVALUATION_PREFLIGHT_STALE": 409,
+            "EVALUATION_CHECKPOINT_CONFLICT": 409,
+            "EVALUATION_ATTEMPT_STALE": 409,
+            "EVALUATION_IDEMPOTENCY_CONFLICT": 409,
+            "EVALUATION_CASE_NOT_FOUND": 404,
+            "EVALUATION_CASE_INVALID": 422,
+            "EVALUATION_DATASET_REVISION_CONFLICT": 409,
+            "EVALUATION_DATASET_FROZEN": 409,
+            "EVALUATION_GOLD_NOT_READY": 409,
+            "EVALUATION_PROPOSAL_NOT_READY": 409,
+            "EVALUATION_PROPOSAL_REQUEST_CONFLICT": 409,
+            "EVALUATION_SCORING_NOT_READY": 409,
+            "EVALUATION_GOLD_DIGEST_CONFLICT": 409,
+            "EVALUATION_GOLD_VERSION_NOT_FOUND": 404,
+            "EVALUATION_REVIEW_DECISION_INVALID": 422,
+            "RUNTIME_PROFILE_UNAVAILABLE": 409,
+            "RUNTIME_BINDING_UNAVAILABLE": 409,
+            "PROVIDER_APPROVAL_REQUIRED": 409,
             "MISSING_IDEMPOTENCY_KEY": 400,
             "INVALID_PDF_SIGNATURE": 400,
             "PDF_STREAM_NOT_SEEKABLE": 400,
@@ -565,6 +624,10 @@ def create_app(
     application.include_router(http_router)
     application.include_router(workspaces_router)
     application.include_router(conversations_router)
+    application.include_router(evaluation_datasets_router)
+    application.include_router(evaluation_catalog_router)
+    application.include_router(evaluation_runs_router)
+    application.include_router(evaluation_scoring_router)
     application.include_router(router)
     if settings.m5_e2e_faults_enabled:
         from knora.api.m5_e2e_faults import M5E2EFaultController

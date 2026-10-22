@@ -1,16 +1,21 @@
+import asyncio
 from decimal import Decimal
 from uuid import uuid4
 
 import httpx
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from knora.access.api_keys import ApiCredential, ApiKeyAuthenticator, hash_api_key
 from knora.adapters.postgres.answering_store import PostgresAnsweringStore
+from knora.adapters.postgres.conversation_store import PostgresConversationStore
 from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.ingestion_store import PostgresIngestionStore
 from knora.adapters.postgres.tables import QuestionTraceTable, WorkspaceTable
+from knora.answering.interface import QuestionCommand
 from knora.answering.module import AnswerQuestion
+from knora.domain.access import WorkspacePrincipal
 from knora.ingestion.module import IngestDocument
 from knora.ingestion.processing import DocumentProcessor
 from knora.main import create_app
@@ -19,11 +24,22 @@ from knora.providers.openai_compatible.embedding import OpenAICompatibleEmbeddin
 from knora.providers.openai_compatible.generation import OpenAICompatibleGenerationProvider
 
 
-def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams() -> None:
+@pytest.mark.parametrize("provider_identity", ["openai-compatible", "cloudflare-workers-ai"])
+def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams(
+    provider_identity: str,
+) -> None:
     workspace_id = f"compatible-{uuid4()}"
     raw_key = f"key-{uuid4()}"
     embedding_requests: list[dict] = []
     generation_requests: list[dict] = []
+    expected_answer = (
+        "Gợi ý: **2 phần**.\n\n"
+        "- Mục \\*A\\* \\[giữ\\] \\& B\n"
+        "- Mục \\*A\\* \\[giữ\\] \\& B\n\n"
+        "Có thể gộp nếu ngắn. [[E1]]"
+        if provider_identity == "cloudflare-workers-ai"
+        else "Refunds are available for thirty days. [[E1]]"
+    )
 
     def embedding_endpoint(request: httpx.Request) -> httpx.Response:
         payload = __import__("json").loads(request.content)
@@ -44,21 +60,38 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams() -> None
     async def generation_endpoint(request: httpx.Request) -> httpx.Response:
         payload = __import__("json").loads(request.content)
         generation_requests.append(payload)
+        content = {
+            "decision": "ANSWER",
+            "answer": "Refunds are available for thirty days. [[E1]]",
+            "cited_evidence_ids": ["E1"],
+            "refusal_reason": None,
+        }
+        if provider_identity == "cloudflare-workers-ai":
+            content = {
+                "decision": "ANSWER",
+                "before": [
+                    {
+                        "text": "Gợi ý: 2 phần.",
+                        "support": ["E1"],
+                        "bold": "2 phần",
+                    }
+                ],
+                "items": [
+                    {"text": "Mục *A* [giữ] & B", "support": ["E1", "E1"]},
+                    {"text": "Mục *A* [giữ] & B", "support": ["E1"]},
+                ],
+                "after": [{"text": "Có thể gộp nếu ngắn.", "support": ["E1"], "bold": None}],
+                "refusal_reason": None,
+            }
         return httpx.Response(
             200,
-            headers={"x-request-id": "generation-1"},
+            headers={"x-request-id": f"generation-{len(generation_requests)}"},
             json={
                 "model": "compatible-chat-model",
                 "choices": [
                     {
                         "finish_reason": "stop",
-                        "message": {
-                            "content": (
-                                '{"decision":"ANSWER","answer":"Refunds are available for '
-                                'thirty days. [[E1]]","cited_evidence_ids":["E1"],'
-                                '"refusal_reason":null}'
-                            )
-                        },
+                        "message": {"content": __import__("json").dumps(content)},
                     }
                 ],
                 "usage": {
@@ -87,6 +120,8 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams() -> None
         input_cost_per_million_tokens=Decimal("1"),
         output_cost_per_million_tokens=Decimal("2"),
         pricing_version="test-pricing-v1",
+        provider_identity=provider_identity,
+        direct_json_schema=provider_identity == "cloudflare-workers-ai",
         client=httpx.AsyncClient(transport=httpx.MockTransport(generation_endpoint)),
     )
     with SessionFactory.begin() as session:
@@ -101,6 +136,12 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams() -> None
             ),
         )
     )
+    answer_question = AnswerQuestion(
+        embedding_provider=embedding_provider,
+        generation_provider=generation_provider,
+        store=PostgresAnsweringStore(SessionFactory),
+        embedding_configuration=configuration,
+    )
     client = TestClient(
         create_app(
             ingest_document=IngestDocument(
@@ -108,12 +149,7 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams() -> None
                 embedding_provider=embedding_provider,
                 store=PostgresIngestionStore(SessionFactory),
             ),
-            answer_question=AnswerQuestion(
-                embedding_provider=embedding_provider,
-                generation_provider=generation_provider,
-                store=PostgresAnsweringStore(SessionFactory),
-                embedding_configuration=configuration,
-            ),
+            answer_question=answer_question,
             api_key_authenticator=authenticator,
             embedding_configuration=configuration,
         )
@@ -140,20 +176,74 @@ def test_openai_compatible_mode_reuses_ingestion_and_answer_http_seams() -> None
     assert ingested.json()["embedding_configuration_id"] == configuration.id
     assert answered.status_code == 200
     assert answered.json()["decision"] == "ANSWER"
-    assert answered.json()["answer"].endswith("[[E1]]")
+    assert answered.json()["answer"] == expected_answer
     assert answered.json()["citations"][0]["source_key"] == "support/refunds"
     assert len(embedding_requests) == 2
-    assert len(generation_requests) == 1
+    expected_requests = 1
+    assert len(generation_requests) == expected_requests
     with SessionFactory() as session:
         trace = session.scalar(
             select(QuestionTraceTable).where(QuestionTraceTable.id == answered.json()["trace_id"])
         )
         assert trace is not None
+        assert trace.answer == expected_answer
         assert trace.embedding_configuration_id == configuration.id
         assert trace.provider_metadata["embedding"]["provider_request_id"] == "embedding-2"
-        assert trace.provider_metadata["generation"]["provider_request_id"] == "generation-1"
+        assert (
+            trace.provider_metadata["generation"]["provider_request_id"]
+            == f"generation-{expected_requests}"
+        )
+        assert trace.provider_metadata["generation"]["provider"] == provider_identity
+        assert trace.provider_metadata["generation"]["prompt_version"] == (
+            "cloudflare-gpt-oss-cited-answer-v21"
+            if provider_identity == "cloudflare-workers-ai"
+            else "m1-cited-answer-v1"
+        )
         assert trace.provider_metadata["generation"]["cost"] == {
             "amount_usd": "0.00002",
             "currency": "USD",
             "pricing_version": "test-pricing-v1",
         }
+        metadata = trace.provider_metadata["generation"]
+        assert metadata["usage"]["total_tokens"] == 15
+        assert "stages" not in metadata
+
+    if provider_identity == "cloudflare-workers-ai":
+        conversation_store = PostgresConversationStore(SessionFactory)
+        conversation = conversation_store.create(workspace_id, f"conversation-{uuid4()}")
+        admission = conversation_store.submit_turn(
+            workspace_id,
+            conversation.id,
+            f"turn-{uuid4()}",
+            "What is the refund policy?",
+            "What is the refund policy?",
+            "a" * 64,
+        )
+        claim = conversation_store.claim_next_turn("issue-183-test", workspace_id)
+        assert claim is not None
+        request_count = len(generation_requests)
+        turn_result = asyncio.run(
+            answer_question.execute(
+                QuestionCommand(
+                    workspace_id=workspace_id,
+                    question=admission.turn.question,
+                    turn_id=admission.turn.id,
+                ),
+                WorkspacePrincipal(workspace_id=workspace_id, key_id="issue-183-test"),
+                workspace_admission=claim.workspace_admission,
+            )
+        )
+        assert len(generation_requests) == request_count + 1
+        assert conversation_store.finish_turn(claim.turn.id, claim.claim_token, turn_result, None)
+        stored_turn = conversation_store.get_turn(workspace_id, conversation.id, admission.turn.id)
+        with SessionFactory() as session:
+            stored_trace = session.get(QuestionTraceTable, turn_result.trace_id)
+        assert stored_turn is not None
+        assert stored_turn.result is not None
+        assert stored_trace is not None
+        assert (
+            turn_result.answer
+            == stored_turn.result.answer
+            == stored_trace.answer
+            == expected_answer
+        )
