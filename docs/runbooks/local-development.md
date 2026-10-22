@@ -643,29 +643,38 @@ checks when that port is occupied; inspect both, and leave foreign processes alo
 For an owned project whose existing PostgreSQL container needs a different host port,
 stop its launcher and coordinate all database clients first. Check the new port is free,
 preserve the volume identity/backup, image and original checkout/Compose configuration.
-In that maintenance window, apply the same port to Compose and the subsequent launcher:
+Use the proposed port only to inspect the resolved Compose configuration and image:
 
 ```powershell
 # Example only: confirm 5433 is free before choosing it.
 $env:KNORA_EVAL_POSTGRES_HOST_PORT = '5433'
-docker compose @devCompose config --quiet
+$devPostgresImage = docker inspect --format '{{.Image}}' $devPostgres
+if ($LASTEXITCODE -ne 0) { throw 'Cannot identify the existing PostgreSQL image' }
+$devConfig = docker compose @devCompose config --format json | ConvertFrom-Json
 if ($LASTEXITCODE -ne 0) { throw 'Invalid Compose configuration' }
-docker compose @devCompose up -d --no-deps --force-recreate --wait postgres
-if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL recreation failed; inspect owned state' }
-docker inspect --format '{{json .Mounts}} {{json .NetworkSettings.Ports}}' (docker compose @devCompose ps -q postgres)
-# Compare the retained volume name/destination and new loopback binding before launch.
-.\scripts\start-dev.ps1 -PostgresPort 5433
+$devConfiguredImage = docker image inspect --format '{{.Id}}' $devConfig.services.postgres.image
+if ($LASTEXITCODE -ne 0 -or $devConfiguredImage -ne $devPostgresImage) {
+    throw 'PostgreSQL image changed or is unavailable; stop for an approved image-preserving plan'
+}
 ```
 
 Keep the original authorized environment/secret inputs; do not invent missing values.
-Update other authorized host database clients to that same host port and database name;
-the launcher sets `KNORA_DATABASE_URL` for its API/workers itself. Container-to-container
-clients keep service port 5432. Restore any previous process override after the window.
-`restart` alone does not apply a changed port mapping; Compose recreation preserves
-mounted volumes ([Compose up reference](https://docs.docker.com/reference/cli/docker/compose/up/)).
-This recipe has no claim of live recovery verification; confirm the mount identity,
-readiness and database/schema before resuming clients. Missing container/unknown mount
-ownership follows the next case rather than this recreation recipe.
+Restore any previous process override after inspection. **Stop here for the daily
+launcher:** this is diagnosis, not a verified recovery procedure for `knora-dev`.
+Request a data-owner-approved recovery plan before changing its container or clients.
+That plan must preserve the exact image ID and volume name/destination, prohibit concurrent
+pull/retag/start, recreate only the owned PostgreSQL service without dependencies or image
+pulls, and verify the retained mount, image, data/schema, readiness and sole loopback binding
+afterward. A failed check keeps clients stopped. `restart` alone does not apply a changed
+port mapping ([Compose up reference](https://docs.docker.com/reference/cli/docker/compose/up/)).
+
+The plan must also align the Compose host-port override, subsequent launcher
+`-PostgresPort` and authorized host database clients; the launcher sets
+`KNORA_DATABASE_URL` for its API/workers itself. Container-to-container clients keep
+service port 5432. A disposable Compose trial can demonstrate port recreation with a
+retained volume and synthetic data; it does not prove daily-launcher, retained-lock or
+orphan-volume recovery. Those live recovery paths remain unverified. Missing container
+or unknown mount ownership follows the next case.
 
 **Volume remains but its container is missing.** List all containers mounting the
 specific retained volume, including containers outside the daily project:
