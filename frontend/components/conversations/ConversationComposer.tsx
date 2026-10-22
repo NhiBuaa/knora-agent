@@ -214,7 +214,7 @@ export function ConversationComposer({
             aria-label="Ask"
             title="Send question"
             disabled={disabled}
-            className="m-0 mb-[7px] flex size-[34px] shrink-0 items-center justify-center rounded-lg border border-action bg-action p-0 text-base font-semibold text-action-foreground transition-colors max-[639px]:mb-0.5 max-[639px]:size-11 max-[639px]:min-h-[44px] max-[639px]:min-w-[44px] disabled:border-border disabled:bg-surface-subtle disabled:text-text-muted"
+            className="kn-composer__submit m-0 mb-[7px] flex size-[34px] shrink-0 items-center justify-center rounded-lg border border-action bg-action p-0 text-base font-semibold text-action-foreground disabled:border-border disabled:bg-surface-subtle disabled:text-text-muted"
           >
             <span aria-hidden="true">↑</span>
           </button>

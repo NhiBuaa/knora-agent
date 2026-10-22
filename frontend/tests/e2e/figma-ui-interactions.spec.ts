@@ -5044,6 +5044,301 @@ test.describe("source fixtures", () => {
       await page.unrouteAll();
     }
   });
+
+  test("independent controls meet minimum 44px touch targets at 320, 390, 768px and coarse pointer without overlapping", async ({
+    page,
+    browser,
+  }) => {
+    const viewports = [
+      { width: 320, height: 568 },
+      { width: 390, height: 844 },
+      { width: 768, height: 1024 },
+    ];
+
+    for (const vp of viewports) {
+      await page.setViewportSize(vp);
+
+      // 1. Conversation: Ask button and panel controls
+      await prepareFixture(page, "128:110");
+      const askBtn = page.getByRole("button", { name: "Ask", exact: true });
+      await expect(askBtn).toBeVisible();
+      const askBox = await askBtn.boundingBox();
+      expect(askBox, `Ask button at ${vp.width}px`).not.toBeNull();
+      expect(
+        askBox!.width,
+        `Ask button width at ${vp.width}px`,
+      ).toBeGreaterThanOrEqual(44);
+      expect(
+        askBox!.height,
+        `Ask button height at ${vp.width}px`,
+      ).toBeGreaterThanOrEqual(44);
+
+      // Panel tools: Show conversations / Open evidence / Reset panels
+      const panelBtns = page.locator(".conversation-panel-tools button");
+      const count = await panelBtns.count();
+      expect(count).toBeGreaterThan(0);
+      const boxes: { x: number; y: number; width: number; height: number }[] =
+        [];
+      for (let i = 0; i < count; i++) {
+        const btn = panelBtns.nth(i);
+        if (await btn.isVisible()) {
+          const box = await btn.boundingBox();
+          expect(box, `Panel tool ${i} box at ${vp.width}px`).not.toBeNull();
+          expect(
+            box!.height,
+            `Panel tool ${i} height at ${vp.width}px`,
+          ).toBeGreaterThanOrEqual(44);
+          boxes.push(box!);
+        }
+      }
+      for (let i = 0; i < boxes.length; i++) {
+        for (let j = i + 1; j < boxes.length; j++) {
+          const b1 = boxes[i];
+          const b2 = boxes[j];
+          const overlap =
+            b1.x < b2.x + b2.width &&
+            b1.x + b1.width > b2.x &&
+            b1.y < b2.y + b2.height &&
+            b1.y + b1.height > b2.y;
+          expect(
+            overlap,
+            `Panel tool ${i} and ${j} should not overlap at ${vp.width}px`,
+          ).toBe(false);
+        }
+      }
+
+      // 2. Account Menu controls & Dialog close button (Appearance)
+      const accountTrigger = page.getByRole("button", { name: /^Account:/ });
+      if (await accountTrigger.isVisible()) {
+        const triggerBox = await accountTrigger.boundingBox();
+        expect(triggerBox, `Account trigger at ${vp.width}px`).not.toBeNull();
+        expect(
+          triggerBox!.width,
+          `Account trigger width at ${vp.width}px`,
+        ).toBeGreaterThanOrEqual(44);
+        expect(
+          triggerBox!.height,
+          `Account trigger height at ${vp.width}px`,
+        ).toBeGreaterThanOrEqual(44);
+
+        await accountTrigger.click();
+        const themeItem = page.getByRole("menuitem", { name: "Appearance" });
+        await expect(themeItem).toBeVisible();
+        const themeBox = await themeItem.boundingBox();
+        expect(themeBox, `Theme menuitem at ${vp.width}px`).not.toBeNull();
+        expect(
+          themeBox!.height,
+          `Theme menuitem height at ${vp.width}px`,
+        ).toBeGreaterThanOrEqual(44);
+
+        const logoutItem = page.getByRole("menuitem", { name: "Log out" });
+        const logoutBox = await logoutItem.boundingBox();
+        expect(logoutBox, `Logout menuitem at ${vp.width}px`).not.toBeNull();
+        expect(
+          logoutBox!.height,
+          `Logout menuitem height at ${vp.width}px`,
+        ).toBeGreaterThanOrEqual(44);
+
+        await themeItem.click();
+        const appearanceDialog = page.getByRole("dialog", {
+          name: "Appearance",
+        });
+        await expect(appearanceDialog).toBeVisible();
+        const closeBtn = page.getByRole("button", { name: "Close Appearance" });
+        await expect(closeBtn).toBeVisible();
+        const closeBox = await closeBtn.boundingBox();
+        expect(closeBox, `Close button at ${vp.width}px`).not.toBeNull();
+        expect(
+          closeBox!.width,
+          `Close button width at ${vp.width}px`,
+        ).toBeGreaterThanOrEqual(44);
+        expect(
+          closeBox!.height,
+          `Close button height at ${vp.width}px`,
+        ).toBeGreaterThanOrEqual(44);
+        await page.keyboard.press("Escape");
+      }
+
+      // 3. Refusal turn action: Review indexed documents
+      await page.unrouteAll();
+      await prepareFixture(page, "128:111");
+      const reviewLink = page.getByRole("link", {
+        name: /review indexed documents/i,
+      });
+      await expect(reviewLink).toBeVisible();
+      const linkBox = await reviewLink.boundingBox();
+      expect(linkBox, `Review link box at ${vp.width}px`).not.toBeNull();
+      expect(
+        linkBox!.height,
+        `Review link height at ${vp.width}px`,
+      ).toBeGreaterThanOrEqual(44);
+
+      // 4. Upload document dialog controls: Choose file, Cancel, Upload
+      await page.unrouteAll();
+      await prepareFixture(page, "128:120");
+      const uploadTrigger = page
+        .getByRole("region", { name: "Documents", exact: true })
+        .getByRole("button", { name: "Upload document", exact: true });
+      await uploadTrigger.click();
+      const dialog = page.getByRole("dialog", { name: "Upload document" });
+      await expect(dialog).toBeVisible();
+
+      const chooseBtn = page.getByRole("button", {
+        name: "Choose file",
+        exact: true,
+      });
+      const chooseBox = await chooseBtn.boundingBox();
+      expect(chooseBox, `Choose file at ${vp.width}px`).not.toBeNull();
+      expect(
+        chooseBox!.height,
+        `Choose file height at ${vp.width}px`,
+      ).toBeGreaterThanOrEqual(44);
+
+      const cancelBtn = dialog.getByRole("button", {
+        name: "Cancel",
+        exact: true,
+      });
+      const cancelBox = await cancelBtn.boundingBox();
+      expect(cancelBox, `Cancel button at ${vp.width}px`).not.toBeNull();
+      expect(
+        cancelBox!.height,
+        `Cancel button height at ${vp.width}px`,
+      ).toBeGreaterThanOrEqual(44);
+
+      const submitUploadBtn = dialog.getByRole("button", {
+        name: /upload document/i,
+      });
+      const submitBox = await submitUploadBtn.boundingBox();
+      expect(
+        submitBox,
+        `Upload document button at ${vp.width}px`,
+      ).not.toBeNull();
+      expect(
+        submitBox!.height,
+        `Upload document button height at ${vp.width}px`,
+      ).toBeGreaterThanOrEqual(44);
+
+      const actionsOverlap =
+        cancelBox!.x < submitBox!.x + submitBox!.width &&
+        cancelBox!.x + cancelBox!.width > submitBox!.x &&
+        cancelBox!.y < submitBox!.y + submitBox!.height &&
+        cancelBox!.y + cancelBox!.height > submitBox!.y;
+      expect(
+        actionsOverlap,
+        `Cancel and Upload buttons should not overlap at ${vp.width}px`,
+      ).toBe(false);
+
+      await page.keyboard.press("Escape");
+      await page.unrouteAll();
+    }
+
+    // 5. Coarse pointer device test
+    const touchContext = await browser.newContext({
+      hasTouch: true,
+      viewport: { width: 1024, height: 768 },
+    });
+    const touchPage = await touchContext.newPage();
+    try {
+      await prepareFixture(touchPage, "128:110");
+      const askBtn = touchPage.getByRole("button", {
+        name: "Ask",
+        exact: true,
+      });
+      await expect(askBtn).toBeVisible();
+      const askBox = await askBtn.boundingBox();
+      expect(
+        askBox!.width,
+        "Ask button width on coarse pointer device",
+      ).toBeGreaterThanOrEqual(44);
+      expect(
+        askBox!.height,
+        "Ask button height on coarse pointer device",
+      ).toBeGreaterThanOrEqual(44);
+    } finally {
+      await touchContext.close();
+    }
+  });
+
+  test("reduced motion policy removes transitions immediately and honors dynamic preference toggling", async ({
+    page,
+    browser,
+  }) => {
+    // 1. Initial render with reducedMotion: reduce from page startup
+    const reduceContext = await browser.newContext({
+      reducedMotion: "reduce",
+      viewport: { width: 1440, height: 960 },
+    });
+    const reducePage = await reduceContext.newPage();
+    try {
+      await prepareFixture(reducePage, "128:110");
+      const askTransition = await reducePage
+        .getByRole("button", { name: "Ask", exact: true })
+        .evaluate((btn) => getComputedStyle(btn).transitionDuration);
+      expect(askTransition, "Ask button transition with reduce at start").toBe(
+        "0s",
+      );
+
+      await prepareFixture(reducePage, "128:111");
+      const reviewTransition = await reducePage
+        .getByRole("link", { name: /review indexed documents/i })
+        .evaluate((el) => getComputedStyle(el).transitionDuration);
+      expect(
+        reviewTransition,
+        "Review link transition with reduce at start",
+      ).toBe("0s");
+    } finally {
+      await reduceContext.close();
+    }
+
+    // 2. Standard render with no-preference: verify 120ms control transition duration
+    await prepareFixture(page, "128:110");
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    const askDuration = await page
+      .getByRole("button", { name: "Ask", exact: true })
+      .evaluate((btn) => getComputedStyle(btn).transitionDuration);
+    expect(
+      askDuration,
+      "Ask button transition duration when motion enabled",
+    ).toContain("0.12s");
+
+    await prepareFixture(page, "128:111");
+    const reviewDuration = await page
+      .getByRole("link", { name: /review indexed documents/i })
+      .evaluate((el) => getComputedStyle(el).transitionDuration);
+    expect(
+      reviewDuration,
+      "Review link transition duration when motion enabled",
+    ).toContain("0.12s");
+
+    // 3. Dynamic switch to reduce during active page session
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    const reviewDurationReduced = await page
+      .getByRole("link", { name: /review indexed documents/i })
+      .evaluate((el) => getComputedStyle(el).transitionDuration);
+    expect(
+      reviewDurationReduced,
+      "Review link transition after dynamic switch to reduce",
+    ).toBe("0s");
+
+    const askDurationReduced = await page
+      .getByRole("button", { name: "Ask", exact: true })
+      .evaluate((btn) => getComputedStyle(btn).transitionDuration);
+    expect(
+      askDurationReduced,
+      "Ask button transition after dynamic switch to reduce",
+    ).toBe("0s");
+
+    // 4. Dynamic switch back to no-preference
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    const reviewDurationRestored = await page
+      .getByRole("link", { name: /review indexed documents/i })
+      .evaluate((el) => getComputedStyle(el).transitionDuration);
+    expect(
+      reviewDurationRestored,
+      "Review link transition restored after dynamic switch",
+    ).toContain("0.12s");
+    await page.unrouteAll();
+  });
 });
 
 test.describe("guarded application journeys", () => {

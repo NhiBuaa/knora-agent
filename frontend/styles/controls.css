@@ -233,7 +233,7 @@
   .kn-dialog__close:hover {
     background: var(--surface-subtle);
   }
-  @media (pointer: coarse), (max-width: 640px) {
+  @media (pointer: coarse), (max-width: 768px) {
     .kn-dialog__close {
       width: 44px;
       height: 44px;
@@ -247,7 +247,7 @@
       background-color var(--duration-control) var(--ease-standard),
       color var(--duration-control) var(--ease-standard);
   }
-  @media (pointer: coarse), (max-width: 640px) {
+  @media (pointer: coarse), (max-width: 768px) {
     .kn-menu__trigger {
       min-width: 44px;
       min-height: 44px;
@@ -289,12 +289,54 @@
   .kn-menu__panel :disabled {
     opacity: 0.55;
   }
+  @media (pointer: coarse), (max-width: 768px) {
+    .kn-menu__panel :where(button, a[role="menuitem"]) {
+      min-height: 44px;
+      display: flex;
+      align-items: center;
+    }
+  }
+
+  .kn-composer__submit {
+    transition:
+      background-color var(--duration-control) var(--ease-standard),
+      border-color var(--duration-control) var(--ease-standard),
+      color var(--duration-control) var(--ease-standard);
+  }
+  @media (pointer: coarse), (max-width: 768px) {
+    .kn-composer__submit {
+      width: 44px !important;
+      height: 44px !important;
+      min-width: 44px !important;
+      min-height: 44px !important;
+      margin-bottom: 2px !important;
+    }
+  }
+
+  .kn-turn-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition:
+      background-color var(--duration-control) var(--ease-standard),
+      border-color var(--duration-control) var(--ease-standard),
+      color var(--duration-control) var(--ease-standard);
+  }
+  @media (pointer: coarse), (max-width: 768px) {
+    .kn-turn-action {
+      min-height: 44px;
+      padding-left: 12px;
+      padding-right: 12px;
+    }
+  }
 
   @media (prefers-reduced-motion: reduce) {
     .kn-button,
     .kn-dialog__close,
     .kn-menu__trigger,
-    .kn-menu__panel :where(button, a[role="menuitem"]) {
+    .kn-menu__panel :where(button, a[role="menuitem"]),
+    .kn-composer__submit,
+    .kn-turn-action {
       transition: none;
     }
     .kn-dialog__content,

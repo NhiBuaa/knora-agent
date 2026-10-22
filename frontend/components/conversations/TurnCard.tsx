@@ -115,7 +115,7 @@ export function TurnCard({
             <div className="flex flex-wrap gap-2">
               <Link
                 href={routes.documents(workspaceId)}
-                className="m-0 rounded-lg border border-border px-2.5 py-1.5 text-[11px] transition-colors hover:bg-surface-subtle"
+                className="kn-turn-action m-0 rounded-lg border border-border px-2.5 py-1.5 text-[11px] hover:bg-surface-subtle"
               >
                 {vietnamese
                   ? "Xem tài liệu đã lập chỉ mục"
@@ -153,7 +153,7 @@ export function TurnCard({
             type="button"
             disabled={disabled}
             onClick={onRetry}
-            className="m-0 w-fit rounded-lg border border-action px-2.5 py-1.5 text-[11px] text-action-text disabled:opacity-50"
+            className="kn-turn-action m-0 w-fit rounded-lg border border-action px-2.5 py-1.5 text-[11px] text-action-text disabled:opacity-50"
           >
             Try again
           </button>
