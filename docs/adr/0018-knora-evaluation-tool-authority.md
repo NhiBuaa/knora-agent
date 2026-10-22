@@ -1,0 +1,42 @@
+# Keep evaluation authority and data permissions in Knora
+
+Status: accepted design through Issue #158; implementation and quality acceptance remain distinct.
+
+Knora owns datasets, gold, manifests, runs, reports and release gates. DeepEval supplies correctness,
+answer relevancy and faithfulness observations; Ragas prepares multi-hop review drafts and may
+experiment with NoiseSensitivity when inputs and judge are suitable. They consume the same
+captured application output and provenance. Tool thresholds do not become Knora gates, and drafts
+require the owner's approval before gold promotion. Citation and refusal verification remain
+independent. This avoids competing dataset, runner and release authorities.
+
+Issue #153 owns the 16-PDF/60-question Gold Dataset and Retrieval V3 baseline. Issue #158
+integrates these tools with Knora's datasets, provenance, runners and reports. Ragas proposes new
+questions only when a later evaluation expansion is needed; it does not regenerate #153's 60
+questions or expand gold automatically. Every proposed addition requires owner review.
+
+Cloudflare Workers AI GPT-OSS 20B is the preferred judge, subject to human comparison. Approved
+public/synthetic inputs may leave the machine for Cloudflare; private inputs without permission
+remain local. Langfuse Cloud Hobby in Tokyo receives only opaque IDs, approved metadata and numeric
+diagnostics, initially accessible only to the owner. Export stays off until its separate approval
+and data-policy verification, including deletion/readback for a seven-day retention target.
+Guardrails AI was scoped to Issue #188 in shadow mode; existing security gates remain authoritative.
+
+Disposition (2026-10-18): the owner [archived #188 as research-only](https://github.com/NhiBuaa/knora-agent/issues/188#issuecomment-6245695420).
+Preserve its code and evidence; Detection Completed = NO and Protection Enabled = NO.
+This does not approve runtime detector integration or reopen provider/activation permissions.
+See the [#188 master plan](../plans/2026-10-16-issue-188-master-plan.md)
+and [CI runbook](../runbooks/ci.md) for the retained research boundary.
+
+The first DeepEval trial is conditional on verified zero paid cost and public/synthetic permission,
+with at most 24 HTTP attempts and 60 minutes. An unknown or Paid Workers plan blocks that trial;
+free quota alone cannot guarantee zero overage on Paid. No automatic upgrades, new models, paid
+providers, Cloud export or enforcement follow from installing the packages.
+
+Dashboard evidence for the same account may establish Free/quota when the billing API returns
+403. Verification alone does not authorize a model call: each live run needs explicit approval.
+Code integration may merge after CI and review pass without live quality evidence; Issue #158
+remains In Progress until the owner accepts actual quality.
+
+Decision records: [approved implementation](https://github.com/NhiBuaa/knora-agent/issues/158#issuecomment-6170561475),
+[shared boundary](https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6170886584),
+[zero-cost preflight](https://github.com/NhiBuaa/knora-agent/issues/158#issuecomment-6170823327).

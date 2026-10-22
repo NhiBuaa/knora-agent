@@ -1,0 +1,70 @@
+{
+  "attempt": 1,
+  "attempt_id": "s1-runtime-binding-20261015-01:pdf-v3-002:1",
+  "candidates": [],
+  "case_id": "pdf-v3-002",
+  "conversation_id": "6e48ad27-ace6-4ac6-9580-6a0be4f8284c",
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "dataset_sha256": "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
+  "decision": "REFUSAL",
+  "derivation_sha256": "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2",
+  "end_to_end_latency_ms": 2149.8974000005546,
+  "failure_code": null,
+  "provider_metadata": {
+    "conversation_context": {
+      "policy_id": "conversation-context-v2",
+      "retrieval_query": "Đơn chuẩn nội địa được đổi trong bao lâu và phạm vi nào?",
+      "selected_turn_ids": []
+    },
+    "embedding": {
+      "cost": {},
+      "model": "@cf/qwen/qwen3-embedding-0.6b",
+      "provider": "cloudflare-workers-ai",
+      "provider_request_id": "a4acf8e069d18622-HKG",
+      "usage": {}
+    },
+    "retrieval": {
+      "latency_ms": 64.92080000134592
+    },
+    "timing": {
+      "clock_resolution_ms": 9.999999999999999e-05,
+      "phases": {
+        "candidate_retrieval": {
+          "duration_ms": 64.88840000019991,
+          "end_tick": 16068.841857,
+          "start_tick": 16068.7769686
+        },
+        "evidence_selection": {
+          "duration_ms": 0.03240000114601571,
+          "end_tick": 16068.8418894,
+          "start_tick": 16068.841857
+        },
+        "generation": {
+          "duration_ms": 0.0,
+          "end_tick": 16068.8418894,
+          "start_tick": 16068.8418894
+        },
+        "query_embedding": {
+          "duration_ms": 1215.8598999994865,
+          "end_tick": 16068.7769686,
+          "start_tick": 16067.5611087
+        }
+      }
+    }
+  },
+  "public_response": {
+    "answer": null,
+    "citations": [],
+    "decision": "REFUSAL",
+    "refusal_reason": "INSUFFICIENT_EVIDENCE",
+    "trace_id": "9375291d-cbd0-4150-8eab-c1a8108f85c2",
+    "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+  },
+  "response_sha256": "e792fca80fddd8079c3fd7f656ed48a55d35f7e38fdb92fdc401318085d124b8",
+  "retrieval_latency_ms": 64.92080000134592,
+  "run_id": "s1-runtime-binding-20261015-01",
+  "selected_chunk_ids": [],
+  "trace_id": "9375291d-cbd0-4150-8eab-c1a8108f85c2",
+  "turn_id": "766f4c64-f9e3-43e3-ba85-f08f796cbf68",
+  "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+}

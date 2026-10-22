@@ -6,7 +6,6 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from knora.domain.errors import KnoraError
 from knora.providers.generation import GenerationEvidence
-from knora.providers.openai_compatible.presentation import Presentation
 
 
 class _Model(BaseModel):
@@ -64,8 +63,6 @@ def _references(support: list[str], evidence: set[str]) -> list[str]:
 def compose_answer(
     payload: object,
     evidence: tuple[GenerationEvidence, ...],
-    *,
-    presentation: Presentation | None = None,
 ) -> tuple[str | None, tuple[str, ...]]:
     try:
         result = _Result.model_validate(payload)
@@ -86,14 +83,6 @@ def compose_answer(
     has_list = bool(result.items)
     if has_list and len(result.items) < 2:
         _invalid()
-    if presentation is not None:
-        if has_list != (presentation in ("list", "count_list")):
-            _invalid()
-        if presentation in ("count_prose", "count_list") and (
-            not result.before or "bold" not in result.before[0].model_fields_set
-        ):
-            _invalid()
-
     blocks: list[_Paragraph | _List] = [*result.before]
     if has_list:
         blocks.append(_List(items=result.items))

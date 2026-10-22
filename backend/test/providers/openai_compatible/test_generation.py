@@ -67,6 +67,7 @@ async def test_openai_compatible_generation_returns_structured_result_and_safe_m
     assert payload["response_format"]["type"] == "json_schema"
     assert "E1" in payload["messages"][1]["content"]
     assert "Refunds last thirty days." in payload["messages"][1]["content"]
+    assert "retained_conditions" not in json.loads(payload["messages"][1]["content"])
     assert result.decision == "ANSWER"
     assert result.answer == "Refunds last thirty days. [[E1]]"
     assert result.cited_evidence_ids == ("E1",)
@@ -227,8 +228,6 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: s
                 "refusal_reason": None if decision == "ANSWER" else "INSUFFICIENT_EVIDENCE",
             }
         )
-        if calls == 1:
-            content = json.dumps({"presentation": "count_list" if case == "list" else "prose"})
         return httpx.Response(
             200,
             json={
@@ -255,7 +254,7 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: s
         evidence=(GenerationEvidence("E1", "Refunds. Alpha; Beta."),),
     )
     request = observed["request"]
-    assert calls == 2
+    assert calls == 1
     payload = __import__("json").loads(request.content)
     assert request.url.path.endswith("/ai/v1/chat/completions")
     assert payload["model"] == "@cf/openai/gpt-oss-20b"
@@ -272,7 +271,7 @@ async def test_cloudflare_chat_uses_direct_schema_and_preserves_identity(case: s
     )
     assert result.provider == "cloudflare-workers-ai"
     assert result.model == "@cf/openai/gpt-oss-20b"
-    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v17"
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v21"
     assert result.decision == decision
     assert result.usage == {}
     assert result.cost == {}
@@ -334,5 +333,65 @@ async def test_cloudflare_chat_safely_normalizes_http_errors(status: int) -> Non
     )
     with pytest.raises(KnoraError, match="PROVIDER_REQUEST_FAILED") as captured:
         await provider.generate(question="Unknown?", evidence=())
+    assert "secret-canary" not in str(captured.value)
+    assert calls == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["length-null", "length-valid", "malformed", "timeout"])
+@pytest.mark.parametrize("max_tokens", [1024, 2048, 4096])
+async def test_cloudflare_chat_rejects_invalid_completion_without_retry(
+    failure: str, max_tokens: int
+) -> None:
+    calls = 0
+    valid = json.dumps(
+        {
+            "decision": "ANSWER",
+            "before": [{"text": "Answer.", "support": ["E1"], "bold": None}],
+            "items": [],
+            "after": [],
+            "refusal_reason": None,
+        }
+    )
+
+    async def endpoint(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        assert json.loads(request.content)["max_tokens"] == max_tokens
+        if failure == "timeout":
+            raise httpx.ReadTimeout("secret-canary-timeout", request=request)
+        content = None if failure == "length-null" else valid if failure == "length-valid" else "{"
+        return httpx.Response(
+            200,
+            json={
+                "model": "@cf/openai/gpt-oss-20b",
+                "choices": [
+                    {
+                        "finish_reason": "length" if failure.startswith("length") else "stop",
+                        "message": {"content": content},
+                    }
+                ],
+            },
+        )
+
+    provider = OpenAICompatibleGenerationProvider(
+        base_url="https://provider.example/ai/v1",
+        api_key="secret-canary",
+        model="@cf/openai/gpt-oss-20b",
+        input_cost_per_million_tokens=None,
+        output_cost_per_million_tokens=None,
+        pricing_version=None,
+        provider_identity="cloudflare-workers-ai",
+        max_tokens=max_tokens,
+        direct_json_schema=True,
+        client=httpx.AsyncClient(transport=httpx.MockTransport(endpoint)),
+    )
+
+    expected = "PROVIDER_REQUEST_FAILED" if failure == "timeout" else "GENERATION_OUTPUT_INVALID"
+    with pytest.raises(KnoraError, match=expected) as captured:
+        await provider.generate(
+            question="Question?", evidence=(GenerationEvidence("E1", "Answer."),)
+        )
+    assert str(captured.value) == expected
     assert "secret-canary" not in str(captured.value)
     assert calls == 1

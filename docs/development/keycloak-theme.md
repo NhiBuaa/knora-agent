@@ -73,7 +73,12 @@ For an existing daily realm, set admin credentials in the current process and in
 ```
 
 Only loopback port 8180 with Compose project `knora-dev`, or port 8380 with project
-`knora-figma-e2e`, is accepted. Apply and rollback verify container ownership before mutation.
+`knora-figma-e2e` or `knora-figma-e2e-<suffix>`, is accepted by
+`configure-keycloak-auth-flow.ps1`. The suffix is 1–40 lowercase ASCII letters, digits or
+hyphens, beginning with a letter or digit. Apply and rollback verify container ownership
+before mutation. For disposable application runs, follow the owned lifecycle in the
+[agent environment runbook](../runbooks/agent-environment.md); OTP preparation and its
+Playwright config still support only the unsuffixed `knora-figma-e2e` project.
 The script updates only the approved realm flags and copied native profile. It saves previous
 settings and the full previous profile before a change, prints the snapshot path without
 credentials, verifies the result, and makes a repeated identical apply a no-op. Restore with:

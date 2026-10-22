@@ -1,0 +1,22 @@
+{
+  "frozen_bytes_unchanged": 18,
+  "binding_mapped": 61,
+  "binding_missing": 25,
+  "report_contract_exact": true,
+  "denominators": {
+    "total": 60,
+    "attempted": 1,
+    "observed": 0,
+    "retrieval_evaluable": 0,
+    "extraction_or_mapping_missing": 0,
+    "not_run": 59,
+    "observation_failed": 1,
+    "provider_failed": 0
+  },
+  "archive_hashes_verified": 31,
+  "canonical_capture_unchanged": true,
+  "query_attempts": 1,
+  "generation_attempts": 1,
+  "semantic_acceptance": "pending",
+  "actual_cloudflare_token_scan": "pass"
+}

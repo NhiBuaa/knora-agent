@@ -1,7 +1,13 @@
 # Compose generated lists from supported blocks
 
-Status: owner-approved behavior, Q9 simplification, Q12 presentation selection and Q17 fixed slots through Issue #183 (2026-10-15); implementation
-and runtime acceptance pending in PR #184.
+> Current scope: Master section 4.9 supersedes the historical semantic-completeness acceptance
+> statements below. Issue #183 covers list presentation and preservation of accepted generated
+> content through formatting/rendering. Source-sufficient generation omissions remain recorded
+> defects, not a renderer fix or a completeness gate for #183.
+
+Status: owner-approved behavior through Issue #183, including Q9 simplification,
+Q12 presentation selection, Q17 fixed slots, and the section 4.9 one-call
+presentation simplification (2026-10-18). Runtime acceptance remains pending in PR #184.
 
 The v4 provider payload lacked list structure before storage or display. Prompt
 v8 produced selected successful layouts, but a general-list observation omitted
@@ -136,3 +142,105 @@ merge/split conditions. Schema validity, alias membership and correct item shape
 do not prove source fidelity. Q2–Q4 and real-provider/browser acceptance still
 apply. No additional inference or rollout is authorized. #191 was notified
 before shared edits and retains separate module-refactoring ownership.
+
+## Q20/P2: explicit condition placement policy (2026-10-16)
+
+Offline replay of Q18 and Q20 proved that the supplied Evidence Set contained
+the chapter merge/split qualifications, while the v17 answer payload omitted
+them before composition. Q20 finished `stop` with 548 completion tokens and its
+payload matched the v17 schema; this is a generation-fidelity omission, not a
+renderer or observed truncation failure. The owner approved one bounded v18
+policy clarification: for lists, keep relevant conditions on an individual
+member in that item; put relevant shared conditions not already stated in
+`before` or `items` into `after` with supporting aliases; conditions governing
+the total, member inclusion or applicability remain within question scope.
+
+This is a generation instruction, not a semantic validator or guarantee. The
+schema, selector, composer, citation/refusal validation, model, token cap and
+retrieval remain unchanged. A runtime candidate must still compare all claims
+with the supplied source; a passing shape/alias check does not prove meaning.
+
+## Master section 4.4: retain selected shared conditions (2026-10-17)
+
+P4 on v18 again omitted both supplied merge/split qualifications before composition,
+despite a valid answer shape, `finish_reason=stop` and 922 completion tokens. The
+payload, composer, Turn and trace agreed; this is not evidence of renderer loss
+or observed truncation. The model's internal reason for omission remains unknown.
+
+The owner approved the exact three-file behavior diff in the sole
+[Master section 4.4](../superpowers/plans/2026-10-16-issue-183-master-plan.md#44-proposed-retention-of-selected-shared-conditions--approved-for-offline-implementation).
+A new [replacement technical overlap ACK from #191](https://github.com/NhiBuaa/knora-agent/issues/191#issuecomment-6233675217)
+permits offline implementation without waiting for the separate extraction.
+The selector now requires `conditions`, containing shared list qualifications as
+literal `text` and supporting aliases. It cannot generate the total/member collection;
+conditions only applying to one member remain that item's responsibility.
+Prose/count prose must return an empty conditions array.
+
+Before request two, reuse the paragraph, one-line text and alias checks. The
+second user-message JSON retains the original question/evidence and adds
+`retained_conditions` as generated data, never as system instructions or new
+evidence. The answer wire schema stays unchanged. Existing ANSWER/REFUSAL/list/count
+gates run before the composer appends selected paragraphs after model `after`
+paragraphs, retaining text, order and citations. Valid REFUSAL returns no answer or
+citations without appending notes. Invalid output remains an error without repair.
+
+The identities become `cloudflare-presentation-conditions-v2` and
+`cloudflare-gpt-oss-cited-answer-v19`. This retains two generation calls, the
+existing model/per-request cap and safe stage metadata; no module moves, shared
+serializer change, dependency or semantic judge is introduced. Other providers,
+public citation/refusal/access and storage contracts, source excerpts and historical
+answer content stay unchanged. Newly generated Turn/trace answer content includes
+selected conditions after composition. #191 must later adapt extracted policy/builder/parity to the accepted
+actual upstream candidate, after #183 acceptance and PR184 merge.
+
+This only guarantees transfer of conditions already selected and structurally
+validated. The selector can still omit or misstate a condition or cite an alias
+that does not support its meaning. Notes always appear at the end; duplicates or
+conflicts are not automatically removed and remain acceptance failures. More
+selector output/answer input may increase tokens and latency; provider schema
+compatibility and semantic correctness are unverified. Offline tests/CI cannot
+establish AC2 or authorize inference, OAuth, production changes or merge.
+
+## Master section 4.7: separate count intent from answer format (2026-10-18)
+
+The v19 recovery selected count prose despite supplied evidence identifying seven
+members. The section 4.6 diagnostic did not reproduce the unavailable historical
+answer error, but again returned prose without the members or shared qualifications.
+The observed list/prose restriction couples an incorrect first-stage choice to both
+empty items and empty conditions; the model's internal reason remains unknown.
+
+The owner approved the exact three-module section 4.7 diff after renewed #191
+overlap ACK. This supersedes the four-way presentation choice and mode/items
+agreement gate described above. The selector returns strict `count_question` and
+relevant shared conditions independently of eventual answer format, without totals
+or member collections. Stage two decides whether to return items; a nonempty list
+still requires at least two items, and a count answer requires an initial paragraph.
+Every paragraph still declares nullable literal `bold`; aliases, escaping, refusal,
+answer wire schema and public validation remain unchanged.
+
+Selected notes now append after any valid ANSWER's concluding paragraphs, including
+prose. Valid REFUSAL still returns before notes are appended. Conditions are checked
+before request two and remain generated user data, never new evidence or system
+instructions. No legacy enum fallback/conversion or semantic repair is introduced.
+Identities become `cloudflare-count-conditions-v3` and
+`cloudflare-gpt-oss-cited-answer-v20`, retaining two calls and the same model/cap.
+
+This removes the observed routing coupling, not the semantic acceptance obligation.
+A wrong prose answer or unnecessary list may now pass structure; count intent,
+conditions and members can still be wrong, incomplete, duplicated or contradictory.
+Only selected-note transfer is guaranteed. No provider compatibility, token/latency
+or source-fidelity claim follows from offline mocks. A changed candidate needs
+separate runtime approval and fresh guard fingerprints; historical grants stay closed.
+
+## Master section 4.9: one-call presentation policy (2026-10-18)
+
+Section 4.9 supersedes the selector and selected-condition orchestration for the narrowed
+presentation scope. Cloudflare now sends the original question and Evidence Set to one fixed-slot
+answer request using `cloudflare-gpt-oss-cited-answer-v21`. The `before/items/after` schema,
+composer validation and escaping, citation grouping, refusal rules, model, cap and transport stay
+unchanged. Selector-only generated notes, count classification, retained-condition appending and
+stage aggregation are removed; `GenerationResult.stages` is not part of the public projection.
+
+This preserves every accepted payload field in slot/member order and does not infer or reconstruct
+lists. Semantic completeness, source qualification selection and renderer behavior remain separate
+concerns; the simplification is not evidence of a semantic fix or provider runtime acceptance.

@@ -1,0 +1,22 @@
+{
+  "checked_at": "2026-10-15T06:07:45.4268125+00:00",
+  "plan": "Workers Free",
+  "account_id": "0815469773bb9f83177a1303be9a90f3",
+  "raw_neurons_used": 114.07,
+  "neurons_used": 115,
+  "daily_limit": 10000,
+  "models_free_eligible": true,
+  "no_paid_gateway": true,
+  "paid_budget_usd": 0,
+  "quota_coordination_confirmed": true,
+  "evidence": {
+    "plan": "Fresh UI: Workers plans Free $0 / disabled Current plan / 10000 neurons per day",
+    "usage": "Fresh daily counter: Neurons used today 114.07/10k, resets00UTC; not Last24h chart",
+    "source": "https://dash.cloudflare.com/0815469773bb9f83177a1303be9a90f3/ai/workers-ai/usage",
+    "plan_source": "https://dash.cloudflare.com/0815469773bb9f83177a1303be9a90f3/workers/plans",
+    "pricing": "https://developers.cloudflare.com/workers-ai/platform/pricing/",
+    "coordination": "https://github.com/NhiBuaa/knora-agent/issues/158#issuecomment-6185552579",
+    "rounding": "ceil114.07=115 for existing integer guard",
+    "scope": "Owner60queries/60generation total; sequential<=12; no ingestion/retry/judge/export; paid0USD"
+  }
+}

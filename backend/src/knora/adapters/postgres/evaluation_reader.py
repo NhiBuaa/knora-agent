@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, fields
 from math import isfinite
 
 from sqlalchemy import select
+from sqlalchemy.engine import Connection
 from sqlalchemy.orm import sessionmaker
 
+from knora.adapters.postgres.lexical_retrieval import validate_population_in_transaction
+from knora.adapters.postgres.search_index_store import PostgresSearchIndexStore
 from knora.adapters.postgres.tables import (
     ChunkSetTable,
     ChunkTable,
@@ -15,11 +18,25 @@ from knora.adapters.postgres.tables import (
     EmbeddingSetTable,
     QuestionTraceTable,
 )
+from knora.answering.evidence import select_evidence
+from knora.answering.generation_validation import MARKER_PATTERN, validate_generation
+from knora.answering.lexical import validate_bm25_result
 from knora.answering.retrieval_configuration import (
     CALIBRATED_M3_VECTOR_MIN_SIMILARITY,
     resolve_retrieval_configuration,
 )
 from knora.answering.retrieval_v2 import normalize_fts_m3_or_v2_details
+from knora.answering.stores import (
+    BranchObservation,
+    LexicalGeneration,
+    QuestionTraceRecord,
+    RetrievalCandidate,
+    RetrievalConfiguration,
+    RetrievalResult,
+)
+from knora.domain.errors import KnoraError
+from knora.ingestion.lexical_population import VerifiedLexicalPopulation
+from knora.providers.generation import GenerationResult
 
 _VALID_FINAL_DECISIONS = {
     "SELECTED",
@@ -71,11 +88,44 @@ class EvaluationCandidateProjection:
     start_line: int
     end_line: int
     final_rank: int
-    fusion_score: float
+    fusion_score: float | None
     final_decision: str
     decision_reason: str | None
     vector_contribution: dict[str, object] | None
     fts_contribution: dict[str, object] | None
+    raw_sha256: str | None = None
+    parser_configuration_id: str | None = None
+    normalizer_configuration_id: str | None = None
+    chunking_configuration_id: str | None = None
+    page_start: int | None = None
+    page_end: int | None = None
+    start_offset: int | None = None
+    end_offset: int | None = None
+    content_checksum: str | None = None
+    document_id: str | None = None
+    token_count: int | None = None
+    bm25_contribution: dict[str, object] | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class PdfChunkProjection:
+    workspace_id: str
+    source_key: str
+    chunk_id: str
+    document_version_id: str
+    chunk_set_id: str
+    raw_sha256: str
+    parser_configuration_id: str
+    normalizer_configuration_id: str
+    chunking_configuration_id: str
+    page_start: int
+    page_end: int
+    start_offset: int
+    end_offset: int
+    content_checksum: str
+    content: str
+    start_line: int
+    end_line: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,7 +133,7 @@ class EvaluationTraceProjection:
     trace_id: str
     workspace_id: str
     retrieval_configuration_id: str
-    embedding_configuration_id: str
+    embedding_configuration_id: str | None
     candidates: tuple[EvaluationCandidateProjection, ...]
     alias_mapping: dict[str, str]
     provider_metadata: dict[str, object]
@@ -102,6 +152,214 @@ class EvaluationTraceProjection:
     validation_outcome: str
 
 
+def project_bm25_trace(
+    *,
+    trace_id: str,
+    record: QuestionTraceRecord,
+    candidates: tuple[EvaluationCandidateProjection, ...],
+    authorized_generations: tuple[LexicalGeneration, ...],
+    include_invalid_generation: bool = False,
+) -> EvaluationTraceProjection:
+    """Project a trusted lexical snapshot offline; does not establish database readiness.
+
+    S2.2 must resolve generations and chunks from PostgreSQL in one authorized snapshot.
+    Never pass trace self-assertions as the authoritative snapshot.
+    """
+    try:
+        configs = (
+            RetrievalConfiguration.bm25_diagnostic_v1(),
+            RetrievalConfiguration.bm25_top8_v1(),
+            RetrievalConfiguration.bm25_upload_fixture_top8_v1(),
+        )
+        config = next(c for c in configs if c.id == record.retrieval_configuration_id)
+        metadata = record.provider_metadata["retrieval"]
+        native_full_window = len(record.branch_observations) == 200
+        expected_policy = {
+            "id": "bm25-raw-no-cutoff-v1",
+            "score_kind": "bm25",
+            "numeric_cutoff": None,
+            "cutoff_status": "not_calibrated",
+            "candidate_limit": config.candidate_k,
+            "query_limit": 200,
+            "observed_scope": "authorized_top_200",
+            "tie_order": "native" if native_full_window else "score_desc_chunk_id_asc",
+            "tie_boundary": "unknown" if native_full_window else "complete",
+            "beyond_limit": "unknown" if native_full_window else "none",
+        }
+        legacy_policy = {
+            "id": "bm25-raw-no-cutoff-v1",
+            "score_kind": "bm25",
+            "numeric_cutoff": None,
+            "cutoff_status": "not_calibrated",
+            "candidate_limit": 200,
+            "observed_scope": "authorized_top_k",
+            "beyond_limit": "unknown",
+        }
+        policy_valid = metadata["score_policy"] == expected_policy or (
+            config.id == "retrieval-bm25-diagnostic-v1"
+            and metadata["score_policy"] == legacy_policy
+        )
+        if (
+            not trace_id
+            or record.trace_schema_version != 3
+            or record.branch_observation_schema_version != 2
+            or record.retrieval_configuration_id != config.id
+            or record.embedding_configuration_id is not None
+            or record.embedding_set_ids
+            or record.fusion_policy_version is not None
+            or metadata["mode"] != "bm25-only"
+            or not policy_valid
+            or metadata["lexical_generations"] != [asdict(g) for g in authorized_generations]
+            or record.provider_metadata["embedding"] != {"status": "not_run"}
+            or record.provider_metadata["timing"]["phases"]["query_embedding"].get("status")
+            != "not_run"
+            or tuple(c.chunk_id for c in candidates) != record.retrieved_chunk_ids
+            or len(record.candidate_decisions) != len(candidates)
+        ):
+            raise ValueError("lexical trace metadata mismatch")
+        resolved = []
+        for rank, (c, d) in enumerate(zip(candidates, record.candidate_decisions, strict=True), 1):
+            if (
+                c.workspace_id != record.workspace_id
+                or c.chunk_id != d["chunk_id"]
+                or c.final_rank != rank
+                or d["final_rank"] != rank
+                or c.final_decision != d["final_decision"]
+                or c.decision_reason != d["decision_reason"]
+                or c.fusion_score is not None
+                or d["fusion_score"] is not None
+                or c.vector_contribution is not None
+                or c.fts_contribution is not None
+                or d["vector_contribution"] is not None
+                or d["fts_contribution"] is not None
+                or c.bm25_contribution != d["bm25_contribution"]
+                or type(c.token_count) is not int
+                or c.token_count < 1
+            ):
+                raise ValueError("lexical candidate mismatch")
+            bm25 = c.bm25_contribution
+            resolved.append(
+                RetrievalCandidate(
+                    document_id=c.document_id,
+                    document_version_id=c.document_version_id,
+                    source_key=c.source_key,
+                    source_name=c.source_key,
+                    chunk_set_id=c.chunk_set_id,
+                    embedding_set_id=None,
+                    embedding_configuration_id=None,
+                    chunk_id=c.chunk_id,
+                    chunk_ordinal=c.chunk_ordinal,
+                    heading_path=(),
+                    start_line=c.start_line,
+                    end_line=c.end_line,
+                    content=c.content,
+                    content_checksum=c.content_checksum,
+                    token_count=c.token_count,
+                    cosine_distance=None,
+                    similarity=None,
+                    bm25_score=bm25["raw_score"],
+                    bm25_rank=bm25["branch_rank"],
+                    index_generation_id=bm25["index_generation_id"],
+                )
+            )
+        observations = []
+        for item in record.branch_observations:
+            if item["schema_version"] != 2:
+                raise ValueError("lexical observation version mismatch")
+            observations.append(
+                BranchObservation(**{k: v for k, v in item.items() if k != "schema_version"})
+            )
+        result = RetrievalResult(
+            candidates=tuple(resolved),
+            branch_observations=tuple(observations),
+            chunk_set_ids=record.chunk_set_ids,
+            lexical_generations=authorized_generations,
+        )
+        validate_bm25_result(result, workspace_id=record.workspace_id, configuration=config)
+        selection = select_evidence(result.candidates, config)
+        for actual, expected in zip(record.candidate_decisions, selection.decisions, strict=True):
+            outcome = expected.outcome
+            reason = None
+            if outcome in {"TOKEN_BUDGET_EXCEEDED", "CHUNK_COUNT_LIMIT"}:
+                reason = "TOKEN_BUDGET" if outcome == "TOKEN_BUDGET_EXCEEDED" else outcome
+                outcome = "BUDGET_EXCEEDED"
+            if (actual["final_decision"], actual["decision_reason"], actual["budget_evidence"]) != (
+                outcome,
+                reason,
+                expected.budget_evidence,
+            ):
+                raise ValueError("lexical selection mismatch")
+        aliases = {f"E{i}": d.candidate.chunk_id for i, d in enumerate(selection.selected, 1)}
+        if record.alias_mapping != aliases or record.decision not in {"ANSWER", "REFUSAL"}:
+            raise ValueError("lexical alias mismatch")
+        invalid_generation = include_invalid_generation and record.validation_outcome == "invalid"
+        if aliases:
+            if record.generation_status != "completed" or (
+                record.validation_outcome != "valid" and not invalid_generation
+            ):
+                raise ValueError("lexical generation state mismatch")
+        elif (record.decision, record.generation_status, record.validation_outcome) != (
+            "REFUSAL",
+            "not_called",
+            "not_applicable",
+        ):
+            raise ValueError("lexical empty-selection state mismatch")
+        if invalid_generation:
+            # Operator diagnostics retain the stored failure; evaluation stays strict by default.
+            markers = (
+                tuple(MARKER_PATTERN.findall(record.answer))
+                if isinstance(record.answer, str)
+                else ()
+            )
+            if markers != record.parsed_markers:
+                raise ValueError("lexical invalid-generation markers mismatch")
+        else:
+            validated = validate_generation(
+                GenerationResult(
+                    decision=record.decision,
+                    answer=record.answer,
+                    refusal_reason=record.refusal_reason,
+                    cited_evidence_ids=record.parsed_markers,
+                ),
+                available_evidence_ids=tuple(aliases),
+            )
+            if validated.parsed_markers != record.parsed_markers:
+                raise ValueError("lexical markers mismatch")
+        latency = _retrieval_latency(record.provider_metadata)
+    except (
+        KeyError,
+        TypeError,
+        ValueError,
+        AttributeError,
+        StopIteration,
+        KnoraError,
+        LookupError,
+    ) as error:
+        raise LookupError("evaluation lexical trace provenance is invalid") from error
+    return EvaluationTraceProjection(
+        trace_id=trace_id,
+        workspace_id=record.workspace_id,
+        retrieval_configuration_id=record.retrieval_configuration_id,
+        embedding_configuration_id=None,
+        candidates=candidates,
+        alias_mapping=record.alias_mapping,
+        provider_metadata=record.provider_metadata,
+        retrieval_latency_ms=latency,
+        trace_schema_version=3,
+        branch_observation_schema_version=2,
+        fusion_policy_version=None,
+        embedding_set_ids=(),
+        chunk_set_ids=record.chunk_set_ids,
+        candidate_decisions=record.candidate_decisions,
+        branch_observations=record.branch_observations,
+        decision=record.decision,
+        answer=record.answer,
+        refusal_reason=record.refusal_reason,
+        parsed_markers=record.parsed_markers,
+        validation_outcome=record.validation_outcome,
+    )
+
+
 @dataclass(frozen=True, slots=True)
 class ActiveCorpusDocumentProjection:
     source_key: str
@@ -111,6 +369,9 @@ class ActiveCorpusDocumentProjection:
     chunking_configuration_id: str
     embedding_configuration_id: str
     chunk_references: tuple[str, ...]
+    raw_sha256: str | None = None
+    embedding_set_id: str | None = None
+    chunk_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,11 +383,149 @@ class ActiveCorpusProjection:
 class PostgresEvaluationReader:
     """Read-only, trace-scoped projections for the local evaluation runner."""
 
-    def __init__(self, session_factory: sessionmaker) -> None:
+    def __init__(
+        self,
+        session_factory: sessionmaker,
+        *,
+        lexical_population: VerifiedLexicalPopulation | None = None,
+        include_invalid_generation: bool = False,
+    ) -> None:
         self._session_factory = session_factory
+        self._lexical_population = lexical_population
+        self._include_invalid_generation = include_invalid_generation
+
+    @staticmethod
+    def _begin_lexical_snapshot(session) -> None:
+        bind = session.get_bind()
+        if isinstance(bind, Connection) and bind.in_transaction():
+            if bind.get_isolation_level() not in {"REPEATABLE READ", "SERIALIZABLE"}:
+                raise ValueError("Lexical projections require a consistent read snapshot")
+        else:
+            session.connection(execution_options={"isolation_level": "REPEATABLE READ"})
+
+    def _read_bm25_trace(self, session, trace, workspace_id) -> EvaluationTraceProjection:
+        try:
+            if self._lexical_population is None or trace.workspace_id != workspace_id:
+                raise ValueError("verified lexical population is required")
+            configurations = (
+                RetrievalConfiguration.bm25_top8_v1(),
+                RetrievalConfiguration.bm25_upload_fixture_top8_v1(),
+            )
+            config = next(c for c in configurations if c.id == trace.retrieval_configuration_id)
+            generations = PostgresSearchIndexStore(
+                self._session_factory
+            ).read_active_generations_in_snapshot(session, workspace_id, config.lexical_policy_id)
+            validate_population_in_transaction(
+                session, workspace_id, generations, self._lexical_population
+            )
+            snapshots = tuple(
+                LexicalGeneration(
+                    workspace_id,
+                    g.document_id,
+                    g.document_version_id,
+                    g.chunk_set_id,
+                    g.generation_id,
+                    g.lexical_profile.id,
+                )
+                for g in generations
+            )
+            chunk_generations = {
+                (g.generation_id, c.chunk_id): g for g in generations for c in g.chunks
+            }
+            decisions = trace.candidate_decisions
+            chunk_ids = [d["chunk_id"] for d in decisions]
+            observed_ids = []
+            for observation in trace.branch_observations:
+                chunk_id = observation.get("chunk_id")
+                if chunk_id is not None:
+                    if (observation.get("index_generation_id"), chunk_id) not in chunk_generations:
+                        raise ValueError("foreign lexical branch chunk")
+                    observed_ids.append(chunk_id)
+            required_ids = set((*chunk_ids, *observed_ids))
+            rows = session.execute(
+                select(ChunkTable, DocumentTable, DocumentVersionTable, ChunkSetTable)
+                .join(ChunkSetTable, ChunkSetTable.id == ChunkTable.chunk_set_id)
+                .join(
+                    DocumentVersionTable,
+                    DocumentVersionTable.id == ChunkSetTable.document_version_id,
+                )
+                .join(DocumentTable, DocumentTable.id == DocumentVersionTable.document_id)
+                .where(ChunkTable.id.in_(required_ids), DocumentTable.workspace_id == workspace_id)
+            ).all()
+            by_chunk = {
+                chunk.id: (chunk, document, version, cs) for chunk, document, version, cs in rows
+            }
+            if len(rows) != len(required_ids) or set(by_chunk) != required_ids:
+                raise ValueError("lexical candidate not found")
+            for observation in trace.branch_observations:
+                if observation.get("chunk_id") is None:
+                    continue
+                g = chunk_generations[observation["index_generation_id"], observation["chunk_id"]]
+                chunk, document, version, cs = by_chunk[observation["chunk_id"]]
+                if (document.id, document.workspace_id, version.id, cs.id, chunk.chunk_set_id) != (
+                    g.document_id,
+                    workspace_id,
+                    g.document_version_id,
+                    g.chunk_set_id,
+                    g.chunk_set_id,
+                ):
+                    raise ValueError("lexical candidate provenance mismatch")
+            candidates = tuple(
+                EvaluationCandidateProjection(
+                    chunk_id=chunk_id,
+                    document_version_id=by_chunk[chunk_id][2].id,
+                    chunk_set_id=by_chunk[chunk_id][3].id,
+                    source_key=by_chunk[chunk_id][1].source_key,
+                    chunk_ordinal=by_chunk[chunk_id][0].ordinal,
+                    workspace_id=by_chunk[chunk_id][1].workspace_id,
+                    content=by_chunk[chunk_id][0].content,
+                    start_line=by_chunk[chunk_id][0].start_line,
+                    end_line=by_chunk[chunk_id][0].end_line,
+                    final_rank=decision["final_rank"],
+                    fusion_score=decision["fusion_score"],
+                    final_decision=decision["final_decision"],
+                    decision_reason=decision.get("decision_reason"),
+                    vector_contribution=decision.get("vector_contribution"),
+                    fts_contribution=decision.get("fts_contribution"),
+                    raw_sha256=by_chunk[chunk_id][2].raw_sha256,
+                    parser_configuration_id=by_chunk[chunk_id][3].parser_configuration_id,
+                    normalizer_configuration_id=by_chunk[chunk_id][3].normalizer_configuration_id,
+                    chunking_configuration_id=by_chunk[chunk_id][3].chunking_configuration_id,
+                    page_start=by_chunk[chunk_id][0].page_start,
+                    page_end=by_chunk[chunk_id][0].page_end,
+                    start_offset=by_chunk[chunk_id][0].start_offset,
+                    end_offset=by_chunk[chunk_id][0].end_offset,
+                    content_checksum=by_chunk[chunk_id][0].content_checksum,
+                    document_id=by_chunk[chunk_id][1].id,
+                    token_count=by_chunk[chunk_id][0].token_count,
+                    bm25_contribution=decision.get("bm25_contribution"),
+                )
+                for chunk_id, decision in zip(chunk_ids, decisions, strict=True)
+            )
+            values = {f.name: getattr(trace, f.name) for f in fields(QuestionTraceRecord)}
+            for key in (
+                "candidate_decisions",
+                "retrieved_chunk_ids",
+                "embedding_set_ids",
+                "chunk_set_ids",
+                "parsed_markers",
+                "branch_observations",
+            ):
+                values[key] = tuple(values[key])
+            return project_bm25_trace(
+                trace_id=trace.id,
+                record=QuestionTraceRecord(**values),
+                candidates=candidates,
+                authorized_generations=snapshots,
+                include_invalid_generation=self._include_invalid_generation,
+            )
+        except (KnoraError, ValueError, TypeError, KeyError, AttributeError, StopIteration) as exc:
+            raise LookupError("evaluation lexical trace provenance is invalid") from exc
 
     def read_trace(self, *, trace_id: str, workspace_id: str) -> EvaluationTraceProjection:
         with self._session_factory() as session:
+            if self._lexical_population is not None:
+                self._begin_lexical_snapshot(session)
             trace = session.scalar(
                 select(QuestionTraceTable).where(
                     QuestionTraceTable.id == trace_id,
@@ -135,6 +534,8 @@ class PostgresEvaluationReader:
             )
             if trace is None:
                 raise LookupError("evaluation trace not found")
+            if trace.trace_schema_version == 3:
+                return self._read_bm25_trace(session, trace, workspace_id)
             _validate_trace_metadata(trace)
             decisions = [dict(item) for item in trace.candidate_decisions]
             chunk_ids = _ordered_candidate_ids(
@@ -174,7 +575,7 @@ class PostgresEvaluationReader:
                 rows=embedding_rows,
             )
             rows = session.execute(
-                select(ChunkTable, DocumentTable, DocumentVersionTable)
+                select(ChunkTable, DocumentTable, DocumentVersionTable, ChunkSetTable)
                 .join(ChunkSetTable, ChunkSetTable.id == ChunkTable.chunk_set_id)
                 .join(
                     DocumentVersionTable,
@@ -196,7 +597,8 @@ class PostgresEvaluationReader:
                     EmbeddingSetTable.status == "completed",
                 )
             ).all()
-        by_chunk = {chunk.id: (chunk, document, version) for chunk, document, version in rows}
+        by_chunk = {chunk.id: (chunk, document, version) for chunk, document, version, _ in rows}
+        chunk_sets = {chunk.id: chunk_set for chunk, _, _, chunk_set in rows}
         missing_chunk_ids = [chunk_id for chunk_id in chunk_ids if chunk_id not in by_chunk]
         if missing_chunk_ids:
             raise LookupError("evaluation candidate not found")
@@ -236,6 +638,15 @@ class PostgresEvaluationReader:
                 decision_reason=decision.get("decision_reason"),
                 vector_contribution=decision.get("vector_contribution"),
                 fts_contribution=decision.get("fts_contribution"),
+                raw_sha256=by_chunk[chunk_id][2].raw_sha256,
+                parser_configuration_id=chunk_sets[chunk_id].parser_configuration_id,
+                normalizer_configuration_id=chunk_sets[chunk_id].normalizer_configuration_id,
+                chunking_configuration_id=chunk_sets[chunk_id].chunking_configuration_id,
+                page_start=by_chunk[chunk_id][0].page_start,
+                page_end=by_chunk[chunk_id][0].page_end,
+                start_offset=by_chunk[chunk_id][0].start_offset,
+                end_offset=by_chunk[chunk_id][0].end_offset,
+                content_checksum=by_chunk[chunk_id][0].content_checksum,
             )
             for chunk_id, decision in zip(chunk_ids, decisions, strict=True)
         )
@@ -263,6 +674,120 @@ class PostgresEvaluationReader:
             validation_outcome=trace.validation_outcome,
         )
 
+    def _read_lexical_pdf_chunks(self, *, workspace_id: str) -> tuple[PdfChunkProjection, ...]:
+        try:
+            with self._session_factory() as session:
+                self._begin_lexical_snapshot(session)
+                generations = PostgresSearchIndexStore(
+                    self._session_factory
+                ).read_active_generations_in_snapshot(
+                    session, workspace_id, self._lexical_population.profile.id
+                )
+                validate_population_in_transaction(
+                    session, workspace_id, generations, self._lexical_population
+                )
+                expected = {c.chunk_id: g for g in generations for c in g.chunks}
+                rows = session.execute(
+                    select(ChunkTable, DocumentTable, DocumentVersionTable, ChunkSetTable)
+                    .join(ChunkSetTable, ChunkSetTable.id == ChunkTable.chunk_set_id)
+                    .join(
+                        DocumentVersionTable,
+                        DocumentVersionTable.id == ChunkSetTable.document_version_id,
+                    )
+                    .join(DocumentTable, DocumentTable.id == DocumentVersionTable.document_id)
+                    .where(
+                        ChunkTable.id.in_(expected),
+                        DocumentTable.workspace_id == workspace_id,
+                        DocumentVersionTable.media_type == "application/pdf",
+                    )
+                    .order_by(DocumentTable.source_key, ChunkTable.ordinal)
+                ).all()
+                if len(rows) != len(expected) or {r[0].id for r in rows} != set(expected):
+                    raise ValueError("lexical PDF population is incomplete")
+                for chunk, document, version, chunk_set in rows:
+                    g = expected[chunk.id]
+                    if (document.workspace_id, document.id, version.id, chunk_set.id) != (
+                        workspace_id,
+                        g.document_id,
+                        g.document_version_id,
+                        g.chunk_set_id,
+                    ):
+                        raise ValueError("lexical PDF provenance mismatch")
+                return tuple(
+                    PdfChunkProjection(
+                        workspace_id=document.workspace_id,
+                        source_key=document.source_key,
+                        chunk_id=chunk.id,
+                        document_version_id=version.id,
+                        chunk_set_id=chunk_set.id,
+                        raw_sha256=version.raw_sha256,
+                        parser_configuration_id=chunk_set.parser_configuration_id,
+                        normalizer_configuration_id=chunk_set.normalizer_configuration_id,
+                        chunking_configuration_id=chunk_set.chunking_configuration_id,
+                        page_start=chunk.page_start,
+                        page_end=chunk.page_end,
+                        start_offset=chunk.start_offset,
+                        end_offset=chunk.end_offset,
+                        content_checksum=chunk.content_checksum,
+                        content=chunk.content,
+                        start_line=chunk.start_line,
+                        end_line=chunk.end_line,
+                    )
+                    for chunk, document, version, chunk_set in rows
+                )
+        except (KnoraError, ValueError, TypeError, KeyError, AttributeError) as exc:
+            raise LookupError("evaluation lexical PDF provenance is invalid") from exc
+
+    def read_pdf_chunks(self, *, workspace_id: str) -> tuple[PdfChunkProjection, ...]:
+        """Project only current, active PDF derivations inside the requested workspace."""
+        if self._lexical_population is not None:
+            return self._read_lexical_pdf_chunks(workspace_id=workspace_id)
+        with self._session_factory() as session:
+            rows = session.execute(
+                select(ChunkTable, DocumentTable, DocumentVersionTable, ChunkSetTable)
+                .join(ChunkSetTable, ChunkSetTable.id == ChunkTable.chunk_set_id)
+                .join(
+                    DocumentVersionTable,
+                    DocumentVersionTable.id == ChunkSetTable.document_version_id,
+                )
+                .join(DocumentTable, DocumentTable.id == DocumentVersionTable.document_id)
+                .join(
+                    EmbeddingSetTable, EmbeddingSetTable.id == DocumentTable.active_embedding_set_id
+                )
+                .where(
+                    DocumentTable.workspace_id == workspace_id,
+                    DocumentTable.archived.is_(False),
+                    DocumentTable.current_document_version_id == DocumentVersionTable.id,
+                    DocumentVersionTable.media_type == "application/pdf",
+                    EmbeddingSetTable.chunk_set_id == ChunkSetTable.id,
+                    EmbeddingSetTable.status == "completed",
+                    ChunkSetTable.status == "completed",
+                )
+                .order_by(DocumentTable.source_key, ChunkTable.ordinal)
+            ).all()
+        return tuple(
+            PdfChunkProjection(
+                workspace_id=document.workspace_id,
+                source_key=document.source_key,
+                chunk_id=chunk.id,
+                document_version_id=version.id,
+                chunk_set_id=chunk_set.id,
+                raw_sha256=version.raw_sha256,
+                parser_configuration_id=chunk_set.parser_configuration_id,
+                normalizer_configuration_id=chunk_set.normalizer_configuration_id,
+                chunking_configuration_id=chunk_set.chunking_configuration_id,
+                page_start=chunk.page_start,
+                page_end=chunk.page_end,
+                start_offset=chunk.start_offset,
+                end_offset=chunk.end_offset,
+                content_checksum=chunk.content_checksum,
+                content=chunk.content,
+                start_line=chunk.start_line,
+                end_line=chunk.end_line,
+            )
+            for chunk, document, version, chunk_set in rows
+        )
+
     def read_active_corpus(self, *, workspace_id: str) -> ActiveCorpusProjection:
         with self._session_factory() as session:
             rows = session.execute(
@@ -283,15 +808,21 @@ class PostgresEvaluationReader:
                     DocumentVersionTable.id == ChunkSetTable.document_version_id,
                 )
                 .join(ChunkTable, ChunkTable.chunk_set_id == ChunkSetTable.id)
-                .where(DocumentTable.workspace_id == workspace_id)
+                .where(
+                    DocumentTable.workspace_id == workspace_id,
+                    DocumentTable.archived.is_(False),
+                    EmbeddingSetTable.status == "completed",
+                )
                 .order_by(DocumentTable.source_key, ChunkTable.ordinal)
             ).all()
         grouped: dict[str, list] = {}
+        chunk_id_groups: dict[str, list[str]] = {}
         identities: dict[str, tuple] = {}
         for document, version, chunk_set, embedding_set, chunk in rows:
             grouped.setdefault(document.source_key, []).append(
                 f"{document.source_key}#{chunk.ordinal}"
             )
+            chunk_id_groups.setdefault(document.source_key, []).append(chunk.id)
             identities[document.source_key] = (version, chunk_set, embedding_set)
         documents = tuple(
             ActiveCorpusDocumentProjection(
@@ -302,6 +833,9 @@ class PostgresEvaluationReader:
                 chunking_configuration_id=identities[source_key][1].chunking_configuration_id,
                 embedding_configuration_id=identities[source_key][2].embedding_configuration_id,
                 chunk_references=tuple(grouped[source_key]),
+                raw_sha256=identities[source_key][0].raw_sha256,
+                embedding_set_id=identities[source_key][2].id,
+                chunk_ids=tuple(chunk_id_groups[source_key]),
             )
             for source_key in sorted(grouped)
         )

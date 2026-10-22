@@ -1,0 +1,124 @@
+{
+  "attempt": 1,
+  "attempt_id": "s1-runtime-binding-20261015-01:pdf-v3-032:1",
+  "candidates": [
+    {
+      "chunk_id": "fc30cda0-54ff-4726-a4ee-90c84256ced4",
+      "chunk_set_id": "411bd4e5-c3f5-493f-b172-e50cb7b4e50b",
+      "chunking_configuration_id": "chunking-m2-pdf-pypdf-6-14-2-layout-v2",
+      "content": "Cảnh báo vận hành\nSYNTHETIC FIXTURE - agent-authored - owner review pending\n1. Cảnh báo P1: phải báo trực trong 15 phút.\n1.1. Cảnh báo P2: phải báo trực trong 60 phút.\n1.1.1. Không hạ P1 xuống P2 chỉ vì ngoài giờ.\nPDF page 1 | CC BY 4.0 | Knora evaluation fixture",
+      "content_checksum": "aa38434ec8a2b8c0a30ec53b566ea207c9a97ec311c0eb65f10d0d07feecc505",
+      "document_version_id": "c0b35b48-be5f-4b26-b16b-3e02a1d92cf6",
+      "end_offset": 263,
+      "final_decision": "SELECTED",
+      "final_rank": 1,
+      "normalizer_configuration_id": "pdf-normalizer-m2-v1",
+      "page_end": 1,
+      "page_start": 1,
+      "parser_configuration_id": "pdf-parser-pypdf-6-14-2-layout-lines-v2",
+      "raw_sha256": "80fea16d50bc82418d5fdb8a5a53588e4bd62f236abdf886853ed478cbbf1180",
+      "source_key": "hierarchy-03",
+      "start_offset": 0,
+      "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+    }
+  ],
+  "case_id": "pdf-v3-032",
+  "conversation_id": "fd1b6ef7-34e9-4087-8699-8e8d4999ecc1",
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "dataset_sha256": "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
+  "decision": "ANSWER",
+  "derivation_sha256": "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2",
+  "end_to_end_latency_ms": 4251.820999999836,
+  "failure_code": null,
+  "provider_metadata": {
+    "conversation_context": {
+      "policy_id": "conversation-context-v2",
+      "retrieval_query": "Previous user question: Cảnh báo P1 phải báo trực trong bao nhiêu phút?\nCurrent question: Ngoài giờ thì có được đổi nó thành P2 không?",
+      "selected_turn_ids": [
+        "32cf5f39-fb43-459f-b7fa-59b15c26fb85"
+      ]
+    },
+    "embedding": {
+      "cost": {},
+      "model": "@cf/qwen/qwen3-embedding-0.6b",
+      "provider": "cloudflare-workers-ai",
+      "provider_request_id": "a4acfed2eee284e4-HKG",
+      "usage": {}
+    },
+    "generation": {
+      "cost": {},
+      "finish_reason": "stop",
+      "model": "@cf/openai/gpt-oss-20b",
+      "prompt_version": "cloudflare-gpt-oss-cited-answer-v4",
+      "provider": "cloudflare-workers-ai",
+      "provider_request_id": "id-1792048139499",
+      "usage": {
+        "completion_tokens": 186,
+        "prompt_tokens": 643,
+        "total_tokens": 829
+      }
+    },
+    "retrieval": {
+      "latency_ms": 20.313000000896864
+    },
+    "timing": {
+      "clock_resolution_ms": 9.999999999999999e-05,
+      "phases": {
+        "candidate_retrieval": {
+          "duration_ms": 20.281900000554742,
+          "end_tick": 16312.5198409,
+          "start_tick": 16312.499559
+        },
+        "evidence_selection": {
+          "duration_ms": 0.031100000342121348,
+          "end_tick": 16312.519872,
+          "start_tick": 16312.5198409
+        },
+        "generation": {
+          "duration_ms": 2371.535700000095,
+          "end_tick": 16314.8914077,
+          "start_tick": 16312.519872
+        },
+        "query_embedding": {
+          "duration_ms": 1067.6566000001912,
+          "end_tick": 16312.499559,
+          "start_tick": 16311.4319024
+        }
+      }
+    }
+  },
+  "public_response": {
+    "answer": "Không, ngoài giờ không được đổi cảnh báo P1 thành P2. [[E1]]",
+    "citations": [
+      {
+        "content_checksum": "aa38434ec8a2b8c0a30ec53b566ea207c9a97ec311c0eb65f10d0d07feecc505",
+        "document_id": "4427c055-4fe6-485b-b557-85ad631d6e35",
+        "document_version_id": "c0b35b48-be5f-4b26-b16b-3e02a1d92cf6",
+        "end_line": 6,
+        "end_offset": 263,
+        "evidence_id": "E1",
+        "excerpt": "Cảnh báo vận hành\nSYNTHETIC FIXTURE - agent-authored - owner review pending\n1. Cảnh báo P1: phải báo trực trong 15 phút.\n1.1. Cảnh báo P2: phải báo trực trong 60 phút.\n1.1.1. Không hạ P1 xuống P2 chỉ vì ngoài giờ.\nPDF page 1 | CC BY 4.0 | Knora evaluation …",
+        "heading_path": [],
+        "page_end": 1,
+        "page_start": 1,
+        "source_key": "hierarchy-03",
+        "source_name": "hierarchy-03.pdf",
+        "start_line": 1,
+        "start_offset": 0
+      }
+    ],
+    "decision": "ANSWER",
+    "refusal_reason": null,
+    "trace_id": "bbbee126-66dc-4c98-a19c-f1eff95ea06d",
+    "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+  },
+  "response_sha256": "7dad8fc85facf6f87042adf28d7932ab6b6d420016cb24f8f00a12041f395d13",
+  "retrieval_latency_ms": 20.313000000896864,
+  "run_id": "s1-runtime-binding-20261015-01",
+  "selected_chunk_ids": [
+    "fc30cda0-54ff-4726-a4ee-90c84256ced4"
+  ],
+  "trace_id": "bbbee126-66dc-4c98-a19c-f1eff95ea06d",
+  "turn_id": "12a4fed9-d3dd-4abb-ac80-041c18d1664f",
+  "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+}

@@ -1,0 +1,157 @@
+{
+  "attempt": 1,
+  "attempt_id": "s1-runtime-binding-20261015-01:pdf-v3-045:1",
+  "candidates": [
+    {
+      "chunk_id": "75de1620-c8ce-434a-b031-ea46d8570c27",
+      "chunk_set_id": "6be52f91-8799-43d2-8f92-8bf06d37cc5e",
+      "chunking_configuration_id": "chunking-m2-pdf-pypdf-6-14-2-layout-v2",
+      "content": "importphonlp\n# Automatically download the pre-trained PhoNLP model\n# and save it in a local machine folder\nphonlp.download(save_dir=’./pretrained_phonlp’)\n# Load the pre-trained PhoNLP model\nmodel=phonlp.load(save_dir=’./pretrained_phonlp’)\n# Annotate a corpus\nmodel.annotate(input_file=’input.txt’, output_file=’output.txt’)\n# Annotate a sentence\nmodel.print_out(model.annotate(text=\"Tôi đang làm_việc tại VinAI .\"))\nFigure3: AsimpleandcompleteexamplecodeforusingPhoNLPinPython.\nsingle-task training baseline, producing state-of- Sequence Data. In Proceedings of ICML, pages\nthe-art performance results. We publicly release 282–289.\nPhoNLPasaneasy-to-useopen-sourcetoolkitand Phuong Le-Hong and Duc-Thien Bui. 2018. A Fac-\nhope that PhoNLP can facilitate future NLP re- toidQuestionAnsweringSystemforVietnamese. In\nsearch and applications. In future work, we will CompanionProceedingsoftheTheWebConference\nalsoapplyPhoNLPtootherlanguages. 2018,page1049–1055.\nZuchao Li, Shexia He, Zhuosheng Zhang, and Hai\nReferences Zhao. 2018. Joint Learning of POS and Dependen-\nciesforMultilingualUniversalDependencyParsing.\nTran Sy Bang and Virach Sornlertlamvanich. 2018. In Proceedings of the CoNLL 2018 Shared Task,\nSentiment classification for hotel booking review pages65–73.\nbased on sentence dependency structure and sub-\nopinion analysis. IEICE Transactions on Informa- Ilya Loshchilov and Frank Hutter. 2019. Decoupled\ntionandSystems,E101.D(4):909–916. Weight Decay Regularization. In Proceedings of\nYoeng-Jin Chu and Tseng-Hong Liu. 1965. On the ICLR.\nShortestArborescenceofaDirectedGraph. Science Anh Tuan Nguyen, Mai Hoang Dao, and Dat Quoc\nSinica,14:1396–1400. Nguyen. 2020. A Pilot Study of Text-to-SQL Se-\nJacob Devlin, Ming-Wei Chang, Kenton Lee, and mantic Parsing for Vietnamese. In Findings of\nKristina Toutanova. 2019. BERT: Pre-training of EMNLP2020,pages4079–4085.\ndeep bidirectional transformers for language under- DatQuocNguyen.2019. AneuraljointmodelforViet-\nstanding. In Proceedings of NAACL, pages 4171– namesewordsegmentation,POStagginganddepen-\n4186. dency parsing. In Proceedings of ALTA, pages 28–\nTimothy Dozat and Christopher D. Manning. 2017. 34.\nDeep Biaffine Attention for Neural Dependency\n",
+      "content_checksum": "9014fd90f7b46ee8d59346d20c428ab0c8a6787266bc14cb4ad70ed2c5cf64e9",
+      "document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7",
+      "end_offset": 2217,
+      "final_decision": "SELECTED",
+      "final_rank": 1,
+      "normalizer_configuration_id": "pdf-normalizer-m2-v1",
+      "page_end": 6,
+      "page_start": 6,
+      "parser_configuration_id": "pdf-parser-pypdf-6-14-2-layout-lines-v2",
+      "raw_sha256": "61e6b8c8bf8a9e0191320fd971989c98ababfe775b43b7bd1bd81eced67e2371",
+      "source_key": "academic-phonlp",
+      "start_offset": 0,
+      "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+    },
+    {
+      "chunk_id": "ab31322c-7555-498c-aa8b-7b2181201f91",
+      "chunk_set_id": "6be52f91-8799-43d2-8f92-8bf06d37cc5e",
+      "chunking_configuration_id": "chunking-m2-pdf-pypdf-6-14-2-layout-v2",
+      "content": "python3 run_phonlp.py --save_dir\n./pretrained_phonlp --mode\nannotate --input_file input.txt\n--output_file output.txt\nFigure 2: Minimal command to run PhoNLP. Here\n“save_dir” denote the path to the local machine folder\nTable 2: Performance results (in %) on the test sets thatstoresthepre-trainedPhoNLPmodel.\nfor POS tagging (i.e. accuracy), NER (i.e. F1-score)\nand dependency parsing (i.e. LAS and UAS scores). 1 Tôi P O 3 sub\n“Leak.” abbreviates“leakage”,denotingtheresultsob- 2 đang R O 3 adv\ntained w.r.t. the data leakage issue. “Re-spl” denotes 3 làm_việc V O 0 root\ntheresultsobtainedw.r.t. thedatare-splitandduplica- 4 tại E O 3 loc\ntionremovalforPOStaggingtoavoidthedataleakage\nissue. “Single-task”referstoasthesingle-tasktraining 5 VinAI Np B-ORG 4 pob\napproach.† denotes scores taken from the PhoBERT 6 . CH O 3 punct\npaper (Nguyen and Nguyen,2020). Note that “Single- Table3: Theoutputintheoutputfile“output.txt”\ntask”NERisnotaffectedbythedataleakageissue. for the sentence “Tôi đang làm_việc tại VinAI .” from\nthe input file “input.txt” in Figure2. The output\nparametertuningandmodelselectionstrategythat is formatted with 6 columns representing word index,\nweuseforPhoNLP. wordform,POStag,NERlabel,headindexofthecur-\nNotethatPhoBERThelpsproducestate-of-the- rentwordanditsdependencyrelationtype.\nartresultsformultipleVietnameseNLPtasks(in-\ncludingbutnotlimitedtoPOStagging,NERand VinAI.”(ITôi amđang workinglàm_việc attại VinAI).\ndependencyparsinginasingle-tasktrainingstrat- Table3shows the annotated output in plain text\negy),andobtainshigherperformanceresultsthan form for this sentence. Similarly, we also get the\nVnCoreNLP.However,inboththePhoBERTand same output by using the Python API as simple\nVnCoreNLP papers (Nguyen and Nguyen,2020; as in Figure3. Furthermore, commands to (re-\nVu et al.,2018), results for POS tagging and de- )trainandevaluatePhoNLPusinggoldannotated\npendencyparsingarereportedw.r.t. thedataleak- corporaaredetailedinthePhoNLPGitHubreposi-\nage issue. Our “Single-task” results in Table2 tory. Notethatitisabsolutelypossiblet",
+      "content_checksum": "dd79055d92fa4e99f10b8370ee3d5da85d81a4b9225411051760ef215d6ecb23",
+      "document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7",
+      "end_offset": 2066,
+      "final_decision": "SELECTED",
+      "final_rank": 2,
+      "normalizer_configuration_id": "pdf-normalizer-m2-v1",
+      "page_end": 5,
+      "page_start": 5,
+      "parser_configuration_id": "pdf-parser-pypdf-6-14-2-layout-lines-v2",
+      "raw_sha256": "61e6b8c8bf8a9e0191320fd971989c98ababfe775b43b7bd1bd81eced67e2371",
+      "source_key": "academic-phonlp",
+      "start_offset": 0,
+      "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+    },
+    {
+      "chunk_id": "66a3b490-0f34-4ff6-be7a-36eae9b14667",
+      "chunk_set_id": "6be52f91-8799-43d2-8f92-8bf06d37cc5e",
+      "chunking_configuration_id": "chunking-m2-pdf-pypdf-6-14-2-layout-v2",
+      "content": "PhoNLP:Ajointmulti-tasklearningmodelforVietnamesepart-of-speech\ntagging,namedentityrecognitionanddependencyparsing\nLinhTheNguyen and DatQuocNguyen\nVinAIResearch,Hanoi,Vietnam\n{v.linhnt140, v.datnq9}@vinai.io\nAbstract (Nguyen et al.,2017;Le-Hong and Bui,2018).\nWe present the first multi-task learning Thus, there is a need to develop NLP toolkits for\nmodel—named PhoNLP—for joint Viet- linguisticannotationsw.r.t. VietnamesePOStag-\nnamese part-of-speech (POS) tagging, named ging,NERanddependencyparsing.\nentity recognition (NER) and dependency VnCoreNLP (Vu et al.,2018) is the previ-\nparsing. Experiments on Vietnamese bench- ous public toolkit employing traditional feature-\nmark datasets show that PhoNLP produces based machine learning models to handle those\nstate-of-the-art results, outperforming a Vietnamese NLP tasks. However, VnCoreNLP\nsingle-task learning approach that fine-tunes is now no longer considered state-of-the-art be-\nthe pre-trained Vietnamese language model\nPhoBERT (Nguyen and Nguyen, 2020) for cause its performance results are significantly\neach task independently. We publicly release outperformedbyonesobtainedwhenfine-tuning\nPhoNLP as an open-source toolkit under the PhoBERT—the current state-of-the-art monolin-\nApache License 2.0. Although we specify gual pre-trained language model for Vietnamese\nPhoNLPforVietnamese,ourPhoNLPtraining (Nguyen and Nguyen,2020). Note that there are\nand evaluation command scripts in fact can nopubliclyavailablefine-tunedBERT-basedmod-\ndirectly work for other languages that have a elsforthethreeVietnamesetasks. Assumingthat\npre-trained BERT-based language model and therewouldbe,apotentialdrawbackmightbethat\ngold annotated corpora available for the three\ntasks of POS tagging, NER and dependency anNLPpackagewrappingsuchfine-tunedBERT-\nparsing. We hope that PhoNLP can serve as basedmodelswouldtakealargestoragespace,i.e.\na strong baseline and useful toolkit for future threetimeslargerthanthestoragespaceusedbya\nNLP research and applications to not only BERTmodel(Devlinetal.,2019),thusitwouldnot\nVietnamese but also the other languages. Our besuitableforpracticalapplicationsthatrequirea\nPhoNLP is available athttps://github. smallerstoragespace. Jointlymulti-tasklearning\ncom/VinAIResearch/PhoNLP. isapromisingsolutionasitmighthelpreducethe\n1 Introduction storagespace. Inaddition,POStagging,NERand\ndependency parsing are related tasks: POS tags\nVietnamese NLP research has been significantly are essential input features used for dependency\nexplo",
+      "content_checksum": "efe56896ff326cc0d9af0b0365d69e1476729b33201f6a9f5ad34dc1d4b84a62",
+      "document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7",
+      "end_offset": 2521,
+      "final_decision": "SELECTED",
+      "final_rank": 3,
+      "normalizer_configuration_id": "pdf-normalizer-m2-v1",
+      "page_end": 1,
+      "page_start": 1,
+      "parser_configuration_id": "pdf-parser-pypdf-6-14-2-layout-lines-v2",
+      "raw_sha256": "61e6b8c8bf8a9e0191320fd971989c98ababfe775b43b7bd1bd81eced67e2371",
+      "source_key": "academic-phonlp",
+      "start_offset": 0,
+      "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+    }
+  ],
+  "case_id": "pdf-v3-045",
+  "conversation_id": null,
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "dataset_sha256": "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
+  "decision": "ANSWER",
+  "derivation_sha256": "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2",
+  "end_to_end_latency_ms": 6212.151299998368,
+  "failure_code": null,
+  "provider_metadata": {
+    "embedding": {
+      "cost": {},
+      "model": "@cf/qwen/qwen3-embedding-0.6b",
+      "provider": "cloudflare-workers-ai",
+      "provider_request_id": "a4ad04c0385c85be-HKG",
+      "usage": {}
+    },
+    "generation": {
+      "cost": {},
+      "finish_reason": "stop",
+      "model": "@cf/openai/gpt-oss-20b",
+      "prompt_version": "cloudflare-gpt-oss-cited-answer-v4",
+      "provider": "cloudflare-workers-ai",
+      "provider_request_id": "id-1792048384981",
+      "usage": {
+        "completion_tokens": 304,
+        "prompt_tokens": 2387,
+        "total_tokens": 2691
+      }
+    },
+    "retrieval": {
+      "latency_ms": 20.41780000217841
+    },
+    "timing": {
+      "clock_resolution_ms": 9.999999999999999e-05,
+      "phases": {
+        "candidate_retrieval": {
+          "duration_ms": 20.3789000006509,
+          "end_tick": 16557.4481742,
+          "start_tick": 16557.4277953
+        },
+        "evidence_selection": {
+          "duration_ms": 0.03890000152750872,
+          "end_tick": 16557.4482131,
+          "start_tick": 16557.4481742
+        },
+        "generation": {
+          "duration_ms": 2932.0643999999447,
+          "end_tick": 16560.3802775,
+          "start_tick": 16557.4482131
+        },
+        "query_embedding": {
+          "duration_ms": 3208.626599996933,
+          "end_tick": 16557.4277953,
+          "start_tick": 16554.2191687
+        }
+      }
+    }
+  },
+  "public_response": {
+    "answer": "Theo tóm tắt, PhoNLP được phát hành dưới giấy phép Apache License 2.0. [[E3]]",
+    "citations": [
+      {
+        "content_checksum": "efe56896ff326cc0d9af0b0365d69e1476729b33201f6a9f5ad34dc1d4b84a62",
+        "document_id": "2746c059-25b6-4ba0-83f2-7bd30776576c",
+        "document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7",
+        "end_line": 35,
+        "end_offset": 2521,
+        "evidence_id": "E3",
+        "excerpt": "PhoNLP:Ajointmulti-tasklearningmodelforVietnamesepart-of-speech\ntagging,namedentityrecognitionanddependencyparsing\nLinhTheNguyen and DatQuocNguyen\nVinAIResearch,Hanoi,Vietnam\n{v.linhnt140, v.datnq9}@vinai.io\nAbstract (Nguyen et al.,2017;Le-Hong and Bui,2018).\nWe present the first multi-task learning Thus, there is a need to develop NLP toolkits for\nmodel—named PhoNLP—for joint Viet- linguisticannotationsw.r.t. VietnamesePOStag-\nnamese part-of-speech (POS) tagging, named …",
+        "heading_path": [],
+        "page_end": 1,
+        "page_start": 1,
+        "source_key": "academic-phonlp",
+        "source_name": "academic-phonlp.pdf",
+        "start_line": 1,
+        "start_offset": 0
+      }
+    ],
+    "decision": "ANSWER",
+    "refusal_reason": null,
+    "trace_id": "d8e8bf10-9d8d-4d72-8f8b-7afd8c9a20b1",
+    "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+  },
+  "response_sha256": "6862937cbf799c967ff46c4578f5754f42af3f869c75fe55e83de7d4922b1d70",
+  "retrieval_latency_ms": 20.41780000217841,
+  "run_id": "s1-runtime-binding-20261015-01",
+  "selected_chunk_ids": [
+    "75de1620-c8ce-434a-b031-ea46d8570c27",
+    "ab31322c-7555-498c-aa8b-7b2181201f91",
+    "66a3b490-0f34-4ff6-be7a-36eae9b14667"
+  ],
+  "trace_id": "d8e8bf10-9d8d-4d72-8f8b-7afd8c9a20b1",
+  "turn_id": null,
+  "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+}

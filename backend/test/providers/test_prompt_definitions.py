@@ -1,6 +1,5 @@
 """Definition identity must describe the actual static inputs sent to a provider."""
 
-import hashlib
 import json
 from dataclasses import replace
 from pathlib import Path
@@ -10,7 +9,9 @@ import pytest
 from knora.providers.generation import GenerationEvidence
 
 BASELINE = json.loads(
-    (Path(__file__).parent / "fixtures/prompt-baseline-305f8b9.json").read_text(encoding="utf-8")
+    (Path(__file__).parent / "fixtures/accepted-main-prompt-baseline.json").read_text(
+        encoding="utf-8"
+    )
 )
 
 
@@ -18,43 +19,20 @@ BASELINE = json.loads(
 def test_definition_builds_baseline_messages_schema_and_identity(case: dict) -> None:
     from knora.providers.prompts.builder import build_prompt
 
-    name = case["name"]
-    profile = "ollama" if name.startswith("ollama") else name
-    if name.startswith("cloudflare-answer-"):
-        profile = "cloudflare-answer"
     prompt = build_prompt(
-        profile,
+        case["profile"],
         question=BASELINE["question"],
         evidence=tuple(GenerationEvidence(**entry) for entry in BASELINE["evidence"]),
-        model=case.get("model", ""),
-        presentation=case.get("presentation"),
+        model=case["model"],
     )
-    assert prompt.messages == case["messages"]
-    assert prompt.definition.schema == case["schema"]
-    assert prompt.definition.version == case["version"]
-    serializer = (
-        "ollama-evidence-current-question-v1" if profile == "ollama" else "question-evidence-v1"
-    )
-    static = {
-        "version": case["version"],
-        "system_prompt": case["messages"][0]["content"],
-        "schema": case["schema"],
-        "serializer_id": serializer,
-    }
-    expected = hashlib.sha256(
-        json.dumps(static, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode(
-            "utf-8"
-        )
-    ).hexdigest()
-    assert prompt.definition.fingerprint == expected
+    assert prompt.messages == case["request"]["body"]["messages"]
+    assert prompt.definition.schema == case["definition"]["schema"]
+    assert prompt.definition.version == case["definition"]["version"]
+    assert prompt.definition.fingerprint == case["fingerprint"]
     changed_input = build_prompt(
-        profile,
-        question="Different dynamic question",
-        evidence=(),
-        model=case.get("model", ""),
-        presentation=case.get("presentation"),
+        case["profile"], question="Different dynamic question", evidence=(), model=case["model"]
     )
-    assert changed_input.definition.fingerprint == expected
+    assert changed_input.definition.fingerprint == case["fingerprint"]
     assert changed_input.messages != prompt.messages
 
 
@@ -82,3 +60,10 @@ def test_schema_key_order_does_not_change_definition_identity() -> None:
         replace(definition, schema=dict(reversed(list(definition.schema.items())))).fingerprint
         == definition.fingerprint
     )
+
+
+def test_removed_cloudflare_selector_is_not_a_profile() -> None:
+    from knora.providers.prompts.builder import build_prompt
+
+    with pytest.raises(ValueError, match="unknown prompt profile"):
+        build_prompt("cloudflare-selector", question="Question", evidence=())

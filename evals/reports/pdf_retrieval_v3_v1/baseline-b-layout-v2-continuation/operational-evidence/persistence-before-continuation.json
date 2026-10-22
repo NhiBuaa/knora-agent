@@ -1,0 +1,33 @@
+{
+  "checked_at": "2026-10-15T07:03:56.605856+00:00",
+  "read_only": true,
+  "counts": {
+    "workspaces": 1,
+    "documents": 16,
+    "document_versions": 16,
+    "chunks": 47,
+    "question_traces": 1,
+    "conversations": 1,
+    "conversation_turns": 1,
+    "ingestion_job_attempts": 16
+  },
+  "embedding_profiles": [
+    {
+      "id": "embedding-cloudflare-qwen3-06b-v1",
+      "model": "@cf/qwen/qwen3-embedding-0.6b",
+      "dimensions": 1024,
+      "status": "completed",
+      "vectors": 47,
+      "min_dimensions": 1024,
+      "max_dimensions": 1024
+    }
+  ],
+  "proposal_sha256": "3796d4228f8bd5d6677b162125c34d551e644fe5488133c31df8b0f306488a9d",
+  "derivation_sha256": "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2",
+  "binding_review_sha256": "7d7efbb47e548392eca3846a576552d238eb850f862bda7f9e16f7dc7bfb3288",
+  "mapped": 61,
+  "missing": 25,
+  "paid_budget_usd": 0,
+  "model_calls": 0,
+  "original_trace_unchanged": true
+}

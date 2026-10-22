@@ -1,6 +1,12 @@
 # Issue #183: structured-output runtime checkpoint
 
-Updated: 2026-10-15. PR #184 remains Draft; Issue remains open and Project In Progress.
+> Historical runtime checkpoint. The sole forward plan and current Q20 audit are in the
+> [Master Implementation Plan](../superpowers/plans/2026-10-16-issue-183-master-plan.md).
+> Preparation/next-step statements below are dated history, not a live request grant.
+
+Updated: 2026-10-18. The current offline product pointer is the owner-approved Master section 4.9
+one-call presentation implementation (`cloudflare-gpt-oss-cited-answer-v21`); PR #184 remains
+Draft, Issue remains open and Project In Progress. Runtime evidence below is historical.
 
 ## Approved behavior
 

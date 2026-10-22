@@ -34,7 +34,7 @@ from knora.domain.errors import KnoraError
 from knora.providers import structured_generation
 from knora.providers.generation import GenerationResult
 from knora.providers.ollama.generation import OllamaGenerationProvider
-from knora.providers.openai_compatible import answer_blocks, presentation
+from knora.providers.openai_compatible import answer_blocks
 from knora.providers.prompts import policy
 from knora.providers.prompts.builder import build_prompt
 from knora.providers.prompts.versioning import PromptDefinition
@@ -51,7 +51,6 @@ def runtime_module_sources():
         (build_prompt, "backend/src/knora/providers/prompts/builder.py"),
         (PromptDefinition, "backend/src/knora/providers/prompts/versioning.py"),
         (structured_generation, "backend/src/knora/providers/structured_generation.py"),
-        (presentation, "backend/src/knora/providers/openai_compatible/presentation.py"),
         (answer_blocks, "backend/src/knora/providers/openai_compatible/answer_blocks.py"),
     ):
         actual = Path(inspect.getfile(symbol)).resolve()

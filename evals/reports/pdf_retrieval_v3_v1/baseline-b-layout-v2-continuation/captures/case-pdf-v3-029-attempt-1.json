@@ -1,0 +1,124 @@
+{
+  "attempt": 1,
+  "attempt_id": "s1-runtime-binding-20261015-01:pdf-v3-029:1",
+  "candidates": [
+    {
+      "chunk_id": "b75a9997-9248-4268-adea-7e6dc100e0b5",
+      "chunk_set_id": "6122619d-dab8-405f-b807-0d381e1b6449",
+      "chunking_configuration_id": "chunking-m2-pdf-pypdf-6-14-2-layout-v2",
+      "content": "Hướng dẫn phiếu hỗ trợ\nSYNTHETIC FIXTURE - agent-authored - owner review pending\nPhiếu hỗ trợ chuẩn phải được xác nhận trong 24 giờ.\nPhiếu hỗ trợ khẩn phải được xác nhận trong 2 giờ.\nGiờ xác nhận không phải thời gian giải quyết hoàn tất.\nHạn xác nhận được tính theo giờ liên tục, kể cả cuối tuần.\nKhông thu phí xác nhận phiếu hỗ trợ.\nKhông thu phí xác nhận phiếu hỗ trợ.\nPDF page 1 | CC BY 4.0 | Knora evaluation fixture",
+      "content_checksum": "a59e008f514818311fe90970e1b6fbb0398df49bda3beb7fca3a2a3be9d1e68c",
+      "document_version_id": "28008827-fc3a-43dc-9d5b-713b86da62e9",
+      "end_offset": 420,
+      "final_decision": "SELECTED",
+      "final_rank": 1,
+      "normalizer_configuration_id": "pdf-normalizer-m2-v1",
+      "page_end": 1,
+      "page_start": 1,
+      "parser_configuration_id": "pdf-parser-pypdf-6-14-2-layout-lines-v2",
+      "raw_sha256": "a015d5a8cd0f4a76398c167dc9a4e7ccbba82ba8957dfc8900ef9d6bf6f3fbbf",
+      "source_key": "clean-02",
+      "start_offset": 0,
+      "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+    }
+  ],
+  "case_id": "pdf-v3-029",
+  "conversation_id": "d2adebf7-d1c6-4dca-b18a-c0255a7294de",
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "dataset_sha256": "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
+  "decision": "ANSWER",
+  "derivation_sha256": "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2",
+  "end_to_end_latency_ms": 4213.785399999324,
+  "failure_code": null,
+  "provider_metadata": {
+    "conversation_context": {
+      "policy_id": "conversation-context-v2",
+      "retrieval_query": "Previous user question: Phiếu hỗ trợ chuẩn phải được xác nhận trong bao lâu?\nCurrent question: Vậy hạn đó có tính cuối tuần và mất phí không?",
+      "selected_turn_ids": [
+        "4dd3c00a-072a-4985-b69d-843feeaf0eae"
+      ]
+    },
+    "embedding": {
+      "cost": {},
+      "model": "@cf/qwen/qwen3-embedding-0.6b",
+      "provider": "cloudflare-workers-ai",
+      "provider_request_id": "a4acfea21d3c84e4-HKG",
+      "usage": {}
+    },
+    "generation": {
+      "cost": {},
+      "finish_reason": "stop",
+      "model": "@cf/openai/gpt-oss-20b",
+      "prompt_version": "cloudflare-gpt-oss-cited-answer-v4",
+      "provider": "cloudflare-workers-ai",
+      "provider_request_id": "id-1792048131953",
+      "usage": {
+        "completion_tokens": 276,
+        "prompt_tokens": 673,
+        "total_tokens": 949
+      }
+    },
+    "retrieval": {
+      "latency_ms": 23.703099999693222
+    },
+    "timing": {
+      "clock_resolution_ms": 9.999999999999999e-05,
+      "phases": {
+        "candidate_retrieval": {
+          "duration_ms": 23.663899999519344,
+          "end_tick": 16305.0684521,
+          "start_tick": 16305.0447882
+        },
+        "evidence_selection": {
+          "duration_ms": 0.039200000173877925,
+          "end_tick": 16305.0684913,
+          "start_tick": 16305.0684521
+        },
+        "generation": {
+          "duration_ms": 2254.5278999987204,
+          "end_tick": 16307.3230192,
+          "start_tick": 16305.0684913
+        },
+        "query_embedding": {
+          "duration_ms": 1423.804400001245,
+          "end_tick": 16305.0447882,
+          "start_tick": 16303.6209838
+        }
+      }
+    }
+  },
+  "public_response": {
+    "answer": "Đúng vậy, thời hạn tính liên tục và bao gồm cuối tuần, và không tính phí xác nhận. [[E1]]",
+    "citations": [
+      {
+        "content_checksum": "a59e008f514818311fe90970e1b6fbb0398df49bda3beb7fca3a2a3be9d1e68c",
+        "document_id": "73242722-0442-4f57-91c9-aff70d77cd32",
+        "document_version_id": "28008827-fc3a-43dc-9d5b-713b86da62e9",
+        "end_line": 9,
+        "end_offset": 420,
+        "evidence_id": "E1",
+        "excerpt": "Hướng dẫn phiếu hỗ trợ\nSYNTHETIC FIXTURE - agent-authored - owner review pending\nPhiếu hỗ trợ chuẩn phải được xác nhận trong 24 giờ.\nPhiếu hỗ trợ khẩn phải được xác nhận trong 2 giờ.\nGiờ xác nhận không phải thời gian giải quyết hoàn tất.\nHạn xác nhận được tính theo giờ liên tục, kể cả cuối tuần.\nKhông thu phí xác nhận phiếu hỗ trợ.\nKhông thu phí xác nhận phiếu hỗ trợ.\nPDF page 1 | CC BY 4.0 | Knora evaluation …",
+        "heading_path": [],
+        "page_end": 1,
+        "page_start": 1,
+        "source_key": "clean-02",
+        "source_name": "clean-02.pdf",
+        "start_line": 1,
+        "start_offset": 0
+      }
+    ],
+    "decision": "ANSWER",
+    "refusal_reason": null,
+    "trace_id": "297a3174-e958-4234-a47d-fd7c40a08483",
+    "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+  },
+  "response_sha256": "3164b4cb9a1af1ff1be4498f13c9e1d12039c0fadb67037c8e9f53826d046009",
+  "retrieval_latency_ms": 23.703099999693222,
+  "run_id": "s1-runtime-binding-20261015-01",
+  "selected_chunk_ids": [
+    "b75a9997-9248-4268-adea-7e6dc100e0b5"
+  ],
+  "trace_id": "297a3174-e958-4234-a47d-fd7c40a08483",
+  "turn_id": "6873a097-74ca-4cac-ac14-a7df905461fe",
+  "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+}

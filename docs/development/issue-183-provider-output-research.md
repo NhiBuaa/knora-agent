@@ -1,5 +1,9 @@
 # Issue #183: generation contract research
 
+> Dated research, not a current execution plan. Follow the sole
+> [Master Implementation Plan](../superpowers/plans/2026-10-16-issue-183-master-plan.md)
+> for current decisions, dependencies and permissions; alternatives below are historical.
+
 Date: 2026-10-14 (Asia/Ho_Chi_Minh).
 
 Status: design research. The owner authorized a design round after the v8

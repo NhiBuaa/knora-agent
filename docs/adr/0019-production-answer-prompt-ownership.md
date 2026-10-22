@@ -1,11 +1,11 @@
 # Keep production answer prompt definitions separate from provider transport
 
-Status: owner-approved design through Issue #191; implementation acceptance pending.
+Status: owner-approved design through Issue #191; accepted-main integration proposed in PR #200.
 
 The internal `knora.providers.prompts` module owns production answer policy,
 the two existing serializers, pure message building and static definition identity.
-It preserves generic, Ollama Qwen/GPT-OSS and both Cloudflare stage profiles rather
-than applying a single policy to providers with different contracts. Existing
+It preserves generic, Ollama Qwen/GPT-OSS and the accepted single-call Cloudflare
+answer profile, including their different contracts. Existing
 constant imports remain compatible exports. This centralizes reviewable model input
 without adding a provider interface, registry, template engine or dependency.
 
@@ -24,8 +24,13 @@ dependencies. Question/evidence, secrets and model/token configuration are not p
 of this static fingerprint. No new runtime refusal gate, metadata field or history
 rewrite follows from the fingerprint.
 
-Issue #183 owns Cloudflare behavior/schema and its separate acceptance. Its approved
-changes are synchronized as an explicitly recorded upstream baseline, then checked
-for extraction parity. Passing #191 tests does not accept #183, establish semantic
-support or fix provider HTTP400/token-limit failures. Until #183 is accepted into
-main, #191 must not carry its unaccepted behavior there through a main-targeted PR.
+Issue #183 owns Cloudflare behavior/schema and its separate acceptance. PR #184
+was accepted and merged into main as `0f76233b7ebbdf49cedba0b3affe96e132b069e4`;
+[the owner released #191's integration gate](https://github.com/NhiBuaa/knora-agent/issues/191#issuecomment-6336021245).
+The extraction follows that accepted v21 policy/schema/serializer and production
+cap 2048. The removed selector and its stage aggregation have no current prompt
+profile; application SSE progress remains independent. Historical v17 fixtures
+remain evidence of their own baseline, alongside a separate accepted-main oracle.
+Passing extraction tests does not establish model compliance, semantic support or
+new runtime acceptance. This integration grants no provider, merge or deployment
+authority.

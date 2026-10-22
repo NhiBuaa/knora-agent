@@ -1,0 +1,49 @@
+{
+  "blocked_network_attempts": 0,
+  "cloud_requests": 0,
+  "credential_reads": 0,
+  "detection_completed": false,
+  "detector_invocations": 10,
+  "elapsed_seconds": 54.5,
+  "enforcement": "off",
+  "execution": "finite_offline_run_completed",
+  "export": "off",
+  "fixture_metrics": {
+    "false_positive_rate": 0.25,
+    "fn": 1,
+    "fp": 1,
+    "precision": 0.75,
+    "recall": 0.75,
+    "tn": 3,
+    "tp": 3
+  },
+  "fixture_population": {
+    "errors": 0,
+    "evaluable": 8,
+    "reviewed": 8,
+    "timeouts": 0,
+    "total": 8,
+    "unavailable": 0,
+    "unknown": 0,
+    "unreviewed": 0
+  },
+  "historical_file_sha256_unchanged": true,
+  "phase": "P4",
+  "protection_enabled": false,
+  "pure_tests_passed": 16,
+  "quality_accepted": false,
+  "real_integration_tests_passed": 1,
+  "restart_permitted": false,
+  "retries": 0,
+  "saved_capture_population": {
+    "errors": 0,
+    "evaluable": 0,
+    "reviewed": 0,
+    "timeouts": 0,
+    "total": 2,
+    "unavailable": 1,
+    "unknown": 0,
+    "unreviewed": 2
+  },
+  "utc": "2026-10-17T11:45:21.728299+00:00"
+}

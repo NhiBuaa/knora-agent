@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 from enum import StrEnum
 from math import isfinite
 from threading import Event
-from typing import NewType, Protocol, TypeVar
+from typing import TYPE_CHECKING, Literal, NewType, Protocol, TypeVar
 from uuid import uuid4
 
 from knora.domain.errors import KnoraError
@@ -22,6 +22,10 @@ from knora.ingestion.pdf import (
     PdfTextExtractor,
 )
 from knora.providers.embedding import EmbeddingConfiguration, EmbeddingProvider
+
+if TYPE_CHECKING:
+    from knora.ingestion.lexical_population import VerifiedLexicalPopulation
+    from knora.ingestion.search_indexing import LexicalProfile
 
 SuccessT = TypeVar("SuccessT")
 
@@ -233,9 +237,50 @@ class IngestionWork:
     parser_configuration_id: str
     normalizer_configuration_id: str
     chunking_configuration_id: str
-    embedding_configuration_id: str
+    embedding_configuration_id: str | None
     source_sha256: str = ""
     source_byte_size: int = 0
+    derivation_kind: Literal["dense", "pdf_extraction", "lexical_index"] = "dense"
+    lexical_generation_id: str | None = None
+    lexical_profile_digest: str | None = None
+    source_revision: int | None = None
+    workspace_revision: int | None = None
+    ingestion_job_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.derivation_kind == "dense":
+            valid = (
+                isinstance(self.embedding_configuration_id, str)
+                and bool(self.embedding_configuration_id)
+                and (
+                    self.lexical_generation_id is None
+                    and self.lexical_profile_digest is None
+                    and self.source_revision is None
+                    and self.workspace_revision is None
+                )
+            )
+        elif self.derivation_kind == "pdf_extraction":
+            valid = (
+                self.embedding_configuration_id is None
+                and self.lexical_generation_id is None
+                and isinstance(self.lexical_profile_digest, str)
+                and bool(self.lexical_profile_digest)
+            )
+        elif self.derivation_kind == "lexical_index":
+            valid = (
+                self.embedding_configuration_id is None
+                and isinstance(self.lexical_generation_id, str)
+                and bool(self.lexical_generation_id)
+            )
+        else:
+            valid = False
+        if self.derivation_kind in {"pdf_extraction", "lexical_index"}:
+            valid = valid and all(
+                type(revision) is int and revision >= 0
+                for revision in (self.source_revision, self.workspace_revision)
+            )
+        if not valid:
+            raise ValueError("ingestion work has invalid derivation kind bindings")
 
 
 @dataclass(frozen=True, slots=True)
@@ -283,6 +328,9 @@ class WorkSuperseded:
 
     replacement_document_version_id: str | None = None
     replacement_ingestion_job_id: str | None = None
+    terminal_outcome_code: Literal["stale_document_version", "stale_derivation_snapshot"] = (
+        "stale_document_version"
+    )
 
     def __post_init__(self) -> None:
         for identifier in (
@@ -315,6 +363,21 @@ class PdfDerivationSuccess:
 
 
 @dataclass(frozen=True, slots=True)
+class PdfExtractionSuccess:
+    extraction: PdfExtractionResult
+    lexical_profile: LexicalProfile
+
+
+@dataclass(frozen=True, slots=True)
+class PdfExtractionProfile:
+    parser_configuration_id: str
+    normalizer_configuration_id: str
+    chunking_configuration_id: str
+    extraction_configuration: PdfExtractionConfiguration
+    lexical_profile: LexicalProfile
+
+
+@dataclass(frozen=True, slots=True)
 class PdfDerivationProfile:
     parser_configuration_id: str
     normalizer_configuration_id: str
@@ -344,10 +407,12 @@ class PdfDerivationHandler:
         *,
         object_store: ObjectStore,
         extractor: PdfTextExtractor,
-        embedding_provider: EmbeddingProvider,
-        profile: PdfDerivationProfile | None = None,
-        profile_resolver: Callable[[IngestionWork], PdfDerivationProfile] | None = None,
+        embedding_provider: EmbeddingProvider | None = None,
+        profile: PdfDerivationProfile | PdfExtractionProfile | None = None,
+        profile_resolver: Callable[[IngestionWork], PdfDerivationProfile | PdfExtractionProfile]
+        | None = None,
         runtime_embedding_configuration: EmbeddingConfiguration | None = None,
+        lexical_population: VerifiedLexicalPopulation | None = None,
     ) -> None:
         if profile is None and profile_resolver is None:
             raise ValueError("PdfDerivationHandler needs a profile or profile resolver")
@@ -357,20 +422,34 @@ class PdfDerivationHandler:
         self._profile = profile
         self._profile_resolver = profile_resolver
         self._runtime_embedding_configuration = runtime_embedding_configuration
+        self._lexical_population = lexical_population
 
     def execute(
         self, work: IngestionWork, cancellation: CancellationToken
-    ) -> WorkOutcome[PdfDerivationSuccess]:
+    ) -> WorkOutcome[PdfDerivationSuccess | PdfExtractionSuccess]:
         del cancellation
-        profile = (
-            self._profile_resolver(work) if self._profile_resolver is not None else self._profile
-        )
+        try:
+            profile = (
+                self._profile_resolver(work)
+                if self._profile_resolver is not None
+                else self._profile
+            )
+        except CoordinationInvariantError:
+            if work.derivation_kind != "pdf_extraction":
+                raise
+            return WorkFailed(HandlerFailureKindV1.CONFIGURATION_INVALID, "configuration_invalid")
         if (
             profile is None
             or not self._profile_matches_work(work, profile)
             or (
-                self._runtime_embedding_configuration is not None
-                and profile.embedding_configuration != self._runtime_embedding_configuration
+                isinstance(profile, PdfDerivationProfile)
+                and (
+                    self._embedding_provider is None
+                    or (
+                        self._runtime_embedding_configuration is not None
+                        and profile.embedding_configuration != self._runtime_embedding_configuration
+                    )
+                )
             )
         ):
             return WorkFailed(HandlerFailureKindV1.CONFIGURATION_INVALID, "configuration_invalid")
@@ -425,6 +504,25 @@ class PdfDerivationHandler:
             extraction_matches_profile = False
         if not extraction_matches_profile:
             return WorkFailed(HandlerFailureKindV1.CONFIGURATION_INVALID, "configuration_invalid")
+
+        if isinstance(profile, PdfExtractionProfile):
+            from knora.ingestion.lexical_population import LexicalPopulationError
+
+            if self._lexical_population is None:
+                return WorkFailed(
+                    HandlerFailureKindV1.CONFIGURATION_INVALID, "configuration_invalid"
+                )
+            try:
+                self._lexical_population.validate_document(
+                    work.source_sha256,
+                    tuple(chunk.content for chunk in extraction.chunks),
+                    profile.lexical_profile,
+                )
+            except LexicalPopulationError:
+                return WorkFailed(
+                    HandlerFailureKindV1.CONFIGURATION_INVALID, "configuration_invalid"
+                )
+            return WorkSucceeded(PdfExtractionSuccess(extraction, profile.lexical_profile))
 
         try:
             embed_documents = getattr(
@@ -485,13 +583,25 @@ class PdfDerivationHandler:
         )
 
     @staticmethod
-    def _profile_matches_work(work: IngestionWork, profile: PdfDerivationProfile) -> bool:
+    def _profile_matches_work(
+        work: IngestionWork, profile: PdfDerivationProfile | PdfExtractionProfile
+    ) -> bool:
         extraction = profile.extraction_configuration
+        if isinstance(profile, PdfExtractionProfile):
+            kind_matches = (
+                work.derivation_kind == "pdf_extraction"
+                and profile.lexical_profile.digest() == work.lexical_profile_digest
+            )
+        else:
+            kind_matches = (
+                work.derivation_kind == "dense"
+                and profile.embedding_configuration.id == work.embedding_configuration_id
+            )
         return (
-            profile.parser_configuration_id == work.parser_configuration_id
+            kind_matches
+            and profile.parser_configuration_id == work.parser_configuration_id
             and profile.normalizer_configuration_id == work.normalizer_configuration_id
             and profile.chunking_configuration_id == work.chunking_configuration_id
-            and profile.embedding_configuration.id == work.embedding_configuration_id
             and profile.normalizer_configuration_id == extraction.normalizer_version
         )
 
@@ -507,7 +617,7 @@ class PdfDerivationHandler:
 
     @staticmethod
     def _extraction_matches_profile(
-        extraction: PdfExtractionResult, profile: PdfDerivationProfile
+        extraction: PdfExtractionResult, profile: PdfDerivationProfile | PdfExtractionProfile
     ) -> bool:
         configuration = profile.extraction_configuration
         if (

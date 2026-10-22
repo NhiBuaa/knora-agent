@@ -12,6 +12,7 @@ from knora.adapters.postgres.ingestion_jobs.coordination import (
 )
 from knora.adapters.postgres.ingestion_jobs.lifecycle import PostgresObjectLifecycleStore
 from knora.adapters.postgres.ingestion_jobs.submission import PostgresPdfSubmissionStore
+from knora.answering.stores import RetrievalConfiguration
 from knora.ingestion.job_processing import (
     AttemptTimingV1,
     CanonicalFailureV1,
@@ -42,6 +43,7 @@ from knora.ingestion.jobs import (
     ReprocessContext,
     ReprocessResult,
 )
+from knora.ingestion.lexical_population import VerifiedLexicalPopulation
 from knora.ingestion.object_lifecycle import (
     LifecycleClaim,
     LifecycleCompletion,
@@ -53,7 +55,12 @@ from knora.ingestion.object_store import ObjectMetadata
 
 
 class PostgresIngestionJobStore(PdfSubmissionStore):
-    def __init__(self, session_factory: sessionmaker) -> None:
+    def __init__(
+        self,
+        session_factory: sessionmaker,
+        retrieval_configuration: RetrievalConfiguration | None = None,
+        lexical_population: VerifiedLexicalPopulation | None = None,
+    ) -> None:
         self._session_factory = session_factory
         self._lifecycle_store = PostgresObjectLifecycleStore(
             session_factory=session_factory,
@@ -62,6 +69,8 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
         self._submission_store = PostgresPdfSubmissionStore(
             session_factory=session_factory,
             database_now=self._database_now,
+            retrieval_configuration=retrieval_configuration,
+            lexical_population=lexical_population,
         )
         self._coordination_store = PostgresIngestionJobCoordinationStore(
             session_factory=session_factory,
@@ -199,6 +208,11 @@ class PostgresIngestionJobStore(PdfSubmissionStore):
 
     def pdf_profile_for_work(self, work):
         return self._coordination_store.pdf_profile_for_work(work)
+
+    def load_generation(self, work):
+        """Load one PostgreSQL-authorized lexical generation for the index worker."""
+
+        return self._coordination_store._search_index_store.load_generation(work)
 
     def read_reprocess_context(
         self,

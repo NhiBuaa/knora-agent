@@ -1,0 +1,72 @@
+{
+  "attempt": 1,
+  "attempt_id": "s1-runtime-binding-20261015-01:pdf-v3-036:1",
+  "candidates": [],
+  "case_id": "pdf-v3-036",
+  "conversation_id": "f7dd00c9-4870-440f-b0ef-c37e9bd2b5c8",
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "dataset_sha256": "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
+  "decision": "REFUSAL",
+  "derivation_sha256": "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2",
+  "end_to_end_latency_ms": 1112.608800000089,
+  "failure_code": null,
+  "provider_metadata": {
+    "conversation_context": {
+      "policy_id": "conversation-context-v2",
+      "retrieval_query": "Thiết bị đó kiểm chuẩn bao lâu một lần và khi tem kiểm chuẩn hết hạn có dùng được không?",
+      "selected_turn_ids": [
+        "3916ccc1-de92-413a-9630-ab1fa5e51459"
+      ]
+    },
+    "embedding": {
+      "cost": {},
+      "model": "@cf/qwen/qwen3-embedding-0.6b",
+      "provider": "cloudflare-workers-ai",
+      "provider_request_id": "a4acff28f9c584e4-HKG",
+      "usage": {}
+    },
+    "retrieval": {
+      "latency_ms": 21.066900000732858
+    },
+    "timing": {
+      "clock_resolution_ms": 9.999999999999999e-05,
+      "phases": {
+        "candidate_retrieval": {
+          "duration_ms": 21.03019999958633,
+          "end_tick": 16325.6514913,
+          "start_tick": 16325.6304611
+        },
+        "evidence_selection": {
+          "duration_ms": 0.03670000114652794,
+          "end_tick": 16325.651528,
+          "start_tick": 16325.6514913
+        },
+        "generation": {
+          "duration_ms": 0.0,
+          "end_tick": 16325.651528,
+          "start_tick": 16325.651528
+        },
+        "query_embedding": {
+          "duration_ms": 433.03649999870686,
+          "end_tick": 16325.6304611,
+          "start_tick": 16325.1974246
+        }
+      }
+    }
+  },
+  "public_response": {
+    "answer": null,
+    "citations": [],
+    "decision": "REFUSAL",
+    "refusal_reason": "INSUFFICIENT_EVIDENCE",
+    "trace_id": "a6a7862f-3c32-431d-87b8-e00634506a17",
+    "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+  },
+  "response_sha256": "695560ec3bd613ac2631ffb798447631c2738bc316ffad6c44c56ffb8049a0c9",
+  "retrieval_latency_ms": 21.066900000732858,
+  "run_id": "s1-runtime-binding-20261015-01",
+  "selected_chunk_ids": [],
+  "trace_id": "a6a7862f-3c32-431d-87b8-e00634506a17",
+  "turn_id": "db1b01de-702c-47e6-bd67-63bff93c051d",
+  "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+}

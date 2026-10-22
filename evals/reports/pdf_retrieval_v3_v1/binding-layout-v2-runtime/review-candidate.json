@@ -1,0 +1,1535 @@
+{
+  "status": "pending_owner_review",
+  "proposal_sha256": "3796d4228f8bd5d6677b162125c34d551e644fe5488133c31df8b0f306488a9d",
+  "offline_proposal_sha256": "2fa44a4d7acefbf60bf4f5fef457b7a28b97de46d76120b51c0a4453fbc44075",
+  "choices": {
+    "r1": [
+      0
+    ],
+    "r2": [
+      0
+    ],
+    "r3": [
+      0
+    ],
+    "r4": [
+      0
+    ],
+    "r5": [
+      0
+    ],
+    "r6": [
+      0
+    ],
+    "g1": [
+      0
+    ],
+    "g2": [
+      0
+    ],
+    "g3": [
+      0
+    ],
+    "g4": [
+      0
+    ],
+    "g5": [
+      0
+    ],
+    "g6": [
+      1
+    ],
+    "h11": [
+      0
+    ],
+    "h12": [
+      0
+    ],
+    "h13": [
+      0
+    ],
+    "h14": [
+      0
+    ],
+    "h15": [
+      0
+    ],
+    "h16": [
+      0
+    ],
+    "h21": [
+      0
+    ],
+    "h22": [
+      0
+    ],
+    "h23": [
+      0
+    ],
+    "h24": [
+      0
+    ],
+    "h25": [
+      0
+    ],
+    "h26": [
+      0
+    ],
+    "h31": [
+      0
+    ],
+    "h32": [
+      0
+    ],
+    "h33": [
+      0
+    ],
+    "h34": [
+      0
+    ],
+    "h35": [
+      0
+    ],
+    "h36": [
+      0
+    ],
+    "c11": [
+      0
+    ],
+    "c12": [
+      0
+    ],
+    "c13": [
+      0
+    ],
+    "c14": [
+      0
+    ],
+    "c15": [
+      0
+    ],
+    "c16": [
+      0
+    ],
+    "c21": [],
+    "c22": [],
+    "c23": [],
+    "c24": [],
+    "c25": [],
+    "c26": [],
+    "t11": [
+      0
+    ],
+    "t12": [
+      0
+    ],
+    "t13": [
+      0
+    ],
+    "t14": [
+      0
+    ],
+    "t15": [
+      0
+    ],
+    "t16": [
+      0
+    ],
+    "t17": [
+      1
+    ],
+    "t18": [
+      0
+    ],
+    "t21": [
+      0
+    ],
+    "t22": [
+      0
+    ],
+    "t23": [
+      0
+    ],
+    "t24": [
+      0
+    ],
+    "t25": [
+      0
+    ],
+    "t26": [
+      0
+    ],
+    "t27": [
+      0
+    ],
+    "t28": [
+      0
+    ],
+    "t31": [
+      0
+    ],
+    "t32": [
+      0
+    ],
+    "t33": [
+      0
+    ],
+    "t34": [
+      0
+    ],
+    "t35": [
+      0
+    ],
+    "t36": [
+      0
+    ],
+    "t37": [
+      0
+    ],
+    "t38": [
+      0
+    ],
+    "s11": [],
+    "s12": [],
+    "s13": [],
+    "s14": [],
+    "s21": [],
+    "s22": [],
+    "s23": [],
+    "s24": [],
+    "s31": [],
+    "s32": [],
+    "s33": [],
+    "s34": [],
+    "pb1": [],
+    "pb2": [],
+    "pn1": [],
+    "pn2": [
+      0
+    ],
+    "v51": [],
+    "v52": [],
+    "v53": [],
+    "v54": []
+  },
+  "mapped_anchors": 61,
+  "missing_anchors": [
+    "c21",
+    "c22",
+    "c23",
+    "c24",
+    "c25",
+    "c26",
+    "s11",
+    "s12",
+    "s13",
+    "s14",
+    "s21",
+    "s22",
+    "s23",
+    "s24",
+    "s31",
+    "s32",
+    "s33",
+    "s34",
+    "pb1",
+    "pb2",
+    "pn1",
+    "v51",
+    "v52",
+    "v53",
+    "v54"
+  ],
+  "chunk_content_differences": 0,
+  "occurrence_differences": 0,
+  "identity_differences": "actual workspace/version/chunk-set/chunk UUIDs replace offline labels",
+  "anchors": [
+    {
+      "anchor_id": "r1",
+      "source_id": "clean-01",
+      "page": 1,
+      "evidence_text": "Mã A-17 tra cứu hồ sơ QD-42.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "0d6c4295-e1b1-4b08-9a2a-4250fe61c3d0"
+      ],
+      "chunk_set_id": "63e0aba0-b5e9-4a72-b273-757fcdc6cb82",
+      "document_version_id": "94421f96-6437-40d9-892c-f1590d5a16bb",
+      "end_offset": 106,
+      "start_offset": 78
+    },
+    {
+      "anchor_id": "r2",
+      "source_id": "clean-01",
+      "page": 1,
+      "evidence_text": "Mã B-08 tra cứu hồ sơ TB-19.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "0d6c4295-e1b1-4b08-9a2a-4250fe61c3d0"
+      ],
+      "chunk_set_id": "63e0aba0-b5e9-4a72-b273-757fcdc6cb82",
+      "document_version_id": "94421f96-6437-40d9-892c-f1590d5a16bb",
+      "end_offset": 135,
+      "start_offset": 107
+    },
+    {
+      "anchor_id": "r3",
+      "source_id": "clean-01",
+      "page": 1,
+      "evidence_text": "Mã C-31 tra cứu hồ sơ SC-07.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "0d6c4295-e1b1-4b08-9a2a-4250fe61c3d0"
+      ],
+      "chunk_set_id": "63e0aba0-b5e9-4a72-b273-757fcdc6cb82",
+      "document_version_id": "94421f96-6437-40d9-892c-f1590d5a16bb",
+      "end_offset": 164,
+      "start_offset": 136
+    },
+    {
+      "anchor_id": "r4",
+      "source_id": "clean-01",
+      "page": 2,
+      "evidence_text": "Mã D-12 tra cứu hồ sơ COL-58.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "3caed1b0-823a-4d67-9cce-46d5fa71fd93"
+      ],
+      "chunk_set_id": "63e0aba0-b5e9-4a72-b273-757fcdc6cb82",
+      "document_version_id": "94421f96-6437-40d9-892c-f1590d5a16bb",
+      "end_offset": 107,
+      "start_offset": 78
+    },
+    {
+      "anchor_id": "r5",
+      "source_id": "clean-01",
+      "page": 2,
+      "evidence_text": "Mã E-24 tra cứu hồ sơ QD-63.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "3caed1b0-823a-4d67-9cce-46d5fa71fd93"
+      ],
+      "chunk_set_id": "63e0aba0-b5e9-4a72-b273-757fcdc6cb82",
+      "document_version_id": "94421f96-6437-40d9-892c-f1590d5a16bb",
+      "end_offset": 136,
+      "start_offset": 108
+    },
+    {
+      "anchor_id": "r6",
+      "source_id": "clean-01",
+      "page": 2,
+      "evidence_text": "Mã F-09 tra cứu hồ sơ TB-27.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "3caed1b0-823a-4d67-9cce-46d5fa71fd93"
+      ],
+      "chunk_set_id": "63e0aba0-b5e9-4a72-b273-757fcdc6cb82",
+      "document_version_id": "94421f96-6437-40d9-892c-f1590d5a16bb",
+      "end_offset": 165,
+      "start_offset": 137
+    },
+    {
+      "anchor_id": "g1",
+      "source_id": "clean-02",
+      "page": 1,
+      "evidence_text": "Phiếu hỗ trợ chuẩn phải được xác nhận trong 24 giờ.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "b75a9997-9248-4268-adea-7e6dc100e0b5"
+      ],
+      "chunk_set_id": "6122619d-dab8-405f-b807-0d381e1b6449",
+      "document_version_id": "28008827-fc3a-43dc-9d5b-713b86da62e9",
+      "end_offset": 132,
+      "start_offset": 81
+    },
+    {
+      "anchor_id": "g2",
+      "source_id": "clean-02",
+      "page": 1,
+      "evidence_text": "Phiếu hỗ trợ khẩn phải được xác nhận trong 2 giờ.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "b75a9997-9248-4268-adea-7e6dc100e0b5"
+      ],
+      "chunk_set_id": "6122619d-dab8-405f-b807-0d381e1b6449",
+      "document_version_id": "28008827-fc3a-43dc-9d5b-713b86da62e9",
+      "end_offset": 182,
+      "start_offset": 133
+    },
+    {
+      "anchor_id": "g3",
+      "source_id": "clean-02",
+      "page": 1,
+      "evidence_text": "Giờ xác nhận không phải thời gian giải quyết hoàn tất.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "b75a9997-9248-4268-adea-7e6dc100e0b5"
+      ],
+      "chunk_set_id": "6122619d-dab8-405f-b807-0d381e1b6449",
+      "document_version_id": "28008827-fc3a-43dc-9d5b-713b86da62e9",
+      "end_offset": 237,
+      "start_offset": 183
+    },
+    {
+      "anchor_id": "g4",
+      "source_id": "clean-02",
+      "page": 1,
+      "evidence_text": "Hạn xác nhận được tính theo giờ liên tục, kể cả cuối tuần.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "b75a9997-9248-4268-adea-7e6dc100e0b5"
+      ],
+      "chunk_set_id": "6122619d-dab8-405f-b807-0d381e1b6449",
+      "document_version_id": "28008827-fc3a-43dc-9d5b-713b86da62e9",
+      "end_offset": 296,
+      "start_offset": 238
+    },
+    {
+      "anchor_id": "g5",
+      "source_id": "clean-02",
+      "page": 1,
+      "evidence_text": "Không thu phí xác nhận phiếu hỗ trợ.",
+      "status": "ambiguous",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "b75a9997-9248-4268-adea-7e6dc100e0b5"
+      ],
+      "chunk_set_id": "6122619d-dab8-405f-b807-0d381e1b6449",
+      "document_version_id": "28008827-fc3a-43dc-9d5b-713b86da62e9",
+      "end_offset": 333,
+      "start_offset": 297
+    },
+    {
+      "anchor_id": "g6",
+      "source_id": "clean-02",
+      "page": 1,
+      "evidence_text": "Không thu phí xác nhận phiếu hỗ trợ.",
+      "status": "ambiguous",
+      "content_difference": false,
+      "offline_match_index": 1,
+      "runtime_match_index": 1,
+      "chunk_ids": [
+        "b75a9997-9248-4268-adea-7e6dc100e0b5"
+      ],
+      "chunk_set_id": "6122619d-dab8-405f-b807-0d381e1b6449",
+      "document_version_id": "28008827-fc3a-43dc-9d5b-713b86da62e9",
+      "end_offset": 370,
+      "start_offset": 334
+    },
+    {
+      "anchor_id": "h11",
+      "source_id": "hierarchy-01",
+      "page": 1,
+      "evidence_text": "QD-42: mức bồi hoàn tối đa là 350.000 đồng.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "2b8031ca-a049-43d7-a96e-70cac81c7710"
+      ],
+      "chunk_set_id": "96d754c7-3ce4-464e-8068-f484945df3ef",
+      "document_version_id": "5cfde5e6-9ea8-4159-8aaf-e5c079c8e9af",
+      "end_offset": 122,
+      "start_offset": 79
+    },
+    {
+      "anchor_id": "h12",
+      "source_id": "hierarchy-01",
+      "page": 1,
+      "evidence_text": "1. Phạm vi: áp dụng cho đơn hàng nội địa.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "2b8031ca-a049-43d7-a96e-70cac81c7710"
+      ],
+      "chunk_set_id": "96d754c7-3ce4-464e-8068-f484945df3ef",
+      "document_version_id": "5cfde5e6-9ea8-4159-8aaf-e5c079c8e9af",
+      "end_offset": 164,
+      "start_offset": 123
+    },
+    {
+      "anchor_id": "h13",
+      "source_id": "hierarchy-01",
+      "page": 1,
+      "evidence_text": "1.1. Đơn chuẩn: được đổi trong 48 giờ sau khi nhận.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "2b8031ca-a049-43d7-a96e-70cac81c7710"
+      ],
+      "chunk_set_id": "96d754c7-3ce4-464e-8068-f484945df3ef",
+      "document_version_id": "5cfde5e6-9ea8-4159-8aaf-e5c079c8e9af",
+      "end_offset": 216,
+      "start_offset": 165
+    },
+    {
+      "anchor_id": "h14",
+      "source_id": "hierarchy-01",
+      "page": 1,
+      "evidence_text": "1.2. Đơn vùng xa: được đổi trong 72 giờ sau khi nhận.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "2b8031ca-a049-43d7-a96e-70cac81c7710"
+      ],
+      "chunk_set_id": "96d754c7-3ce4-464e-8068-f484945df3ef",
+      "document_version_id": "5cfde5e6-9ea8-4159-8aaf-e5c079c8e9af",
+      "end_offset": 270,
+      "start_offset": 217
+    },
+    {
+      "anchor_id": "h15",
+      "source_id": "hierarchy-01",
+      "page": 1,
+      "evidence_text": "1.2.1. Ngoại lệ: không nhận đổi hàng đã mở niêm phong.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "2b8031ca-a049-43d7-a96e-70cac81c7710"
+      ],
+      "chunk_set_id": "96d754c7-3ce4-464e-8068-f484945df3ef",
+      "document_version_id": "5cfde5e6-9ea8-4159-8aaf-e5c079c8e9af",
+      "end_offset": 325,
+      "start_offset": 271
+    },
+    {
+      "anchor_id": "h16",
+      "source_id": "hierarchy-01",
+      "page": 1,
+      "evidence_text": "2. Hoàn tiền: xử lý trong 5 ngày làm việc.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "2b8031ca-a049-43d7-a96e-70cac81c7710"
+      ],
+      "chunk_set_id": "96d754c7-3ce4-464e-8068-f484945df3ef",
+      "document_version_id": "5cfde5e6-9ea8-4159-8aaf-e5c079c8e9af",
+      "end_offset": 368,
+      "start_offset": 326
+    },
+    {
+      "anchor_id": "h21",
+      "source_id": "hierarchy-02",
+      "page": 1,
+      "evidence_text": "QD-63: thời hạn lưu bản sao là 90 ngày.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "2c54d222-7131-4fa7-b4fb-ff4afae66385"
+      ],
+      "chunk_set_id": "6d7bc64f-9d30-4b19-9ece-bca60ad9c7c6",
+      "document_version_id": "3172814d-ea76-4213-af46-947fe702a103",
+      "end_offset": 114,
+      "start_offset": 75
+    },
+    {
+      "anchor_id": "h22",
+      "source_id": "hierarchy-02",
+      "page": 1,
+      "evidence_text": "1. Quyền truy cập: người đọc chỉ được xem tài liệu.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "2c54d222-7131-4fa7-b4fb-ff4afae66385"
+      ],
+      "chunk_set_id": "6d7bc64f-9d30-4b19-9ece-bca60ad9c7c6",
+      "document_version_id": "3172814d-ea76-4213-af46-947fe702a103",
+      "end_offset": 166,
+      "start_offset": 115
+    },
+    {
+      "anchor_id": "h23",
+      "source_id": "hierarchy-02",
+      "page": 1,
+      "evidence_text": "1.1. Biên tập viên: được sửa bản nháp, không được công bố.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "2c54d222-7131-4fa7-b4fb-ff4afae66385"
+      ],
+      "chunk_set_id": "6d7bc64f-9d30-4b19-9ece-bca60ad9c7c6",
+      "document_version_id": "3172814d-ea76-4213-af46-947fe702a103",
+      "end_offset": 225,
+      "start_offset": 167
+    },
+    {
+      "anchor_id": "h24",
+      "source_id": "hierarchy-02",
+      "page": 1,
+      "evidence_text": "1.2. Chủ sở hữu: được công bố bản đã duyệt.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "2c54d222-7131-4fa7-b4fb-ff4afae66385"
+      ],
+      "chunk_set_id": "6d7bc64f-9d30-4b19-9ece-bca60ad9c7c6",
+      "document_version_id": "3172814d-ea76-4213-af46-947fe702a103",
+      "end_offset": 269,
+      "start_offset": 226
+    },
+    {
+      "anchor_id": "h25",
+      "source_id": "hierarchy-02",
+      "page": 1,
+      "evidence_text": "2. Lưu trữ: bản nháp thường được giữ 30 ngày.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "2c54d222-7131-4fa7-b4fb-ff4afae66385"
+      ],
+      "chunk_set_id": "6d7bc64f-9d30-4b19-9ece-bca60ad9c7c6",
+      "document_version_id": "3172814d-ea76-4213-af46-947fe702a103",
+      "end_offset": 315,
+      "start_offset": 270
+    },
+    {
+      "anchor_id": "h26",
+      "source_id": "hierarchy-02",
+      "page": 1,
+      "evidence_text": "2.1. Hồ sơ tranh chấp được giữ 90 ngày, thay cho 30 ngày.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "2c54d222-7131-4fa7-b4fb-ff4afae66385"
+      ],
+      "chunk_set_id": "6d7bc64f-9d30-4b19-9ece-bca60ad9c7c6",
+      "document_version_id": "3172814d-ea76-4213-af46-947fe702a103",
+      "end_offset": 373,
+      "start_offset": 316
+    },
+    {
+      "anchor_id": "h31",
+      "source_id": "hierarchy-03",
+      "page": 1,
+      "evidence_text": "1. Cảnh báo P1: phải báo trực trong 15 phút.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "fc30cda0-54ff-4726-a4ee-90c84256ced4"
+      ],
+      "chunk_set_id": "411bd4e5-c3f5-493f-b172-e50cb7b4e50b",
+      "document_version_id": "c0b35b48-be5f-4b26-b16b-3e02a1d92cf6",
+      "end_offset": 120,
+      "start_offset": 76
+    },
+    {
+      "anchor_id": "h32",
+      "source_id": "hierarchy-03",
+      "page": 1,
+      "evidence_text": "1.1. Cảnh báo P2: phải báo trực trong 60 phút.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "fc30cda0-54ff-4726-a4ee-90c84256ced4"
+      ],
+      "chunk_set_id": "411bd4e5-c3f5-493f-b172-e50cb7b4e50b",
+      "document_version_id": "c0b35b48-be5f-4b26-b16b-3e02a1d92cf6",
+      "end_offset": 167,
+      "start_offset": 121
+    },
+    {
+      "anchor_id": "h33",
+      "source_id": "hierarchy-03",
+      "page": 1,
+      "evidence_text": "1.1.1. Không hạ P1 xuống P2 chỉ vì ngoài giờ.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "fc30cda0-54ff-4726-a4ee-90c84256ced4"
+      ],
+      "chunk_set_id": "411bd4e5-c3f5-493f-b172-e50cb7b4e50b",
+      "document_version_id": "c0b35b48-be5f-4b26-b16b-3e02a1d92cf6",
+      "end_offset": 213,
+      "start_offset": 168
+    },
+    {
+      "anchor_id": "h34",
+      "source_id": "hierarchy-03",
+      "page": 2,
+      "evidence_text": "2. Người trực phải xác nhận đã nhận cảnh báo.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "2f76e65f-99ff-473f-b508-47de0d74ca7c"
+      ],
+      "chunk_set_id": "411bd4e5-c3f5-493f-b172-e50cb7b4e50b",
+      "document_version_id": "c0b35b48-be5f-4b26-b16b-3e02a1d92cf6",
+      "end_offset": 121,
+      "start_offset": 76
+    },
+    {
+      "anchor_id": "h35",
+      "source_id": "hierarchy-03",
+      "page": 2,
+      "evidence_text": "2.1. Khi chưa có xác nhận, gọi lại sau 5 phút.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "2f76e65f-99ff-473f-b508-47de0d74ca7c"
+      ],
+      "chunk_set_id": "411bd4e5-c3f5-493f-b172-e50cb7b4e50b",
+      "document_version_id": "c0b35b48-be5f-4b26-b16b-3e02a1d92cf6",
+      "end_offset": 168,
+      "start_offset": 122
+    },
+    {
+      "anchor_id": "h36",
+      "source_id": "hierarchy-03",
+      "page": 2,
+      "evidence_text": "2.2. Không gửi nội dung khách hàng qua kênh công khai.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "2f76e65f-99ff-473f-b508-47de0d74ca7c"
+      ],
+      "chunk_set_id": "411bd4e5-c3f5-493f-b172-e50cb7b4e50b",
+      "document_version_id": "c0b35b48-be5f-4b26-b16b-3e02a1d92cf6",
+      "end_offset": 223,
+      "start_offset": 169
+    },
+    {
+      "anchor_id": "c11",
+      "source_id": "columns-01",
+      "page": 1,
+      "evidence_text": "COL-58: tổng hạn mức là 42 lượt.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "a1a278bc-62ed-4b40-9eca-25a003312c5d"
+      ],
+      "chunk_set_id": "7b67bcc3-96b3-42e3-a8e4-277fa4c285dc",
+      "document_version_id": "3ca50a31-2cf7-48a9-893f-584eccc324db",
+      "end_offset": 106,
+      "start_offset": 74
+    },
+    {
+      "anchor_id": "c12",
+      "source_id": "columns-01",
+      "page": 1,
+      "evidence_text": "Hạn mức đầu kỳ cấp 14 lượt.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "a1a278bc-62ed-4b40-9eca-25a003312c5d"
+      ],
+      "chunk_set_id": "7b67bcc3-96b3-42e3-a8e4-277fa4c285dc",
+      "document_version_id": "3ca50a31-2cf7-48a9-893f-584eccc324db",
+      "end_offset": 166,
+      "start_offset": 139
+    },
+    {
+      "anchor_id": "c13",
+      "source_id": "columns-01",
+      "page": 1,
+      "evidence_text": "Hạn mức chuyển kỳ tối đa 28 lượt.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "a1a278bc-62ed-4b40-9eca-25a003312c5d"
+      ],
+      "chunk_set_id": "7b67bcc3-96b3-42e3-a8e4-277fa4c285dc",
+      "document_version_id": "3ca50a31-2cf7-48a9-893f-584eccc324db",
+      "end_offset": 244,
+      "start_offset": 211
+    },
+    {
+      "anchor_id": "c14",
+      "source_id": "columns-01",
+      "page": 1,
+      "evidence_text": "Không cộng dồn lượt đã hết hạn.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "a1a278bc-62ed-4b40-9eca-25a003312c5d"
+      ],
+      "chunk_set_id": "7b67bcc3-96b3-42e3-a8e4-277fa4c285dc",
+      "document_version_id": "3ca50a31-2cf7-48a9-893f-584eccc324db",
+      "end_offset": 138,
+      "start_offset": 107
+    },
+    {
+      "anchor_id": "c15",
+      "source_id": "columns-01",
+      "page": 1,
+      "evidence_text": "Lượt chuyển kỳ được dùng trước lượt đầu kỳ.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "a1a278bc-62ed-4b40-9eca-25a003312c5d"
+      ],
+      "chunk_set_id": "7b67bcc3-96b3-42e3-a8e4-277fa4c285dc",
+      "document_version_id": "3ca50a31-2cf7-48a9-893f-584eccc324db",
+      "end_offset": 210,
+      "start_offset": 167
+    },
+    {
+      "anchor_id": "c16",
+      "source_id": "columns-01",
+      "page": 1,
+      "evidence_text": "Hạn mức được kiểm tra lúc 09:00 mỗi thứ Hai.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "a1a278bc-62ed-4b40-9eca-25a003312c5d"
+      ],
+      "chunk_set_id": "7b67bcc3-96b3-42e3-a8e4-277fa4c285dc",
+      "document_version_id": "3ca50a31-2cf7-48a9-893f-584eccc324db",
+      "end_offset": 289,
+      "start_offset": 245
+    },
+    {
+      "anchor_id": "c21",
+      "source_id": "columns-02",
+      "page": 1,
+      "evidence_text": "Evidence nghĩa là bằng chứng nguồn, không phải câu trả lời.",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "c22",
+      "source_id": "columns-02",
+      "page": 1,
+      "evidence_text": "Citation nghĩa là trích dẫn chỉ đến bằng chứng nguồn.",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "c23",
+      "source_id": "columns-02",
+      "page": 1,
+      "evidence_text": "Refusal nghĩa là từ chối trả lời khi thiếu bằng chứng.",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "c24",
+      "source_id": "columns-02",
+      "page": 1,
+      "evidence_text": "Answer means a response supported by source evidence.",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "c25",
+      "source_id": "columns-02",
+      "page": 1,
+      "evidence_text": "A citation does not replace the required answer facts.",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "c26",
+      "source_id": "columns-02",
+      "page": 1,
+      "evidence_text": "A refusal must not invent a missing source fact.",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "t11",
+      "source_id": "table-01",
+      "page": 1,
+      "evidence_text": "TB-19",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "1694b5b2-cc87-4b8e-8c32-ab028485b615"
+      ],
+      "chunk_set_id": "0747d763-da35-474d-af4e-8d1ca9e7e94a",
+      "document_version_id": "37d006e3-b836-4866-a828-b6397c4b0f8f",
+      "end_offset": 165,
+      "start_offset": 160
+    },
+    {
+      "anchor_id": "t12",
+      "source_id": "table-01",
+      "page": 1,
+      "evidence_text": "12",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "1694b5b2-cc87-4b8e-8c32-ab028485b615"
+      ],
+      "chunk_set_id": "0747d763-da35-474d-af4e-8d1ca9e7e94a",
+      "document_version_id": "37d006e3-b836-4866-a828-b6397c4b0f8f",
+      "end_offset": 168,
+      "start_offset": 166
+    },
+    {
+      "anchor_id": "t13",
+      "source_id": "table-01",
+      "page": 1,
+      "evidence_text": "18",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "1694b5b2-cc87-4b8e-8c32-ab028485b615"
+      ],
+      "chunk_set_id": "0747d763-da35-474d-af4e-8d1ca9e7e94a",
+      "document_version_id": "37d006e3-b836-4866-a828-b6397c4b0f8f",
+      "end_offset": 171,
+      "start_offset": 169
+    },
+    {
+      "anchor_id": "t14",
+      "source_id": "table-01",
+      "page": 1,
+      "evidence_text": "30",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "1694b5b2-cc87-4b8e-8c32-ab028485b615"
+      ],
+      "chunk_set_id": "0747d763-da35-474d-af4e-8d1ca9e7e94a",
+      "document_version_id": "37d006e3-b836-4866-a828-b6397c4b0f8f",
+      "end_offset": 174,
+      "start_offset": 172
+    },
+    {
+      "anchor_id": "t15",
+      "source_id": "table-01",
+      "page": 1,
+      "evidence_text": "TB-20",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "1694b5b2-cc87-4b8e-8c32-ab028485b615"
+      ],
+      "chunk_set_id": "0747d763-da35-474d-af4e-8d1ca9e7e94a",
+      "document_version_id": "37d006e3-b836-4866-a828-b6397c4b0f8f",
+      "end_offset": 180,
+      "start_offset": 175
+    },
+    {
+      "anchor_id": "t16",
+      "source_id": "table-01",
+      "page": 1,
+      "evidence_text": "7",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "1694b5b2-cc87-4b8e-8c32-ab028485b615"
+      ],
+      "chunk_set_id": "0747d763-da35-474d-af4e-8d1ca9e7e94a",
+      "document_version_id": "37d006e3-b836-4866-a828-b6397c4b0f8f",
+      "end_offset": 182,
+      "start_offset": 181
+    },
+    {
+      "anchor_id": "t17",
+      "source_id": "table-01",
+      "page": 1,
+      "evidence_text": "9",
+      "status": "ambiguous",
+      "content_difference": false,
+      "offline_match_index": 1,
+      "runtime_match_index": 1,
+      "chunk_ids": [
+        "1694b5b2-cc87-4b8e-8c32-ab028485b615"
+      ],
+      "chunk_set_id": "0747d763-da35-474d-af4e-8d1ca9e7e94a",
+      "document_version_id": "37d006e3-b836-4866-a828-b6397c4b0f8f",
+      "end_offset": 184,
+      "start_offset": 183
+    },
+    {
+      "anchor_id": "t18",
+      "source_id": "table-01",
+      "page": 1,
+      "evidence_text": "16",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "1694b5b2-cc87-4b8e-8c32-ab028485b615"
+      ],
+      "chunk_set_id": "0747d763-da35-474d-af4e-8d1ca9e7e94a",
+      "document_version_id": "37d006e3-b836-4866-a828-b6397c4b0f8f",
+      "end_offset": 187,
+      "start_offset": 185
+    },
+    {
+      "anchor_id": "t21",
+      "source_id": "table-02",
+      "page": 1,
+      "evidence_text": "TB-27",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "5f08dfa9-e5c4-4205-a14e-9e0c84bef84c"
+      ],
+      "chunk_set_id": "96760c3c-d2e8-4664-bfac-e022a527d082",
+      "document_version_id": "dbb9ce41-fa02-4281-aa60-0d7c3015bd08",
+      "end_offset": 174,
+      "start_offset": 169
+    },
+    {
+      "anchor_id": "t22",
+      "source_id": "table-02",
+      "page": 1,
+      "evidence_text": "45",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "5f08dfa9-e5c4-4205-a14e-9e0c84bef84c"
+      ],
+      "chunk_set_id": "96760c3c-d2e8-4664-bfac-e022a527d082",
+      "document_version_id": "dbb9ce41-fa02-4281-aa60-0d7c3015bd08",
+      "end_offset": 177,
+      "start_offset": 175
+    },
+    {
+      "anchor_id": "t23",
+      "source_id": "table-02",
+      "page": 1,
+      "evidence_text": "15",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "5f08dfa9-e5c4-4205-a14e-9e0c84bef84c"
+      ],
+      "chunk_set_id": "96760c3c-d2e8-4664-bfac-e022a527d082",
+      "document_version_id": "dbb9ce41-fa02-4281-aa60-0d7c3015bd08",
+      "end_offset": 180,
+      "start_offset": 178
+    },
+    {
+      "anchor_id": "t24",
+      "source_id": "table-02",
+      "page": 1,
+      "evidence_text": "60",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "5f08dfa9-e5c4-4205-a14e-9e0c84bef84c"
+      ],
+      "chunk_set_id": "96760c3c-d2e8-4664-bfac-e022a527d082",
+      "document_version_id": "dbb9ce41-fa02-4281-aa60-0d7c3015bd08",
+      "end_offset": 183,
+      "start_offset": 181
+    },
+    {
+      "anchor_id": "t25",
+      "source_id": "table-02",
+      "page": 1,
+      "evidence_text": "TB-28",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "5f08dfa9-e5c4-4205-a14e-9e0c84bef84c"
+      ],
+      "chunk_set_id": "96760c3c-d2e8-4664-bfac-e022a527d082",
+      "document_version_id": "dbb9ce41-fa02-4281-aa60-0d7c3015bd08",
+      "end_offset": 189,
+      "start_offset": 184
+    },
+    {
+      "anchor_id": "t26",
+      "source_id": "table-02",
+      "page": 1,
+      "evidence_text": "20",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "5f08dfa9-e5c4-4205-a14e-9e0c84bef84c"
+      ],
+      "chunk_set_id": "96760c3c-d2e8-4664-bfac-e022a527d082",
+      "document_version_id": "dbb9ce41-fa02-4281-aa60-0d7c3015bd08",
+      "end_offset": 192,
+      "start_offset": 190
+    },
+    {
+      "anchor_id": "t27",
+      "source_id": "table-02",
+      "page": 1,
+      "evidence_text": "10",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "5f08dfa9-e5c4-4205-a14e-9e0c84bef84c"
+      ],
+      "chunk_set_id": "96760c3c-d2e8-4664-bfac-e022a527d082",
+      "document_version_id": "dbb9ce41-fa02-4281-aa60-0d7c3015bd08",
+      "end_offset": 195,
+      "start_offset": 193
+    },
+    {
+      "anchor_id": "t28",
+      "source_id": "table-02",
+      "page": 1,
+      "evidence_text": "30",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "5f08dfa9-e5c4-4205-a14e-9e0c84bef84c"
+      ],
+      "chunk_set_id": "96760c3c-d2e8-4664-bfac-e022a527d082",
+      "document_version_id": "dbb9ce41-fa02-4281-aa60-0d7c3015bd08",
+      "end_offset": 198,
+      "start_offset": 196
+    },
+    {
+      "anchor_id": "t31",
+      "source_id": "table-03",
+      "page": 1,
+      "evidence_text": "KT-09",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "a747ce32-dc6e-4bdd-8b28-2b57f79ccc8a"
+      ],
+      "chunk_set_id": "a9a4d23b-845d-42e3-956c-8033015930bc",
+      "document_version_id": "deba71fb-59ed-4851-8dc5-267ddcf578f3",
+      "end_offset": 158,
+      "start_offset": 153
+    },
+    {
+      "anchor_id": "t32",
+      "source_id": "table-03",
+      "page": 1,
+      "evidence_text": "2,5",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "a747ce32-dc6e-4bdd-8b28-2b57f79ccc8a"
+      ],
+      "chunk_set_id": "a9a4d23b-845d-42e3-956c-8033015930bc",
+      "document_version_id": "deba71fb-59ed-4851-8dc5-267ddcf578f3",
+      "end_offset": 162,
+      "start_offset": 159
+    },
+    {
+      "anchor_id": "t33",
+      "source_id": "table-03",
+      "page": 1,
+      "evidence_text": "4,0",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "a747ce32-dc6e-4bdd-8b28-2b57f79ccc8a"
+      ],
+      "chunk_set_id": "a9a4d23b-845d-42e3-956c-8033015930bc",
+      "document_version_id": "deba71fb-59ed-4851-8dc5-267ddcf578f3",
+      "end_offset": 166,
+      "start_offset": 163
+    },
+    {
+      "anchor_id": "t34",
+      "source_id": "table-03",
+      "page": 1,
+      "evidence_text": "6,5",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "a747ce32-dc6e-4bdd-8b28-2b57f79ccc8a"
+      ],
+      "chunk_set_id": "a9a4d23b-845d-42e3-956c-8033015930bc",
+      "document_version_id": "deba71fb-59ed-4851-8dc5-267ddcf578f3",
+      "end_offset": 170,
+      "start_offset": 167
+    },
+    {
+      "anchor_id": "t35",
+      "source_id": "table-03",
+      "page": 1,
+      "evidence_text": "KT-10",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "a747ce32-dc6e-4bdd-8b28-2b57f79ccc8a"
+      ],
+      "chunk_set_id": "a9a4d23b-845d-42e3-956c-8033015930bc",
+      "document_version_id": "deba71fb-59ed-4851-8dc5-267ddcf578f3",
+      "end_offset": 176,
+      "start_offset": 171
+    },
+    {
+      "anchor_id": "t36",
+      "source_id": "table-03",
+      "page": 1,
+      "evidence_text": "1,5",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "a747ce32-dc6e-4bdd-8b28-2b57f79ccc8a"
+      ],
+      "chunk_set_id": "a9a4d23b-845d-42e3-956c-8033015930bc",
+      "document_version_id": "deba71fb-59ed-4851-8dc5-267ddcf578f3",
+      "end_offset": 180,
+      "start_offset": 177
+    },
+    {
+      "anchor_id": "t37",
+      "source_id": "table-03",
+      "page": 1,
+      "evidence_text": "2,0",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "a747ce32-dc6e-4bdd-8b28-2b57f79ccc8a"
+      ],
+      "chunk_set_id": "a9a4d23b-845d-42e3-956c-8033015930bc",
+      "document_version_id": "deba71fb-59ed-4851-8dc5-267ddcf578f3",
+      "end_offset": 184,
+      "start_offset": 181
+    },
+    {
+      "anchor_id": "t38",
+      "source_id": "table-03",
+      "page": 1,
+      "evidence_text": "3,5",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "a747ce32-dc6e-4bdd-8b28-2b57f79ccc8a"
+      ],
+      "chunk_set_id": "a9a4d23b-845d-42e3-956c-8033015930bc",
+      "document_version_id": "deba71fb-59ed-4851-8dc5-267ddcf578f3",
+      "end_offset": 188,
+      "start_offset": 185
+    },
+    {
+      "anchor_id": "s11",
+      "source_id": "scan-01",
+      "page": 1,
+      "evidence_text": "SC-07: phí lưu kho là 27.000 đồng mỗi ngày.",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "s12",
+      "source_id": "scan-01",
+      "page": 1,
+      "evidence_text": "Kho ảnh mở từ 08:30 đến 17:30.",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "s13",
+      "source_id": "scan-01",
+      "page": 1,
+      "evidence_text": "Kho ảnh không nhận hàng vào Chủ nhật.",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "s14",
+      "source_id": "scan-01",
+      "page": 1,
+      "evidence_text": "Người nhận phải xuất trình mã nhận hàng.",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "s21",
+      "source_id": "scan-02",
+      "page": 1,
+      "evidence_text": "MX-11: hồ sơ đã kiểm có 23 trang.",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "s22",
+      "source_id": "scan-02",
+      "page": 1,
+      "evidence_text": "Trong hồ sơ có 5 trang phụ lục ảnh.",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "s23",
+      "source_id": "scan-02",
+      "page": 1,
+      "evidence_text": "Bản số hóa không thay thế bản gốc có chữ ký.",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "s24",
+      "source_id": "scan-02",
+      "page": 1,
+      "evidence_text": "Ngày kiểm tra hồ sơ là 14/10/2026.",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "s31",
+      "source_id": "scan-03",
+      "page": 1,
+      "evidence_text": "RX-03: thiết bị đo có sai số tối đa 0,2 độ C.",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "s32",
+      "source_id": "scan-03",
+      "page": 1,
+      "evidence_text": "Kiểm chuẩn thiết bị mỗi 6 tháng.",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "s33",
+      "source_id": "scan-03",
+      "page": 1,
+      "evidence_text": "Không dùng thiết bị khi tem kiểm chuẩn đã hết hạn.",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "s34",
+      "source_id": "scan-03",
+      "page": 1,
+      "evidence_text": "Nhiệt độ bảo quản từ 15 đến 25 độ C.",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "pb1",
+      "source_id": "academic-phobert",
+      "page": 1,
+      "evidence_text": "public large-scale monolingual language mod-\nels pre-trained for Vietnamese.",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "pb2",
+      "source_id": "academic-phobert",
+      "page": 1,
+      "evidence_text": "We present PhoBERT with two versions—\nPhoBERTbase and PhoBERTlarge",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "pn1",
+      "source_id": "academic-phonlp",
+      "page": 1,
+      "evidence_text": "model—named PhoNLP—for joint Viet-\nnamese part-of-speech (POS) tagging, named\nentity recognition (NER) and dependency\nparsing.",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "pn2",
+      "source_id": "academic-phonlp",
+      "page": 1,
+      "evidence_text": "Apache License 2.0.",
+      "status": "proposed",
+      "content_difference": false,
+      "offline_match_index": 0,
+      "runtime_match_index": 0,
+      "chunk_ids": [
+        "66a3b490-0f34-4ff6-be7a-36eae9b14667"
+      ],
+      "chunk_set_id": "6be52f91-8799-43d2-8f92-8bf06d37cc5e",
+      "document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7",
+      "end_offset": 1265,
+      "start_offset": 1246
+    },
+    {
+      "anchor_id": "v51",
+      "source_id": "academic-vit5",
+      "page": 1,
+      "evidence_text": "based encoder-decoder model for the Viet-\nnamese language.",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "v52",
+      "source_id": "academic-vit5",
+      "page": 1,
+      "evidence_text": "two downstream text generation tasks",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "v53",
+      "source_id": "academic-vit5",
+      "page": 1,
+      "evidence_text": "stractive Text Summarization and Named En-\ntity Recognition.",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    },
+    {
+      "anchor_id": "v54",
+      "source_id": "academic-vit5",
+      "page": 1,
+      "evidence_text": "the Viet-\nnamese monolingual subset of CC100",
+      "status": "missing",
+      "content_difference": false,
+      "runtime_match_index": null,
+      "chunk_ids": []
+    }
+  ]
+}

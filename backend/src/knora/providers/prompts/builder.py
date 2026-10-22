@@ -6,12 +6,11 @@ from typing import Literal
 
 from knora.providers.generation import GenerationEvidence
 from knora.providers.openai_compatible.answer_blocks import ANSWER_BLOCK_SCHEMA
-from knora.providers.openai_compatible.presentation import PRESENTATION_SCHEMA, Presentation
 from knora.providers.prompts import policy
 from knora.providers.prompts.versioning import PromptDefinition
 from knora.providers.structured_generation import STRUCTURED_RESULT_SCHEMA
 
-Profile = Literal["generic", "ollama", "cloudflare-selector", "cloudflare-answer"]
+Profile = Literal["generic", "ollama", "cloudflare-answer"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,7 +25,6 @@ def build_prompt(
     question: str,
     evidence: tuple[GenerationEvidence, ...],
     model: str = "",
-    presentation: Presentation | None = None,
 ) -> BuiltPrompt:
     schema = STRUCTURED_RESULT_SCHEMA
     serializer = policy.user_message
@@ -43,12 +41,9 @@ def build_prompt(
             version = f"ollama-gpt-oss-low-schema-v3:{version}"
             system += policy.OLLAMA_GPT_OSS_SUFFIX
             system += "\nRequired response JSON schema:\n" + json.dumps(schema, sort_keys=True)
-    elif profile == "cloudflare-selector":
-        version, system = policy.PRESENTATION_PROMPT_VERSION, policy.PRESENTATION_SYSTEM_PROMPT
-        schema = PRESENTATION_SCHEMA
     elif profile == "cloudflare-answer":
         version = policy.CLOUDFLARE_PROMPT_VERSION
-        system = policy.CLOUDFLARE_SYSTEM_PROMPT + f" Selected presentation: {presentation}."
+        system = policy.CLOUDFLARE_SYSTEM_PROMPT
         schema = ANSWER_BLOCK_SCHEMA
     else:
         raise ValueError(f"unknown prompt profile: {profile}")

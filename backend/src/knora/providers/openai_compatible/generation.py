@@ -9,7 +9,6 @@ from knora.providers.generation import (
     GenerationResult,
 )
 from knora.providers.openai_compatible.answer_blocks import compose_answer
-from knora.providers.openai_compatible.presentation import PresentationChoice
 from knora.providers.prompts.builder import BuiltPrompt, build_prompt
 from knora.providers.prompts.policy import (
     CLOUDFLARE_PROMPT_VERSION as CLOUDFLARE_PROMPT_VERSION,
@@ -58,42 +57,21 @@ class OpenAICompatibleGenerationProvider:
             self._client = httpx.AsyncClient(timeout=self._timeout_seconds)
         try:
             cloudflare = self._provider_identity == "cloudflare-workers-ai"
-            presentation = None
-            stages = []
-            if cloudflare:
-                selection_prompt = build_prompt(
-                    "cloudflare-selector", question=question, evidence=evidence
-                )
-                response = await self._complete(selection_prompt)
-                payload, choice, structured = self._decode(response)
-                presentation = PresentationChoice.model_validate(structured).presentation
-                stages.append(
-                    self._metadata(response, payload, choice, selection_prompt.definition.version)
-                )
-                stages[0]["presentation"] = presentation
             prompt = build_prompt(
                 "cloudflare-answer" if cloudflare else "generic",
                 question=question,
                 evidence=evidence,
-                presentation=presentation,
             )
             version = prompt.definition.version
             response = await self._complete(prompt)
             payload, choice, structured = self._decode(response)
             if cloudflare:
-                answer, cited_ids = compose_answer(structured, evidence, presentation=presentation)
+                answer, cited_ids = compose_answer(structured, evidence)
             else:
                 answer = structured["answer"]
                 cited_ids = tuple(structured["cited_evidence_ids"])
             metadata = self._metadata(response, payload, choice, version)
             usage = metadata["usage"]
-            if cloudflare:
-                stages.append(metadata)
-                usage = {
-                    key: stages[0]["usage"][key] + value
-                    for key, value in usage.items()
-                    if key in stages[0]["usage"]
-                }
             cost = {}
             if (
                 "prompt_tokens" in usage
@@ -123,7 +101,6 @@ class OpenAICompatibleGenerationProvider:
                 provider_request_id=response.headers.get("x-request-id") or payload.get("id"),
                 usage=usage,
                 cost=cost,
-                stages=tuple(stages),
             )
         except httpx.HTTPError:
             raise KnoraError("PROVIDER_REQUEST_FAILED") from None

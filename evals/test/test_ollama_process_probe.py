@@ -20,7 +20,6 @@ RUNTIME_SOURCE_PATHS = {
     "backend/src/knora/providers/prompts/builder.py",
     "backend/src/knora/providers/prompts/versioning.py",
     "backend/src/knora/providers/structured_generation.py",
-    "backend/src/knora/providers/openai_compatible/presentation.py",
     "backend/src/knora/providers/openai_compatible/answer_blocks.py",
 }
 PROMPT_DEPENDENCIES = (
@@ -28,7 +27,6 @@ PROMPT_DEPENDENCIES = (
     "prompts.builder",
     "prompts.versioning",
     "structured_generation",
-    "openai_compatible.presentation",
     "openai_compatible.answer_blocks",
 )
 

@@ -16,6 +16,8 @@ import { browserRequest } from "@/lib/api/browser-client";
 import { routes } from "@/lib/navigation/routes";
 import {
   documentStatus,
+  reprocessConfiguration,
+  derivationIsActive,
   jobIsActive,
   servingExplanation,
   sourceKind,
@@ -108,7 +110,11 @@ export function DocumentList({
         setJobStates((previous) =>
           Object.fromEntries(
             Object.entries(previous).filter(([, job]) =>
-              jobIsActive(job.status),
+              derivationIsActive({
+                ingestion_status: job.status,
+                indexing_status:
+                  "indexing_status" in job ? job.indexing_status : null,
+              }),
             ),
           ),
         );
@@ -183,7 +189,12 @@ export function DocumentList({
             ? { ...previous, status: status.status }
             : previous,
         );
-        if (!jobIsActive(status.status)) {
+        if (
+          !derivationIsActive({
+            ingestion_status: status.status,
+            indexing_status: status.indexing_status,
+          })
+        ) {
           polling.current.delete(jobId);
           completed.current.add(jobId);
           await load(controller);
@@ -216,7 +227,7 @@ export function DocumentList({
       const jobId = document.ingestion_job_id;
       if (
         jobId &&
-        jobIsActive(document.ingestion_status) &&
+        derivationIsActive(document) &&
         !polling.current.has(jobId) &&
         !completed.current.has(jobId)
       ) {
@@ -248,12 +259,20 @@ export function DocumentList({
   function canReprocess(document: DocumentResponse) {
     return (
       canWrite &&
+      reprocessConfiguration(document, "deployed") !== null &&
       !document.archived &&
       Boolean(
         document.current_document_version_id && document.reprocess_supported,
       ) &&
-      !jobIsActive(document.ingestion_status) &&
-      !jobIsActive(jobStates[document.document_id]?.status) &&
+      !derivationIsActive(document) &&
+      !derivationIsActive({
+        ingestion_status: jobStates[document.document_id]?.status,
+        indexing_status:
+          "indexing_status" in (jobStates[document.document_id] ?? {})
+            ? (jobStates[document.document_id] as IngestionJobStatusResponse)
+                .indexing_status
+            : null,
+      }) &&
       !["requested", "processing", "succeeded"].includes(
         document.deletion_request?.state ?? "",
       )
@@ -270,7 +289,7 @@ export function DocumentList({
         {
           method: "POST",
           headers: { "Idempotency-Key": identity(reprocessKeys.current, id) },
-          body: JSON.stringify({ config_mode: "deployed" }),
+          body: JSON.stringify(reprocessConfiguration(document, "deployed")),
           signal: controller.signal,
         },
       );
@@ -588,6 +607,8 @@ export function DocumentList({
                   ? {
                       ...document,
                       ingestion_status: observed.status,
+                      indexing_status: observed.indexing_status,
+                      lexical_readiness: observed.lexical_readiness,
                       current_document_version_id:
                         observed.current_document_version_id,
                       serving_state: observed.serving_state,
@@ -602,6 +623,8 @@ export function DocumentList({
               const retry =
                 canReprocess(document) &&
                 (document.embedding_readiness === "reindex_required" ||
+                  document.lexical_readiness === "reindex_required" ||
+                  document.indexing_status === "failed" ||
                   document.ingestion_status === "failed");
               return (
                 <li
@@ -646,12 +669,13 @@ export function DocumentList({
                       <Button
                         variant="ghost"
                         className="min-h-8 border-0 px-0 py-0 text-xs !text-action-text"
-                        aria-label={`${document.ingestion_status === "failed" ? "Try again" : "Re-index"} ${document.source_name}`}
+                        aria-label={`${document.ingestion_status === "failed" || document.indexing_status === "failed" ? "Try again" : "Re-index"} ${document.source_name}`}
                         disabled={busy.includes(document.document_id)}
                         loading={busy.includes(document.document_id)}
                         onClick={() => void reprocess(document)}
                       >
-                        {document.ingestion_status === "failed"
+                        {document.ingestion_status === "failed" ||
+                        document.indexing_status === "failed"
                           ? "Try again"
                           : "Re-index"}
                       </Button>

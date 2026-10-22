@@ -1,0 +1,20 @@
+{
+  "adapter_payloads_byte_matched": 30,
+  "disposition": "no_remaining_actionable_findings",
+  "focused_tests_passed": 43,
+  "format_lint": "passed",
+  "implementation_authorship": false,
+  "largest_request_bytes": 2838,
+  "model_quality_accepted": false,
+  "residual_risk_accepted": false,
+  "reviewed_code_sha256": {
+    "run_security_outcomes.py": "13ce28e200601e2875d79040893fc4f60fdf52fc2de5fcf7c9b8ea0f305e810a",
+    "security_outcomes.py": "154bfcd464711d2160b64b813a6d5a5384faeafd61b5e7f79a76ece9d6e66ccb",
+    "test_security_outcomes.py": "104ba122d815e3ce7a56bec933f1c3953072a207447df0bbc331923c34131af9",
+    "test_security_outcomes_runner.py": "92575f0319ee0b8f299c075ed60fd159e83f1940cae401d374d0329166134353",
+    "test_workbench_security_projection.py": "19168c9ff95d9d3740bc986069389f1c33fde8f79fa69ca386b8c7f3cb6ba8ec",
+    "workbench_security_projection.py": "b585e7c42f1f4e69e1e9f0f30332c741a07e91f2da1be5768764db0b6c111ceb"
+  },
+  "reviewer_id": "outcome_rubric_review",
+  "schema": "issue188-independent-review-v1"
+}

@@ -1,0 +1,63 @@
+"""Mock-only checks for the one approved continuation; no provider or DB."""
+
+import importlib.util
+import json
+from copy import deepcopy
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[3]
+spec = importlib.util.spec_from_file_location(
+    "continuation_runtime", Path(__file__).with_name("baseline-b-runtime.py")
+)
+runtime = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(runtime)
+PACKET = ROOT / "evals/reports/pdf_retrieval_v3_v1/baseline-b-layout-v2"
+
+
+def check():
+    original = json.loads((PACKET / "captures/counters.json").read_text(encoding="utf-8"))
+    corrected = json.loads(
+        (PACKET / "captures/case-pdf-v3-001-attempt-1.json").read_text(encoding="utf-8")
+    )
+    corrected["failure_code"] = None
+    selected = {"pdf-v3-001": corrected}
+    resumed = runtime.continuation_counter_state(original, selected, "selection-sha")
+    assert original["stop_reason"] == "CASE_FAILED_NO_RETRY"
+    assert resumed["stop_reason"] is None
+    assert resumed["query_embedding_attempts"] == resumed["baseline_b_generation_attempts"] == 1
+    assert resumed["embedding_inputs"] == 48
+    assert resumed["baseline_b_case_requests"] == original["baseline_b_case_requests"]
+    assert resumed["baseline_b_continuation_authorization"]["selection_sha256"] == "selection-sha"
+    assert runtime.continuation_counter_state(resumed, selected, "selection-sha") == resumed
+    for key, value in (
+        ("stop_reason", "QUOTA_PAUSED"),
+        ("paused_until", "2099-01-01T00:00:00+00:00"),
+        ("query_embedding_attempts", 2),
+        ("generation_attempts", 0),
+        ("embedding_inputs", 47),
+        ("baseline_b_case_requests", {}),
+    ):
+        changed = deepcopy(original)
+        changed[key] = value
+        try:
+            runtime.continuation_counter_state(changed, selected, "selection-sha")
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"unreviewed counter mutation accepted: {key}")
+    for state, rows, sha in (
+        (original, {}, "selection-sha"),
+        (resumed | {"stop_reason": "CASE_FAILED_NO_RETRY"}, selected, "selection-sha"),
+        (resumed, selected, "changed-selection"),
+    ):
+        try:
+            runtime.continuation_counter_state(state, rows, sha)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("unauthorized resume accepted")
+    print("CONTINUATION SELF-CHECK PASS: exact reviewed stop only once; counters/history retained")
+
+
+if __name__ == "__main__":
+    check()

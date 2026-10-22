@@ -20,11 +20,86 @@ from evals.runners.milestone_3 import (
     SourceBinding,
     VerifiedM3Environment,
     build_report,
+    project_generation_evidence,
     project_trace_candidates,
     score_retrieval,
     semantic_citation_input,
+    validate_public_citations_against_trace,
     verify_corpus_closure,
 )
+
+
+@pytest.mark.parametrize(
+    ("content", "offsets", "excerpt"),
+    [
+        ("A complete sentence.", {}, "A complete sentence."),
+        ("  A complete sentence.  ", {}, "A complete sentence."),
+        ("abcde " * 100, {}, "abcde " * 82 + "abcde …"),
+        (
+            "ục gợi ý dành cho báo cáo - Tài liệu t",
+            {"start_offset": 125, "end_offset": 163},
+            "… gợi ý dành cho báo cáo - Tài liệu …",
+        ),
+        ("A complete sentence.", {"start_offset": 0, "end_offset": 20}, "A complete sentence."),
+    ],
+    ids=("short-text", "outer-whitespace", "long-text", "pdf-interior", "pdf-complete"),
+)
+def test_citation_check_accepts_production_word_boundary_preview(content, offsets, excerpt):
+    candidate = SimpleNamespace(
+        chunk_id="chunk-1",
+        source_key="support/a",
+        content=content,
+        final_decision="SELECTED",
+        start_line=1,
+        end_line=1,
+        **offsets,
+    )
+    validate_public_citations_against_trace(
+        citations=(PublicCitation("E1", "support/a", excerpt, "support/a:1:1"),),
+        alias_mapping={"E1": "chunk-1"},
+        candidates=(candidate,),
+    )
+
+
+@pytest.mark.parametrize(
+    "excerpt",
+    ["A complete sentence. tampered", "A complete sentence", " A complete sentence. ", ""],
+)
+def test_citation_check_rejects_inexact_preview(excerpt):
+    candidate = SimpleNamespace(
+        chunk_id="chunk-1",
+        source_key="support/a",
+        content="A complete sentence.",
+        final_decision="SELECTED",
+        start_line=1,
+        end_line=1,
+    )
+    with pytest.raises(ObservationFailure, match="CITATION_STRUCTURAL_ERROR"):
+        validate_public_citations_against_trace(
+            citations=(PublicCitation("E1", "support/a", excerpt, "support/a:1:1"),),
+            alias_mapping={"E1": "chunk-1"},
+            candidates=(candidate,),
+        )
+
+
+def test_citation_check_rejects_raw_pdf_prefix_in_place_of_production_preview():
+    content = "partial one two trailing"
+    candidate = SimpleNamespace(
+        chunk_id="chunk-1",
+        source_key="support/a",
+        content=content,
+        final_decision="SELECTED",
+        start_line=1,
+        end_line=1,
+        start_offset=10,
+        end_offset=34,
+    )
+    with pytest.raises(ObservationFailure, match="CITATION_STRUCTURAL_ERROR"):
+        validate_public_citations_against_trace(
+            citations=(PublicCitation("E1", "support/a", content, "support/a:1:1"),),
+            alias_mapping={"E1": "chunk-1"},
+            candidates=(candidate,),
+        )
 
 
 def _binding() -> EvaluationEnvironmentBinding:
@@ -88,6 +163,32 @@ def _corpus(*, extra: bool = False):
 
 def _environment() -> VerifiedM3Environment:
     return VerifiedM3Environment.prepare(binding=_binding(), corpus=_corpus(), manifest=_manifest())
+
+
+def test_generation_evidence_requires_exact_selected_aliases_and_complete_content() -> None:
+    trace = SimpleNamespace(
+        alias_mapping={"E1": "selected"},
+        candidates=(
+            SimpleNamespace(chunk_id="selected", final_decision="SELECTED", content="full input"),
+            SimpleNamespace(chunk_id="hidden", final_decision="EXCLUDED", content="never sent"),
+        ),
+    )
+    assert project_generation_evidence(trace) == (("E1", "full input"),)
+    trace.alias_mapping = {"E1": "hidden"}
+    with pytest.raises(ObservationFailure, match="GENERATION_EVIDENCE_MISMATCH"):
+        project_generation_evidence(trace)
+
+
+def test_generation_evidence_includes_selected_uncited_and_excludes_distractor() -> None:
+    trace = SimpleNamespace(
+        alias_mapping={"E2": "selected-2", "E1": "selected-1"},
+        candidates=(
+            SimpleNamespace(chunk_id="selected-1", final_decision="SELECTED", content="cited"),
+            SimpleNamespace(chunk_id="hidden", final_decision="EXCLUDED", content="distractor"),
+            SimpleNamespace(chunk_id="selected-2", final_decision="SELECTED", content="uncited"),
+        ),
+    )
+    assert project_generation_evidence(trace) == (("E1", "cited"), ("E2", "uncited"))
 
 
 def test_corpus_closure_requires_exact_active_source_set_and_bound_version() -> None:
@@ -230,6 +331,9 @@ def test_report_keeps_per_observation_duration_and_failure_without_aggregation()
     assert report["observations"] == [
         {
             "case_id": "case",
+            "trace_id": None,
+            "generation_evidence": [],
+            "generation_evidence_status": "unavailable",
             "status": "observed",
             "retrieval_latency_ms": 3.5,
             "end_to_end_latency_ms": 9.5,
@@ -444,8 +548,17 @@ async def test_production_executor_uses_response_trace_and_returns_observation_f
     assert observation.candidates == (CanonicalChunkReference("set-1", "support/a", 0),)
     assert observation.retrieval_latency_ms == 4.0
     assert observation.end_to_end_latency_ms == 125.0
+    assert observation.trace_id == "trace-1"
+    assert observation.generation_evidence == ()  # fixture has no stored content
     assert clock_events == ["clock", "clock", "trace"]
     assert observation.refusal_correctness is True
+    report = build_report(
+        (case,),
+        (observation,),
+        binding=_binding(),
+        semantic_citation_results={case.id: True},
+    )
+    assert report["observations"][0]["trace_id"] == "trace-1"
 
 
 @pytest.mark.asyncio

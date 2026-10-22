@@ -1,7 +1,42 @@
 # Issue #191 — prompt extraction audit and proposed plan
 
-Status: implementation and offline verification complete; owner acceptance pending.
-Date: 2026-10-15.
+Historical extraction record: 2026-10-15. Current integration authority is below.
+Progress and verification evidence remain in Issue #191 / PR #200.
+
+## Accepted-main integration (2026-10-22)
+
+The owner authorized this continuation in the current conversation: integrate with
+main, finish code/tests/review, commit/push, retarget existing PR #200 to main and
+verify required CI on the final head. Do not merge, close the Issue, set Done, call
+providers or run application/browser runtime. No new product decision is implied.
+
+- The prerequisite is satisfied by [the owner gate release](https://github.com/NhiBuaa/knora-agent/issues/191#issuecomment-6336021245):
+  #183 accepted head `925670036ef0dfdb74d966fb0d76bacbfd74592e`, PR #184 merged
+  into main as `0f76233b7ebbdf49cedba0b3affe96e132b069e4`.
+- This supersedes selector/two-stage assumptions below. Preserve the actual accepted
+  single-call v21 policy, fixed-slot schema/composer and production cap **2048**;
+  the earlier overlap ACK's 1024 cap is historical. Remove the selector profile,
+  presentation suffix/imports and selector aggregation; preserve SSE progress.
+- Capture a separate synthetic request/result oracle from untouched accepted-main
+  adapters using MockTransport before adapting the extraction. Pin policy, schema,
+  serializer and static fingerprints independently of the builder under test.
+  Preserve `prompt-baseline-305f8b9.json` unchanged as v17 historical evidence.
+- Merge current main into the published refactor branch, preserving its history.
+  Keep generic/Ollama, controls, decoding/errors, usage/cost, validation/citations,
+  context, trace and evaluation contracts. Update only the actual evaluation-source
+  dependency set; do not weaken committed-source checks or process deadlines.
+- Run focused parity/provider/application/evaluation checks, then maintained full
+  regression and required CI on the final SHA; independently review the main-to-PR
+  diff. Report implementation, local/CI verification and unrun runtime separately.
+
+The approved starting plan is this file at
+`17f199810970c40d2bcd060e68a03fc0aacc210b`, with its original chat approval recorded
+below. This addendum records the owner's current integration instruction and gate
+release; [the execution scope](https://github.com/NhiBuaa/knora-agent/issues/191#issuecomment-6336256564)
+records questions, expected observations and bounded verification before edits.
+The original extraction and synchronization records below are retained as history.
+
+## Historical extraction plan and evidence
 
 ## Authority and baseline
 

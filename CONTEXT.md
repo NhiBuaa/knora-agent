@@ -30,8 +30,10 @@ launcher do not enable or mount file-vault, and an old `KNORA_PRIMARY_OTP_VAULT_
 The local switch still requires explicit opt-in; leaving it off without a production secret source
 fails closed. Production retains Vault/secret-manager integration; provider selection and hardening
 are deferred to Issue #152 and must be provisioned and verified before production OTP is enabled.
-Daily local development and manual Email OTP acceptance use the configured real SMTP service
-(currently Gmail). Mailpit is reserved for isolated automated tests/CI that read synthetic OTP mail;
+Daily development includes registration, sign-in, sign-out and Forgot Password via Email OTP;
+the root template supplies the explicit local opt-in, while SMTP/reset-flow provisioning is a
+one-time guarded setup. Daily local development and manual Email OTP acceptance use the configured
+real SMTP service (currently Gmail). Mailpit is reserved for isolated automated tests/CI that read synthetic OTP mail;
 the daily launcher does not start it. Automated Mailpit evidence does not prove Gmail delivery.
 
 ## Current Model
@@ -385,6 +387,25 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
   vector-only baseline and hybrid result are a paired comparison: immutable corpus and Chunk Set
   provenance, dataset, embedding, generation and scorer settings remain fixed; only Retrieval
   Configuration differs.
+- **Supplementary Evaluation** adds tool-specific quality observations to an existing Knora
+  Evaluation Run. Knora retains sole authority over datasets, gold, manifests, reports and release
+  gates. Supplementary observations join the same run, case, attempt and Question Trace; a missing
+  input or failed judge is explicit and has no quality score. DeepEval measures correctness,
+  answer relevancy and faithfulness; citation and refusal verification remain separate.
+- An **Evaluation Draft** is a proposed question, reference answer and anchored source evidence
+  awaiting the owner's review. Ragas may prepare Vietnamese/English multi-hop drafts; at least two
+  necessary evidence steps must be demonstrated before approval. Draft generation never promotes
+  gold or enlarges the approved pilot corpus automatically.
+  Issue #153 owns the 16-PDF/60-question Gold Dataset and Retrieval V3 baseline; Issue #158
+  integrates evaluation tools. Ragas proposes additions for a later needed expansion, without
+  regenerating #153's cases; every gold addition requires owner review.
+- **Evaluation Data Permission** records whether the exact evaluation inputs may be sent to the
+  chosen provider. Approved public/synthetic inputs may use Cloudflare Workers AI; private inputs
+  without external-use permission remain local. A public URL alone is not permission.
+- **Evaluation Observation Export** projects persisted Knora observations into opaque identifiers,
+  approved metadata and numeric diagnostics. Langfuse does not receive questions, answers,
+  references, evidence, source names, raw errors or credentials. Cloud export remains disabled
+  until separately approved; imported monotonic durations are not wall-clock spans.
 - A **Chunk Set Persisted Instance Identity** is the production `ChunkSet.id` UUID. It identifies
   one stored derivation instance and is not portable corpus provenance.
 - A **Chunk Set Provenance Identity** is an immutable manifest identity such as
@@ -461,7 +482,7 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
 ### Provider boundaries
 
 - A **Prompt Definition** is the static production-answer input definition for one
-  provider profile/stage: its existing readable version, system text, selected
+  provider profile: its existing readable version, system text, selected
   output schema and serializer identity. Its fingerprint excludes dynamic questions,
   Evidence Sets and model/token settings. The internal Prompt Builder produces
   messages from that definition; application context selection and provider transport
@@ -469,35 +490,6 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
   model compliance or semantic acceptance. See [ADR 0019](docs/adr/0019-production-answer-prompt-ownership.md).
 
 - A **Generation Provider** turns a Question and its Evidence Set into generated answer text.
-  Issue #183's approved answer policy keeps multi-item enumerations as separate
-  bullets and short facts as prose. Counts require source proof independently of
-  selected-member completeness; incomplete members require explicit disclosure.
-  Clear source order and important qualifications must be retained. Contiguous
-  content sharing evidence prefers a citation after its last block; every needed
-  source must remain cited. These are semantic obligations, not schema guarantees.
-  Q17's private Cloudflare contract uses fixed `before`, `items`, `after` arrays:
-  introductory paragraphs, at most one main list, and concluding paragraphs.
-  It carries supporting Evidence
-  Aliases for each paragraph or item. The adapter checks Evidence Set membership
-  and composes Markdown; it no longer checks literal quotes or source positions.
-  A valid alias does not prove semantic support, count completeness or source order.
-  Q12 adds a private Cloudflare presentation choice before generation, with no
-  answer/member content in that choice. Local selected-list gates require at least
-  two items; prose requires empty items. Count
-  contracts require a lead paragraph with explicit nullable literal
-  emphasis. Q19 also requires every paragraph to declare `bold` as a literal
-  string or null in the wire schema and local model; omission is invalid in every
-  mode. The composer does not repair model Markdown or prove semantic support.
-  Zero/one known member permits count prose. Every contract permits
-  evidence refusal; malformed selection/output remains an error without retry.
-  Safe per-stage trace metadata and complete aggregate token fields account for
-  both requests. This adds quota/latency, not semantic guarantees or a shared
-  prompt-management architecture (#191). Q17 removes per-block kinds/unions and
-  advanced schema position constraints; the adapter maps validated slots to the
-  existing composer. Refusal requires all slots empty. This simplification does
-  not prove provider compatibility, completion within the token cap, or semantics.
-  #191 refactors separately from `67a149f`; #183 retains prompt/schema behavior
-  and acceptance ownership, without moving modules. Real-provider acceptance is pending.
 - An **Embedding Provider** turns text into vectors used by ingestion and retrieval.
 - An **Embedding Configuration** is an immutable embedding-space identity comprising provider,
   model, dimensions, distance metric, provider/deployment contract, input normalization and input
@@ -607,6 +599,73 @@ vector-versus-hybrid pair-level latency deltas. R3 revises the Issue #63 accepta
 natively blocked by R1 and R2. Historical approval, seal and evaluation artifacts are never
 rewritten; missing, self-authored/self-approved, mutated, subset, or same-shaped-wrong-digest
 evidence fails closed.
+
+## Issue #183 presentation policy (2026-10-18)
+
+The owner-approved Master section 4.9 uses one Cloudflare answer call with prompt identity
+`cloudflare-gpt-oss-cited-answer-v21`. The original question and Evidence Set feed the unchanged
+fixed `before/items/after` schema and composer. Selector count/condition generation, retained-note
+appending and selector-only stage metadata are removed. Formatting preserves every accepted text
+field in slot/member order, including repeated content; invalid fields fail instead of being
+silently omitted. Citation/refusal validation and Workspace access remain unchanged.
+
+Semantic completeness against the PDF is outside #183. Missing evidence routes to #153; omissions
+despite sufficient evidence belong to a proposed separate Answer Generation issue. This policy is
+not a semantic guarantee or runtime acceptance. See the sole
+[Master Plan](docs/superpowers/plans/2026-10-16-issue-183-master-plan.md).
+
+## Retrieval V3 S2 approved design
+
+- **Lexical Generation** identifies one immutable Chunk Set/profile derivation. PostgreSQL
+  owns its desired revision, activation and eligibility; the search projection is replaceable.
+- **Extraction success** means retained chunks exist. **Lexical readiness** additionally
+  requires a verified index receipt and valid activation. Upload job identity/status and
+  indexing job identity/status remain distinct; neither implies the other's success.
+- **Derivation snapshot** captures Document and Workspace revisions at enqueue. Archive then
+  unarchive does not revive work accepted under an older snapshot.
+- **Reprocess configuration** is explicit: `same_as_job` retains the selected extraction
+  kind/profile; BM25 `current` selects valid desired B even while it is indexing and A is
+  active. An invalid desired configuration is unavailable, without fallback to A or dense.
+- **Lexical serving** is strategy-specific and does not create embedding readiness. Lexical
+  authority is checked before generation and again when persisting the trace before returning
+  citations. Invalidated authority is an operational failure, never empty evidence.
+- **Native lexical window** is one Top200 query: below 200, complete ties use score descending
+  then chunk ID ascending; at 200, preserve native order with unknown tie boundary. Primary
+  Top8 comes from the same window without refill or a second query.
+- **Index parent** is the actual extraction job, recorded atomically through
+  `parent_ingestion_job_id`; public indexing status follows this explicit link.
+- **BM25 retrieval identities** preserve `retrieval-bm25-diagnostic-v1` at Top200 and use
+  `retrieval-bm25-top8-v1` for primary Top8 from the same single native Top200 response.
+  A candidate-limit change requires a separate immutable configuration identity.
+  Primary Top8 binds the frozen47 profile; `retrieval-bm25-upload-fixture-top8-v1` separately
+  binds the measured upload fixture profile. Profile binding does not vary under one config ID.
+- **Verified lexical population** is an opt-in finite manifest binding source hashes and
+  ordered chunk checksums/native token counts to the selected profile. Changed or unknown
+  populations are unavailable until an explicit verified profile/rebuild. Repeated text in
+  distinct ordered chunks is valid. Automatic arbitrary-PDF profiles are outside S2.
+- **Stable lexical statistics** bind source SHA and ordered checksum/native-count pairs in a
+  new profile/digest. Historical profiles and evidence stay immutable; retained native counts
+  must be checked before creating the new pin and verified in the S2 runtime batch.
+- **Lexical retry identity** exposes read-only derivation kind. Before any desired generation,
+  failed extraction retries `same_as_job` with its exact upload job/profile. Once a desired
+  generation exists, retry uses `current` and its desired profile, including B while A serves.
+  Dense list/detail retry modes remain compatible. Upload and index job identities stay separate.
+- **Frozen S2 comparison context** uses each selected Baseline B retrieval query, including
+  the eight saved follow-up contexts. One native Top200 supplies primary Top8 and the existing
+  selector without generation. Fresh application/context verification remains separate.
+- **Lexical projection cleanup** is an explicit idempotent CLI operation. PostgreSQL lifecycle
+  locks must establish that neither active nor desired head references the generation before
+  deterministic point IDs are removed. Failure leaves a later explicit retry possible; cleanup
+  does not create another ingestion job or restore serving eligibility. Accepted runtime evidence
+  remains retained, with cleanup verification confined to a separate structural fixture.
+- **Lexical rollback** reprocesses an eligible historical extraction with its original profile
+  into a fresh extraction/index pair and generation. An enqueue revision CAS fences the previous
+  desired generation; completion must retain that reserved revision. Eligibility requires current
+  source/profile/lifecycle snapshots and excludes revoked derivations, but does not require the
+  historical active pointer or its physical projection to remain. It never creates another child
+  under the old extraction or reactivates a historical pointer.
+- These are accepted design decisions, not evidence that S2 is complete or runtime-verified.
+  Rationale: [ADR 0019](docs/adr/0019-lexical-derivation-and-serving-authority.md).
 
 ## Context Pointers
 
