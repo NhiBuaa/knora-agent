@@ -1,0 +1,26 @@
+{
+  "schema_version": "lexical-population-v1",
+  "id": "pdf-retrieval-v3-upload-population-v1",
+  "native_evidence_sha256": "890dacd4662d65167237a700056964d9c81533ec6bfa8ae2f136eee55cac9017",
+  "profile": {
+    "id": "bm25-word-upload-fixture-population-v1",
+    "tokenizer": "word",
+    "tokenizer_version": "qdrant-1.19.2",
+    "k1": 1.2,
+    "b": 0.75,
+    "avg_len": 7.0,
+    "statistics_digest": "29452edc694c61c1f13ce8f519d0a192b926bf04ff354a42b7a5056fb7819d10"
+  },
+  "profile_digest": "8e9d975fe58da2741572d7190c0de1f363e1cf8166c6a87e1353548bcce84b24",
+  "documents": [
+    {
+      "source_sha256": "4ab63c9a21e8e2cb43e041df7ea02909df9726a521cd6acdea22f3483ed9c6ec",
+      "chunks": [
+        {
+          "content_checksum": "254e6bec461f75b6ba8f8cd905c0b208212ad7bc835ba0f6a143a6f820d7e86f",
+          "native_token_count": 7
+        }
+      ]
+    }
+  ]
+}

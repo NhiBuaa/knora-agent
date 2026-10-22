@@ -13,7 +13,7 @@ BRANCH_OBSERVATION_SCHEMA_VERSION = 1
 class RetrievalConfiguration:
     id: str
     candidate_k: int
-    min_similarity: float
+    min_similarity: float | None
     max_evidence_chunks: int
     max_evidence_tokens: int
     overlap_policy: str
@@ -24,6 +24,49 @@ class RetrievalConfiguration:
     fts_candidate_k: int | None = None
     lexical_policy_id: str | None = None
     fusion_policy_id: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.strategy != "bm25-only" and self.min_similarity is None:
+            raise ValueError("dense/hybrid retrieval requires its vector threshold")
+        if self.strategy == "bm25-only" and (
+            self.min_similarity is not None
+            or not self.lexical_policy_id
+            or self.fusion_policy_id is not None
+            or self.fusion_policy_version is not None
+        ):
+            raise ValueError("BM25 requires a lexical policy and no vector threshold or fusion")
+
+    @classmethod
+    def bm25_diagnostic_v1(cls) -> "RetrievalConfiguration":
+        """Offline composition only; no deployment selector or calibrated acceptance claim."""
+        return cls(
+            id="retrieval-bm25-diagnostic-v1",
+            candidate_k=200,
+            min_similarity=None,
+            max_evidence_chunks=5,
+            max_evidence_tokens=3000,
+            overlap_policy="adjacent-content-containment-v1",
+            strategy="bm25-only",
+            lexical_policy_id="bm25-unicode-word-v1",
+        )
+
+    @classmethod
+    def bm25_top8_v1(cls) -> "RetrievalConfiguration":
+        """Primary Top8 from one native Top200; no calibrated score cutoff."""
+        return replace(
+            cls.bm25_diagnostic_v1(),
+            id="retrieval-bm25-top8-v1",
+            candidate_k=8,
+            lexical_policy_id="bm25-word-frozen47-population-v1",
+        )
+
+    @classmethod
+    def bm25_upload_fixture_top8_v1(cls) -> "RetrievalConfiguration":
+        return replace(
+            cls.bm25_top8_v1(),
+            id="retrieval-bm25-upload-fixture-top8-v1",
+            lexical_policy_id="bm25-word-upload-fixture-population-v1",
+        )
 
     def parity_semantics(self) -> dict[str, object]:
         """Project strategy semantics for vector/hybrid parity review, excluding identity."""
@@ -146,8 +189,8 @@ class RetrievalCandidate:
     source_key: str
     source_name: str
     chunk_set_id: str
-    embedding_set_id: str
-    embedding_configuration_id: str
+    embedding_set_id: str | None
+    embedding_configuration_id: str | None
     chunk_id: str
     chunk_ordinal: int
     heading_path: tuple[str, ...]
@@ -165,6 +208,9 @@ class RetrievalCandidate:
     page_end: int | None = None
     start_offset: int | None = None
     end_offset: int | None = None
+    bm25_score: float | None = None
+    bm25_rank: int | None = None
+    index_generation_id: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,9 +227,13 @@ class BranchObservation:
     lexical_policy_id: str | None = None
     normalized_lexemes: tuple[str, ...] = ()
     omitted_lexemes: tuple[str, ...] = ()
+    raw_score: float | None = None
+    score_kind: str | None = None
+    index_generation_id: str | None = None
+    decision_reason: str | None = None
 
     def as_mapping(self) -> dict[str, object]:
-        return {
+        mapping = {
             "schema_version": BRANCH_OBSERVATION_SCHEMA_VERSION,
             "branch": self.branch,
             "status": self.status,
@@ -196,6 +246,27 @@ class BranchObservation:
             "normalized_lexemes": list(self.normalized_lexemes),
             "omitted_lexemes": list(self.omitted_lexemes),
         }
+        if self.branch == "bm25":
+            mapping.update(
+                schema_version=2,
+                raw_score=self.raw_score,
+                score_kind=self.score_kind,
+                index_generation_id=self.index_generation_id,
+                decision_reason=self.decision_reason,
+            )
+        return mapping
+
+
+@dataclass(frozen=True, slots=True)
+class LexicalGeneration:
+    """Store-resolved index provenance; readiness/authorization remain store responsibilities."""
+
+    workspace_id: str
+    document_id: str
+    document_version_id: str
+    chunk_set_id: str
+    index_generation_id: str
+    lexical_policy_id: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -206,6 +277,7 @@ class RetrievalResult:
     branch_observations: tuple[BranchObservation, ...] = ()
     embedding_set_ids: tuple[str, ...] = ()
     chunk_set_ids: tuple[str, ...] = ()
+    lexical_generations: tuple[LexicalGeneration, ...] = ()
 
     def __iter__(self):
         return iter(self.candidates)
@@ -230,7 +302,7 @@ class QuestionTraceRecord:
     workspace_id: str
     question: str
     retrieval_configuration_id: str
-    embedding_configuration_id: str
+    embedding_configuration_id: str | None
     candidate_decisions: tuple[dict[str, object], ...]
     retrieved_chunk_ids: tuple[str, ...]
     embedding_set_ids: tuple[str, ...]
@@ -252,6 +324,15 @@ class QuestionTraceRecord:
 
 
 class AnsweringStore(Protocol):
+    def revalidate_lexical_snapshot(
+        self,
+        workspace_id: str,
+        lexical_policy_id: str,
+        generations: tuple[LexicalGeneration, ...],
+    ) -> None: ...
+
+    def require_lexical_corpus(self, workspace_id: str, lexical_policy_id: str) -> None: ...
+
     def require_compatible_corpus(
         self, workspace_id: str, embedding_configuration_id: str
     ) -> None: ...
@@ -261,8 +342,8 @@ class AnsweringStore(Protocol):
         *,
         workspace_id: str,
         query_text: str,
-        query_vector: tuple[float, ...],
-        embedding_configuration: EmbeddingConfiguration,
+        query_vector: tuple[float, ...] | None,
+        embedding_configuration: EmbeddingConfiguration | None,
         retrieval_configuration: RetrievalConfiguration,
     ) -> RetrievalResult: ...
 

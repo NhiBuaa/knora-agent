@@ -1,0 +1,72 @@
+{
+  "attempt": 1,
+  "attempt_id": "s1-runtime-binding-20261015-01:pdf-v3-030:1",
+  "candidates": [],
+  "case_id": "pdf-v3-030",
+  "conversation_id": "6e48ad27-ace6-4ac6-9580-6a0be4f8284c",
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "dataset_sha256": "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
+  "decision": "REFUSAL",
+  "derivation_sha256": "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2",
+  "end_to_end_latency_ms": 1103.4665000006498,
+  "failure_code": null,
+  "provider_metadata": {
+    "conversation_context": {
+      "policy_id": "conversation-context-v2",
+      "retrieval_query": "Previous user question: Đơn chuẩn nội địa được đổi trong bao lâu và phạm vi nào?\nCurrent question: Còn hoàn tiền cho loại đơn vừa hỏi mất bao lâu?",
+      "selected_turn_ids": [
+        "766f4c64-f9e3-43e3-ba85-f08f796cbf68"
+      ]
+    },
+    "embedding": {
+      "cost": {},
+      "model": "@cf/qwen/qwen3-embedding-0.6b",
+      "provider": "cloudflare-workers-ai",
+      "provider_request_id": "a4acfebc8d8d84e4-HKG",
+      "usage": {}
+    },
+    "retrieval": {
+      "latency_ms": 39.52410000056261
+    },
+    "timing": {
+      "clock_resolution_ms": 9.999999999999999e-05,
+      "phases": {
+        "candidate_retrieval": {
+          "duration_ms": 39.47599999992235,
+          "end_tick": 16308.161112,
+          "start_tick": 16308.121636
+        },
+        "evidence_selection": {
+          "duration_ms": 0.04810000064026099,
+          "end_tick": 16308.1611601,
+          "start_tick": 16308.161112
+        },
+        "generation": {
+          "duration_ms": 0.0,
+          "end_tick": 16308.1611601,
+          "start_tick": 16308.1611601
+        },
+        "query_embedding": {
+          "duration_ms": 267.87979999971867,
+          "end_tick": 16308.121636,
+          "start_tick": 16307.8537562
+        }
+      }
+    }
+  },
+  "public_response": {
+    "answer": null,
+    "citations": [],
+    "decision": "REFUSAL",
+    "refusal_reason": "INSUFFICIENT_EVIDENCE",
+    "trace_id": "55361c19-9b29-4a67-80f7-2f98b3c7d175",
+    "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+  },
+  "response_sha256": "ceb8d849c12853dd8822d0c10d49cdc5d95c0b54ae47c13b22c019caffbf1322",
+  "retrieval_latency_ms": 39.52410000056261,
+  "run_id": "s1-runtime-binding-20261015-01",
+  "selected_chunk_ids": [],
+  "trace_id": "55361c19-9b29-4a67-80f7-2f98b3c7d175",
+  "turn_id": "35e20aa8-cfd1-4469-ab03-a58c4af028d9",
+  "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+}

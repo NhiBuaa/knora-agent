@@ -1,0 +1,70 @@
+{
+  "attempt": 1,
+  "attempt_id": "s1-runtime-binding-20261015-01:pdf-v3-003:1",
+  "candidates": [],
+  "case_id": "pdf-v3-003",
+  "conversation_id": "62dac7c5-d585-4fe7-86ba-cee97a5bc232",
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "dataset_sha256": "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
+  "decision": "REFUSAL",
+  "derivation_sha256": "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2",
+  "end_to_end_latency_ms": 1087.0530999982293,
+  "failure_code": null,
+  "provider_metadata": {
+    "conversation_context": {
+      "policy_id": "conversation-context-v2",
+      "retrieval_query": "Ai được công bố bản đã duyệt?",
+      "selected_turn_ids": []
+    },
+    "embedding": {
+      "cost": {},
+      "model": "@cf/qwen/qwen3-embedding-0.6b",
+      "provider": "cloudflare-workers-ai",
+      "provider_request_id": "a4acf8ecbd2e8622-HKG",
+      "usage": {}
+    },
+    "retrieval": {
+      "latency_ms": 24.835000000166474
+    },
+    "timing": {
+      "clock_resolution_ms": 9.999999999999999e-05,
+      "phases": {
+        "candidate_retrieval": {
+          "duration_ms": 24.805600000036065,
+          "end_tick": 16070.3987993,
+          "start_tick": 16070.3739937
+        },
+        "evidence_selection": {
+          "duration_ms": 0.029400000130408444,
+          "end_tick": 16070.3988287,
+          "start_tick": 16070.3987993
+        },
+        "generation": {
+          "duration_ms": 0.0,
+          "end_tick": 16070.3988287,
+          "start_tick": 16070.3988287
+        },
+        "query_embedding": {
+          "duration_ms": 602.5495999983832,
+          "end_tick": 16070.3739937,
+          "start_tick": 16069.7714441
+        }
+      }
+    }
+  },
+  "public_response": {
+    "answer": null,
+    "citations": [],
+    "decision": "REFUSAL",
+    "refusal_reason": "INSUFFICIENT_EVIDENCE",
+    "trace_id": "918a317e-5f34-41af-8af2-337db92f1808",
+    "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+  },
+  "response_sha256": "af24e488f8159c01cea7599514b4a7d8a74c40c9d514808d0f7789ff59b46d77",
+  "retrieval_latency_ms": 24.835000000166474,
+  "run_id": "s1-runtime-binding-20261015-01",
+  "selected_chunk_ids": [],
+  "trace_id": "918a317e-5f34-41af-8af2-337db92f1808",
+  "turn_id": "b3e66d33-e2d4-4d25-95ec-7fff26ac3eed",
+  "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+}

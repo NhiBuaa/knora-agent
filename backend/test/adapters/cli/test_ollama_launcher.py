@@ -37,6 +37,10 @@ def _launch(
     environment_overrides: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     environment = os.environ.copy()
+    # This fixture talks only to loopback doubles, never the developer's proxy.
+    for name in list(environment):
+        if name.lower() in {"http_proxy", "https_proxy", "all_proxy", "no_proxy"}:
+            environment.pop(name)
     environment.pop("KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID", None)
     environment.pop("KNORA_DATABASE_URL", None)
     environment.pop("KNORA_OLLAMA_BASE_URL", None)
@@ -170,6 +174,28 @@ def test_launcher_gpt_oss_selection_uses_dotenv(tmp_path: Path) -> None:
     assert result.returncode == 0, result.stderr
     assert "GENERATION_MODEL=gpt-oss:20b" in result.stdout
     assert "GENERATION_DIGEST=sha256:" + "b" * 64 in result.stdout
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+def test_launcher_fixture_ignores_broken_parent_proxies(tmp_path: Path, monkeypatch) -> None:
+    for name in (
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "all_proxy",
+    ):
+        monkeypatch.setenv(name, "socks5h://127.0.0.1:1")
+    for name in ("NO_PROXY", "no_proxy"):
+        monkeypatch.setenv(name, "")
+    env_file = tmp_path / ".env"
+    env_file.write_text("# isolated proxy regression\n", encoding="utf-8")
+    with _ollama_server() as url:
+        result = _launch(url, env_file=env_file)
+    assert result.returncode == 0, result.stderr
+    assert "PRECHECK_OK" in result.stdout
+    assert os.environ["ALL_PROXY"] == "socks5h://127.0.0.1:1"
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")

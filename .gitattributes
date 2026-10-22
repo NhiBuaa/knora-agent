@@ -2,3 +2,5 @@
 /docs/openapi-manifest.json text eol=lf
 /frontend/generated/knora-openapi.ts text eol=lf
 /infra/keycloak/providers/email-otp-reset/**/*.java text eol=lf
+/evals/fixtures/pdf_retrieval_v3_s2/*.json text eol=lf
+/evals/fixtures/pdf_retrieval_v3_s2/*.pdf binary

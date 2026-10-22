@@ -218,6 +218,9 @@ async def test_evaluation_reader_resolves_real_candidate_ownership_and_active_co
     assert trace.candidates[0].source_key == "support/refund-policy"
     assert trace.candidates[0].chunk_ordinal == 0
     assert trace.candidates[0].content == content.decode()
+    assert trace.candidates[0].raw_sha256 is None
+    assert trace.candidates[0].parser_configuration_id is None
+    assert trace.candidates[0].content_checksum
     assert trace.retrieval_latency_ms >= 0
     assert corpus.documents[0].normalized_content_checksum
     assert corpus.documents[0].document_version_id
@@ -269,6 +272,34 @@ async def test_evaluation_reader_resolves_real_candidate_ownership_and_active_co
             {"id": corpus.documents[0].embedding_set_id},
         )
         assert snapshot_reader.read_active_corpus(workspace_id=workspace_id) == corpus
+
+    with SessionFactory.begin() as session:
+        version = session.get(DocumentVersionTable, trace.candidates[0].document_version_id)
+        version.raw_sha256 = "a" * 64
+        version.media_type = "application/pdf"
+        chunk_set = session.get(ChunkSetTable, trace.candidates[0].chunk_set_id)
+        chunk_set.parser_configuration_id = "parser-layout-v2"
+        chunk_set.normalizer_configuration_id = "normalizer-v1"
+        chunk = session.get(ChunkTable, trace.candidates[0].chunk_id)
+        chunk.page_start = chunk.page_end = 2
+        chunk.start_offset = 10
+        chunk.end_offset = 10 + len(chunk.content)
+
+    pdf_chunks = reader.read_pdf_chunks(workspace_id=workspace_id)
+    assert len(pdf_chunks) == 1
+    assert pdf_chunks[0].raw_sha256 == "a" * 64
+    assert pdf_chunks[0].parser_configuration_id == "parser-layout-v2"
+    assert pdf_chunks[0].page_start == 2
+    assert pdf_chunks[0].start_offset == 10
+    assert pdf_chunks[0].end_offset == 10 + len(content.decode())
+    assert reader.read_pdf_chunks(workspace_id="another-workspace") == ()
+    pdf_trace = reader.read_trace(trace_id=result.trace_id, workspace_id=workspace_id)
+    assert pdf_trace.candidates[0].raw_sha256 == "a" * 64
+    assert pdf_trace.candidates[0].normalizer_configuration_id == "normalizer-v1"
+    with SessionFactory.begin() as session:
+        document = session.get(DocumentTable, version.document_id)
+        document.archived = True
+    assert reader.read_pdf_chunks(workspace_id=workspace_id) == ()
 
 
 def test_evaluation_reader_binds_persisted_budget_evidence_end_to_end() -> None:

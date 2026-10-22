@@ -1,0 +1,300 @@
+{
+  "case_count": 8,
+  "cases": [
+    {
+      "case_id": "secret-en",
+      "diagnostics": {
+        "blocked_network_attempts": 0
+      },
+      "elapsed_ms": 5361.857,
+      "finding_type": "secrets_present",
+      "input_sha256": "sha256:739aecb9e8641a5abe170f9ce50aec1f581d08647ed13f906e3f47d7f2554ed7",
+      "label": "positive",
+      "language": "en",
+      "packages": {
+        "detect-secrets": "1.5.0",
+        "guardrails-ai": "0.11.0",
+        "guardrails-ai-secrets-present": "0.1.0"
+      },
+      "scope": "output",
+      "status": "detected"
+    },
+    {
+      "case_id": "secret-vi",
+      "diagnostics": {
+        "blocked_network_attempts": 0
+      },
+      "elapsed_ms": 6975.543,
+      "finding_type": "secrets_present",
+      "input_sha256": "sha256:5e6da0c347b910ba1000eff75986d0725167d57284dc831685091d5264b8ec49",
+      "label": "positive",
+      "language": "vi",
+      "packages": {
+        "detect-secrets": "1.5.0",
+        "guardrails-ai": "0.11.0",
+        "guardrails-ai-secrets-present": "0.1.0"
+      },
+      "scope": "generation_evidence",
+      "status": "detected"
+    },
+    {
+      "case_id": "secret-multiline",
+      "diagnostics": {
+        "blocked_network_attempts": 0
+      },
+      "elapsed_ms": 6449.005,
+      "finding_type": "secrets_present",
+      "input_sha256": "sha256:1497f3e93b87b721113341569f47fbe995c111bd4977a678ca06e9c1098dccdf",
+      "label": "positive",
+      "language": "en",
+      "packages": {
+        "detect-secrets": "1.5.0",
+        "guardrails-ai": "0.11.0",
+        "guardrails-ai-secrets-present": "0.1.0"
+      },
+      "scope": "generation_evidence",
+      "status": "detected"
+    },
+    {
+      "case_id": "secret-boundary",
+      "diagnostics": {
+        "blocked_network_attempts": 0
+      },
+      "elapsed_ms": 6698.037,
+      "finding_type": null,
+      "input_sha256": "sha256:9ad3357a5064526e402496ca9240f39bbfc1ad2d4bbdf6b3c20f8f083d13b8bc",
+      "label": "positive",
+      "language": "vi",
+      "packages": {
+        "detect-secrets": "1.5.0",
+        "guardrails-ai": "0.11.0",
+        "guardrails-ai-secrets-present": "0.1.0"
+      },
+      "scope": "output",
+      "status": "clear"
+    },
+    {
+      "case_id": "benign-code",
+      "diagnostics": {
+        "blocked_network_attempts": 0
+      },
+      "elapsed_ms": 6202.005,
+      "finding_type": null,
+      "input_sha256": "sha256:70b93d46ef4fc62e42a3b6bc1a5ecd345eecfd19ea8ba93deba35dc3950a1801",
+      "label": "negative",
+      "language": "en",
+      "packages": {
+        "detect-secrets": "1.5.0",
+        "guardrails-ai": "0.11.0",
+        "guardrails-ai-secrets-present": "0.1.0"
+      },
+      "scope": "output",
+      "status": "clear"
+    },
+    {
+      "case_id": "benign-url",
+      "diagnostics": {
+        "blocked_network_attempts": 0
+      },
+      "elapsed_ms": 6206.781,
+      "finding_type": "secrets_present",
+      "input_sha256": "sha256:3f0c6dd929bdeb6507686dc46d06da3fff5e94d42ff34f74f224404b65d4e608",
+      "label": "negative",
+      "language": "en",
+      "packages": {
+        "detect-secrets": "1.5.0",
+        "guardrails-ai": "0.11.0",
+        "guardrails-ai-secrets-present": "0.1.0"
+      },
+      "scope": "generation_evidence",
+      "status": "detected"
+    },
+    {
+      "case_id": "benign-medical",
+      "diagnostics": {
+        "blocked_network_attempts": 0
+      },
+      "elapsed_ms": 6031.566,
+      "finding_type": null,
+      "input_sha256": "sha256:6b8fcea6dbde4626a963b211395e43a48484ea4f6c2f883405e08243a09cd9df",
+      "label": "negative",
+      "language": "vi",
+      "packages": {
+        "detect-secrets": "1.5.0",
+        "guardrails-ai": "0.11.0",
+        "guardrails-ai-secrets-present": "0.1.0"
+      },
+      "scope": "generation_evidence",
+      "status": "clear"
+    },
+    {
+      "case_id": "benign-security",
+      "diagnostics": {
+        "blocked_network_attempts": 0
+      },
+      "elapsed_ms": 6282.852,
+      "finding_type": null,
+      "input_sha256": "sha256:b8ee8eeaac89ded6957bccdee6f3da1ec57a26e994bfeb59b0ab4212905fc0da",
+      "label": "negative",
+      "language": "vi",
+      "packages": {
+        "detect-secrets": "1.5.0",
+        "guardrails-ai": "0.11.0",
+        "guardrails-ai-secrets-present": "0.1.0"
+      },
+      "scope": "output",
+      "status": "clear"
+    }
+  ],
+  "created_at": "2026-10-15T08:12:40.452133+00:00",
+  "detector": "secrets_present",
+  "detector_configuration": {
+    "approved_packages": {
+      "detect-secrets": "1.5.0",
+      "guardrails-ai": "0.11.0",
+      "guardrails-ai-secrets-present": "0.1.0"
+    },
+    "on_fail": "noop",
+    "plugins": "detect-secrets default_settings; no verification",
+    "timeout_seconds": 30,
+    "use_local": true
+  },
+  "enforcement": "off",
+  "execution": "local_validator",
+  "groups": [
+    {
+      "language": "en",
+      "metrics": {
+        "false_positive_rate": 1.0,
+        "fn": 0,
+        "fp": 1,
+        "precision": 0.5,
+        "recall": 1.0,
+        "tn": 0,
+        "tp": 1
+      },
+      "population": {
+        "errors": 0,
+        "evaluable": 2,
+        "reviewed": 2,
+        "timeouts": 0,
+        "total": 2,
+        "unavailable": 0,
+        "unknown": 0,
+        "unreviewed": 0
+      },
+      "scope": "generation_evidence"
+    },
+    {
+      "language": "en",
+      "metrics": {
+        "false_positive_rate": 0.0,
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "tn": 1,
+        "tp": 1
+      },
+      "population": {
+        "errors": 0,
+        "evaluable": 2,
+        "reviewed": 2,
+        "timeouts": 0,
+        "total": 2,
+        "unavailable": 0,
+        "unknown": 0,
+        "unreviewed": 0
+      },
+      "scope": "output"
+    },
+    {
+      "language": "vi",
+      "metrics": {
+        "false_positive_rate": 0.0,
+        "fn": 0,
+        "fp": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "tn": 1,
+        "tp": 1
+      },
+      "population": {
+        "errors": 0,
+        "evaluable": 2,
+        "reviewed": 2,
+        "timeouts": 0,
+        "total": 2,
+        "unavailable": 0,
+        "unknown": 0,
+        "unreviewed": 0
+      },
+      "scope": "generation_evidence"
+    },
+    {
+      "language": "vi",
+      "metrics": {
+        "false_positive_rate": 0.0,
+        "fn": 1,
+        "fp": 0,
+        "precision": null,
+        "recall": 0.0,
+        "tn": 1,
+        "tp": 0
+      },
+      "population": {
+        "errors": 0,
+        "evaluable": 2,
+        "reviewed": 2,
+        "timeouts": 0,
+        "total": 2,
+        "unavailable": 0,
+        "unknown": 0,
+        "unreviewed": 0
+      },
+      "scope": "output"
+    }
+  ],
+  "label_review_ref": "https://github.com/NhiBuaa/knora-agent/issues/188#issuecomment-6186983108",
+  "label_review_sha256": "sha256:2fda5a70f1457847db197bbe5a65c177d0a39f648b85907a30b66eda10754ab9",
+  "metrics": {
+    "false_positive_rate": 0.25,
+    "fn": 1,
+    "fp": 1,
+    "precision": 0.75,
+    "recall": 0.75,
+    "tn": 3,
+    "tp": 3
+  },
+  "not_run": [
+    "prompt_injection",
+    "pii",
+    "dangerous_output"
+  ],
+  "population": {
+    "errors": 0,
+    "evaluable": 8,
+    "reviewed": 8,
+    "timeouts": 0,
+    "total": 8,
+    "unavailable": 0,
+    "unknown": 0,
+    "unreviewed": 0
+  },
+  "release_gate": false,
+  "report_digest": "sha256:08c7d03983173447b871f498264a90d2434f9b80d26dd61f6d11b7df241073c5",
+  "runtime": {
+    "implementation_sha256": {
+      "runner": "sha256:019320bf26211e60e6853a5980a40220620abc4abeab0617a7d2a05154b53cf9",
+      "scorer": "sha256:0c26f61343b6b986f2fdcf944203ae2e0cf367d2ca29c6f4effa3a47702407da"
+    },
+    "packages": {
+      "detect-secrets": "1.5.0",
+      "guardrails-ai": "0.11.0",
+      "guardrails-ai-secrets-present": "0.1.0"
+    },
+    "python": "3.12.15"
+  },
+  "schema_version": 1,
+  "source_digest": "sha256:09d64242c694abee6017723b73c1dabd468f6125a0816c003337e05c40954d4a"
+}

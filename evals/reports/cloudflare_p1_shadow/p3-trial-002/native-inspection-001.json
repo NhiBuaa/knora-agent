@@ -1,0 +1,12 @@
+{
+  "case_id": "p1-vi-attack-1",
+  "configuration_sha256": "sha256:40f6ce5f5ea1522492afb138b3b13c13bf54e54a9fa55ec943a5b49b7bd9ce18",
+  "input_sha256": "sha256:16c82830ecfd0743f6af1f0d5d097001e7035d274d66f0176a3e6e55b8bd58a6",
+  "inspection_number": 1,
+  "native_completion": "unavailable",
+  "native_log_id": "01a14994-70d9-762b-8de0-33e83d89cc3f",
+  "observation": "No events found; UI states up to 2 minutes delay",
+  "raw_payload_retained": false,
+  "surface": "dedicated Gateway Workers Logs",
+  "verdict": null
+}

@@ -26,6 +26,8 @@ from knora.adapters.postgres.tables import (
     EmbeddingSetTable,
     IngestionJobAttemptTable,
     IngestionJobTable,
+    LexicalGenerationTable,
+    LexicalHeadTable,
     ObjectLifecycleWorkTable,
     OriginalSourceObjectTable,
     WorkspaceAdmissionTable,
@@ -49,6 +51,9 @@ def corpus_db():
     def sqlite_clock(dbapi, _):
         dbapi.create_function("clock_timestamp", 0, lambda: NOW.strftime("%Y-%m-%d %H:%M:%S.%f"))
         dbapi.create_function("to_tsvector", 2, lambda config, content: content, deterministic=True)
+        dbapi.create_function(
+            "json_typeof", 1, lambda val: "object" if val is not None else None, deterministic=True
+        )
 
     from sqlalchemy.dialects.postgresql import TSVECTOR
     from sqlalchemy.ext.compiler import compiles, deregister
@@ -71,6 +76,8 @@ def corpus_db():
                 EmbeddingConfigurationTable,
                 IngestionJobTable,
                 IngestionJobAttemptTable,
+                LexicalGenerationTable,
+                LexicalHeadTable,
                 DatasetDraftTable,
                 DatasetSourceTable,
                 EvaluationGoldVersionTable,

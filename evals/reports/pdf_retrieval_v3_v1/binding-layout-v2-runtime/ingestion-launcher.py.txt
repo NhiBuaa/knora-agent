@@ -1,0 +1,703 @@
+"""Local #153 ingestion-only launcher. No listener, conversation worker or automatic retry."""
+
+# ruff: noqa: E402 -- repository paths must precede imports in this ignored local launcher.
+
+import argparse
+import hashlib
+import io
+import json
+import os
+import secrets
+import subprocess
+import sys
+import tempfile
+import time
+import unicodedata
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from urllib.parse import urlparse
+
+ROOT = Path(__file__).resolve().parents[3]
+sys.path[:0] = [str(ROOT), str(ROOT / "backend/src")]
+
+import httpx
+from evals.runners.pdf_baseline_runtime import FreeOnlyGuard
+from evals.runners.pdf_retrieval_v3 import publish_json
+from evals.runners.pdf_source_binding import chunk_record, propose_bindings
+
+OFFLINE = ROOT / "evals/reports/pdf_retrieval_v3_v1/binding-layout-v2-offline/chunks.json"
+PRIMARY_ENV = Path("C:/Developer/Projects/knora-agent/.env")
+
+
+def checkpoint_json(path, value):
+    temporary = path.with_suffix(".tmp")
+    with temporary.open("w", encoding="utf-8") as stream:
+        json.dump(value, stream, ensure_ascii=False, indent=2)
+        stream.write("\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.replace(temporary, path)
+
+
+def load_json(path):
+    return json.loads(Path(path).read_text(encoding="utf-8-sig"))
+
+
+class IngestionGuard(FreeOnlyGuard):
+    def __init__(self, path, *, run_identity, preflight, expected):
+        super().__init__(path, run_identity=run_identity, preflight=preflight)
+        self.expected, self.source = expected, None
+        self.state.setdefault("embedding_http_attempts", 0)
+        self.state.setdefault("attempted_sources", [])
+        self.save()
+
+    def save(self):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        checkpoint_json(self.path, self.state)
+
+    def stop(self, reason):
+        self.state["stop_reason"] = self.state["stop_reason"] or reason
+        self.save()
+        raise RuntimeError(self.state["stop_reason"])
+
+    def before_request(self, request):
+        if self.state["stop_reason"]:
+            raise RuntimeError(self.state["stop_reason"])
+        if datetime.now(UTC) - datetime.fromisoformat(self.preflight["checked_at"]) > timedelta(
+            minutes=15
+        ):
+            self.stop("FREE_PREFLIGHT_EXPIRED")
+        endpoint = f"https://api.cloudflare.com/client/v4/accounts/{self.account_id}/ai/run/@cf/qwen/qwen3-embedding-0.6b"
+        try:
+            payload = json.loads(request.content)
+        except (ValueError, UnicodeError):
+            self.stop("EMBEDDING_REQUEST_INVALID")
+        texts = self.expected.get(self.source)
+        if (
+            request.method != "POST"
+            or str(request.url) != endpoint
+            or set(payload) != {"documents"}
+            or not texts
+            or payload["documents"] != [unicodedata.normalize("NFKC", text) for text in texts]
+            or any(key.startswith("cf-aig") for key in request.headers)
+        ):
+            self.stop("INGESTION_REQUEST_NOT_APPROVED")
+        if self.source in self.state["attempted_sources"]:
+            self.stop("SOURCE_ATTEMPT_ALREADY_CONSUMED")
+        if (
+            self.state["embedding_http_attempts"] >= 14
+            or self.state["embedding_inputs"] + len(texts) > 47
+        ):
+            self.stop("INGESTION_REQUEST_LIMIT")
+        self.state["embedding_http_attempts"] += 1
+        self.state["attempted_sources"].append(self.source)
+        self.save()
+        super().before_request(request)
+
+    def after_response(self, response):
+        super().after_response(response)
+        if response.status_code >= 300:
+            self.state["stop_reason"] = self.state["stop_reason"] or "EMBEDDING_HTTP_FAILED"
+            self.save()
+
+
+class DocumentOnlyProvider:
+    def __init__(self, provider, guard):
+        self.provider, self.guard = provider, guard
+
+    def embed_documents(self, texts, configuration):
+        if texts != self.guard.expected.get(self.guard.source):
+            self.guard.stop("EXTRACTION_CONTENT_OR_ORDER_DRIFT")
+        try:
+            return self.provider.embed_documents(texts, configuration)
+        except Exception:
+            self.guard.state["stop_reason"] = (
+                self.guard.state["stop_reason"] or "EMBEDDING_PROVIDER_FAILED"
+            )
+            self.guard.save()
+            raise
+
+    def embed_queries(self, *args, **kwargs):
+        self.guard.stop("QUERY_EMBEDDING_FORBIDDEN")
+
+    def embed(self, *args, **kwargs):
+        self.guard.stop("UNTYPED_EMBEDDING_FORBIDDEN")
+
+    async def generate(self, *args, **kwargs):
+        self.guard.stop("GENERATION_FORBIDDEN")
+
+
+def live(args):
+    from evals.datasets.pdf_retrieval_v3_v1 import load_dataset, validate_approval
+
+    dataset = load_dataset(
+        ROOT / "evals/datasets/pdf_retrieval_v3_v1.manifest.json",
+        ROOT / "evals/datasets/pdf_retrieval_v3_v1.jsonl",
+    )
+    approval = load_json(args.approval)
+    validate_approval(dataset, approval)
+    snapshot = load_json(OFFLINE)
+    if (
+        snapshot["corpus_sha256"] != dataset.corpus_sha256
+        or snapshot["dataset_sha256"] != dataset.dataset_sha256
+        or len(dataset.sources) != 16
+    ):
+        raise ValueError("frozen snapshot/dataset identity drift")
+    expected = {source.id: [] for source in dataset.sources}
+    for row in sorted(snapshot["chunks"], key=lambda row: row["chunk_id"]):
+        expected[row["source_key"]].append(row["content"])
+    if (
+        sum(bool(texts) for texts in expected.values()) != 14
+        or sum(map(len, expected.values())) != 47
+    ):
+        raise ValueError("approved 14-request/47-string inventory drift")
+    database_url = os.environ["KNORA_DATABASE_URL"]
+    database = urlparse(database_url)
+    if (
+        database.scheme != "postgresql+psycopg"
+        or database.hostname not in {"localhost", "127.0.0.1"}
+        or database.port != 55453
+        or database.path != "/knora153s1_baseline"
+        or database.query
+        or database.fragment
+    ):
+        raise ValueError("only owned loopback55453/knora153s1_baseline is allowed")
+    from dotenv import dotenv_values
+
+    credential_keys = {"KNORA_CLOUDFLARE_ACCOUNT_ID", "KNORA_CLOUDFLARE_API_TOKEN"}
+    # Parse only these two lines; never import the primary app's other configuration.
+    with PRIMARY_ENV.open(encoding="utf-8-sig") as stream:
+        selected = "".join(
+            line for line in stream if line.split("=", 1)[0].strip() in credential_keys
+        )
+    credentials = dotenv_values(stream=io.StringIO(selected), interpolate=False)
+    if set(credentials) != credential_keys or any(not value for value in credentials.values()):
+        raise ValueError("primary Cloudflare credential keys missing")
+    preflight = load_json(args.free_preflight)
+    if (
+        preflight.get("account_id") != credentials["KNORA_CLOUDFLARE_ACCOUNT_ID"]
+        or preflight.get("quota_coordination_confirmed") is not True
+        or preflight.get("paid_budget_usd") != 0
+    ):
+        raise ValueError("account/Free-only/shared quota admission missing")
+    if not args.decision_url.startswith("https://github.com/NhiBuaa/knora-agent/issues/"):
+        raise ValueError("owner ingestion-only approval decision URL required")
+    output, objects = args.output.resolve(), args.objects.resolve()
+    for path in (output, objects):
+        if not path.is_relative_to(ROOT / ".verification/issue153") or path.exists():
+            raise ValueError(
+                "use unused paths beneath worktree .verification/issue153; no run resumes"
+            )
+    if output == objects or output.is_relative_to(objects) or objects.is_relative_to(output):
+        raise ValueError("output and object paths must be separate")
+    identity = {
+        "run_id": args.run_id,
+        "corpus_sha256": dataset.corpus_sha256,
+        "dataset_sha256": dataset.dataset_sha256,
+        "baseline": "pypdf-layout-v2/qwen3-06b/gpt-oss20b/containment0.65",
+    }
+    scope = {
+        "decision_url": args.decision_url,
+        "paid_budget_usd": 0,
+        "embedding_http_attempt_limit": 14,
+        "embedding_input_limit": 47,
+        "query_generation_judge_limit": 0,
+        "offline_snapshot_sha256": hashlib.sha256(OFFLINE.read_bytes()).hexdigest(),
+    }
+    output.mkdir(parents=True, exist_ok=False)
+    guard = IngestionGuard(
+        output / "counters.json", run_identity=identity, preflight=preflight, expected=expected
+    )
+    guard.state["ingestion_only_authorization"] = scope
+    guard.state["runtime_provenance"] = {
+        "code_commit": subprocess.check_output(
+            ["git", "-C", str(ROOT), "rev-parse", "HEAD"], text=True, encoding="utf-8"
+        ).strip(),
+        "launcher_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "python": sys.version,
+        "database": "127.0.0.1:55453/knora153s1_baseline",
+        "http": "FastAPI TestClient in-process; no port8153 listener",
+        "credential_source": "primary .env: Cloudflare account/token keys only",
+        "automatic_retry": False,
+        "conversation_worker_started": False,
+    }
+    guard.save()
+    try:
+        # Avoid Settings' implicit .env loading and inherited provider/export configuration.
+        for key in list(os.environ):
+            if key.startswith(("KNORA_", "LANGFUSE_", "OTEL_")):
+                del os.environ[key]
+        os.environ.update(
+            KNORA_DATABASE_URL=database_url,
+            KNORA_PROVIDER_MODE="deterministic-local",
+            KNORA_EMBEDDING_PROVIDER="deterministic-local",
+            KNORA_GENERATION_PROVIDER="deterministic-local",
+            KNORA_EMBEDDING_DIMENSION="1536",
+            KNORA_OPENAI_EMBEDDING_MODEL="text-embedding-3-small",
+            KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID="embedding-local-m1-v2",
+            PYTHONUTF8="1",
+            PYTHONIOENCODING="utf-8",
+        )
+        os.chdir(output)
+        from evals.runners.pdf_baseline_runtime import build_evaluation_app
+        from fastapi.testclient import TestClient
+        from sqlalchemy import text
+
+        from knora.access.keycloak import KeycloakAuthenticator
+        from knora.adapters.postgres.database import SessionFactory, engine
+        from knora.adapters.postgres.evaluation_reader import PostgresEvaluationReader
+        from knora.domain.errors import KnoraError
+        from knora.providers.cloudflare.embedding import CloudflareEmbeddingProvider
+        from knora.providers.embedding import EmbeddingConfiguration
+
+        with engine.connect() as connection:
+            for table in ("workspaces", "documents", "chunks", "ingestion_jobs"):
+                if connection.scalar(text(f"SELECT count(*) FROM {table}")) != 0:
+                    guard.stop("DATABASE_NOT_FRESH_NO_RETRY")
+        token = secrets.token_urlsafe(32)
+
+        def claims(value):
+            if not secrets.compare_digest(value, token):
+                raise KnoraError("UNAUTHENTICATED")
+            return {
+                "iss": "https://s1-evaluation.local",
+                "aud": "knora-api",
+                "sub": args.run_id,
+                "exp": time.time() + 60,
+                "capabilities": ["documents:read", "documents:write"],
+            }
+
+        authenticator = KeycloakAuthenticator(
+            issuer="https://s1-evaluation.local", audience="knora-api", token_validator=claims
+        )
+        reader = PostgresEvaluationReader(SessionFactory)
+        with httpx.Client(
+            timeout=60,
+            trust_env=False,
+            follow_redirects=False,
+            transport=httpx.HTTPTransport(retries=0),
+            event_hooks={"request": [guard.before_request], "response": [guard.after_response]},
+        ) as model_client:
+            embedding = DocumentOnlyProvider(
+                CloudflareEmbeddingProvider(
+                    account_id=guard.account_id,
+                    api_token=credentials["KNORA_CLOUDFLARE_API_TOKEN"],
+                    client=model_client,
+                ),
+                guard,
+            )
+            app = build_evaluation_app(
+                embedding_provider=embedding,
+                generation_provider=embedding,
+                embedding_configuration=EmbeddingConfiguration.cloudflare_qwen3_06b(),
+                objects_root=objects,
+                authenticator=authenticator,
+            )
+            with TestClient(app, headers={"Authorization": f"Bearer {token}"}) as client:
+                response = client.post(
+                    "/v1/workspaces",
+                    json={"name": args.run_id},
+                    headers={"Idempotency-Key": f"{args.run_id}:workspace"},
+                )
+                response.raise_for_status()
+                workspace_id = response.json()["id"]
+                run = {**identity, **scope, "workspace_id": workspace_id}
+                guard.state["workspace_id"] = workspace_id
+                guard.save()
+                checkpoint_json(output / "run-journal.json", run)
+                for source in dataset.sources:
+                    guard.source = source.id
+                    row = {
+                        **run,
+                        "source_id": source.id,
+                        "raw_sha256": source.sha256,
+                        "status": "upload_started",
+                    }
+                    path = output / f"source-{source.id}.json"
+                    journal = output / f"journal-{source.id}.json"
+                    checkpoint_json(journal, row)
+                    try:
+                        raw = source.path.read_bytes()
+                        if hashlib.sha256(raw).hexdigest() != source.sha256:
+                            guard.stop("SOURCE_RAW_SHA256_DRIFT")
+                        response = client.post(
+                            f"/v1/workspaces/{workspace_id}/documents",
+                            data={"source_key": source.id},
+                            files={"file": (source.path.name, raw, "application/pdf")},
+                            headers={"Idempotency-Key": f"{args.run_id}:pdf:{source.id}"},
+                        )
+                        response.raise_for_status()
+                        submitted = response.json()
+                        row.update(submitted)
+                        checkpoint_json(journal, row)
+                        if (
+                            response.status_code != 202
+                            or submitted["submission_outcome"] != "created"
+                            or submitted["status"] != "queued"
+                        ):
+                            guard.stop("UNEXPECTED_UPLOAD_OUTCOME")
+                        worker_error = None
+                        try:
+                            worker_result = app.state.ingestion_worker.run_once(
+                                f"{args.run_id}:pdf"
+                            )
+                            row["worker_result_type"] = type(worker_result).__name__
+                        except Exception as error:
+                            worker_error = type(error).__name__
+                            row["worker_error_type"] = worker_error
+                        response = client.get(
+                            f"/v1/workspaces/{workspace_id}/ingestion-jobs/{submitted['ingestion_job_id']}"
+                        )
+                        response.raise_for_status()
+                        status = response.json()
+                        row.update(status)
+                        checkpoint_json(journal, row)
+                        publish_json(path, row)
+                        guard.state.setdefault("terminal_statuses", {})[source.id] = status
+                        guard.save()
+                        if (
+                            worker_error
+                            or guard.state["stop_reason"]
+                            or status["ingestion_job_id"] != submitted["ingestion_job_id"]
+                            or status["attempt_count"] != 1
+                        ):
+                            guard.stop("WORKER_OR_PROVIDER_FAILURE_NO_RETRY")
+                        if not expected[source.id]:
+                            if (
+                                source.id not in {"scan-01", "scan-03"}
+                                or status["status"] != "failed"
+                                or status["error_code"] != "PDF_TEXT_INSUFFICIENT"
+                            ):
+                                guard.stop("UNEXPECTED_EXTRACTION_FAILURE")
+                        elif (
+                            status["status"] != "succeeded"
+                            or source.id not in guard.state["attempted_sources"]
+                        ):
+                            guard.stop("UNEXPECTED_JOB_STATUS_NO_RETRY")
+                        chunks = reader.read_pdf_chunks(workspace_id=workspace_id)
+                        actual = [chunk_record(chunk) for chunk in chunks]
+                        checkpoint_json(
+                            output / "chunks-progress.json",
+                            {
+                                **run,
+                                "scope": "actual current active completed persisted PDF chunks",
+                                "chunks": actual,
+                            },
+                        )
+                        proposal = propose_bindings(dataset, chunks)
+                        checkpoint_json(
+                            output / "binding-proposals-progress.json",
+                            proposal,
+                        )
+                        fields = (
+                            "source_key",
+                            "raw_sha256",
+                            "parser_configuration_id",
+                            "normalizer_configuration_id",
+                            "chunking_configuration_id",
+                            "page_start",
+                            "page_end",
+                            "start_offset",
+                            "end_offset",
+                            "content_checksum",
+                            "content",
+                        )
+
+                        def project(rows, fields=fields, source_id=source.id):
+                            return sorted(
+                                (
+                                    {key: item[key] for key in fields}
+                                    for item in rows
+                                    if item["source_key"] == source_id
+                                ),
+                                key=lambda item: (
+                                    item["page_start"],
+                                    item["start_offset"],
+                                    item["end_offset"],
+                                    item["content_checksum"],
+                                ),
+                            )
+
+                        if project(actual) != project(snapshot["chunks"]):
+                            guard.stop("PERSISTED_DERIVATION_DRIFT")
+                    except Exception as error:
+                        row["launcher_error_type"] = type(error).__name__
+                        checkpoint_json(journal, row)
+                        if not path.exists():
+                            publish_json(path, row)
+                        raise
+                    print(f"{source.id}: {row['status']}", flush=True)
+                if (
+                    guard.state["embedding_http_attempts"] != 14
+                    or guard.state["embedding_inputs"] != 47
+                ):
+                    guard.stop("FINAL_INVENTORY_MISMATCH")
+                publish_json(output / "chunks.json", {**run, "chunks": actual})
+                publish_json(output / "binding-proposals.json", proposal)
+                guard.state["status"] = "ingestion_complete_pending_owner_binding_review"
+                guard.save()
+                publish_json(
+                    output / "run.json",
+                    {
+                        **run,
+                        "status": guard.state["status"],
+                        "proposal_sha256": proposal["proposal_sha256"],
+                        "derivation_sha256": proposal["derivation_sha256"],
+                    },
+                )
+                print("Ingestion complete; actual runtime binding proposal requires owner review.")
+    except BaseException:
+        guard.state["stop_reason"] = guard.state["stop_reason"] or "LAUNCHER_FAILURE_NO_RETRY"
+        guard.save()
+        raise
+    finally:
+        os.chdir(ROOT)
+
+
+def self_check():
+    import asyncio
+    from types import SimpleNamespace
+
+    from knora.access.identity import Identity
+    from knora.access.workspace_authorization import WorkspaceAuthorizer
+    from knora.adapters.pdf.pypdf import PypdfTextExtractor
+    from knora.domain.errors import KnoraError
+    from knora.ingestion.pdf import PdfExtractionConfiguration
+    from knora.providers.cloudflare.embedding import CloudflareEmbeddingProvider
+    from knora.providers.embedding import EmbeddingConfiguration
+
+    preflight = {
+        "checked_at": datetime.now(UTC).isoformat(),
+        "plan": "Workers Free",
+        "neurons_used": 96,
+        "daily_limit": 10000,
+        "models_free_eligible": True,
+        "no_paid_gateway": True,
+        "evidence": "mock-only",
+        "account_id": "a" * 32,
+    }
+    endpoint = "https://api.cloudflare.com/client/v4/accounts/" + "a" * 32
+    endpoint += "/ai/run/@cf/qwen/qwen3-embedding-0.6b"
+    configuration = EmbeddingConfiguration.cloudflare_qwen3_06b()
+    expected = {f"source-{i}": [f"approved-{i}"] for i in range(15)}
+
+    def denied(call):
+        try:
+            call()
+        except (RuntimeError, httpx.HTTPError):
+            return
+        raise AssertionError("forbidden request was admitted")
+
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        serial = 0
+
+        def guard():
+            nonlocal serial
+            serial += 1
+            return IngestionGuard(
+                root / f"counter-{serial}.json",
+                run_identity={"run_id": "mock-only"},
+                preflight=preflight,
+                expected=expected,
+            )
+
+        for url, payload in (
+            (endpoint, {"queries": ["approved-0"]}),
+            (
+                endpoint.replace("/run/@cf/qwen/qwen3-embedding-0.6b", "/v1/chat/completions"),
+                {"model": "@cf/openai/gpt-oss-20b"},
+            ),
+            (endpoint.replace("api.cloudflare.com", "example.org"), {"documents": ["approved-0"]}),
+            (endpoint + "?gateway=paid", {"documents": ["approved-0"]}),
+            (endpoint, {"documents": ["changed"]}),
+        ):
+            g = guard()
+            g.source = "source-0"
+            sent = []
+            with httpx.Client(
+                transport=httpx.MockTransport(
+                    lambda r, sent=sent: sent.append(r) or httpx.Response(200)
+                ),
+                event_hooks={"request": [g.before_request]},
+            ) as client:
+                denied(lambda url=url, payload=payload: client.post(url, json=payload))
+            assert not sent and load_json(g.path)["embedding_inputs"] == 0
+
+        g = guard()
+        sent = []
+
+        def response(request):
+            durable = load_json(g.path)
+            assert durable["embedding_http_attempts"] == len(sent) + 1
+            assert durable["embedding_inputs"] == len(sent) + 1
+            sent.append(request)
+            return httpx.Response(
+                200, json={"result": {"data": [[0.0] * 1024], "shape": [1, 1024]}}
+            )
+
+        with httpx.Client(
+            transport=httpx.MockTransport(response),
+            event_hooks={"request": [g.before_request], "response": [g.after_response]},
+        ) as client:
+            provider = DocumentOnlyProvider(
+                CloudflareEmbeddingProvider(
+                    account_id=preflight["account_id"], api_token="mock", client=client
+                ),
+                g,
+            )
+            for i in range(14):
+                g.source = f"source-{i}"
+                assert len(provider.embed_documents(expected[g.source], configuration).vectors) == 1
+            g.source = "source-14"
+            denied(lambda g=g: client.post(endpoint, json={"documents": expected[g.source]}))
+            assert len(sent) == 14
+            denied(lambda: provider.embed_queries(["question"], configuration))
+        assert load_json(g.path)["generation_attempts"] == 0
+
+        g = guard()
+        g.state["embedding_inputs"] = 47
+        g.save()
+        g.source = "source-0"
+        denied(
+            lambda: g.before_request(
+                httpx.Request("POST", endpoint, json={"documents": expected[g.source]})
+            )
+        )
+        assert load_json(g.path)["embedding_http_attempts"] == 0
+
+        for failure in ("transport", "http", "malformed"):
+            g = guard()
+            g.source = "source-0"
+            calls = []
+
+            def fail(request, calls=calls, failure=failure):
+                calls.append(request)
+                if failure == "transport":
+                    raise httpx.ConnectError("mock failure", request=request)
+                return httpx.Response(403 if failure == "http" else 200, json={"result": {}})
+
+            with httpx.Client(
+                transport=httpx.MockTransport(fail),
+                event_hooks={"request": [g.before_request], "response": [g.after_response]},
+            ) as client:
+                provider = DocumentOnlyProvider(
+                    CloudflareEmbeddingProvider(
+                        account_id=preflight["account_id"], api_token="mock", client=client
+                    ),
+                    g,
+                )
+                try:
+                    provider.embed_documents(expected[g.source], configuration)
+                except Exception:
+                    pass
+                else:
+                    raise AssertionError("mock failure unexpectedly succeeded")
+                denied(lambda g=g: client.post(endpoint, json={"documents": expected[g.source]}))
+            assert len(calls) == 1
+            saved = load_json(g.path)
+            assert saved["embedding_http_attempts"] == saved["embedding_inputs"] == 1
+            assert saved["stop_reason"]
+            reopened = IngestionGuard(
+                g.path, run_identity={"run_id": "mock-only"}, preflight=preflight, expected=expected
+            )
+            reopened.source = "source-0"
+            denied(
+                lambda reopened=reopened: reopened.before_request(
+                    httpx.Request("POST", endpoint, json={"documents": expected[reopened.source]})
+                )
+            )
+
+        g = guard()
+        g.expected = {"ordered": ["first", "second"]}
+        g.source = "ordered"
+        denied(
+            lambda: g.before_request(
+                httpx.Request("POST", endpoint, json={"documents": ["second", "first"]})
+            )
+        )
+        assert load_json(g.path)["embedding_inputs"] == 0
+
+        g = guard()
+        g.expected = {"a": ["x"] * 32, "b": ["y"] * 15, "c": ["z"]}
+        for name in ("a", "b"):
+            g.source = name
+            g.before_request(httpx.Request("POST", endpoint, json={"documents": g.expected[name]}))
+        assert load_json(g.path)["embedding_inputs"] == 47
+        g.source = "c"
+        denied(lambda: g.before_request(httpx.Request("POST", endpoint, json={"documents": ["z"]})))
+        assert load_json(g.path)["embedding_http_attempts"] == 2
+        denied(lambda: asyncio.run(DocumentOnlyProvider(None, g).generate(question="forbidden")))
+
+        journal = root / "mutable.json"
+        checkpoint_json(journal, {"step": 1})
+        checkpoint_json(journal, {"step": 2})
+        assert load_json(journal) == {"step": 2}
+
+        identity = Identity(
+            "https://s1-evaluation.local", "mock", ("documents:read", "documents:write")
+        )
+        authorizer = WorkspaceAuthorizer(
+            SimpleNamespace(owner_for=lambda workspace: Identity(identity.issuer, identity.subject))
+        )
+        assert authorizer.authorize(identity, "mock-workspace", "documents:write")
+        try:
+            authorizer.authorize(identity, "mock-workspace", "questions:ask")
+        except KnoraError as error:
+            assert error.code == "CAPABILITY_ACCESS_DENIED"
+        else:
+            raise AssertionError("query capability granted")
+
+        # Exercise the real Windows spawn/extractor path without model, DB or network.
+        snapshot = load_json(OFFLINE)
+        manifest = load_json(ROOT / "evals/datasets/pdf_retrieval_v3_v1.manifest.json")
+        source = next(row for row in manifest["sources"] if row["id"] == "clean-01")
+        with (ROOT / "evals" / source["path"]).open("rb") as stream:
+            extracted = PypdfTextExtractor().extract(
+                stream, PdfExtractionConfiguration.layout_preserving()
+            )
+        expected_chunks = [
+            row["content"] for row in snapshot["chunks"] if row["source_key"] == "clean-01"
+        ]
+        assert [chunk.content for chunk in extracted.chunks] == expected_chunks
+
+        g = guard()
+        g.source = "source-0"
+        request = httpx.Request("POST", endpoint, json={"documents": expected[g.source]})
+        g.before_request(request)
+        denied(lambda: g.before_request(request))
+        assert load_json(g.path)["embedding_http_attempts"] == 1
+        print(
+            "SELF-CHECK PASS: forbidden roles/endpoints/content, durable counters, "
+            "14/47 caps, sticky failures, no retry, capability denial, Windows PDF extraction"
+        )
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("mode", choices=("self-check", "live"))
+    parser.add_argument(
+        "--approval", type=Path, default=ROOT / "evals/datasets/pdf_retrieval_v3_v1.approval.json"
+    )
+    parser.add_argument("--free-preflight", type=Path)
+    parser.add_argument("--decision-url")
+    parser.add_argument("--run-id")
+    parser.add_argument("--output", type=Path, default=ROOT / ".verification/issue153/run")
+    parser.add_argument("--objects", type=Path, default=ROOT / ".verification/issue153/objects")
+    args = parser.parse_args()
+    if args.mode == "self-check":
+        self_check()
+    else:
+        if not args.free_preflight or not args.run_id or not args.decision_url:
+            parser.error(
+                "live needs --free-preflight, --run-id, --decision-url and KNORA_DATABASE_URL env"
+            )
+        try:
+            live(args)
+        except BaseException as error:
+            # Provider/DB exception messages can include credentials; report only safe type.
+            print(
+                f"STOPPED: {type(error).__name__}; inspect counters/source status; do not retry",
+                file=sys.stderr,
+            )
+            sys.exit(1)

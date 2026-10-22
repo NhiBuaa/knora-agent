@@ -1,9 +1,20 @@
-"""Explicit, opt-in pytest partitions for required CI jobs."""
+"""Explicit, opt-in pytest partitions for required and research CI jobs."""
 
 import json
 from pathlib import Path
 
 import pytest
+
+SECURITY_SHADOW_FILES = {
+    "evals/test/test_security_shadow.py",
+    "evals/test/test_cloudflare_p1_shadow.py",
+    "evals/test/test_cloudflare_p1_trial.py",
+    "evals/test/test_cloudflare_dangerous_output.py",
+    "evals/test/test_security_outcomes.py",
+    "evals/test/test_security_outcomes_runner.py",
+    "evals/test/test_workbench_security_projection.py",
+    "evals/integration/test_security_shadow_integration.py",
+}
 
 DATABASE_FILES = {
     "backend/test/adapters/cli/test_ingest.py",
@@ -21,6 +32,7 @@ WINDOWS_FILES = {
     "backend/test/adapters/cli/test_ollama_launcher.py",
     "backend/test/config/test_keycloak_email_otp.py",
     "backend/test/adapters/pdf/test_pypdf.py",
+    "backend/test/ingestion/test_s2_upload_population.py",
     "evals/test/test_process_probe.py",
     "evals/test/test_ollama_process_probe.py",
 }
@@ -31,6 +43,7 @@ WINDOWS_NODES = {
     "backend/test/evaluation/test_datasets.py::test_processing_source_can_be_retried_after_interruption",
     "backend/test/evaluation/test_gold_review.py::test_anchored_offsets_must_match_exact_extraction_snapshot",
     "backend/test/evaluation/test_pdf_workflow.py::test_retained_pdf_to_reviewed_gold_to_new_observations_and_report",
+    "backend/test/test_s2_http_admission.py::test_windows_worker_environment_uses_owned_endpoints_and_discards_ambient_settings",
     "backend/test/adapters/cli/test_ingestion_worker.py::test_cli_preflight_proves_pdf_child_memory_limit",
     "backend/test/adapters/cli/test_ingestion_worker.py::test_memory_probe_rejects_missing_job_object_limit",
     "backend/test/adapters/cli/test_ingestion_worker.py::test_memory_probe_blocks_a_child_that_exceeds_256_mib",
@@ -46,6 +59,8 @@ RUNTIME_NODES = {
 def ci_route(nodeid: str) -> str:
     node = nodeid.replace("\\", "/")
     file = node.split("::", 1)[0]
+    if file in SECURITY_SHADOW_FILES:
+        return "security-shadow"
     if node in RUNTIME_NODES:
         return "runtime"
     if file in WINDOWS_FILES or node in WINDOWS_NODES:
@@ -56,8 +71,19 @@ def ci_route(nodeid: str) -> str:
 
 
 def pytest_addoption(parser: pytest.Parser) -> None:
-    parser.addoption("--ci-suite", choices=("backend", "windows", "database"))
+    parser.addoption("--ci-suite", choices=("backend", "windows", "database", "security-shadow"))
     parser.addoption("--ci-selection", type=Path)
+
+
+def pytest_ignore_collect(collection_path: Path, config: pytest.Config) -> bool | None:
+    suite = config.getoption("--ci-suite")
+    if suite and collection_path.is_file():
+        relative = collection_path.relative_to(Path(__file__).parent).as_posix()
+        is_shadow = relative in SECURITY_SHADOW_FILES
+        # Isolate imports before collection, rather than only deselecting executed tests.
+        if is_shadow != (suite == "security-shadow"):
+            return True
+    return None
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:

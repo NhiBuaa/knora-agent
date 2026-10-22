@@ -1,0 +1,37 @@
+"""Offline packet check against saved captures, with output isolated in a temporary directory."""
+
+import hashlib
+import importlib.util
+import tempfile
+from pathlib import Path
+
+spec = importlib.util.spec_from_file_location(
+    "continuation_report", Path(__file__).with_name("baseline-b-build-continuation-report.py")
+)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+
+def main():
+    builder = module.builder
+    original_files = list(builder.CAPTURE.glob("*.json"))
+    before = {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in original_files}
+    with tempfile.TemporaryDirectory() as directory:
+        builder.TARGET = Path(directory) / "packet"
+        module.main()
+        report = builder.load_json(builder.TARGET / "report.json")
+        coverage = builder.load_json(builder.TARGET / "candidate-vs-selected-coverage.json")
+        row = next(row for row in report["cases"] if row["case_id"] == "pdf-v3-001")
+        assert row["status"] == "observed"
+        assert coverage["cases"]["pdf-v3-001"]["status"] == "evaluable"
+        original = builder.load_json(builder.CAPTURE / "case-pdf-v3-001-attempt-1.json")
+        assert original["failure_code"] == "CASE_FAILED_NO_RETRY"
+        assert report["semantic_review"] == "pending"
+    assert before == {
+        path: hashlib.sha256(path.read_bytes()).hexdigest() for path in original_files
+    }
+    print("REPORT SELF-CHECK PASS: same-attempt001 selected; 60 cases; captures unchanged")
+
+
+if __name__ == "__main__":
+    main()

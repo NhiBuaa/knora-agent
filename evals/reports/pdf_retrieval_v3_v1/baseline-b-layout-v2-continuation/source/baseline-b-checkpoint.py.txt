@@ -1,0 +1,71 @@
+"""Read saved observations and counters at a batch boundary; no model/DB calls."""
+
+# ruff: noqa: E402 -- operational script adds source roots.
+import json
+import sys
+from collections import Counter
+from datetime import UTC, datetime
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[3]
+sys.path[:0] = [str(ROOT), str(ROOT / "backend/src")]
+from evals.runners.pdf_retrieval_v3 import load_json, publish_json, selected_observations
+from evals.runners.pdf_source_binding import digest
+
+output = ROOT / ".verification/issue153/run"
+selection = ROOT / (
+    "evals/reports/pdf_retrieval_v3_v1/baseline-b-layout-v2/continuation/"
+    "revalidation-selection.json"
+)
+record = load_json(selection)
+rows = selected_observations(
+    output,
+    revalidation_record=selection,
+    proposal_sha256=record["proposal_sha256"],
+    derivation_sha256=record["identity"]["derivation_sha256"],
+)
+counters = load_json(output / "counters.json")
+requests = counters["baseline_b_case_requests"]
+assert not counters["stop_reason"] and not counters["paused_until"]
+assert not any(row.get("failure_code") for row in rows)
+assert len(rows) == counters["query_embedding_attempts"] <= 60
+assert sum(value.get("query") is True for value in requests.values()) == len(rows)
+generations = sum(value.get("generation") is True for value in requests.values())
+assert generations == counters["baseline_b_generation_attempts"] <= 60
+assert counters["embedding_http_attempts"] == 14
+assert counters["embedding_inputs"] == 47 + len(rows)
+assert counters["generation_attempts"] == generations
+assert all(
+    (output / path.name.replace("dispatch-", "case-")).exists()
+    for path in output.glob("dispatch-*-attempt-*.json")
+)
+usage = Counter()
+for row in rows:
+    generation = row.get("provider_metadata", {}).get("generation", {})
+    for key, value in generation.get("usage", {}).items():
+        if type(value) is int:
+            usage[key] += value
+    if generation:
+        assert generation["model"] == "@cf/openai/gpt-oss-20b"
+estimate = (usage["prompt_tokens"] * 18182 + usage["completion_tokens"] * 27273) / 1_000_000
+snapshot = {
+    "checked_at": datetime.now(UTC).isoformat(),
+    "captured_cases": len(rows),
+    "query_attempts": len(rows),
+    "generation_attempts": generations,
+    "decisions": dict(Counter(row["decision"] for row in rows)),
+    "saved_generation_usage_tokens": dict(usage),
+    "generation_neurons_from_published_rates": estimate,
+    "usage_limits": (
+        "Embedding usage absent; neuron value is rate estimate, "
+        "not invoice or complete account usage"
+    ),
+    "planning_60_cases_neurons": 7500,
+    "planning_prorated_neurons": 7500 * len(rows) / 60,
+    "selection_sha256": digest(record),
+    "semantic_review": "pending",
+    "paid_budget_usd": 0,
+    "model_calls_by_this_check": 0,
+}
+publish_json(ROOT / f".verification/issue153/baseline-b/checkpoint-{len(rows):02d}.json", snapshot)
+print(json.dumps(snapshot))

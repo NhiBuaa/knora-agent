@@ -681,6 +681,33 @@
               }
             ]
           },
+          "derivation_kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "dense",
+                  "pdf_extraction",
+                  "lexical_index"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Derivation Kind"
+          },
+          "desired_lexical_generation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Desired Lexical Generation Id"
+          },
           "document_id": {
             "title": "Document Id",
             "type": "string"
@@ -694,6 +721,36 @@
             ],
             "title": "Embedding Readiness",
             "type": "string"
+          },
+          "indexing_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Indexing Job Id"
+          },
+          "indexing_status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "queued",
+                  "processing",
+                  "retry_scheduled",
+                  "succeeded",
+                  "superseded",
+                  "failed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Indexing Status"
           },
           "ingestion_job_id": {
             "anyOf": [
@@ -728,6 +785,16 @@
               }
             ],
             "title": "Last Processed At"
+          },
+          "lexical_readiness": {
+            "default": "not_indexed",
+            "enum": [
+              "ready",
+              "reindex_required",
+              "not_indexed"
+            ],
+            "title": "Lexical Readiness",
+            "type": "string"
           },
           "reprocess_supported": {
             "default": false,
@@ -958,6 +1025,33 @@
             ],
             "title": "Current Document Version Id"
           },
+          "derivation_kind": {
+            "anyOf": [
+              {
+                "enum": [
+                  "dense",
+                  "pdf_extraction",
+                  "lexical_index"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Derivation Kind"
+          },
+          "desired_lexical_generation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Desired Lexical Generation Id"
+          },
           "error_code": {
             "anyOf": [
               {
@@ -986,9 +1080,60 @@
             ],
             "title": "Failure Reason"
           },
+          "indexing_job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Indexing Job Id"
+          },
+          "indexing_status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "queued",
+                  "processing",
+                  "retry_scheduled",
+                  "succeeded",
+                  "superseded",
+                  "failed"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Indexing Status"
+          },
           "ingestion_job_id": {
             "title": "Ingestion Job Id",
             "type": "string"
+          },
+          "lexical_readiness": {
+            "default": "not_indexed",
+            "enum": [
+              "ready",
+              "reindex_required",
+              "not_indexed"
+            ],
+            "title": "Lexical Readiness",
+            "type": "string"
+          },
+          "lexical_revision": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lexical Revision"
           },
           "max_attempts": {
             "title": "Max Attempts",
@@ -1232,6 +1377,18 @@
       },
       "OperatorCandidateResponse": {
         "properties": {
+          "bm25_contribution": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bm25 Contribution"
+          },
           "chunk_id": {
             "title": "Chunk Id",
             "type": "string"
@@ -1288,8 +1445,15 @@
             "title": "Fts Contribution"
           },
           "fusion_score": {
-            "title": "Fusion Score",
-            "type": "number"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fusion Score"
           },
           "source_key": {
             "title": "Source Key",
@@ -1499,8 +1663,15 @@
             "type": "string"
           },
           "embedding_configuration_id": {
-            "title": "Embedding Configuration Id",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Embedding Configuration Id"
           },
           "embedding_set_ids": {
             "items": {
@@ -2044,6 +2215,18 @@
               }
             ],
             "title": "Config Source Job Id"
+          },
+          "expected_lexical_revision": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expected Lexical Revision"
           }
         },
         "required": [

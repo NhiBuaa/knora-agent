@@ -1,0 +1,25 @@
+{
+  "approval_source": "Owner reply in current Codex chat: Duyệt phiên P3 mới đúng phạm vi trên",
+  "authenticated_gets": false,
+  "canary_order": [
+    "p1-vi-attack-1",
+    "p1-vi-control-1"
+  ],
+  "credential_loading": "existing primary .env selected account/token in memory only",
+  "deploy": false,
+  "enforcement": "off",
+  "expires_utc": "2026-10-18T11:10:00Z",
+  "export": "off",
+  "external_post_max": 16,
+  "gateway": "knora-issue188-p1-trial",
+  "live_session_seconds_max": 1200,
+  "merge": false,
+  "paid_usage_usd_max": 0,
+  "possible_duplicate_of_trial_001_canary_accepted": true,
+  "recorded_utc": "2026-10-17T11:14:29.292908+00:00",
+  "remaining_cases_gate": "usable native evidence and correlation; not expected class",
+  "request_seconds_max": 60,
+  "schema_version": "knora-p3-session-approval-v1",
+  "session_id": "p3-trial-002",
+  "stop_on_error_or_ambiguous_send": true
+}

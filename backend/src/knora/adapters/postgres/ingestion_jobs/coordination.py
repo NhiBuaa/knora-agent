@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Callable
+from dataclasses import asdict
 from datetime import datetime, timedelta
 from math import isfinite
 from typing import TypeVar
@@ -15,6 +16,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from knora.adapters.postgres.embedding_configuration import configuration_from_row
 from knora.adapters.postgres.ingestion_jobs.lifecycle import PostgresObjectLifecycleStore
+from knora.adapters.postgres.search_index_store import PostgresSearchIndexStore
 from knora.adapters.postgres.tables import (
     ChunkEmbeddingTable,
     ChunkingConfigurationTable,
@@ -26,8 +28,11 @@ from knora.adapters.postgres.tables import (
     EmbeddingSetTable,
     IngestionJobAttemptTable,
     IngestionJobTable,
+    LexicalGenerationTable,
+    LexicalHeadTable,
     OriginalSourceObjectTable,
     WorkspaceAdmissionTable,
+    WorkspaceTable,
 )
 from knora.ingestion.job_processing import (
     AttemptRef,
@@ -54,6 +59,7 @@ from knora.ingestion.job_processing import (
     NoEligibleClaim,
     NotExpired,
     PdfDerivationSuccess,
+    PdfExtractionSuccess,
     RecoveryFailedExhausted,
     RecoveryResult,
     RecoveryRetryScheduled,
@@ -64,6 +70,12 @@ from knora.ingestion.job_processing import (
     StaleObservation,
     TransitionOperationId,
     WorkSuperseded,
+)
+from knora.ingestion.search_indexing import (
+    LexicalChunk,
+    LexicalGeneration,
+    LexicalIndexSuccess,
+    StaleGenerationError,
 )
 
 MutationResultT = TypeVar("MutationResultT")
@@ -113,6 +125,7 @@ class PostgresIngestionJobCoordinationStore:
         self._corpus_activation_guard = corpus_activation_guard
         self._database_now = database_now
         self._lifecycle_store = lifecycle_store
+        self._search_index_store = PostgresSearchIndexStore(session_factory)
         self._enqueue_terminal_cleanup = (
             enqueue_terminal_cleanup or lifecycle_store.enqueue_terminal_cleanup_in_transaction
         )
@@ -124,6 +137,39 @@ class PostgresIngestionJobCoordinationStore:
         from knora.ingestion.pdf import PdfExtractionConfiguration
 
         with self._session_factory() as session:
+            if work.derivation_kind == "pdf_extraction":
+                job = session.get(IngestionJobTable, work.ingestion_job_id)
+                if job is None or not isinstance(job.lexical_profile, dict):
+                    raise CoordinationInvariantError(
+                        "claimed extraction job has no lexical profile"
+                    )
+                from knora.ingestion.job_processing import PdfExtractionProfile
+                from knora.ingestion.search_indexing import LexicalProfile
+
+                payload = dict(job.lexical_profile)
+                persisted_digest = payload.pop("digest", None)
+                profile = LexicalProfile(**payload)
+                if (
+                    persisted_digest != profile.digest()
+                    or profile.digest() != work.lexical_profile_digest
+                ):
+                    raise CoordinationInvariantError("claimed extraction profile digest differs")
+                chunking = session.get(ChunkingConfigurationTable, work.chunking_configuration_id)
+                if chunking is None:
+                    raise CoordinationInvariantError(
+                        "claimed extraction references missing chunking"
+                    )
+                return PdfExtractionProfile(
+                    parser_configuration_id=work.parser_configuration_id,
+                    normalizer_configuration_id=work.normalizer_configuration_id,
+                    chunking_configuration_id=work.chunking_configuration_id,
+                    extraction_configuration=(
+                        PdfExtractionConfiguration.layout_preserving()
+                        if work.parser_configuration_id == "pdf-parser-pypdf-6-14-2-layout-lines-v2"
+                        else PdfExtractionConfiguration.milestone_two()
+                    ),
+                    lexical_profile=profile,
+                )
             chunking = session.get(ChunkingConfigurationTable, work.chunking_configuration_id)
             embedding = session.get(EmbeddingConfigurationTable, work.embedding_configuration_id)
             if chunking is None or embedding is None:
@@ -139,6 +185,33 @@ class PostgresIngestionJobCoordinationStore:
                 ),
                 embedding_configuration=configuration_from_row(embedding),
             )
+
+    @staticmethod
+    def _work_for_job(
+        job: IngestionJobTable, source_object: OriginalSourceObjectTable
+    ) -> IngestionWork:
+        return IngestionWork(
+            workspace_id=job.workspace_id,
+            document_id=job.document_id,
+            document_version_id=job.target_document_version_id,
+            source_object_id=source_object.id,
+            source_object_key=source_object.object_key,
+            source_media_type=source_object.media_type,
+            source_sha256=source_object.raw_sha256,
+            source_byte_size=source_object.byte_size,
+            parser_configuration_id=job.parser_configuration_id,
+            normalizer_configuration_id=job.normalizer_configuration_id,
+            chunking_configuration_id=job.chunking_configuration_id,
+            embedding_configuration_id=job.embedding_configuration_id,
+            derivation_kind=job.derivation_kind,
+            lexical_generation_id=job.lexical_generation_id,
+            lexical_profile_digest=(
+                job.lexical_profile.get("digest") if isinstance(job.lexical_profile, dict) else None
+            ),
+            source_revision=job.source_revision,
+            workspace_revision=job.workspace_revision,
+            ingestion_job_id=job.id,
+        )
 
     def observe_expired_attempt(self) -> ExpiredAttemptObservation | None:
         """Return one unlocked, database-time observation of an ownerless attempt."""
@@ -426,20 +499,7 @@ class PostgresIngestionJobCoordinationStore:
                         worker_id=existing.worker_id,
                         lease_version=existing.lease_version,
                     ),
-                    work=IngestionWork(
-                        workspace_id=job.workspace_id,
-                        document_id=job.document_id,
-                        document_version_id=job.target_document_version_id,
-                        source_object_id=source_object.id,
-                        source_object_key=source_object.object_key,
-                        source_media_type=source_object.media_type,
-                        source_sha256=source_object.raw_sha256,
-                        source_byte_size=source_object.byte_size,
-                        parser_configuration_id=job.parser_configuration_id,
-                        normalizer_configuration_id=job.normalizer_configuration_id,
-                        chunking_configuration_id=job.chunking_configuration_id,
-                        embedding_configuration_id=job.embedding_configuration_id,
-                    ),
+                    work=self._work_for_job(job, source_object),
                     attempt_count=existing.attempt_number,
                     max_attempts=job.max_attempts,
                     attempt_started_at=existing.attempt_started_at,
@@ -521,20 +581,7 @@ class PostgresIngestionJobCoordinationStore:
                     worker_id=worker_id,
                     lease_version=lease_version,
                 ),
-                work=IngestionWork(
-                    workspace_id=job.workspace_id,
-                    document_id=job.document_id,
-                    document_version_id=job.target_document_version_id,
-                    source_object_id=source_object.id,
-                    source_object_key=source_object.object_key,
-                    source_media_type=source_object.media_type,
-                    source_sha256=source_object.raw_sha256,
-                    source_byte_size=source_object.byte_size,
-                    parser_configuration_id=job.parser_configuration_id,
-                    normalizer_configuration_id=job.normalizer_configuration_id,
-                    chunking_configuration_id=job.chunking_configuration_id,
-                    embedding_configuration_id=job.embedding_configuration_id,
-                ),
+                work=self._work_for_job(job, source_object),
                 attempt_count=attempt_number,
                 max_attempts=job.max_attempts,
                 attempt_started_at=database_now,
@@ -761,33 +808,57 @@ class PostgresIngestionJobCoordinationStore:
         claim: ClaimedAttempt,
         success: SuccessT,
     ) -> FinalizationResult:
-        if not isinstance(success, PdfDerivationSuccess):
-            raise CoordinationInvariantError(
-                "generic success persistence requires Issue #18's fenced derivation and activation "
-                "transaction"
+        if isinstance(success, PdfDerivationSuccess):
+            operation_kind = "pdf_success"
+            transition_fingerprint = self._pdf_success_fingerprint(claim=claim, success=success)
+
+            def apply() -> FinalizationResult:
+                return self._finalize_pdf_success_once(
+                    operation_id=operation_id, claim=claim, success=success
+                )
+
+        elif isinstance(success, PdfExtractionSuccess):
+            operation_kind = "pdf_extraction_success"
+            transition_fingerprint = self._pdf_extraction_success_fingerprint(
+                claim=claim, success=success
             )
-        transition_fingerprint = self._pdf_success_fingerprint(claim=claim, success=success)
+
+            def apply() -> FinalizationResult:
+                return self._finalize_pdf_extraction_once(
+                    operation_id=operation_id, claim=claim, success=success
+                )
+
+        elif isinstance(success, LexicalIndexSuccess):
+            operation_kind = "lexical_index_success"
+            transition_fingerprint = self._lexical_index_success_fingerprint(
+                claim=claim, success=success
+            )
+
+            def apply() -> FinalizationResult:
+                return self._finalize_lexical_index_once(
+                    operation_id=operation_id, claim=claim, success=success
+                )
+        else:
+            raise CoordinationInvariantError(
+                "generic success persistence requires a typed ingestion success"
+            )
         replay = self._read_finalization_replay(
             operation_id=str(operation_id),
             request_fingerprint=transition_fingerprint,
-            operation_kind="pdf_success",
+            operation_kind=operation_kind,
         )
         if replay is not None:
             return replay
         return self._reconcile_database_error(
-            operation_kind="pdf_success",
+            operation_kind=operation_kind,
             operation_id=str(operation_id),
             job_id=claim.token.job_id,
             attempt_number=claim.token.attempt_number,
-            apply=lambda: self._finalize_pdf_success_once(
-                operation_id=operation_id,
-                claim=claim,
-                success=success,
-            ),
+            apply=apply,
             read_back=lambda: self._read_finalization_replay(
                 operation_id=str(operation_id),
                 request_fingerprint=transition_fingerprint,
-                operation_kind="pdf_success",
+                operation_kind=operation_kind,
             ),
         )
 
@@ -1092,6 +1163,362 @@ class PostgresIngestionJobCoordinationStore:
         except _FinalizationFenceLost:
             return Fenced()
 
+    def _finalize_pdf_extraction_once(
+        self,
+        *,
+        operation_id: TransitionOperationId,
+        claim: ClaimedAttempt,
+        success: PdfExtractionSuccess,
+    ) -> FinalizationResult:
+        """Persist chunks, desired lexical generation and its one index job atomically."""
+
+        transition_fingerprint = self._pdf_extraction_success_fingerprint(
+            claim=claim, success=success
+        )
+        try:
+            with self._session_factory.begin() as session:
+                workspace = session.scalar(
+                    select(WorkspaceTable)
+                    .where(WorkspaceTable.id == claim.work.workspace_id)
+                    .with_for_update()
+                )
+                job = session.scalar(
+                    select(IngestionJobTable)
+                    .where(IngestionJobTable.id == claim.token.job_id)
+                    .with_for_update()
+                )
+                attempt = session.scalar(
+                    select(IngestionJobAttemptTable)
+                    .where(
+                        IngestionJobAttemptTable.ingestion_job_id == claim.token.job_id,
+                        IngestionJobAttemptTable.attempt_number == claim.token.attempt_number,
+                    )
+                    .with_for_update()
+                )
+                if workspace is None or job is None:
+                    return Fenced()
+                if attempt is None or attempt.closed_at is not None:
+                    return InvalidTransition()
+                database_now = self._database_now(session)
+                if not self._owns_current_unexpired_attempt(job, claim, database_now):
+                    return Fenced()
+                if (
+                    attempt.worker_id != claim.token.worker_id
+                    or attempt.lease_version != claim.token.lease_version
+                    or attempt.attempt_number != job.current_attempt_number
+                ):
+                    return InvalidTransition()
+                if job.derivation_kind != "pdf_extraction":
+                    raise CoordinationInvariantError(
+                        "extraction success targeted a non-extraction job"
+                    )
+                self._validate_extraction_job_binding(job=job, claim=claim, success=success)
+                self._assert_new_transition_operation(
+                    session=session,
+                    operation_id=str(operation_id),
+                    request_fingerprint=transition_fingerprint,
+                    operation_kind="pdf_extraction_success",
+                )
+                document = session.scalar(
+                    select(DocumentTable)
+                    .where(
+                        DocumentTable.id == job.document_id,
+                        DocumentTable.workspace_id == job.workspace_id,
+                    )
+                    .with_for_update()
+                )
+                source_object = session.scalar(
+                    select(OriginalSourceObjectTable)
+                    .where(
+                        OriginalSourceObjectTable.id == job.source_object_id,
+                        OriginalSourceObjectTable.workspace_id == job.workspace_id,
+                        OriginalSourceObjectTable.deleted_at.is_(None),
+                        OriginalSourceObjectTable.document_version_id
+                        == job.target_document_version_id,
+                    )
+                    .with_for_update()
+                )
+                version = session.scalar(
+                    select(DocumentVersionTable)
+                    .where(
+                        DocumentVersionTable.id == job.target_document_version_id,
+                        DocumentVersionTable.document_id == job.document_id,
+                    )
+                    .with_for_update()
+                )
+                chunking = session.get(ChunkingConfigurationTable, job.chunking_configuration_id)
+                if document is None or source_object is None or version is None or chunking is None:
+                    raise CoordinationInvariantError(
+                        "extraction success references missing resources"
+                    )
+
+                rollback_head = (
+                    session.get(LexicalHeadTable, document.id)
+                    if job.lexical_head_revision is not None
+                    else None
+                )
+                snapshot_stale = (
+                    job.lexical_head_revision is not None
+                    and (
+                        rollback_head is None or rollback_head.revision != job.lexical_head_revision
+                    )
+                    or document.current_document_version_id != job.target_document_version_id
+                    or document.revision != claim.work.source_revision
+                    or workspace.revision != claim.work.workspace_revision
+                    or document.archived
+                    or workspace.archived
+                )
+                if snapshot_stale:
+                    final_now = self._database_now(session)
+                    self._close_pdf_attempt(
+                        attempt=attempt,
+                        operation_id=operation_id,
+                        transition_fingerprint=transition_fingerprint,
+                        database_now=final_now,
+                        disposition="superseded",
+                        terminal_outcome_code="stale_derivation_snapshot",
+                        transition_operation_kind="pdf_extraction_success",
+                    )
+                    if not self._finalize_pdf_job_if_current_and_live(
+                        session=session,
+                        claim=claim,
+                        database_now=final_now,
+                        disposition="superseded",
+                        terminal_outcome_code="stale_derivation_snapshot",
+                    ):
+                        raise _FinalizationFenceLost()
+                    close_workspace_admissions_for_terminal_job(
+                        session=session,
+                        job=job,
+                        terminal_at=final_now,
+                        terminal_status="superseded",
+                    )
+                    self._enqueue_terminal_cleanup(session=session, job=job, database_now=final_now)
+                    return FinalizationApplied(
+                        attempt=AttemptRef(claim.token.job_id, claim.token.attempt_number),
+                        outcome="superseded",
+                    )
+
+                self._validate_pdf_extraction_inputs(
+                    job=job,
+                    claim=claim,
+                    success=success,
+                    source_object=source_object,
+                    version=version,
+                    chunking=chunking,
+                )
+                chunk_set = session.scalar(
+                    select(ChunkSetTable)
+                    .where(
+                        ChunkSetTable.document_version_id == version.id,
+                        ChunkSetTable.parser_configuration_id == job.parser_configuration_id,
+                        ChunkSetTable.normalizer_configuration_id
+                        == job.normalizer_configuration_id,
+                        ChunkSetTable.chunking_configuration_id == chunking.id,
+                    )
+                    .with_for_update()
+                )
+                if chunk_set is None:
+                    chunk_set = ChunkSetTable(
+                        id=str(uuid4()),
+                        document_version_id=version.id,
+                        parser_configuration_id=job.parser_configuration_id,
+                        normalizer_configuration_id=job.normalizer_configuration_id,
+                        chunking_configuration_id=chunking.id,
+                        status="pending",
+                    )
+                    session.add(chunk_set)
+                    session.flush()
+                    for chunk in success.extraction.chunks:
+                        session.add(
+                            ChunkTable(
+                                id=str(uuid4()),
+                                chunk_set_id=chunk_set.id,
+                                ordinal=chunk.ordinal,
+                                heading_path=[],
+                                start_line=self._pdf_line_number(
+                                    success.extraction.pages, chunk.page_number, chunk.start_offset
+                                ),
+                                end_line=self._pdf_line_number(
+                                    success.extraction.pages, chunk.page_number, chunk.end_offset
+                                ),
+                                content=chunk.content,
+                                content_checksum=chunk.content_checksum,
+                                token_count=chunk.token_count,
+                                page_start=chunk.page_start,
+                                page_end=chunk.page_end,
+                                start_offset=chunk.start_offset,
+                                end_offset=chunk.end_offset,
+                            )
+                        )
+                    chunk_set.status = "completed"
+                    session.flush()
+                else:
+                    self._validate_existing_pdf_chunk_set(
+                        session=session, chunk_set=chunk_set, success=success
+                    )
+                rows = session.scalars(
+                    select(ChunkTable)
+                    .where(ChunkTable.chunk_set_id == chunk_set.id)
+                    .order_by(ChunkTable.ordinal)
+                ).all()
+                head = session.get(LexicalHeadTable, document.id)
+                expected_revision = head.revision if head is not None else 0
+                generation = LexicalGeneration(
+                    generation_id=str(uuid4()),
+                    workspace_id=job.workspace_id,
+                    document_id=job.document_id,
+                    document_version_id=version.id,
+                    chunk_set_id=chunk_set.id,
+                    lexical_profile=success.lexical_profile,
+                    revision=expected_revision + 1,
+                    chunks=tuple(
+                        LexicalChunk(row.id, row.ordinal, row.content_checksum) for row in rows
+                    ),
+                )
+                self._search_index_store.request_generation_in_transaction(
+                    session, generation, expected_revision=expected_revision
+                )
+                child_now = self._database_now(session)
+                child = IngestionJobTable(
+                    id=str(uuid4()),
+                    workspace_id=job.workspace_id,
+                    operation=job.operation,
+                    document_id=job.document_id,
+                    target_document_version_id=version.id,
+                    source_object_id=job.source_object_id,
+                    content_fingerprint=self._lexical_child_fingerprint(generation),
+                    parser_configuration_id=job.parser_configuration_id,
+                    normalizer_configuration_id=job.normalizer_configuration_id,
+                    chunking_configuration_id=job.chunking_configuration_id,
+                    derivation_kind="lexical_index",
+                    embedding_configuration_id=None,
+                    lexical_profile=None,
+                    lexical_generation_id=generation.generation_id,
+                    parent_ingestion_job_id=job.id,
+                    source_revision=document.revision,
+                    workspace_revision=workspace.revision,
+                    status="queued",
+                    attempt_count=0,
+                    max_attempts=4,
+                    created_at=child_now,
+                    updated_at=child_now,
+                )
+                session.add(child)
+                session.flush()
+                final_now = self._database_now(session)
+                self._close_pdf_attempt(
+                    attempt=attempt,
+                    operation_id=operation_id,
+                    transition_fingerprint=transition_fingerprint,
+                    database_now=final_now,
+                    disposition="succeeded",
+                    terminal_outcome_code="succeeded",
+                    transition_operation_kind="pdf_extraction_success",
+                )
+                if not self._finalize_pdf_job_if_current_and_live(
+                    session=session,
+                    claim=claim,
+                    database_now=final_now,
+                    disposition="succeeded",
+                    terminal_outcome_code="succeeded",
+                ):
+                    raise _FinalizationFenceLost()
+                close_workspace_admissions_for_terminal_job(
+                    session=session, job=job, terminal_at=final_now, terminal_status="succeeded"
+                )
+                self._enqueue_terminal_cleanup(session=session, job=job, database_now=final_now)
+                return FinalizationApplied(
+                    attempt=AttemptRef(claim.token.job_id, claim.token.attempt_number)
+                )
+        except _FinalizationFenceLost:
+            return Fenced()
+
+    @staticmethod
+    def _validate_extraction_job_binding(
+        *,
+        job: IngestionJobTable,
+        claim: ClaimedAttempt,
+        success: PdfExtractionSuccess,
+    ) -> None:
+        if (
+            job.derivation_kind != "pdf_extraction"
+            or claim.work.derivation_kind != "pdf_extraction"
+            or claim.work.ingestion_job_id != job.id
+            or job.source_revision != claim.work.source_revision
+            or job.workspace_revision != claim.work.workspace_revision
+            or job.lexical_profile
+            != {**asdict(success.lexical_profile), "digest": success.lexical_profile.digest()}
+            or job.workspace_id != claim.work.workspace_id
+            or job.document_id != claim.work.document_id
+            or job.target_document_version_id != claim.work.document_version_id
+            or job.source_object_id != claim.work.source_object_id
+            or job.parser_configuration_id != claim.work.parser_configuration_id
+            or job.normalizer_configuration_id != claim.work.normalizer_configuration_id
+            or job.chunking_configuration_id != claim.work.chunking_configuration_id
+            or job.embedding_configuration_id is not None
+            or success.lexical_profile.digest() != claim.work.lexical_profile_digest
+        ):
+            raise CoordinationInvariantError("PDF extraction differs from its durable job")
+
+    @staticmethod
+    def _validate_pdf_extraction_inputs(
+        *,
+        job: IngestionJobTable,
+        claim: ClaimedAttempt,
+        success: PdfExtractionSuccess,
+        source_object: OriginalSourceObjectTable,
+        version: DocumentVersionTable,
+        chunking: ChunkingConfigurationTable,
+    ) -> None:
+        PostgresIngestionJobCoordinationStore._validate_extraction_job_binding(
+            job=job, claim=claim, success=success
+        )
+        extraction = success.extraction
+        if (
+            source_object.document_version_id != version.id
+            or source_object.workspace_id != job.workspace_id
+            or source_object.raw_sha256 != version.raw_sha256
+            or source_object.media_type != version.media_type
+            or source_object.media_type != claim.work.source_media_type
+            or source_object.object_key != claim.work.source_object_key
+            or source_object.raw_sha256 != claim.work.source_sha256
+            or source_object.byte_size != claim.work.source_byte_size
+            or job.normalizer_configuration_id != extraction.normalizer_version
+            or chunking.parser_version != extraction.parser_version
+            or chunking.chunker_version != extraction.chunking_policy_version
+            or chunking.tokenizer_name != extraction.tokenizer_name
+            or chunking.tokenizer_version != extraction.tokenizer_version
+            or chunking.target_tokens != 500
+            or chunking.overlap_tokens != 75
+            or chunking.max_tokens != 650
+            or not extraction.chunks
+            or success.lexical_profile.digest() != claim.work.lexical_profile_digest
+        ):
+            raise CoordinationInvariantError("PDF extraction does not match its pinned target")
+        if len({page.page_number for page in extraction.pages}) != len(extraction.pages) or any(
+            page.page_number < 1
+            or page.content_checksum != hashlib.sha256(page.text.encode()).hexdigest()
+            for page in extraction.pages
+        ):
+            raise CoordinationInvariantError("PDF extraction contains invalid page provenance")
+        pages = {page.page_number: page for page in extraction.pages}
+        for ordinal, chunk in enumerate(extraction.chunks):
+            page = pages.get(chunk.page_number)
+            if (
+                chunk.ordinal != ordinal
+                or page is None
+                or chunk.page_start != chunk.page_number
+                or chunk.page_end != chunk.page_number
+                or chunk.start_offset < 0
+                or chunk.start_offset >= chunk.end_offset
+                or chunk.end_offset > len(page.text)
+                or chunk.content != page.text[chunk.start_offset : chunk.end_offset]
+                or chunk.content_checksum != hashlib.sha256(chunk.content.encode()).hexdigest()
+                or chunk.token_count <= 0
+            ):
+                raise CoordinationInvariantError("PDF extraction contains invalid chunk provenance")
+
     @staticmethod
     def _validate_pdf_success_inputs(
         *,
@@ -1248,6 +1675,7 @@ class PostgresIngestionJobCoordinationStore:
         database_now: datetime,
         disposition: str,
         terminal_outcome_code: str,
+        transition_operation_kind: str = "pdf_success",
         replacement_document_version_id: str | None = None,
         replacement_ingestion_job_id: str | None = None,
     ) -> None:
@@ -1261,7 +1689,7 @@ class PostgresIngestionJobCoordinationStore:
         attempt.failure_reason = None
         attempt.terminal_outcome_code = terminal_outcome_code
         attempt.transition_operation_id = str(operation_id)
-        attempt.transition_operation_kind = "pdf_success"
+        attempt.transition_operation_kind = transition_operation_kind
         attempt.transition_request_fingerprint = transition_fingerprint
         attempt.replacement_document_version_id = replacement_document_version_id
         attempt.replacement_ingestion_job_id = replacement_ingestion_job_id
@@ -1350,6 +1778,193 @@ class PostgresIngestionJobCoordinationStore:
                 digest.hexdigest(),
             )
         )
+
+    @staticmethod
+    def _pdf_extraction_success_fingerprint(
+        *, claim: ClaimedAttempt, success: PdfExtractionSuccess
+    ) -> str:
+        digest = hashlib.sha256(repr(asdict(success)).encode())
+        return "\n".join(
+            (
+                claim.token.job_id,
+                str(claim.token.attempt_number),
+                claim.token.worker_id,
+                str(claim.token.lease_version),
+                "pdf_extraction_success",
+                digest.hexdigest(),
+            )
+        )
+
+    @staticmethod
+    def _lexical_index_success_fingerprint(
+        *, claim: ClaimedAttempt, success: LexicalIndexSuccess
+    ) -> str:
+        return "\n".join(
+            (
+                claim.token.job_id,
+                str(claim.token.attempt_number),
+                claim.token.worker_id,
+                str(claim.token.lease_version),
+                "lexical_index_success",
+                success.generation.generation_id,
+                success.generation.content_digest(),
+                success.generation.lexical_profile.digest(),
+                success.receipt.generation_id,
+                str(success.receipt.point_count),
+                success.receipt.content_digest,
+            )
+        )
+
+    @staticmethod
+    def _lexical_child_fingerprint(generation: LexicalGeneration) -> str:
+        return "\n".join(
+            (
+                "lexical_index-v1",
+                generation.generation_id,
+                generation.content_digest(),
+                generation.lexical_profile.digest(),
+            )
+        )
+
+    def _finalize_lexical_index_once(
+        self,
+        *,
+        operation_id: TransitionOperationId,
+        claim: ClaimedAttempt,
+        success: LexicalIndexSuccess,
+    ) -> FinalizationResult:
+        success.receipt.validate(success.generation)
+        transition_fingerprint = self._lexical_index_success_fingerprint(
+            claim=claim, success=success
+        )
+        try:
+            with self._session_factory.begin() as session:
+                workspace = session.scalar(
+                    select(WorkspaceTable)
+                    .where(WorkspaceTable.id == claim.work.workspace_id)
+                    .with_for_update()
+                )
+                job = session.scalar(
+                    select(IngestionJobTable)
+                    .where(IngestionJobTable.id == claim.token.job_id)
+                    .with_for_update()
+                )
+                attempt = session.scalar(
+                    select(IngestionJobAttemptTable)
+                    .where(
+                        IngestionJobAttemptTable.ingestion_job_id == claim.token.job_id,
+                        IngestionJobAttemptTable.attempt_number == claim.token.attempt_number,
+                    )
+                    .with_for_update()
+                )
+                if workspace is None or job is None:
+                    return Fenced()
+                if attempt is None or attempt.closed_at is not None:
+                    return InvalidTransition()
+                database_now = self._database_now(session)
+                if not self._owns_current_unexpired_attempt(job, claim, database_now):
+                    return Fenced()
+                if (
+                    attempt.worker_id != claim.token.worker_id
+                    or attempt.lease_version != claim.token.lease_version
+                    or attempt.attempt_number != job.current_attempt_number
+                ):
+                    return InvalidTransition()
+                if (
+                    job.derivation_kind != "lexical_index"
+                    or claim.work.derivation_kind != "lexical_index"
+                    or claim.work.ingestion_job_id != job.id
+                    or claim.work.workspace_id != job.workspace_id
+                    or claim.work.document_id != job.document_id
+                    or claim.work.document_version_id != job.target_document_version_id
+                    or claim.work.lexical_generation_id != job.lexical_generation_id
+                    or job.lexical_generation_id != success.generation.generation_id
+                    or success.generation.workspace_id != job.workspace_id
+                    or success.generation.document_id != job.document_id
+                    or success.generation.document_version_id != job.target_document_version_id
+                ):
+                    raise CoordinationInvariantError("lexical success does not match claimed job")
+                self._assert_new_transition_operation(
+                    session=session,
+                    operation_id=str(operation_id),
+                    request_fingerprint=transition_fingerprint,
+                    operation_kind="lexical_index_success",
+                )
+                try:
+                    expected = self._search_index_store.load_generation_in_transaction(
+                        session, claim.work
+                    )
+                except StaleGenerationError:
+                    stale = True
+                else:
+                    if expected.generation != success.generation:
+                        raise CoordinationInvariantError(
+                            "lexical success differs from the persisted generation"
+                        )
+                    stale = False
+                if stale:
+                    final_now = self._database_now(session)
+                    self._close_pdf_attempt(
+                        attempt=attempt,
+                        operation_id=operation_id,
+                        transition_fingerprint=transition_fingerprint,
+                        database_now=final_now,
+                        disposition="superseded",
+                        terminal_outcome_code="stale_derivation_snapshot",
+                        transition_operation_kind="lexical_index_success",
+                    )
+                    if not self._finalize_pdf_job_if_current_and_live(
+                        session=session,
+                        claim=claim,
+                        database_now=final_now,
+                        disposition="superseded",
+                        terminal_outcome_code="stale_derivation_snapshot",
+                    ):
+                        raise _FinalizationFenceLost()
+                    close_workspace_admissions_for_terminal_job(
+                        session=session,
+                        job=job,
+                        terminal_at=final_now,
+                        terminal_status="superseded",
+                    )
+                    self._enqueue_terminal_cleanup(session=session, job=job, database_now=final_now)
+                    return FinalizationApplied(
+                        attempt=AttemptRef(claim.token.job_id, claim.token.attempt_number),
+                        outcome="superseded",
+                    )
+                self._search_index_store.activate_ready_in_transaction(
+                    session, success.generation, success.receipt
+                )
+                final_now = self._database_now(session)
+                self._close_pdf_attempt(
+                    attempt=attempt,
+                    operation_id=operation_id,
+                    transition_fingerprint=transition_fingerprint,
+                    database_now=final_now,
+                    disposition="succeeded",
+                    terminal_outcome_code="succeeded",
+                    transition_operation_kind="lexical_index_success",
+                )
+                if not self._finalize_pdf_job_if_current_and_live(
+                    session=session,
+                    claim=claim,
+                    database_now=final_now,
+                    disposition="succeeded",
+                    terminal_outcome_code="succeeded",
+                ):
+                    raise _FinalizationFenceLost()
+                close_workspace_admissions_for_terminal_job(
+                    session=session,
+                    job=job,
+                    terminal_at=final_now,
+                    terminal_status="succeeded",
+                )
+                self._enqueue_terminal_cleanup(session=session, job=job, database_now=final_now)
+                return FinalizationApplied(
+                    attempt=AttemptRef(claim.token.job_id, claim.token.attempt_number)
+                )
+        except _FinalizationFenceLost:
+            return Fenced()
 
     def finalize_terminal_failure(
         self,
@@ -1526,10 +2141,31 @@ class PostgresIngestionJobCoordinationStore:
         claim: ClaimedAttempt,
         outcome: WorkSuperseded,
     ) -> FinalizationResult:
-        """Fenced `processing -> superseded` for a target made stale by a newer version."""
+        try:
+            return self._apply_superseded_once(
+                operation_id=operation_id, claim=claim, outcome=outcome
+            )
+        except _FinalizationFenceLost:
+            return Fenced()
+
+    def _apply_superseded_once(
+        self,
+        *,
+        operation_id: TransitionOperationId,
+        claim: ClaimedAttempt,
+        outcome: WorkSuperseded,
+    ) -> FinalizationResult:
+        """Close only a fenced attempt whose persisted target is demonstrably stale."""
 
         transition_fingerprint = self._superseded_fingerprint(claim=claim, outcome=outcome)
         with self._session_factory.begin() as session:
+            workspace = None
+            if claim.work.derivation_kind != "dense":
+                workspace = session.scalar(
+                    select(WorkspaceTable)
+                    .where(WorkspaceTable.id == claim.work.workspace_id)
+                    .with_for_update()
+                )
             job = session.scalar(
                 select(IngestionJobTable)
                 .where(IngestionJobTable.id == claim.token.job_id)
@@ -1560,15 +2196,61 @@ class PostgresIngestionJobCoordinationStore:
             ):
                 return InvalidTransition()
 
-            document = session.get(DocumentTable, job.document_id)
-            if (
+            if outcome.terminal_outcome_code == "stale_derivation_snapshot":
+                if (
+                    job.derivation_kind not in {"pdf_extraction", "lexical_index"}
+                    or job.derivation_kind != claim.work.derivation_kind
+                    or job.source_revision != claim.work.source_revision
+                    or job.workspace_revision != claim.work.workspace_revision
+                    or job.workspace_id != claim.work.workspace_id
+                    or job.document_id != claim.work.document_id
+                    or job.target_document_version_id != claim.work.document_version_id
+                ):
+                    return InvalidTransition()
+                document = session.scalar(
+                    select(DocumentTable)
+                    .where(
+                        DocumentTable.id == job.document_id,
+                        DocumentTable.workspace_id == job.workspace_id,
+                    )
+                    .with_for_update()
+                )
+                stale = (
+                    workspace is None
+                    or document is None
+                    or workspace.archived
+                    or document.archived
+                    or workspace.revision != job.workspace_revision
+                    or document.revision != job.source_revision
+                    or document.current_document_version_id != job.target_document_version_id
+                )
+                if (
+                    job.derivation_kind == "pdf_extraction"
+                    and job.lexical_head_revision is not None
+                ):
+                    head = session.get(LexicalHeadTable, job.document_id)
+                    stale = stale or head is None or head.revision != job.lexical_head_revision
+                if job.derivation_kind == "lexical_index":
+                    head = session.get(LexicalHeadTable, job.document_id)
+                    generation = session.get(LexicalGenerationTable, job.lexical_generation_id)
+                    stale = stale or (
+                        head is not None
+                        and head.desired_generation_id != job.lexical_generation_id
+                        or generation is not None
+                        and generation.status == "revoked"
+                    )
+                if not stale:
+                    return InvalidTransition()
+            else:
+                document = session.get(DocumentTable, job.document_id)
+                if (
+                    document is None
+                    or document.current_document_version_id == job.target_document_version_id
+                ):
+                    return InvalidTransition()
+            if outcome.replacement_document_version_id is not None and (
                 document is None
-                or document.current_document_version_id == job.target_document_version_id
-            ):
-                return InvalidTransition()
-            if (
-                outcome.replacement_document_version_id is not None
-                and outcome.replacement_document_version_id != document.current_document_version_id
+                or outcome.replacement_document_version_id != document.current_document_version_id
             ):
                 return InvalidTransition()
             if outcome.replacement_ingestion_job_id is not None:
@@ -1577,6 +2259,7 @@ class PostgresIngestionJobCoordinationStore:
                 )
                 if (
                     replacement_job is None
+                    or document is None
                     or replacement_job.document_id != job.document_id
                     or replacement_job.target_document_version_id
                     != document.current_document_version_id
@@ -1590,10 +2273,22 @@ class PostgresIngestionJobCoordinationStore:
                 request_fingerprint=transition_fingerprint,
                 operation_kind="superseded",
             )
+            if outcome.terminal_outcome_code == "stale_derivation_snapshot":
+                database_now = self._database_now(session)
+                if not self._finalize_pdf_job_if_current_and_live(
+                    session=session,
+                    claim=claim,
+                    database_now=database_now,
+                    disposition="superseded",
+                    terminal_outcome_code=outcome.terminal_outcome_code,
+                    replacement_document_version_id=outcome.replacement_document_version_id,
+                    replacement_ingestion_job_id=outcome.replacement_ingestion_job_id,
+                ):
+                    raise _FinalizationFenceLost()
             attempt.closed_at = database_now
             attempt.disposition = "superseded"
-            attempt.closure_cause = "stale_document_version"
-            attempt.terminal_outcome_code = "stale_document_version"
+            attempt.closure_cause = outcome.terminal_outcome_code
+            attempt.terminal_outcome_code = outcome.terminal_outcome_code
             attempt.transition_operation_id = transition_operation_id
             attempt.transition_operation_kind = "superseded"
             attempt.transition_request_fingerprint = transition_fingerprint
@@ -1611,7 +2306,7 @@ class PostgresIngestionJobCoordinationStore:
             job.updated_at = database_now
             job.failure_reason = None
             job.safe_failure_code = None
-            job.terminal_outcome_code = "stale_document_version"
+            job.terminal_outcome_code = outcome.terminal_outcome_code
             job.replacement_document_version_id = outcome.replacement_document_version_id
             job.replacement_ingestion_job_id = outcome.replacement_ingestion_job_id
             close_workspace_admissions_for_terminal_job(
@@ -1707,7 +2402,7 @@ class PostgresIngestionJobCoordinationStore:
                 claim.token.worker_id,
                 str(claim.token.lease_version),
                 "superseded",
-                "stale_document_version",
+                outcome.terminal_outcome_code,
                 outcome.replacement_document_version_id or "",
                 outcome.replacement_ingestion_job_id or "",
             )
@@ -1890,20 +2585,7 @@ class PostgresIngestionJobCoordinationStore:
                 raise CoordinationInvariantError("claimed job has no Original Source Object")
             return ClaimedAttempt(
                 token=token,
-                work=IngestionWork(
-                    workspace_id=job.workspace_id,
-                    document_id=job.document_id,
-                    document_version_id=job.target_document_version_id,
-                    source_object_id=source_object.id,
-                    source_object_key=source_object.object_key,
-                    source_media_type=source_object.media_type,
-                    source_sha256=source_object.raw_sha256,
-                    source_byte_size=source_object.byte_size,
-                    parser_configuration_id=job.parser_configuration_id,
-                    normalizer_configuration_id=job.normalizer_configuration_id,
-                    chunking_configuration_id=job.chunking_configuration_id,
-                    embedding_configuration_id=job.embedding_configuration_id,
-                ),
+                work=self._work_for_job(job, source_object),
                 attempt_count=attempt.attempt_number,
                 max_attempts=job.max_attempts,
                 attempt_started_at=attempt.attempt_started_at,
@@ -1948,7 +2630,7 @@ class PostgresIngestionJobCoordinationStore:
                 return None
             if attempt.transition_request_fingerprint != request_fingerprint:
                 raise CoordinationInvariantError("transition operation ID was reused incompatibly")
-            if operation_kind == "pdf_success":
+            if operation_kind in {"pdf_success", "pdf_extraction_success", "lexical_index_success"}:
                 if attempt.disposition not in {"succeeded", "superseded"}:
                     raise CoordinationInvariantError("transition replay has no PDF success result")
                 return FinalizationApplied(
@@ -1981,10 +2663,10 @@ class PostgresIngestionJobCoordinationStore:
                 return None
             if attempt.transition_request_fingerprint != request_fingerprint:
                 raise CoordinationInvariantError("transition operation ID was reused incompatibly")
-            if (
-                attempt.disposition != "superseded"
-                or attempt.terminal_outcome_code != "stale_document_version"
-            ):
+            if attempt.disposition != "superseded" or attempt.terminal_outcome_code not in {
+                "stale_document_version",
+                "stale_derivation_snapshot",
+            }:
                 raise CoordinationInvariantError("transition replay has no superseded result")
             return FinalizationApplied(
                 attempt=AttemptRef(

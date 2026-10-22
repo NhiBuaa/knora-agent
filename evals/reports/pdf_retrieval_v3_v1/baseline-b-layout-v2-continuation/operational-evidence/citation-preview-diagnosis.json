@@ -1,0 +1,18 @@
+{
+  "mode": "offline diagnostic; canonical failed row unchanged",
+  "case_id": "pdf-v3-001",
+  "trace_id": "1540271b-3946-4565-bbe6-aec3a901eb73",
+  "failure": "CITATION_STRUCTURAL_ERROR",
+  "failing_predicate": "citation.excerpt != content[:500]",
+  "production_preview_exact_match": true,
+  "public_preview_length": 414,
+  "chunk_length": 420,
+  "raw_prefix_counterfactual_passes": true,
+  "candidate_group_coverage_diagnostic_only": [
+    true
+  ],
+  "selected_group_coverage_diagnostic_only": [
+    true
+  ],
+  "model_calls": 0
+}

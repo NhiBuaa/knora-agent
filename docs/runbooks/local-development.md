@@ -2,6 +2,9 @@
 
 Use this workflow for day-to-day development with Cloudflare Workers AI. The stable offline Ollama demo/acceptance launcher remains separate from source-watching development behavior.
 
+For provider-free, disposable coding-agent browser verification, use the
+[agent environment](agent-environment.md) and its Feature Map instead of this daily runtime.
+
 ## Runtime layout
 
 ```text
@@ -531,6 +534,43 @@ seconds for it to empty. `DEV_STOPPED` confirms cleanup; `DEV_CLEANUP_FAILED`
 reports a termination, accounting or timeout failure. PostgreSQL, MinIO and
 bundled Keycloak remain running, and processes from other invocations stay outside
 the group. A port occupied by another session still fails the preflight check.
+
+### Multi-launcher safety and storage protection
+
+To prevent concurrent development sessions from colliding or corrupting persistent
+data, the daily launcher enforces three preflight safety guards:
+
+- **Project reservation lock**: Before verifying storage or starting services, the
+  launcher acquires an exclusive file lock at
+  `%TEMP%\knora-dev-reservation-knora-dev.lock`. A concurrent second launcher on
+  the same machine and user immediately aborts with `DEV_PROJECT_RESERVED:knora-dev`
+  before inspecting or altering shared Docker resources. Normal shutdown (Ctrl+C)
+  and clean preflight aborts release the lock automatically. If startup fails after
+  mutating operations begin or cleanup cannot be verified cleanly, the lock file is
+  intentionally retained on disk with process and timestamp metadata, printing
+  `DEV_RESERVATION_RETAINED:knora-dev`. Subsequent invocations are blocked until
+  an operator inspects for orphaned processes/containers and manually removes the file.
+- **Storage ownership verification**: The launcher queries the Docker daemon volume
+  catalog (`docker volume ls`) and reconciles expected storage volumes
+  (`knora-dev_knora_postgres_data`, `knora-dev_knora_minio_data`,
+  `knora-dev_keycloak_dev_data`, `knora-dev_keycloak_dev_database`). If a volume is
+  present on the daemon but `docker volume inspect` fails or returns empty metadata,
+  the launcher refuses to proceed with `COMPOSE_PROJECT_OWNERSHIP_UNVERIFIED:knora-dev`.
+  Furthermore, container mounts are checked against an exact specification: mount type
+  must be `volume`, `Destination` must match the canonical container mount path (e.g.
+  `/var/lib/postgresql/data` for Postgres and Keycloak DB, `/data` for MinIO,
+  `/opt/keycloak/data` for Keycloak), and each volume must possess its matching
+  `com.docker.compose.volume` role label. Existing storage is never modified or reset;
+  `down --volumes` is never invoked by the daily launcher, preserving development
+  PostgreSQL and MinIO data across restarts.
+- **Docker metadata read timeout**: Preflight Docker metadata queries are bounded to
+  10 seconds per command and 30 seconds for the entire ownership scan using a continuous
+  stopwatch deadline covering both process execution and file-buffered output consumption.
+  Each metadata process is launched directly inside a Windows Job Object (`Knora.Dev.ProcessJob`)
+  with breakaway disallowed (`JOB_OBJECT_LIMIT_BREAKAWAY_OK = 0`). If the Docker daemon hangs
+  or child processes spawn long-lived descendants holding pipes or handles, closing the Job Object
+  upon timeout forcefully terminates the entire process tree without blocking on streams,
+  hanging the shell, freezing CI runners, or leaving orphaned descendant processes.
 
 The helper uses the Windows [Job Object API](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects)
 and loads through PowerShell's `Add-Type`; it requires no additional dependency.

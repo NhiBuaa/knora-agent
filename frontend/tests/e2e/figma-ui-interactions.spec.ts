@@ -5061,10 +5061,9 @@ test.describe("guarded application journeys", () => {
     test(`live account logout and forced sign-in at ${viewport.width}`, async ({
       page,
       context,
-    }) => {
+    }, info) => {
       await page.setViewportSize(viewport);
-      const evidence =
-        "../.verification/figma/q1/evidence/live-logout-prompt-2026-10-08";
+      const evidence = info.outputPath("evidence");
       fs.mkdirSync(evidence, { recursive: true });
       const identity = realm.users.find((user) => user.username === "m5-user");
       if (!identity) throw new Error("Owned synthetic identity missing.");
@@ -5329,9 +5328,8 @@ test.describe("guarded application journeys", () => {
   }
   test("owned Workspace restores from the Conversation bottom bar while an archived Conversation stays archived", async ({
     page,
-  }) => {
-    const evidence =
-      "../.verification/figma/q1/evidence/conversation-creation-2026-10-08";
+  }, info) => {
+    const evidence = info.outputPath("evidence");
     fs.mkdirSync(evidence, { recursive: true });
     const identity = realm.users.find((user) => user.username === "m5-user");
     if (!identity) throw new Error("Owned synthetic identity missing.");

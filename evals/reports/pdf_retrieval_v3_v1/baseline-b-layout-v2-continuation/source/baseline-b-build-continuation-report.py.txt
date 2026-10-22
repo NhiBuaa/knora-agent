@@ -1,0 +1,61 @@
+"""Use the existing report builder with the same reviewed observation selection."""
+
+import importlib.util
+import json
+from functools import partial
+from pathlib import Path
+
+spec = importlib.util.spec_from_file_location(
+    "baseline_b_report", Path(__file__).with_name("baseline-b-build-report.py")
+)
+builder = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(builder)
+selection = builder.TARGET / "continuation/revalidation-selection.json"
+builder.TARGET = builder.TARGET.with_name("baseline-b-layout-v2-continuation")
+builder.selected_observations = partial(
+    builder.selected_observations,
+    revalidation_record=selection,
+    proposal_sha256=builder.PROPOSAL,
+    derivation_sha256=builder.DERIVATION,
+)
+
+
+def main():
+    builder.main()
+    manifest_path = builder.TARGET / "archive-manifest.json"
+    manifest = builder.load_json(manifest_path)
+    for source, destination in (
+        (selection, builder.TARGET / "revalidation-selection.json"),
+        (
+            selection.with_name("selection-validation.json"),
+            builder.TARGET / "selection-validation.json",
+        ),
+        (Path(__file__), builder.TARGET / "source" / (Path(__file__).name + ".txt")),
+    ):
+        builder.archive(source, destination, manifest["files"])
+    builder.write_json(manifest_path, manifest)
+    report_path = builder.TARGET / "report.json"
+    report = builder.load_json(report_path)
+    report["reviewed_revalidation_selection_sha256"] = builder.digest(builder.load_json(selection))
+    report["historical_failed_capture"] = (
+        "../baseline-b-layout-v2/captures/case-pdf-v3-001-attempt-1.json"
+    )
+    report["semantic_review"] = "pending"
+    builder.write_json(report_path, report)
+    assert report["denominators"]["total"] == 60
+    assert len(report["cases"]) == 60
+    assert (
+        len(builder.load_json(builder.TARGET / "candidate-vs-selected-coverage.json")["cases"])
+        == 60
+    )
+    assert (
+        len((builder.TARGET / "human-review.md").read_text(encoding="utf-8").split("## pdf-v3-"))
+        == 61
+    )
+    for entry in manifest["files"]:
+        assert builder.sha(builder.TARGET / entry["path"]) == entry["sha256"]
+    print(json.dumps({"packet_validation": "accepted", "semantic_review": "pending", "cases": 60}))
+
+
+if __name__ == "__main__":
+    main()

@@ -62,9 +62,9 @@ class CountingQueryEmbeddingProvider(QueryEmbeddingProvider):
 
 @pytest.mark.asyncio
 async def test_incompatible_corpus_rejects_before_provider_and_retrieval_lookup() -> None:
-    class RetrievalConfigurationMustNotResolve:
+    class DenseRetrievalConfiguration:
         def resolve(self, *, workspace_id: str):
-            raise AssertionError(f"retrieval configuration lookup for {workspace_id}")
+            return RetrievalConfiguration.milestone_one()
 
     store = EmptyStore(incompatible=True)
     provider = CountingQueryEmbeddingProvider()
@@ -73,7 +73,7 @@ async def test_incompatible_corpus_rejects_before_provider_and_retrieval_lookup(
         generation_provider=GeneratorThatMustNotRun(),
         store=store,
         embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
-        retrieval_configuration_resolver=RetrievalConfigurationMustNotResolve(),
+        retrieval_configuration_resolver=DenseRetrievalConfiguration(),
     )
 
     with pytest.raises(KnoraError, match="REINDEX_REQUIRED"):

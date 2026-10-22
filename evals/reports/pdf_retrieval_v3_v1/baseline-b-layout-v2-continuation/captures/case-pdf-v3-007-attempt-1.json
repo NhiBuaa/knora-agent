@@ -1,0 +1,105 @@
+{
+  "attempt": 1,
+  "attempt_id": "s1-runtime-binding-20261015-01:pdf-v3-007:1",
+  "candidates": [
+    {
+      "chunk_id": "4d6df350-fe8d-418f-a82a-49aa8a911a00",
+      "chunk_set_id": "7d5627c8-9152-46cd-851a-46d2c85e50dd",
+      "chunking_configuration_id": "chunking-m2-pdf-pypdf-6-14-2-layout-v2",
+      "content": "Biên bản kiểm MX-11\nSYNTHETIC FIXTURE - agent-authored - owner review pending\nPDF page 1 | CC BY 4.0 | Knora evaluation fixture",
+      "content_checksum": "2db0a03ee50c3af7984ae65cf194ab2e56cb7e0b7e6465712015e91dc0272d4e",
+      "document_version_id": "9a585b5d-ef32-4ca3-b684-5ceac4dad00e",
+      "end_offset": 127,
+      "final_decision": "SELECTED",
+      "final_rank": 1,
+      "normalizer_configuration_id": "pdf-normalizer-m2-v1",
+      "page_end": 1,
+      "page_start": 1,
+      "parser_configuration_id": "pdf-parser-pypdf-6-14-2-layout-lines-v2",
+      "raw_sha256": "062ed4ce382e92227439643a9b45b9f0e4a760666f4afad9e136a80a0cff3fb8",
+      "source_key": "scan-02",
+      "start_offset": 0,
+      "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+    }
+  ],
+  "case_id": "pdf-v3-007",
+  "conversation_id": "ac7f663f-e058-461c-a998-2e6631686ee3",
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "dataset_sha256": "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
+  "decision": "REFUSAL",
+  "derivation_sha256": "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2",
+  "end_to_end_latency_ms": 3162.817800000994,
+  "failure_code": null,
+  "provider_metadata": {
+    "conversation_context": {
+      "policy_id": "conversation-context-v2",
+      "retrieval_query": "Hồ sơ MX-11 có bao nhiêu trang và được kiểm ngày nào?",
+      "selected_turn_ids": []
+    },
+    "embedding": {
+      "cost": {},
+      "model": "@cf/qwen/qwen3-embedding-0.6b",
+      "provider": "cloudflare-workers-ai",
+      "provider_request_id": "a4acf9491f398622-HKG",
+      "usage": {}
+    },
+    "generation": {
+      "cost": {},
+      "finish_reason": "stop",
+      "model": "@cf/openai/gpt-oss-20b",
+      "prompt_version": "cloudflare-gpt-oss-cited-answer-v4",
+      "provider": "cloudflare-workers-ai",
+      "provider_request_id": "id-1792047911412",
+      "usage": {
+        "completion_tokens": 152,
+        "prompt_tokens": 463,
+        "total_tokens": 615
+      }
+    },
+    "retrieval": {
+      "latency_ms": 25.02200000162702
+    },
+    "timing": {
+      "clock_resolution_ms": 9.999999999999999e-05,
+      "phases": {
+        "candidate_retrieval": {
+          "duration_ms": 24.992600001496612,
+          "end_tick": 16085.0819162,
+          "start_tick": 16085.0569236
+        },
+        "evidence_selection": {
+          "duration_ms": 0.029400000130408444,
+          "end_tick": 16085.0819456,
+          "start_tick": 16085.0819162
+        },
+        "generation": {
+          "duration_ms": 1676.92199999874,
+          "end_tick": 16086.7588676,
+          "start_tick": 16085.0819456
+        },
+        "query_embedding": {
+          "duration_ms": 500.14869999904477,
+          "end_tick": 16085.0569236,
+          "start_tick": 16084.5567749
+        }
+      }
+    }
+  },
+  "public_response": {
+    "answer": null,
+    "citations": [],
+    "decision": "REFUSAL",
+    "refusal_reason": "INSUFFICIENT_EVIDENCE",
+    "trace_id": "ffdc0e1e-6843-4b21-a4d6-36fb99454a90",
+    "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+  },
+  "response_sha256": "0ae49223ae63c70be076c1acbc7633988a1f04ba3bb1cf30ef10c1184563c5ad",
+  "retrieval_latency_ms": 25.02200000162702,
+  "run_id": "s1-runtime-binding-20261015-01",
+  "selected_chunk_ids": [
+    "4d6df350-fe8d-418f-a82a-49aa8a911a00"
+  ],
+  "trace_id": "ffdc0e1e-6843-4b21-a4d6-36fb99454a90",
+  "turn_id": "9e73090c-cabb-48f6-a188-4c32c29731e5",
+  "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+}

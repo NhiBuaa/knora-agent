@@ -1,0 +1,117 @@
+{
+  "attempt": 1,
+  "attempt_id": "s1-runtime-binding-20261015-01:pdf-v3-014:1",
+  "candidates": [
+    {
+      "chunk_id": "0fc54469-7f1a-43e8-b633-8ba08b007141",
+      "chunk_set_id": "3b7ed650-a7d4-4a12-a2db-5c8f4e5b6605",
+      "chunking_configuration_id": "chunking-m2-pdf-pypdf-6-14-2-layout-v2",
+      "content": "Bilingual evidence glossary\nSYNTHETIC FIXTURE - agent-authored - owner review pending\nEvidence nghĩa là bằng chứng nguồn, không Answer means a response supported by\nphải câu trả lời. source evidence.\nCitation nghĩa là trích dẫn chỉ đến bằng chứng A citation does not replace the required\nnguồn. answer facts.\nRefusal nghĩa là từ chối trả lời khi thiếu bằng A refusal must not invent a missing source\nchứng. fact.\nPDF page 1 | CC BY 4.0 | Knora evaluation fixture",
+      "content_checksum": "5fc40236ce546ce78c37b9d06f832813cd541cca9cb08da05f7ee5af8923e5d9",
+      "document_version_id": "d0f48886-f87c-4467-b69e-530a03ada95a",
+      "end_offset": 462,
+      "final_decision": "SELECTED",
+      "final_rank": 1,
+      "normalizer_configuration_id": "pdf-normalizer-m2-v1",
+      "page_end": 1,
+      "page_start": 1,
+      "parser_configuration_id": "pdf-parser-pypdf-6-14-2-layout-lines-v2",
+      "raw_sha256": "ca50184d9188af7bbd3a69f597bf130c8d51b4a4f33c0cca7b62d253f2d30593",
+      "source_key": "columns-02",
+      "start_offset": 0,
+      "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+    }
+  ],
+  "case_id": "pdf-v3-014",
+  "conversation_id": null,
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "dataset_sha256": "2299db0f8a24f3633883c21a407e68ec3b07e0765c4511bfe55522f0768604ae",
+  "decision": "ANSWER",
+  "derivation_sha256": "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2",
+  "end_to_end_latency_ms": 5438.943299999664,
+  "failure_code": null,
+  "provider_metadata": {
+    "embedding": {
+      "cost": {},
+      "model": "@cf/qwen/qwen3-embedding-0.6b",
+      "provider": "cloudflare-workers-ai",
+      "provider_request_id": "a4acfbe9dfb9ddc4-HKG",
+      "usage": {}
+    },
+    "generation": {
+      "cost": {},
+      "finish_reason": "stop",
+      "model": "@cf/openai/gpt-oss-20b",
+      "prompt_version": "cloudflare-gpt-oss-cited-answer-v4",
+      "provider": "cloudflare-workers-ai",
+      "provider_request_id": "id-1792048022234",
+      "usage": {
+        "completion_tokens": 408,
+        "prompt_tokens": 529,
+        "total_tokens": 937
+      }
+    },
+    "retrieval": {
+      "latency_ms": 22.069700000429293
+    },
+    "timing": {
+      "clock_resolution_ms": 9.999999999999999e-05,
+      "phases": {
+        "candidate_retrieval": {
+          "duration_ms": 22.052799999073613,
+          "end_tick": 16194.5560765,
+          "start_tick": 16194.5340237
+        },
+        "evidence_selection": {
+          "duration_ms": 0.016900001355679706,
+          "end_tick": 16194.5560934,
+          "start_tick": 16194.5560765
+        },
+        "generation": {
+          "duration_ms": 3040.777500000331,
+          "end_tick": 16197.5968709,
+          "start_tick": 16194.5560934
+        },
+        "query_embedding": {
+          "duration_ms": 2323.9353999997547,
+          "end_tick": 16194.5340237,
+          "start_tick": 16192.2100883
+        }
+      }
+    }
+  },
+  "public_response": {
+    "answer": "Trong từ điển song ngữ, evidence (bằng chứng) là nguồn cung cấp thông tin thực sự; nó là dữ liệu gốc mà câu trả lời dựa vào. Trong khi đó, citation (trích dẫn) chỉ là cách tham chiếu đến evidence đó, giúp người đọc xác định nguồn nhưng không thay thế nội dung evidence. [[E1]]",
+    "citations": [
+      {
+        "content_checksum": "5fc40236ce546ce78c37b9d06f832813cd541cca9cb08da05f7ee5af8923e5d9",
+        "document_id": "bbcdad36-5752-409c-806f-42a7f9fef85d",
+        "document_version_id": "d0f48886-f87c-4467-b69e-530a03ada95a",
+        "end_line": 9,
+        "end_offset": 462,
+        "evidence_id": "E1",
+        "excerpt": "Bilingual evidence glossary\nSYNTHETIC FIXTURE - agent-authored - owner review pending\nEvidence nghĩa là bằng chứng nguồn, không Answer means a response supported by\nphải câu trả lời. source evidence.\nCitation nghĩa là trích dẫn chỉ đến bằng chứng A citation does not replace the required\nnguồn. answer facts.\nRefusal nghĩa là từ chối trả lời khi thiếu bằng A refusal must not invent a missing source\nchứng. fact.\nPDF page 1 | CC BY 4.0 | Knora evaluation …",
+        "heading_path": [],
+        "page_end": 1,
+        "page_start": 1,
+        "source_key": "columns-02",
+        "source_name": "columns-02.pdf",
+        "start_line": 1,
+        "start_offset": 0
+      }
+    ],
+    "decision": "ANSWER",
+    "refusal_reason": null,
+    "trace_id": "9caa9ab8-ab7a-42d9-b64e-f20ebb1d4411",
+    "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+  },
+  "response_sha256": "d44ff845714d2ff3629463fc2e07027ebded648f8beee670702688d8df146b56",
+  "retrieval_latency_ms": 22.069700000429293,
+  "run_id": "s1-runtime-binding-20261015-01",
+  "selected_chunk_ids": [
+    "0fc54469-7f1a-43e8-b633-8ba08b007141"
+  ],
+  "trace_id": "9caa9ab8-ab7a-42d9-b64e-f20ebb1d4411",
+  "turn_id": null,
+  "workspace_id": "ee8acee6-6fea-4aaf-b472-d5ae1609516f"
+}

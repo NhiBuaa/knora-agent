@@ -1,0 +1,275 @@
+{
+  "schema_version": "lexical-population-v1",
+  "id": "pdf-retrieval-v3-frozen47-population-v1",
+  "native_evidence_sha256": "556f3733fdc3fa815c88f2b89f91bb632e6b17bbf1330ab25c0606dc23d2e303",
+  "profile": {
+    "id": "bm25-word-frozen47-population-v1",
+    "tokenizer": "word",
+    "tokenizer_version": "qdrant-1.19.2",
+    "k1": 1.2,
+    "b": 0.75,
+    "avg_len": 150.70212765957447,
+    "statistics_digest": "b9a03c93106424e3c7cfbdc6c96bc8b94f7635c0c618d27ed410a51fac385451"
+  },
+  "profile_digest": "f54643e1d15632ebdf46739fbe3b4523aee77fe892628587498058c4bbb0b849",
+  "documents": [
+    {
+      "source_sha256": "062ed4ce382e92227439643a9b45b9f0e4a760666f4afad9e136a80a0cff3fb8",
+      "chunks": [
+        {
+          "content_checksum": "2db0a03ee50c3af7984ae65cf194ab2e56cb7e0b7e6465712015e91dc0272d4e",
+          "native_token_count": 22
+        }
+      ]
+    },
+    {
+      "source_sha256": "06ea98d9fa8172caba88c9175b879d10d433f62867812edb7b993877bd333105",
+      "chunks": [
+        {
+          "content_checksum": "f5ab55c696dbb42f6e6e25637744c2b27ab2fdf7259ed62f92e7ddcec1863382",
+          "native_token_count": 63
+        }
+      ]
+    },
+    {
+      "source_sha256": "25b53becb4a4b665d26643f17e465d090500a5eebcea9c6ff0fb25d6fbb5c21f",
+      "chunks": [
+        {
+          "content_checksum": "30ef2cbb9647c61fb9245adf430e3513816c57d368a15edef9d9c8a7820c5970",
+          "native_token_count": 62
+        }
+      ]
+    },
+    {
+      "source_sha256": "3a3d97a4014436e54a87c4d2ba44909449dae1a9d98c60142aedfee2451643ec",
+      "chunks": [
+        {
+          "content_checksum": "fa850438f7607eb9ea5750954f0927d8d4a87052ef313130312f66fcfdf3d2bc",
+          "native_token_count": 90
+        }
+      ]
+    },
+    {
+      "source_sha256": "61e6b8c8bf8a9e0191320fd971989c98ababfe775b43b7bd1bd81eced67e2371",
+      "chunks": [
+        {
+          "content_checksum": "efe56896ff326cc0d9af0b0365d69e1476729b33201f6a9f5ad34dc1d4b84a62",
+          "native_token_count": 320
+        },
+        {
+          "content_checksum": "6da77096e3b9fa8bf6b8ed89446ffd9cfee9d20c0c185a1592308f20356f180b",
+          "native_token_count": 172
+        },
+        {
+          "content_checksum": "7d8b0af5749376e556e90ef1224fe975b283f480d81c002ac0c573342e562e87",
+          "native_token_count": 180
+        },
+        {
+          "content_checksum": "145f53aed990b66dccd715e08e9a5166bf6f589b973e41b543fef0a577ecd3ea",
+          "native_token_count": 237
+        },
+        {
+          "content_checksum": "80090e7b5ae6b029d3667c04bf29fd03dbfb09403cd6bb95e8611566d0505e28",
+          "native_token_count": 143
+        },
+        {
+          "content_checksum": "69b902288fa3fc78daeacb20296fd55c76f8a24ae191019a93bfc780ec67f5c4",
+          "native_token_count": 245
+        },
+        {
+          "content_checksum": "2bc04827b8e893960e881e41ce5dba587b49239f85eab20ead61e78b1d33a0d5",
+          "native_token_count": 273
+        },
+        {
+          "content_checksum": "dd79055d92fa4e99f10b8370ee3d5da85d81a4b9225411051760ef215d6ecb23",
+          "native_token_count": 270
+        },
+        {
+          "content_checksum": "edb6810d2485f4469abd143267830f890aed84e890d3573b2eeb80bb27c1dc0e",
+          "native_token_count": 224
+        },
+        {
+          "content_checksum": "e438c11514a4e2a2188a0d405ef58e13706a60ffec023442b623e7a1d6c329ab",
+          "native_token_count": 49
+        },
+        {
+          "content_checksum": "9014fd90f7b46ee8d59346d20c428ab0c8a6787266bc14cb4ad70ed2c5cf64e9",
+          "native_token_count": 300
+        },
+        {
+          "content_checksum": "de5def166c6f9c68dca58a36aad2cae84bd7e9318302e3bc5629db9428ea23b1",
+          "native_token_count": 227
+        },
+        {
+          "content_checksum": "47b899687869e0abed0e1e90e038ea2788278a7bc981f59996ad4f66f9842613",
+          "native_token_count": 284
+        }
+      ]
+    },
+    {
+      "source_sha256": "68c0826bb6b2d20442725f063ba909688bb1acfd6d101bb8759f13ca224c41b4",
+      "chunks": [
+        {
+          "content_checksum": "32af660aca258d56622d3d9fbc4b7a787182651ed9b7bafe8fbeef812b67c70b",
+          "native_token_count": 65
+        }
+      ]
+    },
+    {
+      "source_sha256": "69af79f8d2f033a3b6c7c689c1b97d43bd242c8f030b9c8b0b4c53f617457f43",
+      "chunks": [
+        {
+          "content_checksum": "4a5dabb1d48223998250a4ab3ff2da474dbc8181f0624615d61a36ef26cdde91",
+          "native_token_count": 10
+        },
+        {
+          "content_checksum": "d80eae6e96d148b3b2abbbc6760077b66c4ea071f847dab573d507a32c4d99a5",
+          "native_token_count": 1
+        },
+        {
+          "content_checksum": "d6a4031733610bb080d0bfa794fcc9dbdcff74834aeaab7c6b927e21e9754037",
+          "native_token_count": 1
+        },
+        {
+          "content_checksum": "8d27ba37c5d810106b55f3fd6cdb35842007e88754184bfc0e6035f9bcede633",
+          "native_token_count": 1
+        },
+        {
+          "content_checksum": "dbae772db29058a88f9bd830e957c695347c41b6162a7eb9a9ea13def34be56b",
+          "native_token_count": 1
+        },
+        {
+          "content_checksum": "2c7d5490e6050836f8f2f0d496b1c8d6a38d4ffac2b898e6e77751bdcd20ebf5",
+          "native_token_count": 1
+        },
+        {
+          "content_checksum": "d4ee9f58e5860574ca98e3b4839391e7a356328d4bd6afecefc2381df5f5b41b",
+          "native_token_count": 1
+        }
+      ]
+    },
+    {
+      "source_sha256": "6be99661b7b7d8ee9372ea6177f399c6649e049fa750e8dacb5cfd47eac5abd8",
+      "chunks": [
+        {
+          "content_checksum": "df09f98e0e8f09a915f1a7339ee9a5ee95bb3816fd7b70e7cabd2188dcec0836",
+          "native_token_count": 336
+        },
+        {
+          "content_checksum": "561ecde6680e4cf88f7e4aa547ecf5d5307a6f4bba9813ca23db5ab4b86111e3",
+          "native_token_count": 232
+        },
+        {
+          "content_checksum": "3e8e0a48d534733955a2eb53b170372ef479d3a69dbae4e9efb2f88a04e2cec6",
+          "native_token_count": 309
+        },
+        {
+          "content_checksum": "5c905c258a2fe2f7938a6b6b4e000d87b8c6b9503db812de769b191c01ac9627",
+          "native_token_count": 272
+        },
+        {
+          "content_checksum": "0f650f5f8dfcb10e0b7440a892f6dec00994583fd58895b660b64847612c49fb",
+          "native_token_count": 321
+        },
+        {
+          "content_checksum": "92202a3e28dcd9ed225a977a849f9b4d382eaa27ff5a764b48fd008f418fb0f9",
+          "native_token_count": 257
+        },
+        {
+          "content_checksum": "5a1b0a623f91b225f95dc025436b0d03155454338d1017aa569f22e3204c0469",
+          "native_token_count": 57
+        },
+        {
+          "content_checksum": "5c3455644d9e2606cc3cfeee5da4a1b908ce03e74e0151c6b32a37b5eb385d46",
+          "native_token_count": 344
+        },
+        {
+          "content_checksum": "1d59a332eab39dd4978284761cdab4fb0f7571f22253edc71f0de111c50c1f0e",
+          "native_token_count": 268
+        },
+        {
+          "content_checksum": "044b082d34e4e40b2f2e1017235f2a17bcea33519e2d5cc5d65ffb727904a146",
+          "native_token_count": 40
+        },
+        {
+          "content_checksum": "a59e7c7e4c9fc424bc58ec2bcb6a63db2c7d89b15467d3293bfa263a225078bd",
+          "native_token_count": 253
+        },
+        {
+          "content_checksum": "3b972cf4f29bdfa73bb6f24c7d153ab299051650a7f2d4c3aab8a580dd2e3ff3",
+          "native_token_count": 294
+        },
+        {
+          "content_checksum": "045e4203d2d074d889f1f305b7d3cc7af93223dc185d8910ed0e89def2a1c472",
+          "native_token_count": 109
+        },
+        {
+          "content_checksum": "f60700a7d03c4a7e8c64c954ed034fc3b27c50b2e101f53c334a78eb1dcf8737",
+          "native_token_count": 218
+        }
+      ]
+    },
+    {
+      "source_sha256": "80fea16d50bc82418d5fdb8a5a53588e4bd62f236abdf886853ed478cbbf1180",
+      "chunks": [
+        {
+          "content_checksum": "aa38434ec8a2b8c0a30ec53b566ea207c9a97ec311c0eb65f10d0d07feecc505",
+          "native_token_count": 54
+        },
+        {
+          "content_checksum": "8252f171843476f5aef207d102c6c07bea62a6225cd1f6384d7a2a5676fb136c",
+          "native_token_count": 55
+        }
+      ]
+    },
+    {
+      "source_sha256": "85c08b53d95346cce7d03d456b9d83058d4914326b148f1388c553413453877a",
+      "chunks": [
+        {
+          "content_checksum": "51ed27fe249971e76c334741194b736c99d5715d798b5020a6430db3b0207d0d",
+          "native_token_count": 49
+        },
+        {
+          "content_checksum": "353ab5f3d5c6f24da75c5ab6a20343a5e8a0933afc76c73c58737de7d5cabca8",
+          "native_token_count": 49
+        }
+      ]
+    },
+    {
+      "source_sha256": "a015d5a8cd0f4a76398c167dc9a4e7ccbba82ba8957dfc8900ef9d6bf6f3fbbf",
+      "chunks": [
+        {
+          "content_checksum": "a59e008f514818311fe90970e1b6fbb0398df49bda3beb7fca3a2a3be9d1e68c",
+          "native_token_count": 84
+        }
+      ]
+    },
+    {
+      "source_sha256": "ca50184d9188af7bbd3a69f597bf130c8d51b4a4f33c0cca7b62d253f2d30593",
+      "chunks": [
+        {
+          "content_checksum": "5fc40236ce546ce78c37b9d06f832813cd541cca9cb08da05f7ee5af8923e5d9",
+          "native_token_count": 78
+        }
+      ]
+    },
+    {
+      "source_sha256": "da0597a1ea5b2100ecc49d7fd2ab917250a30ef63958e8bca3b458a89f5a723d",
+      "chunks": [
+        {
+          "content_checksum": "754d16c089017e24353f3d9cbea39e4bdee3d6fa8fce7f5b82bb76375b97b4e2",
+          "native_token_count": 91
+        }
+      ]
+    },
+    {
+      "source_sha256": "e95641f14b2013e7729573118d381031cf6138a7fccb416602cf3e602f934f05",
+      "chunks": [
+        {
+          "content_checksum": "7e8aeb61760f58c7c8b94f4c0f6c1c6474171178af5aa015775b7482232c457c",
+          "native_token_count": 71
+        }
+      ]
+    }
+  ]
+}
