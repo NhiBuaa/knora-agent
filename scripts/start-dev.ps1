@@ -303,7 +303,7 @@ if (-not $PreflightOnly) {
         $writer.Flush()
     } catch {
         [Console]::Error.WriteLine("DEV_RESERVATION_PATH:$reservationPath")
-        [Console]::Error.WriteLine("DEV_RESERVATION_RUNBOOK:docs/runbooks/local-development.md#managing-shared-developer-storage-and-services")
+        [Console]::Error.WriteLine("DEV_RESERVATION_RUNBOOK:docs/runbooks/local-development.md#recovery-triage-preserve-retained-data")
         try {
             if ([IO.File]::Exists($reservationPath)) {
                 $lines = [IO.File]::ReadAllLines($reservationPath)

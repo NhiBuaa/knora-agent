@@ -1661,7 +1661,7 @@ def test_concurrent_launchers_serialize_via_project_reservation(tmp_path: Path, 
             in proc_b.stderr
         )
         assert (
-            "DEV_RESERVATION_RUNBOOK:docs/runbooks/local-development.md#managing-shared-developer-storage-and-services"
+            "DEV_RESERVATION_RUNBOOK:docs/runbooks/local-development.md#recovery-triage-preserve-retained-data"
             in proc_b.stderr
         )
         assert not calls_b.exists() or calls_b.read_text().strip() == ""
@@ -2685,7 +2685,7 @@ def test_launcher_reservation_diagnostics_when_lock_retained_with_valid_metadata
     assert "DEV_PROJECT_RESERVED:knora-dev" in proc.stderr
     assert f"DEV_RESERVATION_PATH:{lock_file}" in proc.stderr
     assert (
-        "DEV_RESERVATION_RUNBOOK:docs/runbooks/local-development.md#managing-shared-developer-storage-and-services"
+        "DEV_RESERVATION_RUNBOOK:docs/runbooks/local-development.md#recovery-triage-preserve-retained-data"
         in proc.stderr
     )
     assert "DEV_RESERVATION_OWNER_PID:54321" in proc.stderr
@@ -2755,7 +2755,7 @@ def test_launcher_reservation_diagnostics_when_metadata_malformed(tmp_path: Path
     assert "DEV_PROJECT_RESERVED:knora-dev" in proc.stderr
     assert f"DEV_RESERVATION_PATH:{lock_file}" in proc.stderr
     assert (
-        "DEV_RESERVATION_RUNBOOK:docs/runbooks/local-development.md#managing-shared-developer-storage-and-services"
+        "DEV_RESERVATION_RUNBOOK:docs/runbooks/local-development.md#recovery-triage-preserve-retained-data"
         in proc.stderr
     )
     assert "DEV_RESERVATION_OWNER_PID" not in proc.stderr

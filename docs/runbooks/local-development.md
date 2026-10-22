@@ -611,7 +611,7 @@ paths or secret output in evidence.
 When a launcher is refused with `DEV_PROJECT_RESERVED:knora-dev`, diagnostics report:
 
 - `DEV_RESERVATION_PATH:<path>`: filesystem path to the reservation lock file.
-- `DEV_RESERVATION_RUNBOOK:docs/runbooks/local-development.md#managing-shared-developer-storage-and-services`: reference to this recovery procedure.
+- `DEV_RESERVATION_RUNBOOK:docs/runbooks/local-development.md#recovery-triage-preserve-retained-data`: reference to this recovery procedure.
 - If readable on disk (orphaned or retained lock from an exited process), `DEV_RESERVATION_OWNER_PID:<pid>` and `DEV_RESERVATION_TIMESTAMP:<timestamp>` report the recorded holder.
 - If the file is currently held exclusively by an active launcher process, owner metadata is omitted so unverified or concurrent writes are not read.
 
