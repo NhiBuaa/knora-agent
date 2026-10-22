@@ -93,6 +93,8 @@ describe("Figma operator data surfaces", () => {
     ["/operator/operations", "Operations"],
     ["/operator/traces/trace-1", "Traces"],
     ["/operator/evaluations/report-1", "Evaluations"],
+    ["/operator/datasets/dataset-1", "Datasets"],
+    ["/operator/runs/run-1", "Runs"],
   ])(
     "preserves scoped navigation and a decorative divider for %s",
     (route, active) => {
@@ -106,8 +108,14 @@ describe("Figma operator data surfaces", () => {
       const navigation = screen.getByRole("navigation", {
         name: "Operator navigation",
       });
-      expect(within(navigation).getAllByRole("link")).toHaveLength(3);
-      for (const name of ["Operations", "Traces", "Evaluations"]) {
+      expect(within(navigation).getAllByRole("link")).toHaveLength(5);
+      for (const name of [
+        "Operations",
+        "Traces",
+        "Evaluations",
+        "Datasets",
+        "Runs",
+      ]) {
         const link = within(navigation).getByRole("link", { name });
         expect(link).toHaveAttribute(
           "href",

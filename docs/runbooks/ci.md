@@ -13,6 +13,12 @@ work status in the relevant Issue/PR; this runbook owns the procedure, not a sec
    resolve material missing product criteria rather than inventing thresholds. For a bug,
    identify a reproducer or regression test that fails for
    the original symptom before the fix; explain any limit to reproducing it.
+   When a criterion can be read in materially different ways, record examples of pass,
+   fail and insufficient evidence before implementing. For [#183 Master §12.5](../superpowers/plans/2026-10-16-issue-183-master-plan.md#125-owner-clarification--conditional-lists-not-compulsory-enumeration),
+   count-only prose is allowed but does not prove list coverage; an answer enumerating
+   chapter names must preserve every generated item and its order as a list. Losing an
+   item in the composer/renderer fails preservation. An observed count-only answer leaves
+   list coverage unverified. These examples explain that contract, not a new product criterion.
 2. **Select:** inspect the owning tests, `frontend/package.json`, root `conftest.py` and the
    applicable workflow under `.github/workflows/`. Choose the smallest set covering the behavior
    and affected boundaries, including relevant failure, authorization or concurrency paths.
@@ -99,6 +105,11 @@ applicable with a reason. These are independent facts, not an automatic promotio
 | Reviewed         | Actual review and its scope/findings; tests do not constitute review                                                                |
 | Merged           | GitHub merge record and resulting commit                                                                                            |
 | Deployed         | Deployment record and target/version observation; merge or runtime smoke is insufficient                                            |
+
+Assigning a reviewer is pending review, not `Reviewed` or review PASS. Record the actual
+reviewer/task, subject and returned findings/result in the PR. An interrupted or failed
+required review remains incomplete or failed and blocks its gate; do not relabel it advisory
+to bypass that requirement.
 
 For CI, compare the current PR `headRefOid` with the run's head and the existing `ci-subject`
 artifact: `pr_head_sha` identifies the PR head, while `checkout_sha` records the tested synthetic

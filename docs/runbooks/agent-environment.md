@@ -36,6 +36,31 @@ lockfile-matching dependencies in the isolated checkout is sufficient. Startup u
 existing Dockerfiles to build application images; it can download declared application
 dependencies, but does not install host tools. Stop if that network use is not authorized.
 
+### Before launch: prerequisites and execution scope
+
+Before a run with side effects, identify the target checkout/SHA (and dirty diff),
+journey and installed build/dependencies, available tools/network permission, and a
+browser harness that can exercise it. Installed Playwright is sufficient for the
+journeys below; require the in-app browser only when the selected journey needs it.
+Inspect port/project/stack ownership using read-only metadata. Check that authorized
+configuration is available without printing secrets. For data or provider work, also
+identify permitted sources, accounts/quota and the approved runtime scope; this
+synthetic harness grants no provider authority.
+
+Reuse existing authorization. When new approval is needed, present one concrete run
+package: target and commands with side effects, dependencies/network use and permission
+exceptions, data scope, time/request/cost limits where relevant, stop conditions,
+ownership and cleanup. Once authorized, carry out the internal steps without asking
+again for each one. Stop for missing new permission, unsafe/unknown ownership,
+out-of-scope drift, startup/safety failure or an approved stop/budget limit. A failed
+package does not renew its clock or revive a stopped historical package.
+
+Pre-launch checks establish only what can be inspected then. Actual health,
+migration/schema compatibility, authenticated sessions and running-build ownership
+need checks **after startup**: use Doctor inside `-Run` before browser mutations.
+`-CheckConfigurationOnly` does not perform those checks. Recheck ownership/readiness
+at the point of use; an earlier preflight cannot guarantee resources stayed unchanged.
+
 Choose a fresh project and result directory for **each** attempt. Keep these variables in
 the same PowerShell session:
 
