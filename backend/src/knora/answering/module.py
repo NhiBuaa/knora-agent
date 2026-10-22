@@ -25,7 +25,6 @@ from knora.answering.sequential_dependence import (
     CorpusStatistics,
     SequentialDependenceConfig,
     SequentialDependenceScorer,
-    tokenize_lexical_text,
 )
 from knora.answering.stores import (
     AnsweringStore,
@@ -261,28 +260,23 @@ class AnswerQuestion:
                         res = self._store.read_corpus_statistics(command.workspace_id, policy_id)
                         if isinstance(res, CorpusStatistics):
                             corpus_stats = res
-                    except Exception:
-                        corpus_stats = None
+                    except Exception as err:
+                        raise KnoraError("CORPUS_STATISTICS_UNAVAILABLE") from err
 
                 if corpus_stats is None:
-                    stats_digest = (
-                        getattr(lexical_generations[0], "statistics_digest", None)
-                        if lexical_generations
-                        else None
-                    ) or (lexical_generations[0].lexical_policy_id if lexical_generations else None)
-                    total_tokens = sum(c.token_count for c in candidates if c.token_count > 0) or (
-                        len(candidates) * 100
-                    )
-                    freqs: dict[str, int] = {}
-                    for c in candidates:
-                        for tok in tokenize_lexical_text(c.content):
-                            freqs[tok] = freqs.get(tok, 0) + 1
-                    corpus_stats = CorpusStatistics(
-                        total_tokens=max(1, total_tokens),
-                        total_chunks=len(candidates),
-                        unigram_frequencies=freqs,
-                        statistics_digest=stats_digest,
-                    )
+                    raise KnoraError("CORPUS_STATISTICS_UNAVAILABLE")
+
+                expected_digest = (
+                    getattr(lexical_generations[0], "statistics_digest", None)
+                    if lexical_generations
+                    else None
+                )
+                if (
+                    expected_digest is not None
+                    and corpus_stats.statistics_digest is not None
+                    and corpus_stats.statistics_digest != expected_digest
+                ):
+                    raise KnoraError("CORPUS_STATISTICS_UNAVAILABLE")
 
                 scorer = SequentialDependenceScorer(config=sdm_config, corpus_stats=corpus_stats)
                 sdm_results = scorer.score_candidates(retrieval_query, candidates)
