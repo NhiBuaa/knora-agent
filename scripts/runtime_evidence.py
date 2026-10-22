@@ -155,22 +155,23 @@ def _load_evidence(path: Path, candidate_sha: str) -> dict[str, Any]:
         raise ValueError(f"evidence is unreadable: {path}") from exc
     if data.get("schema") != SCHEMA:
         raise ValueError("evidence schema mismatch")
-    required_provenance = (
+    profile = data.get("profile")
+    if profile not in PROFILES:
+        raise ValueError("evidence profile is invalid")
+    required_provenance = [
         "workflow_source_sha",
         "run_id",
         "run_attempt",
         "started_at",
         "completed_at",
         "tool_identities",
-        "image_identities",
-    )
+    ]
+    if profile != "retrieval-v3":
+        required_provenance.append("image_identities")
     if any(field not in data or data[field] in (None, "", {}) for field in required_provenance):
         raise ValueError("evidence provenance is incomplete")
     if data.get("subject_sha") != candidate_sha:
         raise ValueError("evidence subject SHA mismatch")
-    profile = data.get("profile")
-    if profile not in PROFILES:
-        raise ValueError("evidence profile is invalid")
     if data.get("outcome") != "success":
         raise ValueError("evidence outcome is not success")
     expected = list(PROFILES[profile])

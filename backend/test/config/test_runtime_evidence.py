@@ -517,3 +517,27 @@ def test_record_rejects_invalid_suite_metadata(tmp_path: Path, xml: str) -> None
             tool_identities={"python": "3.12"},
             image_identities={"keycloak": "26.3.3"},
         )
+
+
+def test_retrieval_v3_profile_evidence_lifecycle(tmp_path: Path) -> None:
+    reports = {}
+    for scenario in ("dense_hybrid", "reranking", "query_understanding", "recovery"):
+        path = tmp_path / f"{scenario}.xml"
+        _report(path)
+        reports[scenario] = path
+    output = tmp_path / "output"
+    evidence_path = create_evidence(
+        subject_sha=SHA,
+        actual_sha=SHA,
+        workflow_sha=WORKFLOW_SHA,
+        run_id="retrieval-1",
+        run_attempt="1",
+        profile="retrieval-v3",
+        reports=reports,
+        output_dir=output,
+        started_at="2026-10-22T00:00:00Z",
+        tool_identities={"python": "3.13.15"},
+        image_identities={},
+    )
+    assert evidence_path.exists()
+    validate_release(SHA, [evidence_path], ["retrieval-v3"])
