@@ -93,10 +93,12 @@ def bundle(cases, sha, **row_changes):
 
 
 def test_exact_cloudflare_envelope_preserves_roles_unicode_order_and_whitespace(tmp_path):
+    from knora.providers.openai_compatible.generation import CLOUDFLARE_SYSTEM_PROMPT
+
     cases, _ = units(tmp_path)
     envelope = cases[0]["messages"]
     assert [message["role"] for message in envelope] == ["system", "user"]
-    assert envelope[0]["content"].startswith("Return only the requested JSON.")
+    assert envelope[0]["content"] == CLOUDFLARE_SYSTEM_PROMPT
     assert envelope[1]["content"] == (
         '{"question": "Câu hỏi giữ nguyên?", "evidence": '
         '[{"evidence_id": "E2", "content": " Đầu\\nCANARY nguồn tiếng Việt\\n"}, '

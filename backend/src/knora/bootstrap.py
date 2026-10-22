@@ -254,7 +254,7 @@ def _build_selected_generation(runtime_settings: Settings, choice: str) -> Gener
             pricing_version=None,
             timeout_seconds=runtime_settings.cloudflare_timeout_seconds,
             provider_identity="cloudflare-workers-ai",
-            max_tokens=1024,
+            max_tokens=2048,
             direct_json_schema=True,
         )
 

@@ -93,15 +93,44 @@ class DoclingTextExtractor:
 
             from pypdf import PdfReader
 
+            from knora.adapters.pdf._pypdf_limits import (
+                _page_count,
+                _page_stream_bytes,
+                _PageStreamBudgetExceeded,
+            )
+
             reader = PdfReader(BytesIO(raw_bytes), strict=False)
             if reader.is_encrypted:
                 raise PdfExtractionError("PDF_ENCRYPTED", reason="ENCRYPTED")
+            if _page_count(reader, configuration.max_pages) > configuration.max_pages:
+                raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="PAGE_COUNT")
             num_pages = len(reader.pages)
             if num_pages > configuration.max_pages:
                 raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="PAGE_COUNT")
             is_pdf_stream = True
 
+            total_stream_bytes = 0
             for page_idx, page in enumerate(reader.pages, start=1):
+                try:
+                    stream_bytes = _page_stream_bytes(
+                        page,
+                        configuration.max_page_stream_bytes,
+                        configuration.max_total_stream_bytes - total_stream_bytes,
+                    )
+                except _PageStreamBudgetExceeded as error:
+                    raise PdfExtractionError(
+                        "PDF_RESOURCE_LIMIT_EXCEEDED", reason=error.reason
+                    ) from error
+                if stream_bytes > configuration.max_page_stream_bytes:
+                    raise PdfExtractionError(
+                        "PDF_RESOURCE_LIMIT_EXCEEDED", reason="PAGE_STREAM_SIZE"
+                    )
+                total_stream_bytes += stream_bytes
+                if total_stream_bytes > configuration.max_total_stream_bytes:
+                    raise PdfExtractionError(
+                        "PDF_RESOURCE_LIMIT_EXCEEDED", reason="TOTAL_STREAM_SIZE"
+                    )
+
                 native_text = (page.extract_text() or "").strip()
                 if len(native_text) >= configuration.minimum_extracted_characters:
                     blocks = self._parse_page_blocks(
@@ -172,6 +201,12 @@ class DoclingTextExtractor:
                 )
 
             conversion = self._cf_provider.convert_to_markdown(raw_bytes)
+            if conversion.format == "error":
+                raise PdfExtractionError(
+                    "PDF_EXTRACTOR_UNAVAILABLE",
+                    reason="CLOUDFLARE_CONVERSION_FAILED",
+                    retryable=True,
+                )
             markdown_text = conversion.content.strip()
 
             if len(markdown_text) < configuration.minimum_extracted_characters:
@@ -180,7 +215,11 @@ class DoclingTextExtractor:
                     reason="INSUFFICIENT_EXTRACTABLE_TEXT",
                 )
 
-            canonical_pages = list(self._parse_markdown_into_pages(markdown_text, configuration))
+            canonical_pages = list(
+                self._parse_markdown_into_pages(
+                    markdown_text, configuration, is_complete=is_pdf_stream
+                )
+            )
 
         total_extracted_chars = sum(len(p.text) for p in canonical_pages)
         if total_extracted_chars < configuration.minimum_extracted_characters:
@@ -189,17 +228,14 @@ class DoclingTextExtractor:
                 reason="INSUFFICIENT_EXTRACTABLE_TEXT",
             )
 
+        doc_is_complete = all(p.completeness.is_complete for p in canonical_pages) and is_pdf_stream
         canonical_doc = CanonicalDocument(
             raw_source_hash=raw_source_hash,
             derivation_identity=configuration.derivation_identity,
             parser_version=configuration.parser_version,
             pages=tuple(canonical_pages),
-            is_complete=all(p.completeness.is_complete for p in canonical_pages),
-            completeness_status=(
-                "COMPLETE"
-                if all(p.completeness.is_complete for p in canonical_pages)
-                else "INCOMPLETE"
-            ),
+            is_complete=doc_is_complete,
+            completeness_status="COMPLETE" if doc_is_complete else "INCOMPLETE",
         )
         validate_canonical_document(canonical_doc)
 
@@ -233,17 +269,21 @@ class DoclingTextExtractor:
         source_origin: SourceOrigin,
         confidence: float | None = None,
     ) -> list[CanonicalBlock]:
-        raw_sections = [s.strip() for s in re.split(r"\n{2,}", page_text) if s.strip()]
+        raw_sections = [s.strip() for s in re.split(r"(?:\r?\n){2,}", page_text) if s.strip()]
         if not raw_sections:
             return []
 
         blocks: list[CanonicalBlock] = []
         heading_stack: list[str] = []
-        current_offset = 0
+        current_search_idx = 0
 
         for idx, section in enumerate(raw_sections, start=1):
-            start = current_offset
+            start = page_text.find(section, current_search_idx)
+            if start == -1:
+                start = current_search_idx
             end = start + len(section)
+            current_search_idx = end
+
             block_type = BlockType.PARAGRAPH
             heading_level = None
 
@@ -275,7 +315,6 @@ class DoclingTextExtractor:
                     confidence=confidence,
                 )
             )
-            current_offset = end + 2  # account for "\n\n"
         return blocks
 
     def _process_single_page(
@@ -318,6 +357,7 @@ class DoclingTextExtractor:
         self,
         markdown_text: str,
         config: DoclingExtractionConfiguration,
+        is_complete: bool = True,
     ) -> tuple[CanonicalPage, ...]:
         if "\x0c" in markdown_text:
             raw_pages = markdown_text.split("\x0c")
@@ -338,7 +378,11 @@ class DoclingTextExtractor:
                     text=p_text,
                     content_checksum=hashlib.sha256(p_text.encode()).hexdigest(),
                     blocks=tuple(blocks),
-                    completeness=PageCompleteness(is_complete=True, status="COMPLETE"),
+                    completeness=PageCompleteness(
+                        is_complete=is_complete,
+                        status="COMPLETE" if is_complete else "INCOMPLETE",
+                        reason=None if is_complete else "PHYSICAL_STRUCTURE_UNRESOLVED",
+                    ),
                 )
             )
         return (
