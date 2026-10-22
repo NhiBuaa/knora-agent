@@ -1022,3 +1022,41 @@ Workbench browser claim.
 Actual continuation counts remain **0 real model calls, 0 corpus jobs/activations, 0 runtime stack
 startups, USD0 paid cost**. The ACK grants no live authority. Gold, FAILED source and history remain
 unchanged; the historical `COMPLETED / SEMANTIC_PENDING` ANSWER-to-REFUSAL result remains open.
+
+
+## Corpus adapter review fixes checkpoint — 22 October 2026
+
+Status: Two code review findings from PR #202 review closed with offline regressions; source pins expanded to full first-party package. No live inference, no additional runtime startups, zero cost ().
+
+### Review findings resolution
+
+1. **[P2] Fixture foreign key enforcement and flush ordering**:
+   - Closed in commit e16c68f3 fix(evaluation): flush corpus jobs before attempts.
+   - Production fix: PostgresCorpusPreparationStore.begin separates job preflight checks, then explicitly executes session.flush() after adding parent IngestionJobTable before inserting child IngestionJobAttemptTable in ackend/src/knora/adapters/postgres/corpus_preparation.py.
+   - Regression tests: Added constrained_corpus_db fixture enforcing PRAGMA foreign_keys=ON and
+oreign_key_check, 	est_begin_with_enforced_foreign_keys asserting 2 claims, 2 jobs and 2 attempts with correct relationships, and 	est_begin_rolls_back_all_writes_on_second_source_failure proving full transactional rollback of all writes when the second source attempt insert fails in ackend/test/evaluation/test_corpus_store.py.
+   - Reproduction probe: Verified RED (IntegrityError on query-invoked autoflush) against HEAD source and GREEN (PASS, 2 claims) on the fix.
+
+2. **[P1] Build pins coverage for corpus adapter and runtime collaborators**:
+   - Closed in commit
+9d80b4e fix(evaluation): pin corpus runtime sources in reviewed builds.
+   - Scope expansion:
+eviewed_build_pins() in ackend/src/knora/evaluation/live_admission.py now pins all first-party runtime modules via ackend/src/knora/**/*.py in addition to external runners (evals/runners/ragas_review.py, evals/scorers/deepeval_cloudflare.py), eliminating whitelist gaps for adapters, storage tables, and coordinators.
+   - Regression tests: Added parameterized 	est_reviewed_build_tracks_runtime_content (demonstrated RED before source set expansion, then GREEN), 	est_package_initialize_and_window_reject_content_drift asserting LIVE_PACKAGE_BUILD and 0 startups without side effects, and 	est_package_fails_closed_when_pinned_file_unreadable asserting fail-closed behavior before window callbacks in ackend/test/evaluation/test_live_admission.py.
+
+### Verification evidence
+
+- **Ruff format**: 438 files checked, 0 errors, exit 0.
+- **Ruff check**: All checks passed, exit 0.
+- **Git diff check**: git diff --check passed, exit 0.
+- **Test suite (evaluation, HTTP adapters, DeepEval, Ragas)**:
+  - Command: python -B -m pytest backend/test/evaluation backend/test/adapters/http/test_http_evaluation_datasets.py backend/test/adapters/http/test_http_evaluation_runs.py backend/test/adapters/http/test_http_evaluation_scoring.py evals/test/test_deepeval_capture.py evals/test/test_ragas_review.py -q -p no:cacheprovider -p no:deepeval
+  - Result: **411 passed in 140.34s**, 0 failures, 0 errors, 0 skips, exit 0.
+  - JUnit report: %TEMP%/suite.xml.
+
+### Budget and authority boundaries
+
+- Actual calls/jobs/startups consumed in this offline fix: **0 external inference calls, 0 live jobs, 0 runtime startups, paid USD 0**.
+- Retained live execution journal (ROOT/package/admission.sqlite3) and historical captures remain read-only historical evidence.
+- No live authority was renewed or expanded.
+- Integration with origin/main remains pending owner integration decision; mergeable status remains CONFLICTING on 8 upstream files.
