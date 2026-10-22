@@ -68,6 +68,7 @@ def run_capture(
             endpoint=f"https://api.cloudflare.com/client/v4/accounts/{account}/ai/v1/chat/completions",
             token=token,
             model="@cf/openai/gpt-oss-20b",
+            max_output_tokens=preflight["max_output_tokens"],
             ledger=ledger,
         )
         try:

@@ -372,6 +372,28 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
   metadata includes retrieval configuration ID, fusion-policy version, and embedding/chunk-set
   provenance once per invocation. A candidate's fused rank is retrieval rank, not its later
   Evidence Set position.
+- The **Evaluation Workbench** has two application workflows sharing one Canonical Dataset
+  Contract: **Dataset Builder** prepares original PDF sources, obtains human case/evidence review
+  and freezes gold; **Evaluation Runner** consumes a frozen dataset to execute new Q&A and publish
+  observations/reports. Neither creates another dataset, runner or release authority.
+- A **Frozen Gold Dataset** binds its version and digest to the owner's approval of source-backed
+  cases. PDF evidence anchors refer to the original raw PDF digest and Document Version, physical
+  page and reviewed quote/region; extraction offsets additionally bind an exact extraction snapshot.
+  Runtime binding is independent and may remain incomplete at freeze. Runtime readiness and
+  permission to send data to a provider are not implied by gold approval.
+- An **Evaluation Selection** binds selected case IDs to an unchanged dataset/version/digest.
+  Ordered context-only dependencies remain explicit and do not enter scored populations. Missing
+  extraction/binding and failed/not-run/indeterminate observations remain visible for every selected
+  case, with metric-specific applicability, denominators and reasons for unavailable scores.
+- **PDF Evidence-Group Coverage V1** applies to new Builder PDF datasets, using all ordered fused
+  candidates before evidence selection, with AND across required groups and OR among reviewed
+  alternatives. It adds no cutoff K; generation-evidence coverage is a separate diagnostic. A
+  missing/ambiguous required binding is unscorable, a valid miss is zero and an empty denominator
+  is null. M3 and Issue #153 preserve their respective metric contracts.
+- **Evaluation Execution Status** records job progress independently of **Quality Status** and
+  owner acceptance. A deterministic report can disclose pending semantic review; it cannot replace
+  a complete M3 release report or fabricate semantic PASS. Supplementary scorers consume saved
+  captures without causing another Q&A run. See [Workbench design](docs/design/evaluation-workbench.md).
 - An **Evaluation Case** is a versioned question fixture. Its contract separates retrieval
   relevance applicability and acceptable relevant Chunks from answer expectations (including
   non-empty required facts for an answerable case) and evidence expectations (expected source
@@ -402,6 +424,14 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
 - **Evaluation Data Permission** records whether the exact evaluation inputs may be sent to the
   chosen provider. Approved public/synthetic inputs may use Cloudflare Workers AI; private inputs
   without external-use permission remain local. A public URL alone is not permission.
+- A **Corpus Preparation Authority** is a separate trusted-host permission for one immutable
+  operation that materializes and activates exactly two pinned READY PDF Document Versions for a
+  frozen dataset. It binds the owner identity, Workspace and dataset revisions, source/original
+  hashes, extraction snapshots, immutable chunk/embedding configurations, one attempt per source,
+  provider request digests, deadline and stop latch. It is checked before admission, before each
+  provider dispatch and before/after the fenced activation transaction. It does not grant Q&A,
+  scoring, proposal, binding-review or Gold mutation authority; interrupted operations remain
+  stopped and require a new approval.
 - **Evaluation Observation Export** projects persisted Knora observations into opaque identifiers,
   approved metadata and numeric diagnostics. Langfuse does not receive questions, answers,
   references, evidence, source names, raw errors or credentials. Cloud export remains disabled
@@ -480,6 +510,14 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
   baseline/hybrid runs through the same production HTTP contract.
 
 ### Provider boundaries
+
+- A **Prompt Definition** is the static production-answer input definition for one
+  provider profile: its existing readable version, system text, selected
+  output schema and serializer identity. Its fingerprint excludes dynamic questions,
+  Evidence Sets and model/token settings. The internal Prompt Builder produces
+  messages from that definition; application context selection and provider transport
+  retain their existing ownership. Baseline parity/drift checks do not establish
+  model compliance or semantic acceptance. See [ADR 0019](docs/adr/0019-production-answer-prompt-ownership.md).
 
 - A **Generation Provider** turns a Question and its Evidence Set into generated answer text.
 - An **Embedding Provider** turns text into vectors used by ingestion and retrieval.
@@ -591,6 +629,20 @@ vector-versus-hybrid pair-level latency deltas. R3 revises the Issue #63 accepta
 natively blocked by R1 and R2. Historical approval, seal and evaluation artifacts are never
 rewritten; missing, self-authored/self-approved, mutated, subset, or same-shaped-wrong-digest
 evidence fails closed.
+
+## Issue #183 presentation policy (2026-10-18)
+
+The owner-approved Master section 4.9 uses one Cloudflare answer call with prompt identity
+`cloudflare-gpt-oss-cited-answer-v21`. The original question and Evidence Set feed the unchanged
+fixed `before/items/after` schema and composer. Selector count/condition generation, retained-note
+appending and selector-only stage metadata are removed. Formatting preserves every accepted text
+field in slot/member order, including repeated content; invalid fields fail instead of being
+silently omitted. Citation/refusal validation and Workspace access remain unchanged.
+
+Semantic completeness against the PDF is outside #183. Missing evidence routes to #153; omissions
+despite sufficient evidence belong to a proposed separate Answer Generation issue. This policy is
+not a semantic guarantee or runtime acceptance. See the sole
+[Master Plan](docs/superpowers/plans/2026-10-16-issue-183-master-plan.md).
 
 ## Retrieval V3 S2 approved design
 

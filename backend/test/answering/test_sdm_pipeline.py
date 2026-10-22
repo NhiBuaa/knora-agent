@@ -6,6 +6,8 @@ import asyncio
 import math
 from unittest.mock import Mock
 
+import pytest
+
 from knora.answering import stores
 from knora.answering.interface import QuestionCommand
 from knora.answering.module import AnswerQuestion
@@ -50,6 +52,7 @@ def _make_candidate(
 
 def _make_retrieval_result(
     candidates: tuple[stores.RetrievalCandidate, ...],
+    statistics_digest: str = "a" * 64,
 ) -> stores.RetrievalResult:
     snapshot = stores.LexicalGeneration(
         workspace_id="ws-1",
@@ -58,7 +61,7 @@ def _make_retrieval_result(
         chunk_set_id="cset-1",
         index_generation_id="gen-1",
         lexical_policy_id="bm25-word-frozen47-population-v1",
-        statistics_digest="a" * 64,
+        statistics_digest=statistics_digest,
     )
     obs = tuple(
         stores.BranchObservation(
@@ -92,6 +95,21 @@ def test_sdm_pipeline_stage_order_and_reranking():
     store.retrieve_candidates.return_value = retrieval_result
     store.require_lexical_corpus.return_value = None
     store.persist_trace.return_value = "trace-123"
+    authoritative_stats = CorpusStatistics(
+        total_tokens=10000,
+        total_chunks=100,
+        unigram_frequencies={
+            "sequential": 15,
+            "dependence": 12,
+            "exact": 5,
+            "query": 8,
+            "phrase": 4,
+            "words": 3,
+            "reversed": 2,
+        },
+        statistics_digest="a" * 64,
+    )
+    store.read_corpus_statistics.return_value = authoritative_stats
 
     generator = Mock()
     generator.generate = Mock(
@@ -231,6 +249,12 @@ def test_sdm_pipeline_preserves_all_chunk_locators():
     store.retrieve_candidates.return_value = retrieval_result
     store.require_lexical_corpus.return_value = None
     store.persist_trace.return_value = "trace-789"
+    store.read_corpus_statistics.return_value = CorpusStatistics(
+        total_tokens=1000,
+        total_chunks=10,
+        unigram_frequencies={"exact": 5, "match": 5},
+        statistics_digest="a" * 64,
+    )
 
     generator = Mock()
     generator.generate = Mock(
@@ -298,7 +322,10 @@ def test_sdm_distractor_invariance_and_statistics_digest_trace():
     c_distractor2 = _make_candidate(3, "another unrelated financial report", fusion_score=0.85)
 
     # 1. Pipeline execution with only target candidate
-    retrieval_single = _make_retrieval_result((c_target,))
+    retrieval_single = _make_retrieval_result(
+        (c_target,),
+        statistics_digest="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    )
     store_single = Mock()
     store_single.retrieve_candidates.return_value = retrieval_single
     store_single.require_lexical_corpus.return_value = None
@@ -363,7 +390,10 @@ def test_sdm_distractor_invariance_and_statistics_digest_trace():
     )
 
     # 2. Pipeline execution with target candidate + distractors in candidate pool
-    retrieval_multi = _make_retrieval_result((c_distractor1, c_distractor2, c_target))
+    retrieval_multi = _make_retrieval_result(
+        (c_distractor1, c_distractor2, c_target),
+        statistics_digest="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    )
     store_multi = Mock()
     store_multi.retrieve_candidates.return_value = retrieval_multi
     store_multi.require_lexical_corpus.return_value = None
@@ -387,3 +417,81 @@ def test_sdm_distractor_invariance_and_statistics_digest_trace():
     # Background probabilities are pinned to corpus snapshot, not candidate pool:
     # Target candidate SDM score is IDENTICAL regardless of distractors in pool!
     assert math.isclose(sdm_single_score, sdm_multi_score, rel_tol=1e-9)
+
+
+def test_sdm_pipeline_rejects_missing_corpus_statistics():
+    from knora.domain.errors import KnoraError
+
+    c1 = _make_candidate(1, "text", fusion_score=0.9)
+    retrieval_result = _make_retrieval_result((c1,))
+    store = Mock()
+    store.retrieve_candidates.return_value = retrieval_result
+    store.require_lexical_corpus.return_value = None
+    store.read_corpus_statistics.return_value = None
+    config = stores.RetrievalConfiguration.hybrid_sdm_top8_v3()
+    answer_question = AnswerQuestion(
+        store=store,
+        generation_provider=Mock(),
+        embedding_provider=Mock(
+            embed_queries=Mock(
+                return_value=EmbeddingBatch(
+                    provider="cloudflare", model="m", vectors=((0.1,) * 768,)
+                )
+            )
+        ),
+        embedding_configuration=EmbeddingConfiguration(
+            id="bge-test",
+            dimensions=768,
+            distance_metric="cosine",
+            provider="cloudflare",
+            model="m",
+        ),
+        retrieval_configuration=config,
+    )
+    with pytest.raises(KnoraError, match="CORPUS_STATISTICS_UNAVAILABLE"):
+        asyncio.run(
+            answer_question.execute(
+                QuestionCommand(workspace_id="ws-1", question="test"),
+                WorkspacePrincipal(workspace_id="ws-1", key_id="key-1"),
+            )
+        )
+
+
+def test_sdm_pipeline_rejects_mismatched_statistics_digest():
+    from knora.domain.errors import KnoraError
+
+    c1 = _make_candidate(1, "text", fusion_score=0.9)
+    retrieval_result = _make_retrieval_result((c1,))
+    store = Mock()
+    store.retrieve_candidates.return_value = retrieval_result
+    store.require_lexical_corpus.return_value = None
+    store.read_corpus_statistics.return_value = CorpusStatistics(
+        total_tokens=100, total_chunks=10, unigram_frequencies={}, statistics_digest="b" * 64
+    )
+    config = stores.RetrievalConfiguration.hybrid_sdm_top8_v3()
+    answer_question = AnswerQuestion(
+        store=store,
+        generation_provider=Mock(),
+        embedding_provider=Mock(
+            embed_queries=Mock(
+                return_value=EmbeddingBatch(
+                    provider="cloudflare", model="m", vectors=((0.1,) * 768,)
+                )
+            )
+        ),
+        embedding_configuration=EmbeddingConfiguration(
+            id="bge-test",
+            dimensions=768,
+            distance_metric="cosine",
+            provider="cloudflare",
+            model="m",
+        ),
+        retrieval_configuration=config,
+    )
+    with pytest.raises(KnoraError, match="CORPUS_STATISTICS_UNAVAILABLE"):
+        asyncio.run(
+            answer_question.execute(
+                QuestionCommand(workspace_id="ws-1", question="test"),
+                WorkspacePrincipal(workspace_id="ws-1", key_id="key-1"),
+            )
+        )

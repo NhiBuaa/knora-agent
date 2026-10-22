@@ -397,6 +397,22 @@ def test_object_store_settings_reject_empty_s3_credentials(field: str) -> None:
         _ = runtime.object_store_settings
 
 
+def test_v3_retrieval_accepts_cloudflare_workers_ai_canonical_selector() -> None:
+    selected = build_provider_selection(
+        Settings(
+            _env_file=None,
+            retrieval_configuration_id="retrieval-hybrid-rerank-top8-v3",
+            embedding_provider="cloudflare-workers-ai",
+            generation_provider="cloudflare-workers-ai",
+            embedding_dimension=1024,
+            cloudflare_account_id="a" * 32,
+            cloudflare_api_token="fake",
+        )
+    )
+    assert isinstance(selected.embedding_provider, CloudflareEmbeddingProvider)
+    assert isinstance(selected.generation_provider, OpenAICompatibleGenerationProvider)
+
+
 def test_v3_retrieval_rejects_non_cloudflare_providers() -> None:
     with pytest.raises(
         ValueError, match="V3 retrieval requires Cloudflare AI providers exclusively"
@@ -427,3 +443,67 @@ def test_v3_retrieval_rejects_non_cloudflare_providers() -> None:
                 ollama_embedding_model="qwen3:8b",
             )
         )
+
+
+@pytest.mark.asyncio
+async def test_bootstrap_cloudflare_cap_reaches_wire_without_extra_generation() -> None:
+    import json
+
+    import httpx
+
+    from knora.providers.generation import GenerationEvidence
+    from knora.providers.openai_compatible.answer_blocks import ANSWER_BLOCK_SCHEMA
+    from knora.providers.openai_compatible.generation import CLOUDFLARE_SYSTEM_PROMPT
+
+    selected = build_provider_selection(
+        Settings(
+            _env_file=None,
+            embedding_provider="cloudflare-workers-ai",
+            generation_provider="cloudflare-workers-ai",
+            embedding_dimension=1024,
+            cloudflare_account_id="0123456789abcdef0123456789abcdef",
+            cloudflare_api_token="offline-dummy",
+        )
+    )
+    seen: list[dict] = []
+
+    async def endpoint(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {
+                            "content": json.dumps(
+                                {
+                                    "decision": "REFUSAL",
+                                    "before": [],
+                                    "items": [],
+                                    "after": [],
+                                    "refusal_reason": "INSUFFICIENT_EVIDENCE",
+                                }
+                            )
+                        },
+                    }
+                ]
+            },
+        )
+
+    provider = selected.generation_provider
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
+        provider._client = client
+        result = await provider.generate(
+            question="Unknown?", evidence=(GenerationEvidence("E1", "Fact."),)
+        )
+    assert len(seen) == 1
+    assert seen[0]["max_tokens"] == 2048
+    assert set(seen[0]) == {"model", "messages", "response_format", "max_tokens"}
+    assert seen[0]["model"] == "@cf/openai/gpt-oss-20b"
+    assert seen[0]["messages"][0]["content"] == CLOUDFLARE_SYSTEM_PROMPT
+    assert seen[0]["response_format"] == {
+        "type": "json_schema",
+        "json_schema": ANSWER_BLOCK_SCHEMA,
+    }
+    assert result.decision == "REFUSAL"

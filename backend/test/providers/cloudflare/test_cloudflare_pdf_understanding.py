@@ -100,3 +100,32 @@ def test_tomarkdown_handles_rate_limit_and_bad_request() -> None:
         assert exc_info.value.code == "PDF_EXTRACTOR_UNAVAILABLE"
         assert exc_info.value.reason == "CLOUDFLARE_RATE_LIMIT"
         assert exc_info.value.retryable is True
+
+
+def test_tomarkdown_handles_per_file_error_result() -> None:
+    def error_endpoint(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "success": True,
+                "result": [
+                    {
+                        "name": "document.pdf",
+                        "format": "error",
+                        "error": "conversion failed",
+                    }
+                ],
+            },
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(error_endpoint), trust_env=False) as client:
+        provider = CloudflarePdfUnderstandingProvider(
+            account_id="0123456789abcdef0123456789abcdef",
+            api_token="test-only-token",
+            client=client,
+        )
+        with pytest.raises(PdfExtractionError) as exc_info:
+            provider.convert_to_markdown(b"%PDF-1.4 test bytes")
+        assert exc_info.value.code == "PDF_EXTRACTOR_UNAVAILABLE"
+        assert "CLOUDFLARE_CONVERSION_FAILED" in exc_info.value.reason
+        assert exc_info.value.retryable is True

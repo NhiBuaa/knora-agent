@@ -93,9 +93,29 @@ class CloudflarePdfUnderstandingProvider:
                         retryable=False,
                     )
                 item = result[0]
+                if not isinstance(item, dict):
+                    raise PdfExtractionError(
+                        "PDF_EXTRACTOR_UNAVAILABLE",
+                        reason="CLOUDFLARE_MALFORMED_OUTPUT",
+                        retryable=False,
+                    )
+                if item.get("format") == "error" or "error" in item:
+                    err_msg = str(item.get("error") or "CONVERSION_FAILED")
+                    raise PdfExtractionError(
+                        "PDF_EXTRACTOR_UNAVAILABLE",
+                        reason=f"CLOUDFLARE_CONVERSION_FAILED: {err_msg}",
+                        retryable=True,
+                    )
                 content = item.get("data") or item.get("content") or ""
                 fmt = item.get("format", "markdown")
             elif isinstance(result, dict):
+                if result.get("format") == "error" or "error" in result:
+                    err_msg = str(result.get("error") or "CONVERSION_FAILED")
+                    raise PdfExtractionError(
+                        "PDF_EXTRACTOR_UNAVAILABLE",
+                        reason=f"CLOUDFLARE_CONVERSION_FAILED: {err_msg}",
+                        retryable=True,
+                    )
                 content = result.get("data") or result.get("content") or ""
                 fmt = result.get("format", "markdown")
             else:

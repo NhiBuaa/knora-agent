@@ -64,6 +64,7 @@ def _scenario(monkeypatch, *, kind="pdf_extraction"):
         lexical_generation_id=work.lexical_generation_id,
         lexical_head_revision=None,
         status="processing",
+        operation="ingest_document",
         worker_id="worker",
         lease_version=1,
         current_attempt_number=1,

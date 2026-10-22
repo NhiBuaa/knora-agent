@@ -47,6 +47,47 @@ const turn: TurnResponse = {
 };
 afterEach(cleanup);
 
+it("preserves supplied paragraphs, repeated list text and literal markup in order", () => {
+  const onSelect = vi.fn();
+  const answer =
+    "Gợi ý: **2 phần**.\n\n- Mục \\*A\\* \\[giữ\\] \\& B\n- Mục \\*A\\* \\[giữ\\] \\& B\n\nCó thể gộp nếu ngắn. [[E2]] [[E1]]";
+  const { container } = render(
+    <TurnCard
+      turn={{ ...turn, result: { ...turn.result!, answer } }}
+      workspaceId="workspace"
+      selection={null}
+      onSelect={onSelect}
+      onRetry={vi.fn()}
+    />,
+  );
+  const article = container.querySelector("article")!;
+  const paragraphs = article.querySelectorAll("p");
+  expect(paragraphs[0].textContent).toBe("Gợi ý: 2 phần.");
+  expect(article.querySelector("strong")).toHaveTextContent("2 phần");
+  expect(
+    Array.from(article.querySelectorAll("ul li"), (item) => item.textContent),
+  ).toEqual(["Mục *A* [giữ] & B", "Mục *A* [giữ] & B"]);
+  expect(paragraphs[paragraphs.length - 1].textContent).toContain(
+    "Có thể gộp nếu ngắn.",
+  );
+  expect(article.textContent).not.toContain("[[");
+  expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  expect(
+    screen.getAllByRole("button", { name: /Citation [12]: Guide/ }),
+  ).toHaveLength(2);
+  for (const index of [0, 1]) {
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: `Citation ${index + 1}: Guide ${index}`,
+      }),
+    );
+    expect(onSelect).toHaveBeenLastCalledWith({
+      turnId: "turn",
+      citationIndex: index,
+    });
+  }
+});
+
 it("renders answer headings, paragraphs and lists with inline citations selecting the exact projection", () => {
   const onSelect = vi.fn();
   const { container } = render(

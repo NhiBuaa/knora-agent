@@ -41,7 +41,8 @@ namespace Knora.Dev
             if (job == IntPtr.Zero) throw new ObjectDisposedException("ProcessJob");
             string command = Quote(executable);
             foreach (string argument in arguments) command += " " + Quote(argument);
-            if (Path.GetExtension(executable).Equals(".cmd", StringComparison.OrdinalIgnoreCase))
+            if (Path.GetExtension(executable).Equals(".cmd", StringComparison.OrdinalIgnoreCase) ||
+                Path.GetExtension(executable).Equals(".bat", StringComparison.OrdinalIgnoreCase))
             {
                 executable = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),
                     "cmd.exe");
@@ -111,6 +112,22 @@ namespace Knora.Dev
                 if (output != IntPtr.Zero) CloseHandle(output);
                 if (error != IntPtr.Zero) CloseHandle(error);
             }
+        }
+
+        public bool WaitForProcesses(int timeoutMilliseconds)
+        {
+            if (job == IntPtr.Zero) return true;
+            Stopwatch watch = Stopwatch.StartNew();
+            while (watch.ElapsedMilliseconds < timeoutMilliseconds)
+            {
+                Accounting information;
+                if (!QueryInformationJobObject(job, 1, out information,
+                    (uint)Marshal.SizeOf(typeof(Accounting)), IntPtr.Zero))
+                    return true;
+                if (information.ActiveProcesses == 0) return true;
+                Thread.Sleep(25);
+            }
+            return false;
         }
 
         public void Dispose()
