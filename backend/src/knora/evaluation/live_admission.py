@@ -118,9 +118,7 @@ def reviewed_build_pins():
     ).stdout.strip()
     paths = sorted(
         {
-            *root.joinpath("backend/src/knora/evaluation").glob("*.py"),
-            *root.joinpath("backend/src/knora/answering").rglob("*.py"),
-            *root.joinpath("backend/src/knora/providers").rglob("*.py"),
+            *root.joinpath("backend/src/knora").rglob("*.py"),
             root / "evals/runners/ragas_review.py",
             root / "evals/scorers/deepeval_cloudflare.py",
         }

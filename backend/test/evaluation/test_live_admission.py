@@ -1612,3 +1612,120 @@ except ValueError:
         LiveAdmission(
             policy, path, clock=lambda: NOW, package=reopened, slot="ragas_vi_draft"
         ).verify(policy["scope"])
+
+
+@pytest.mark.parametrize(
+    "relative",
+    [
+        "backend/src/knora/adapters/postgres/corpus_preparation.py",
+        "backend/src/knora/adapters/postgres/ingestion_jobs/coordination.py",
+        "backend/src/knora/ingestion/job_processing.py",
+    ],
+)
+def test_reviewed_build_tracks_runtime_content(monkeypatch, relative):
+    from pathlib import Path
+
+    import knora.evaluation.live_admission as live
+
+    root = Path(live.__file__).resolve().parents[4]
+    before = live.reviewed_build_pins()
+    assert relative in before["sources"]
+    original_read = Path.read_text
+    target = (root / relative).resolve()
+
+    def drifted_read(path, *args, **kwargs):
+        text = original_read(path, *args, **kwargs)
+        return text + "\n# synthetic source drift\n" if path.resolve() == target else text
+
+    monkeypatch.setattr(Path, "read_text", drifted_read)
+    after = live.reviewed_build_pins()
+    assert after["code_sha"] == before["code_sha"]
+    assert after["sources"][relative] != before["sources"][relative]
+
+
+def test_package_initialize_and_window_reject_content_drift(monkeypatch, tmp_path):
+    from pathlib import Path
+
+    import knora.evaluation.live_admission as live
+    from knora.evaluation.live_admission import LivePackage
+
+    root = Path(live.__file__).resolve().parents[4]
+    target = (root / "backend/src/knora/adapters/postgres/corpus_preparation.py").resolve()
+    original_read = Path.read_text
+
+    manifest = package_manifest(tmp_path)
+    journal_path = tmp_path / "package.sqlite"
+    package = LivePackage.initialize(manifest, journal_path, clock=lambda: NOW)
+
+    def drifted_read(path, *args, **kwargs):
+        text = original_read(path, *args, **kwargs)
+        return text + "\n# synthetic source drift\n" if path.resolve() == target else text
+
+    monkeypatch.setattr(Path, "read_text", drifted_read)
+
+    unborn_journal = tmp_path / "unborn.sqlite"
+    with pytest.raises(ValueError, match="LIVE_PACKAGE_BUILD"):
+        LivePackage.initialize(manifest, unborn_journal, clock=lambda: NOW)
+    assert not unborn_journal.exists()
+
+    cleanup = {
+        "registration_id": "independent",
+        "scope": manifest["ownership"],
+        "deadline": (NOW + timedelta(minutes=15)).isoformat(),
+        "proof_digest": "e" * 64,
+    }
+    effects = []
+    with (
+        pytest.raises(ValueError, match="LIVE_PACKAGE_BUILD"),
+        package.window(
+            scope=manifest["ownership"],
+            cleanup=cleanup,
+            start=lambda: effects.append("start"),
+            stop=lambda: effects.append("stop"),
+        ),
+    ):
+        pass
+    assert effects == []
+    assert package.snapshot()["startups"] == 0
+
+
+def test_package_fails_closed_when_pinned_file_unreadable(monkeypatch, tmp_path):
+    from pathlib import Path
+
+    import knora.evaluation.live_admission as live
+    from knora.evaluation.live_admission import LivePackage
+
+    root = Path(live.__file__).resolve().parents[4]
+    target = (root / "backend/src/knora/adapters/postgres/corpus_preparation.py").resolve()
+    original_read = Path.read_text
+
+    manifest = package_manifest(tmp_path)
+    journal_path = tmp_path / "package.sqlite"
+    package = LivePackage.initialize(manifest, journal_path, clock=lambda: NOW)
+
+    def failing_read(path, *args, **kwargs):
+        if path.resolve() == target:
+            raise OSError("unreadable pinned file")
+        return original_read(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", failing_read)
+
+    cleanup = {
+        "registration_id": "independent",
+        "scope": manifest["ownership"],
+        "deadline": (NOW + timedelta(minutes=15)).isoformat(),
+        "proof_digest": "e" * 64,
+    }
+    effects = []
+    with (
+        pytest.raises(OSError, match="unreadable pinned file"),
+        package.window(
+            scope=manifest["ownership"],
+            cleanup=cleanup,
+            start=lambda: effects.append("start"),
+            stop=lambda: effects.append("stop"),
+        ),
+    ):
+        pass
+    assert effects == []
+    assert package.snapshot()["startups"] == 0
