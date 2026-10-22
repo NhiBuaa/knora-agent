@@ -7,6 +7,7 @@ from sqlalchemy.engine import Connection
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import sessionmaker
 
+from knora.adapters.postgres.evaluation_datasets_tables import DatasetSourceTable
 from knora.adapters.postgres.lexical_retrieval import validate_population_in_transaction
 from knora.adapters.postgres.search_index_store import PostgresSearchIndexStore
 from knora.adapters.postgres.tables import (
@@ -35,6 +36,15 @@ from knora.ingestion.documents import (
 )
 from knora.ingestion.lexical_population import VerifiedLexicalPopulation
 from knora.providers.embedding import EmbeddingConfiguration
+
+
+def _not_builder_source():
+    return ~exists(
+        select(DatasetSourceTable.id).where(
+            DatasetSourceTable.document_id == DocumentTable.id,
+            DatasetSourceTable.workspace_id == DocumentTable.workspace_id,
+        )
+    )
 
 
 class PostgresDocumentReader:
@@ -337,7 +347,10 @@ class PostgresDocumentReader:
             self._begin_snapshot(session)
             rows = session.scalars(
                 select(DocumentTable)
-                .where(DocumentTable.workspace_id == workspace_id)
+                .where(
+                    DocumentTable.workspace_id == workspace_id,
+                    _not_builder_source(),
+                )
                 .order_by(DocumentTable.source_key)
             ).all()
             return DocumentListProjection(tuple(self._projection(session, row) for row in rows))
@@ -351,7 +364,9 @@ class PostgresDocumentReader:
             self._begin_snapshot(session)
             row = session.scalar(
                 select(DocumentTable).where(
-                    DocumentTable.id == document_id, DocumentTable.workspace_id == workspace_id
+                    DocumentTable.id == document_id,
+                    DocumentTable.workspace_id == workspace_id,
+                    _not_builder_source(),
                 )
             )
             if row is None:
@@ -367,7 +382,9 @@ class PostgresDocumentReader:
                 row = session.scalar(
                     select(DocumentTable)
                     .where(
-                        DocumentTable.id == document_id, DocumentTable.workspace_id == workspace_id
+                        DocumentTable.id == document_id,
+                        DocumentTable.workspace_id == workspace_id,
+                        _not_builder_source(),
                     )
                     .with_for_update()
                 )
@@ -427,7 +444,9 @@ class PostgresDocumentReader:
         with self._session_factory.begin() as session:
             document = session.scalar(
                 select(DocumentTable).where(
-                    DocumentTable.id == document_id, DocumentTable.workspace_id == workspace_id
+                    DocumentTable.id == document_id,
+                    DocumentTable.workspace_id == workspace_id,
+                    _not_builder_source(),
                 )
             )
             if document is None:

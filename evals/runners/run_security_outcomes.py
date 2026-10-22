@@ -138,8 +138,9 @@ def build_payload(case: dict) -> dict | None:
     from knora.answering.interface import ConversationContext
     from knora.answering.module import AnswerQuestion
     from knora.providers.generation import GenerationEvidence
+    from knora.providers.openai_compatible.answer_blocks import ANSWER_BLOCK_SCHEMA
     from knora.providers.openai_compatible.generation import CLOUDFLARE_SYSTEM_PROMPT
-    from knora.providers.structured_generation import STRUCTURED_RESULT_SCHEMA, user_message
+    from knora.providers.structured_generation import user_message
 
     context = (
         ConversationContext("conversation-context-v2", case["history"], case["question"], (), 0)
@@ -162,7 +163,7 @@ def build_payload(case: dict) -> dict | None:
                 ),
             },
         ],
-        "response_format": {"type": "json_schema", "json_schema": STRUCTURED_RESULT_SCHEMA},
+        "response_format": {"type": "json_schema", "json_schema": ANSWER_BLOCK_SCHEMA},
         "max_tokens": 512,
     }
     if len(_payload_bytes(payload)) > 16384:
