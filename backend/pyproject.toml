@@ -58,11 +58,6 @@ packages = ["src/knora"]
 "../evals/scorers/deepeval_cloudflare.py" = "evals/scorers/deepeval_cloudflare.py"
 "../docs/design/m3-improvement-claim-rule-v1.policy.json" = "docs/design/m3-improvement-claim-rule-v1.policy.json"
 
-[tool.pytest.ini_options]
-addopts = "-p no:deepeval"
-pythonpath = ["src"]
-testpaths = ["backend/test"]
-
 [tool.ruff]
 line-length = 100
 target-version = "py312"
