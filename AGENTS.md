@@ -55,6 +55,8 @@ Store specification documents in `docs/specs/` and implementation plans in `docs
 completed specifications remain in `docs/specs/done/`. These repository paths override
 Skill output-path defaults, including those of `brainstorming` and `writing-plans`.
 Keep technical decisions in their existing ADR/design owners and progress in the Issue/PR.
+For Issue summaries, linked plans, approved revisions and resuming work, follow
+[Issue and document ownership](docs/agents/issue-tracker.md#issue-and-document-ownership).
 When relocating documents, update current links while preserving commit-pinned URLs,
 frozen patches and approval records as historical evidence.
 
