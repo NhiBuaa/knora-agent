@@ -30,23 +30,10 @@ The behavior-preserving `PostgresIngestionJobStore` decomposition is complete th
 Use the current session's skill catalog to discover availability and the exact `SKILL.md`
 location, including user, system and installed-plugin skills. Read that source before use;
 do not restrict discovery to one directory or assume an old document proves installation.
+Select any available, authorized skill that matches the task, following its applicability rules
+and mandatory instructions; this repository does not maintain a fixed skill allowlist.
 Repository-owned document paths and authority rules take precedence over generic skill
 output-path defaults; do not create a parallel glossary, plan ledger or knowledge store.
-
-Use the installed skills according to their actual scope:
-
-- `using-superpowers` for selecting the workflow at the start of work.
-- `brainstorming` for requirements, design, architecture and unresolved domain decisions.
-- `writing-plans` for approved implementation plans; `executing-plans` for executing them.
-- `test-driven-development` for behavior changes; `systematic-debugging` for diagnosis.
-- `using-git-worktrees` for isolated work under the repository's worktree policy.
-- `subagent-driven-development` and `dispatching-parallel-agents` for delegated work when
-  authorized and appropriate to their scope.
-- `requesting-code-review` and `receiving-code-review` for review and handling findings.
-- `verification-before-completion` for evidence before completion claims;
-  `finishing-a-development-branch` for the user's integration choice.
-- `research` for primary-source investigation saved as cited Markdown.
-- `diagram-design` for standalone diagrams; `writing-skills` for authorized skill authoring.
 
 Repository domain, issue-tracker, acceptance and Git rules apply throughout these workflows.
 Record confirmed domain vocabulary in `CONTEXT.md` and architectural decisions in relevant ADRs.
@@ -55,8 +42,9 @@ At closeout, follow [selective learning](docs/agents/issue-tracker.md#selective-
 These tasks do not require a separate skill. For Milestone 5, also follow
 [the M5 runbook](.agents/workflows/production-projections-user-operator-surfaces-verification-runbook.md).
 
-Do not install, activate, trust, or grant permissions to additional skills without explicit user
-authorization.
+Using an available, authorized skill does not require separate approval for each invocation.
+Installing or trusting a new skill, enabling an unauthorized skill, or changing permissions requires
+explicit user authorization. Skill selection does not authorize publishing, merging or deployment.
 
 For skill evaluation, suspected stale/ineffective guidance, or a changed skill/model/runbook,
 follow [Skill Evals](docs/agents/skill-evals.md); keep run evidence and decisions in the Issue/PR.
