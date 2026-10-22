@@ -8,38 +8,13 @@ from knora.providers.generation import (
     GenerationEvidence,
     GenerationResult,
 )
-from knora.providers.openai_compatible.answer_blocks import (
-    ANSWER_BLOCK_SCHEMA,
-    compose_answer,
+from knora.providers.openai_compatible.answer_blocks import compose_answer
+from knora.providers.prompts.builder import BuiltPrompt, build_prompt
+from knora.providers.prompts.policy import (
+    CLOUDFLARE_PROMPT_VERSION as CLOUDFLARE_PROMPT_VERSION,
 )
-from knora.providers.structured_generation import (
-    PROMPT_VERSION,
-    STRUCTURED_RESULT_SCHEMA,
-    SYSTEM_PROMPT,
-    user_message,
-)
-
-CLOUDFLARE_PROMPT_VERSION = "cloudflare-gpt-oss-cited-answer-v21"
-CLOUDFLARE_SYSTEM_PROMPT = (
-    "Return only JSON matching the supplied schema. Answer only from supplied evidence in the "
-    "question's language; preserve quoted titles and technical terms. Return before "
-    "(introductory paragraphs), items (one main list), and after (concluding paragraphs), in "
-    "that order. Each statement has text and a nonempty support array of supplied Evidence "
-    "Aliases. Paragraphs also require bold: a literal phrase occurring exactly once in text, or "
-    "null. Each text field is one line without Markdown or citation markers; the server adds "
-    "bullets, emphasis and citations. Use items for two or more distinct members you state, "
-    "rather than embedding an enumeration in paragraph text. Keep single facts and zero or one "
-    "known member as paragraphs with items=[]. Preserve clear source order; otherwise arrange "
-    "multiple sources without changing meaning. Keep relevant qualifications with the item or "
-    "paragraph they govern; do not invent content or infer unsupported members. Use all aliases "
-    "needed to support the full statement. For a question asking how many, start before with a "
-    "natural lead stating the proven total and set bold to its number-and-unit phrase. If two or "
-    "more members are evidenced, put them in items even when listing is not explicitly "
-    "requested. A selected subset does not prove a total: disclose incomplete member evidence; "
-    "if the total is unproven, state the limit without asserting it and use bold=null. ANSWER "
-    "requires content and null refusal_reason. When evidence cannot support an answer, REFUSAL "
-    "requires empty before/items/after and refusal_reason=INSUFFICIENT_EVIDENCE. Do not expand a "
-    "short single-fact answer with unrelated background."
+from knora.providers.prompts.policy import (
+    CLOUDFLARE_SYSTEM_PROMPT as CLOUDFLARE_SYSTEM_PROMPT,
 )
 
 
@@ -82,13 +57,13 @@ class OpenAICompatibleGenerationProvider:
             self._client = httpx.AsyncClient(timeout=self._timeout_seconds)
         try:
             cloudflare = self._provider_identity == "cloudflare-workers-ai"
-            content = user_message(question, evidence)
-            version = CLOUDFLARE_PROMPT_VERSION if cloudflare else PROMPT_VERSION
-            response = await self._complete(
-                CLOUDFLARE_SYSTEM_PROMPT if cloudflare else SYSTEM_PROMPT,
-                content,
-                ANSWER_BLOCK_SCHEMA if cloudflare else STRUCTURED_RESULT_SCHEMA,
+            prompt = build_prompt(
+                "cloudflare-answer" if cloudflare else "generic",
+                question=question,
+                evidence=evidence,
             )
+            version = prompt.definition.version
+            response = await self._complete(prompt)
             payload, choice, structured = self._decode(response)
             if cloudflare:
                 answer, cited_ids = compose_answer(structured, evidence)
@@ -132,22 +107,19 @@ class OpenAICompatibleGenerationProvider:
         except (IndexError, KeyError, TypeError, ValueError, json.JSONDecodeError):
             raise KnoraError("GENERATION_OUTPUT_INVALID") from None
 
-    async def _complete(self, system: str, content: str, schema: dict) -> httpx.Response:
+    async def _complete(self, prompt: BuiltPrompt) -> httpx.Response:
         request_body = {
             "model": self._model,
-            "messages": [
-                {"role": "system", "content": system},
-                {"role": "user", "content": content},
-            ],
+            "messages": prompt.messages,
             "response_format": {
                 "type": "json_schema",
                 "json_schema": (
-                    schema
+                    prompt.definition.schema
                     if self._direct_json_schema
                     else {
                         "name": "knora_structured_generation_result",
                         "strict": True,
-                        "schema": schema,
+                        "schema": prompt.definition.schema,
                     }
                 ),
             },
