@@ -402,7 +402,9 @@ export function DocumentList({
         setError(errorMessage("restore document", response.status));
         return;
       }
-      setUploadState(null);
+      setUploadState((current) =>
+        current?.document_id === documentId ? null : current,
+      );
       await load(controller);
     } catch {
       if (!controller.signal.aborted)
@@ -624,6 +626,8 @@ export function DocumentList({
                 <Button
                   variant="secondary"
                   className="h-7 px-2.5 text-xs"
+                  disabled={busy.includes(uploadState.document_id)}
+                  loading={busy.includes(uploadState.document_id)}
                   onClick={() =>
                     void restoreArchivedDocument(uploadState.document_id)
                   }

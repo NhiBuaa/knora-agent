@@ -645,7 +645,7 @@ describe("document management", () => {
     expect(keys[0]).toBe("reprocess-key-one");
     expect(keys[1]).toBe("reprocess-key-one");
   });
-  it("informs user when uploaded document is archived and offers restore action", async () => {
+  it("informs user when uploaded document is archived and restores with If-Match header and updates UI", async () => {
     const archivedDoc = {
       ...document,
       document_id: "doc-archived",
@@ -671,7 +671,7 @@ describe("document management", () => {
           200,
         ),
       )
-      // Reload list after upload
+      // Reload list after upload (initially still empty or archived)
       .mockResolvedValueOnce(jsonResponse({ documents: [archivedDoc] }))
       // Unarchive call response
       .mockResolvedValueOnce(
@@ -723,6 +723,345 @@ describe("document management", () => {
           call[1]?.method === "POST",
       );
       expect(unarchiveCall).toBeDefined();
+      expect(new Headers(unarchiveCall![1]?.headers).get("if-match")).toBe("3");
     });
+
+    // Restored document appears in active list
+    expect(
+      await screen.findByRole("link", { name: "manual.pdf" }),
+    ).toBeInTheDocument();
+
+    // Notice banner is cleared after successful restore
+    await waitFor(() => {
+      expect(
+        screen.queryByText(
+          "This document already exists and is archived. Restore it to use it again.",
+        ),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it("handles 409 conflict when restoring archived document", async () => {
+    const archivedDoc = {
+      ...document,
+      document_id: "doc-conflict",
+      source_name: "conflict.pdf",
+      archived: true,
+      revision: 2,
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ documents: [] }))
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            ingestion_job_id: "job-conflict",
+            document_id: "doc-conflict",
+            document_version_id: "version-1",
+            submission_outcome: "deduplicated",
+            status: "succeeded",
+            document_archived: true,
+          },
+          200,
+        ),
+      )
+      .mockResolvedValueOnce(jsonResponse({ documents: [archivedDoc] }))
+      // 409 conflict response on unarchive
+      .mockResolvedValueOnce(jsonResponse({ detail: "Conflict" }, 409))
+      // Reload list after conflict
+      .mockResolvedValueOnce(jsonResponse({ documents: [archivedDoc] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
+    );
+    await screen.findByText("No documents yet.");
+    fireEvent.click(screen.getByRole("button", { name: "Upload document" }));
+    fireEvent.change(screen.getByLabelText("Document file"), {
+      target: {
+        files: [
+          new File(["%PDF"], "conflict.pdf", { type: "application/pdf" }),
+        ],
+      },
+    });
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Upload document",
+      }),
+    );
+
+    const restoreBtn = await screen.findByRole("button", {
+      name: "Restore document",
+    });
+    fireEvent.click(restoreBtn);
+
+    expect(
+      await screen.findByText("This document changed. Reload and try again."),
+    ).toBeInTheDocument();
+  });
+
+  it("handles server error and missing document when restoring archived document", async () => {
+    const archivedDoc = {
+      ...document,
+      document_id: "doc-err",
+      source_name: "error.pdf",
+      archived: true,
+      revision: 1,
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ documents: [] }))
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            ingestion_job_id: "job-err",
+            document_id: "doc-err",
+            document_version_id: "version-1",
+            submission_outcome: "deduplicated",
+            status: "succeeded",
+            document_archived: true,
+          },
+          200,
+        ),
+      )
+      .mockResolvedValueOnce(jsonResponse({ documents: [archivedDoc] }))
+      // 500 server error
+      .mockResolvedValueOnce(jsonResponse({ detail: "Internal error" }, 500));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
+    );
+    await screen.findByText("No documents yet.");
+    fireEvent.click(screen.getByRole("button", { name: "Upload document" }));
+    fireEvent.change(screen.getByLabelText("Document file"), {
+      target: {
+        files: [new File(["%PDF"], "error.pdf", { type: "application/pdf" })],
+      },
+    });
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Upload document",
+      }),
+    );
+
+    const restoreBtn = await screen.findByRole("button", {
+      name: "Restore document",
+    });
+    fireEvent.click(restoreBtn);
+
+    expect(
+      await screen.findByText("Unable to restore document (500)"),
+    ).toBeInTheDocument();
+  });
+
+  it("handles missing document when restoring archived document", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ documents: [] }))
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            ingestion_job_id: "job-missing",
+            document_id: "doc-missing",
+            document_version_id: "version-1",
+            submission_outcome: "deduplicated",
+            status: "succeeded",
+            document_archived: true,
+          },
+          200,
+        ),
+      )
+      .mockResolvedValueOnce(jsonResponse({ documents: [] }))
+      // 404 when looking up missing document
+      .mockResolvedValueOnce(jsonResponse({ detail: "Not found" }, 404));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
+    );
+    await screen.findByText("No documents yet.");
+    fireEvent.click(screen.getByRole("button", { name: "Upload document" }));
+    fireEvent.change(screen.getByLabelText("Document file"), {
+      target: {
+        files: [new File(["%PDF"], "missing.pdf", { type: "application/pdf" })],
+      },
+    });
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Upload document",
+      }),
+    );
+
+    const restoreBtn = await screen.findByRole("button", {
+      name: "Restore document",
+    });
+    fireEvent.click(restoreBtn);
+
+    expect(
+      await screen.findByText("Unable to find document to restore."),
+    ).toBeInTheDocument();
+  });
+
+  it("disables restore button and prevents duplicate requests while restore is in flight", async () => {
+    const archivedDoc = {
+      ...document,
+      document_id: "doc-inflight",
+      source_name: "inflight.pdf",
+      archived: true,
+      revision: 5,
+    };
+    let finishRestore!: (response: Response) => void;
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ documents: [] }))
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            ingestion_job_id: "job-inflight",
+            document_id: "doc-inflight",
+            document_version_id: "version-1",
+            submission_outcome: "deduplicated",
+            status: "succeeded",
+            document_archived: true,
+          },
+          200,
+        ),
+      )
+      .mockResolvedValueOnce(jsonResponse({ documents: [archivedDoc] }));
+    fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
+      if (init?.method === "POST" && url.endsWith("/unarchive")) {
+        return await new Promise<Response>((resolve) => {
+          finishRestore = resolve;
+        });
+      }
+      return jsonResponse({
+        documents: [{ ...archivedDoc, archived: false, revision: 6 }],
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
+    );
+    await screen.findByText("No documents yet.");
+    fireEvent.click(screen.getByRole("button", { name: "Upload document" }));
+    fireEvent.change(screen.getByLabelText("Document file"), {
+      target: {
+        files: [
+          new File(["%PDF"], "inflight.pdf", { type: "application/pdf" }),
+        ],
+      },
+    });
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Upload document",
+      }),
+    );
+
+    const restoreBtn = await screen.findByRole("button", {
+      name: "Restore document",
+    });
+    // Click first time
+    fireEvent.click(restoreBtn);
+
+    await waitFor(() => expect(finishRestore).toBeDefined());
+    // Button is disabled while in flight
+    expect(restoreBtn).toBeDisabled();
+
+    // Click second time while in flight
+    fireEvent.click(restoreBtn);
+
+    const unarchiveCalls = fetchMock.mock.calls.filter(
+      (call) =>
+        call[0] ===
+          "/api/v1/workspaces/ws-1/documents/doc-inflight/unarchive" &&
+        call[1]?.method === "POST",
+    );
+    // Should only have been called once
+    expect(unarchiveCalls.length).toBe(1);
+
+    // Resolve restore
+    finishRestore(
+      jsonResponse({ ...archivedDoc, archived: false, revision: 6 }),
+    );
+    expect(
+      await screen.findByRole("link", { name: "inflight.pdf" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the newer archived upload notice when an older restore finishes (regression)", async () => {
+    const docA = {
+      ...document,
+      document_id: "doc-a",
+      source_name: "a.txt",
+      archived: true,
+      revision: 3,
+    };
+    const docB = {
+      ...document,
+      document_id: "doc-b",
+      source_name: "b.txt",
+      archived: true,
+      revision: 4,
+    };
+    let uploadCount = 0;
+    let finishRestore!: (response: Response) => void;
+    let restored = false;
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === "POST" && url.endsWith("/unarchive")) {
+        return await new Promise<Response>((resolve) => {
+          finishRestore = resolve;
+        });
+      }
+      if (init?.method === "POST") {
+        uploadCount++;
+        return jsonResponse({
+          document_id: uploadCount === 1 ? "doc-a" : "doc-b",
+          document_archived: true,
+          outcome: uploadCount === 1 ? "reused" : "created",
+        });
+      }
+      return jsonResponse({
+        documents: [{ ...docA, archived: !restored }, docB],
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
+    );
+    await screen.findByText("No documents yet.");
+
+    async function uploadFile(name: string) {
+      fireEvent.click(screen.getByRole("button", { name: "Upload document" }));
+      fireEvent.change(screen.getByLabelText("Document file"), {
+        target: { files: [new File(["text"], name, { type: "text/plain" })] },
+      });
+      fireEvent.click(
+        within(screen.getByRole("dialog")).getByRole("button", {
+          name: "Upload document",
+        }),
+      );
+    }
+
+    await uploadFile("a.txt");
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Restore document" }),
+    );
+    await waitFor(() => expect(finishRestore).toBeDefined());
+
+    await uploadFile("b.txt");
+    await screen.findByText("Upload: created");
+
+    restored = true;
+    finishRestore(jsonResponse({ ...docA, archived: false, revision: 4 }));
+
+    await screen.findByRole("link", { name: "a.txt" });
+    expect(
+      screen.getByText(
+        "This document already exists and is archived. Restore it to use it again.",
+      ),
+    ).toBeInTheDocument();
   });
 });
