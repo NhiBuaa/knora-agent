@@ -152,7 +152,7 @@ export function ConversationComposer({
     input.current.style.height = `${Math.min(160, Math.max(44, input.current.scrollHeight))}px`;
   }, [draft]);
   return (
-    <div className="flex min-h-[64px] items-center border-t border-border bg-surface px-4 py-2 min-[960px]:min-h-[72px] min-[960px]:px-6 min-[960px]:py-[11px]">
+    <div className="flex min-h-[72px] items-center border-t border-border bg-surface px-4 py-2 min-[960px]:px-6 min-[960px]:py-[11px]">
       {archived ? (
         <div
           aria-label={

@@ -255,6 +255,10 @@
       align-items: center;
       justify-content: center;
     }
+    .workspace-selector-heading .kn-menu__trigger {
+      min-width: unset;
+      min-height: unset;
+    }
   }
 
   .kn-menu__panel {
