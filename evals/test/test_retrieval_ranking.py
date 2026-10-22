@@ -160,3 +160,15 @@ def test_quantization_gate_drop_thresholds():
     g_none_b4 = verify_quantization_ndcg_gate(0.850, None, max_allowed_drop=0.01)
     assert g_none_b4.passed is False
     assert "MISSING_METRIC" in g_none_b4.reason
+
+
+def test_recall_counts_items_not_grade_weight():
+    from evals.runners.retrieval_ranking import compute_recall_at_k
+
+    assert compute_recall_at_k([3, 0], total_positive=2, k=2) == 0.5
+
+
+def test_mrr_cutoff_at_k():
+    from evals.runners.retrieval_ranking import compute_mrr
+
+    assert compute_mrr([0] * 10 + [1], total_positive=1, k=10) == 0.0

@@ -45,6 +45,9 @@ def merge_cross_query_candidates(
           from starving a specific minority subquestion.
         - Tie-breaking: deterministic by chunk_id ascending when scores match.
     """
+    if max_total_candidates <= 0:
+        raise ValueError("max_total_candidates must be positive")
+
     if not query_results:
         return MergedCandidatePool(
             candidates=(),
@@ -94,6 +97,8 @@ def merge_cross_query_candidates(
     while active_groups and len(selected_chunk_ids) < max_total_candidates:
         next_active: list[str] = []
         for gid in active_groups:
+            if len(selected_chunk_ids) >= max_total_candidates:
+                break
             ptr = group_ptrs[gid]
             queue = group_queues[gid]
             while ptr < len(queue) and queue[ptr].chunk_id in seen_ids:
@@ -104,9 +109,10 @@ def merge_cross_query_candidates(
                 seen_ids.add(cid)
                 selected_chunk_ids.append(cid)
                 group_ptrs[gid] = ptr + 1
-                if ptr + 1 < len(queue):
+                if ptr + 1 < len(queue) and len(selected_chunk_ids) < max_total_candidates:
                     next_active.append(gid)
-            group_ptrs[gid] = ptr
+            else:
+                group_ptrs[gid] = ptr
         active_groups = next_active
 
     # Build merged candidates tuple with updated ranks

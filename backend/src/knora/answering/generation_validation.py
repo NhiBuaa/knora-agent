@@ -23,6 +23,14 @@ def _invalid() -> None:
     raise KnoraError("GENERATION_OUTPUT_INVALID")
 
 
+def _matches_word_boundary(target: str, context: str) -> bool:
+    cleaned = target.strip()
+    if not cleaned:
+        return False
+    pattern = rf"(?<![a-zA-Z0-9_]){re.escape(cleaned)}(?![a-zA-Z0-9_])"
+    return re.search(pattern, context, re.IGNORECASE) is not None
+
+
 def _validate_answer_group_completeness(
     answer: str,
     required_subquestions: Sequence[Any],
@@ -31,10 +39,42 @@ def _validate_answer_group_completeness(
 ) -> None:
     """Validates that all required subquestions are substantively represented.
 
-    Checks both answer text presence and evidence citations.
+    Checks both answer text presence, substantive factual facts, and evidence citations.
     """
     norm_answer = unicodedata.normalize("NFKC", answer).casefold()
 
+    # 1. Reject stub answers that only list section headers/markers without substantive facts
+    clean_answer = re.sub(r"\[\[[A-Za-z0-9_-]+\]\]", " ", norm_answer)
+    for sq in required_subquestions:
+        for s in getattr(sq, "protected_spans", ()):
+            stext = unicodedata.normalize("NFKC", getattr(s, "text", "")).casefold().strip()
+            if stext:
+                clean_answer = re.sub(
+                    rf"(?<![a-zA-Z0-9_]){re.escape(stext)}(?![a-zA-Z0-9_])", " ", clean_answer
+                )
+    stopwords = {
+        "và",
+        "với",
+        "là",
+        "của",
+        "cho",
+        "ở",
+        "tại",
+        "các",
+        "những",
+        "được",
+        "có",
+        "trong",
+        "đến",
+        "theo",
+    }
+    substantive_words = [
+        w for w in re.findall(r"\w+", clean_answer) if len(w) >= 2 and w not in stopwords
+    ]
+    if len(substantive_words) < 5:
+        _invalid()
+
+    # 2. Check each required group has exact section and identifier representation
     for sq in required_subquestions:
         if not getattr(sq, "required", True):
             continue
@@ -44,7 +84,9 @@ def _validate_answer_group_completeness(
             for s in protected
             if getattr(s, "category", "") == "section"
         ]
-        if section_spans and not any(sec in norm_answer for sec in section_spans):
+        if section_spans and not any(
+            _matches_word_boundary(sec, norm_answer) for sec in section_spans
+        ):
             _invalid()
 
         identifier_spans = [
@@ -52,9 +94,12 @@ def _validate_answer_group_completeness(
             for s in protected
             if getattr(s, "category", "") == "identifier"
         ]
-        if identifier_spans and not any(ident in norm_answer for ident in identifier_spans):
+        if identifier_spans and not any(
+            _matches_word_boundary(ident, norm_answer) for ident in identifier_spans
+        ):
             _invalid()
 
+    # 3. Check citations match evidence for each required group
     if alias_to_candidate and len(required_subquestions) > 1:
         cited_cands = [alias_to_candidate[m] for m in cited_markers if m in alias_to_candidate]
         for sq in required_subquestions:
@@ -68,7 +113,9 @@ def _validate_answer_group_completeness(
             if section_spans:
                 has_section_cand = any(
                     any(
-                        s in " ".join(c.heading_path).casefold() or s in c.content.casefold()
+                        _matches_word_boundary(
+                            s, " ".join(c.heading_path).casefold() + " " + c.content.casefold()
+                        )
                         for s in section_spans
                     )
                     for c in cited_cands

@@ -52,6 +52,14 @@ class EvidenceSupportAssessment:
         }
 
 
+def _matches_constraint(target: str, context: str) -> bool:
+    cleaned = target.strip()
+    if not cleaned:
+        return False
+    pattern = rf"(?<![a-zA-Z0-9_]){re.escape(cleaned)}(?![a-zA-Z0-9_])"
+    return re.search(pattern, context, re.IGNORECASE) is not None
+
+
 def assess_evidence_support(
     subquestions: Sequence[Subquestion],
     candidates: Sequence[RetrievalCandidate],
@@ -98,37 +106,41 @@ def assess_evidence_support(
             cand_heading = " ".join(cand.heading_path).casefold()
             full_cand_context = f"{cand_heading} {cand_text}"
 
-            # 1. Section constraint check (if specified in subquestion)
+            # 1. Section constraint check with exact boundary (C2 != C20)
             if section_constraints and not any(
-                sec in full_cand_context for sec in section_constraints
+                _matches_constraint(sec, full_cand_context) for sec in section_constraints
             ):
                 continue
 
-            # 2. Identifier constraint check
+            # 2. Identifier constraint check with exact boundary (AUTH_403 != AUTH_404)
             if identifier_constraints and not any(
-                ident in full_cand_context for ident in identifier_constraints
+                _matches_constraint(ident, full_cand_context) for ident in identifier_constraints
             ):
                 continue
 
-            # 3. Number constraint check
+            # 3. Number constraint check with exact boundary (14 != 140)
             if number_constraints and not any(
-                num in full_cand_context for num in number_constraints
+                _matches_constraint(num, full_cand_context) for num in number_constraints
             ):
                 continue
 
-            # 4. Negation constraint check (e.g. 'không được', 'chưa')
+            # 4. Negation constraint check with exact boundary
             if negation_constraints and not any(
-                neg in full_cand_context for neg in negation_constraints
+                _matches_constraint(neg, full_cand_context) for neg in negation_constraints
             ):
                 continue
 
-            # 5. Date constraint check
-            if date_constraints and not any(d in full_cand_context for d in date_constraints):
+            # 5. Date constraint check with exact boundary
+            if date_constraints and not any(
+                _matches_constraint(d, full_cand_context) for d in date_constraints
+            ):
                 continue
 
-            # 6. Keyword presence check (at least 40% of distinctive query keywords must match)
+            # 6. Keyword presence check with exact boundary
             if sq_keywords:
-                matched_kw = sum(1 for kw in sq_keywords if kw in full_cand_context)
+                matched_kw = sum(
+                    1 for kw in sq_keywords if _matches_constraint(kw, full_cand_context)
+                )
                 if matched_kw / len(sq_keywords) < 0.4:
                     continue
 

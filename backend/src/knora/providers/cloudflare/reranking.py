@@ -132,24 +132,42 @@ class CloudflareRerankingProvider:
             except Exception as exc:
                 raise KnoraError("CLOUDFLARE_RERANKING_MALFORMED_OUTPUT") from exc
 
-            # Parse Cloudflare result structure
+            # Parse Cloudflare result structure:
+            # Result can be a list or envelope {"response": [...]}
             raw_results = data.get("result") if isinstance(data, dict) else data
+            if isinstance(raw_results, dict) and "response" in raw_results:
+                raw_results = raw_results["response"]
+
             if not isinstance(raw_results, list) or len(raw_results) != len(batch):
                 raise KnoraError("CLOUDFLARE_RERANKING_MALFORMED_OUTPUT")
 
             # Collect scores matching candidate indices
             batch_scores: list[float | None] = [None] * len(batch)
-            for item_idx, item in enumerate(raw_results):
+            for item in raw_results:
                 if not isinstance(item, dict):
                     raise KnoraError("CLOUDFLARE_RERANKING_MALFORMED_OUTPUT")
 
                 score = item.get("score")
-                if not isinstance(score, (int, float)) or not math.isfinite(score):
+                if (
+                    not isinstance(score, (int, float))
+                    or isinstance(score, bool)
+                    or not math.isfinite(score)
+                ):
                     raise KnoraError("CLOUDFLARE_RERANKING_MALFORMED_OUTPUT")
 
-                # Cloudflare item may have explicit 'index' mapping back to request context
-                target_idx = item.get("index", item_idx)
-                if not isinstance(target_idx, int) or target_idx < 0 or target_idx >= len(batch):
+                # Cloudflare item must have explicit 'id' or 'index' mapping back to request context
+                target_idx = item.get("id") if "id" in item else item.get("index")
+                if (
+                    target_idx is None
+                    or not isinstance(target_idx, int)
+                    or isinstance(target_idx, bool)
+                    or target_idx < 0
+                    or target_idx >= len(batch)
+                ):
+                    raise KnoraError("CLOUDFLARE_RERANKING_MALFORMED_OUTPUT")
+
+                if batch_scores[target_idx] is not None:
+                    # Duplicate index is malformed
                     raise KnoraError("CLOUDFLARE_RERANKING_MALFORMED_OUTPUT")
 
                 batch_scores[target_idx] = float(score)

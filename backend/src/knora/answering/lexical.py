@@ -19,7 +19,11 @@ def validate_bm25_result(
     if len(generations) != len(result.lexical_generations) or any(
         g.workspace_id != workspace_id
         or g.lexical_policy_id != configuration.lexical_policy_id
-        or any(not isinstance(value, str) or not value for value in asdict(g).values())
+        or any(
+            not isinstance(value, str) or not value
+            for key, value in asdict(g).items()
+            if key != "statistics_digest" or value is not None
+        )
         for g in generations.values()
     ):
         invalid()
@@ -137,7 +141,11 @@ def validate_dense_result(
     generations = {g.index_generation_id: g for g in result.lexical_generations}
     if len(generations) != len(result.lexical_generations) or any(
         g.workspace_id != workspace_id
-        or any(not isinstance(value, str) or not value for value in asdict(g).values())
+        or any(
+            not isinstance(value, str) or not value
+            for key, value in asdict(g).items()
+            if key != "statistics_digest" or value is not None
+        )
         for g in generations.values()
     ):
         invalid()
@@ -250,7 +258,11 @@ def validate_hybrid_result(
     generations = {g.index_generation_id: g for g in result.lexical_generations}
     if len(generations) != len(result.lexical_generations) or any(
         g.workspace_id != workspace_id
-        or any(not isinstance(value, str) or not value for value in asdict(g).values())
+        or any(
+            not isinstance(value, str) or not value
+            for key, value in asdict(g).items()
+            if key != "statistics_digest" or value is not None
+        )
         for g in generations.values()
     ):
         invalid()

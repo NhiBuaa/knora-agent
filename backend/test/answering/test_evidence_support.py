@@ -186,3 +186,39 @@ def test_deterministic_digest_and_observation() -> None:
     assert obs["purpose"] == "candidate_support"
     assert obs["all_required_supported"] is True
     assert isinstance(obs["group_assessments"], list)
+
+
+def test_exact_boundary_prevents_false_support_for_partial_prefix():
+    # C2 must not match C20
+    sq_c2 = Subquestion(
+        id="sq_c2",
+        text="Quy định tại Chương 2",
+        protected_spans=(ProtectedSpan("Chương 2", "section", 0, 8),),
+        required=True,
+    )
+    cand_c20 = _make_candidate("c20", "Nội dung quy định chi tiết.", heading_path=("Chương 20",))
+    res_sec = assess_evidence_support([sq_c2], [cand_c20])
+    assert res_sec.all_required_supported is False
+    assert res_sec.group_assessments[0].status == "unsupported"
+
+    # 14 must not match 140
+    sq_num = Subquestion(
+        id="sq_num",
+        text="Thời hạn 14 ngày",
+        protected_spans=(ProtectedSpan("14", "number", 9, 11),),
+        required=True,
+    )
+    cand_num140 = _make_candidate("c140", "Thời hạn giải quyết là 140 ngày làm việc.")
+    res_num = assess_evidence_support([sq_num], [cand_num140])
+    assert res_num.all_required_supported is False
+
+    # AUTH_403 must not match AUTH_404
+    sq_auth = Subquestion(
+        id="sq_auth",
+        text="Xử lý lỗi AUTH_403",
+        protected_spans=(ProtectedSpan("AUTH_403", "identifier", 11, 19),),
+        required=True,
+    )
+    cand_auth404 = _make_candidate("c404", "Hướng dẫn xử lý lỗi AUTH_404 hệ thống.")
+    res_auth = assess_evidence_support([sq_auth], [cand_auth404])
+    assert res_auth.all_required_supported is False

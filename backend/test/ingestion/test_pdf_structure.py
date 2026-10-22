@@ -15,6 +15,8 @@ from knora.ingestion.pdf_structure import (
     CanonicalTableCell,
     PageCompleteness,
     SourceOrigin,
+    canonical_document_from_dict,
+    canonical_document_to_dict,
     validate_canonical_document,
 )
 
@@ -323,3 +325,50 @@ def test_incomplete_page_reflected_in_document() -> None:
         CanonicalStructureValidationError, match="document completeness inconsistency"
     ):
         validate_canonical_document(doc)
+
+
+def test_canonical_document_serialization_round_trip() -> None:
+    cell1 = CanonicalTableCell(row_index=0, column_index=0, text="H1", is_header=True)
+    cell2 = CanonicalTableCell(row_index=0, column_index=1, text="H2", is_header=True)
+    table = CanonicalTable(
+        table_id="p1_t1",
+        page_number=1,
+        num_rows=1,
+        num_columns=2,
+        cells=(cell1, cell2),
+        caption="Sample Table",
+    )
+    b1 = CanonicalBlock(
+        block_id="p1_b1",
+        page_number=1,
+        block_type=BlockType.HEADING,
+        start_offset=0,
+        end_offset=7,
+        text="# Title",
+        heading_level=1,
+        heading_path=("Title",),
+        bbox=BoundingBox(left=10.0, top=20.0, right=100.0, bottom=40.0),
+        source_origin=SourceOrigin.NATIVE_TEXT,
+    )
+    text_content = "# Title"
+    page1 = CanonicalPage(
+        page_number=1,
+        text=text_content,
+        content_checksum=_sha256(text_content),
+        blocks=(b1,),
+        tables=(table,),
+        completeness=PageCompleteness(is_complete=True, status="COMPLETE"),
+    )
+    doc = CanonicalDocument(
+        raw_source_hash="f" * 64,
+        derivation_identity="d" * 64,
+        parser_version="docling-native-cf-v1",
+        pages=(page1,),
+        document_version="v1",
+        is_complete=True,
+        completeness_status="COMPLETE",
+    )
+    d = canonical_document_to_dict(doc)
+    restored = canonical_document_from_dict(d)
+    assert restored == doc
+    validate_canonical_document(restored)

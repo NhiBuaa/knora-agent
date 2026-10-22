@@ -197,3 +197,122 @@ def test_cloudflare_reranking_rejects_invalid_account_id() -> None:
             account_id="not-a-hex-account-id",
             api_token="valid-token",
         )
+
+
+def test_cloudflare_reranking_handles_response_envelope_dict_with_id_key() -> None:
+    """Workers AI reranker can return result wrapped in a response dict and use 'id'."""
+
+    def endpoint(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "result": {
+                    "response": [
+                        {"id": 1, "score": 0.88},
+                        {"id": 0, "score": 0.42},
+                    ]
+                },
+                "success": True,
+            },
+        )
+
+    provider = _provider(endpoint)
+    c0 = _make_candidate("c0", "first candidate")
+    c1 = _make_candidate("c1", "second candidate")
+
+    res = provider.rerank("query", [c0, c1])
+    assert len(res.scored_candidates) == 2
+    assert res.scored_candidates[0].candidate.chunk_id == "c1"
+    assert res.scored_candidates[0].rerank_score == 0.88
+    assert res.scored_candidates[0].rerank_rank == 1
+    assert res.scored_candidates[1].candidate.chunk_id == "c0"
+    assert res.scored_candidates[1].rerank_score == 0.42
+    assert res.scored_candidates[1].rerank_rank == 2
+
+
+def test_cloudflare_reranking_rejects_missing_index_or_id_without_fallback() -> None:
+    """Missing explicit 'id' or 'index' must fail closed rather than fall back to item position."""
+
+    def endpoint(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "result": [
+                    {"score": 0.88},
+                    {"score": 0.42},
+                ],
+                "success": True,
+            },
+        )
+
+    provider = _provider(endpoint)
+    c0 = _make_candidate("c0", "first candidate")
+    c1 = _make_candidate("c1", "second candidate")
+
+    with pytest.raises(KnoraError) as exc_info:
+        provider.rerank("query", [c0, c1])
+    assert exc_info.value.code == "CLOUDFLARE_RERANKING_MALFORMED_OUTPUT"
+
+
+def test_cloudflare_reranking_rejects_duplicate_index() -> None:
+    """Duplicate candidate indices in reranker output must raise malformed error."""
+
+    def endpoint(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "result": [
+                    {"id": 0, "score": 0.90},
+                    {"id": 0, "score": 0.70},
+                ],
+                "success": True,
+            },
+        )
+
+    provider = _provider(endpoint)
+    c0 = _make_candidate("c0", "first candidate")
+    c1 = _make_candidate("c1", "second candidate")
+
+    with pytest.raises(KnoraError) as exc_info:
+        provider.rerank("query", [c0, c1])
+    assert exc_info.value.code == "CLOUDFLARE_RERANKING_MALFORMED_OUTPUT"
+
+
+def test_cloudflare_reranking_rejects_out_of_range_or_boolean_index() -> None:
+    """Out of range index or boolean index must be rejected."""
+
+    def endpoint_out_of_range(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "result": [
+                    {"id": 0, "score": 0.90},
+                    {"id": 99, "score": 0.70},
+                ],
+                "success": True,
+            },
+        )
+
+    provider = _provider(endpoint_out_of_range)
+    c0 = _make_candidate("c0", "first candidate")
+    c1 = _make_candidate("c1", "second candidate")
+
+    with pytest.raises(KnoraError) as exc_info:
+        provider.rerank("query", [c0, c1])
+    assert exc_info.value.code == "CLOUDFLARE_RERANKING_MALFORMED_OUTPUT"
+
+    def endpoint_boolean(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "result": [
+                    {"id": True, "score": 0.90},
+                ],
+                "success": True,
+            },
+        )
+
+    provider_bool = _provider(endpoint_boolean)
+    with pytest.raises(KnoraError) as exc_info:
+        provider_bool.rerank("query", [c0])
+    assert exc_info.value.code == "CLOUDFLARE_RERANKING_MALFORMED_OUTPUT"
