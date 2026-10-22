@@ -37,6 +37,12 @@ WINDOWS_FILES = {
     "evals/test/test_ollama_process_probe.py",
 }
 WINDOWS_NODES = {
+    # Real PDF extraction needs the Windows Job Object or delegated Linux cgroups.
+    "backend/test/evaluation/test_datasets.py::test_upload_prepares_real_pdf_without_activation",
+    "backend/test/evaluation/test_datasets.py::test_invalid_or_scanned_pdf_remains_explicit",
+    "backend/test/evaluation/test_datasets.py::test_processing_source_can_be_retried_after_interruption",
+    "backend/test/evaluation/test_gold_review.py::test_anchored_offsets_must_match_exact_extraction_snapshot",
+    "backend/test/evaluation/test_pdf_workflow.py::test_retained_pdf_to_reviewed_gold_to_new_observations_and_report",
     "backend/test/test_s2_http_admission.py::test_windows_worker_environment_uses_owned_endpoints_and_discards_ambient_settings",
     "backend/test/adapters/cli/test_ingestion_worker.py::test_cli_preflight_proves_pdf_child_memory_limit",
     "backend/test/adapters/cli/test_ingestion_worker.py::test_memory_probe_rejects_missing_job_object_limit",
@@ -67,6 +73,18 @@ def ci_route(nodeid: str) -> str:
 def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--ci-suite", choices=("backend", "windows", "database", "security-shadow"))
     parser.addoption("--ci-selection", type=Path)
+
+
+def pytest_sessionstart(session: pytest.Session) -> None:
+    import knora
+
+    expected = (Path(__file__).resolve().parent / "backend/src/knora/__init__.py").resolve()
+    source = getattr(knora, "__file__", None)
+    if source is None or Path(source).resolve() != expected:
+        raise pytest.UsageError(
+            "KNORA_CHECKOUT_MISMATCH: knora must load from this checkout's backend/src; "
+            "check pytest configuration and preloaded plugins"
+        )
 
 
 def pytest_ignore_collect(collection_path: Path, config: pytest.Config) -> bool | None:

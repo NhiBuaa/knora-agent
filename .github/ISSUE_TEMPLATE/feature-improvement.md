@@ -23,4 +23,6 @@ assignees: ""
 - [ ]
 - [ ]
 
-<!-- Thiết kế kỹ thuật sẽ được bổ sung sau khi issue được duyệt. -->
+## Phụ thuộc và tài liệu liên quan (nếu có)
+
+<!-- Giữ Issue ngắn. Việc nhỏ có thể ghi kế hoạch ngắn tại đây; việc phức tạp/nhiều phiên dẫn tới docs/plans/. Liên kết đặc tả, thiết kế/ADR và Issue phụ thuộc; không chép toàn bộ kế hoạch. Với kế hoạch trong repository đã duyệt, ghi đường dẫn + commit SHA đầy đủ + tham chiếu phê duyệt đúng phiên bản. Xem docs/agents/issue-tracker.md#issue-and-document-ownership. -->

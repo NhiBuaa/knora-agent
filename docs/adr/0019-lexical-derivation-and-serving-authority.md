@@ -1,7 +1,11 @@
 # Keep lexical derivation and serving authority in PostgreSQL
 
 Status: accepted S2 design through Issue #153 and owner decisions Q1–Q19;
-implementation and acceptance remain incomplete.
+S2 implementation [accepted by the owner](https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6308954098)
+and [merged in PR #204](https://github.com/NhiBuaa/knora-agent/pull/204) on 2026-10-21
+as `de7f97dac40823cc5b9da3e626522a05caa8b732`. This does not imply acceptance of
+all Retrieval V3, completion of Issue #153 or deployment. The decision below is unchanged;
+current progress belongs to the Issue/PR.
 
 PDF extraction and lexical indexing are separate durable ingestion jobs. Extraction commits
 the real Chunk Set/Chunks, desired generation and one index job in one transaction. Indexing
