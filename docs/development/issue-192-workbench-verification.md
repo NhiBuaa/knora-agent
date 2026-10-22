@@ -1057,3 +1057,69 @@ Status: Two code review findings from PR #202 review closed with offline regress
 - Retained live execution journal (`ROOT/package/admission.sqlite3`) and historical captures remain read-only historical evidence.
 - No live authority was renewed or expanded.
 - Integration with `origin/main` remains pending owner integration decision; mergeable status remains CONFLICTING on 8 upstream files.
+
+
+## Mainline integration checkpoint — 22 October 2026
+
+Status: Fully integrated with `origin/main` (commit `d1efd6999310067462c17062bccdf8e6a4b8f7c5`) under owner-approved integration authority. All 8 conflict regions resolved, downstream integration regressions fixed, PR #202 is clean/MERGEABLE, and all GitHub Actions CI required checks pass on integrated SHA `98ecc1ba0638ba4cf2d354b8bb612b7a0fc6797f`. Actual budget consumed: 0 external inference calls, 0 live corpus jobs, 0 runtime startups, paid USD 0.
+
+### Integration resolution and commits
+
+1. **Review checkpoint provenance repair** (`8cc310a docs(evaluation): repair review checkpoint provenance`):
+   - Corrected control characters and truncated names in verification documentation.
+   - Removed trailing blank line in canonical plan `docs/plans/evaluation-corpus-review-fixes.md`.
+   - Verified `git diff --check ad6ec58c..HEAD` returns exit 0.
+
+2. **Mainline merge resolution** (`9948539f Merge remote-tracking branch 'origin/main' into codex/issue-192-workbench-contract`):
+   - Fetched `origin/main` at `d1efd6999310067462c17062bccdf8e6a4b8f7c5` and executed `git merge --no-ff origin/main`.
+   - `backend/src/knora/adapters/postgres/document_reader.py`: Retained `DatasetSourceTable` and Workbench ownership checks alongside mainline lexical/search-index validation and population.
+   - `backend/src/knora/main.py`: Unified Workbench router wiring with mainline lexical population and configuration.
+   - `backend/test/adapters/cli/test_dev_launcher.py`: Merged native fixture compile bounds (40s timeout and diagnostic logs) with mainline launcher early-failure cleanup assertions.
+   - `backend/test/adapters/postgres/test_evaluation_reader.py`: Retained mainline document archive and tamper assertions alongside Workbench reader test coverage.
+   - `backend/test/config/test_ci_checks.py` & `conftest.py`: Preserved both S2 upload population test routing and 5 PDF evaluation node IDs under Windows partition.
+   - `docs/evaluation.md`: Merged semantic baseline, Retrieval V3 S1 PDF baseline, and Workbench token-bound judge documentation.
+   - `docs/openapi-manifest.json`: Fully regenerated with `python scripts/export_openapi.py` (checked with `--check`, current).
+
+3. **Alembic migration heads merge** (`d62d8696 chore(migrations): merge evaluation workbench and lexical migration heads`):
+   - Generated `backend/migrations/versions/20261022_0157_merge_evaluation_workbench_heads.py` merging heads `20261016_0051` (evaluation scoring) and `20261018_0156` (lexical rollback revision), resolving the multiple-heads migration failure in CI Database job.
+
+4. **Offline adapter & fixture compatibility fixes**:
+   - `backend/test/evaluation/test_corpus_store.py`: Added mock `json_typeof` function and included `LexicalGenerationTable`, `LexicalHeadTable` in SQLite `create_all` metadata to satisfy foreign keys enforced under SQLite in-memory fixtures (26/26 tests passed).
+   - `backend/test/adapters/postgres/test_s2_supersession.py` (`98ecc1ba test(postgres): add missing operation to mock job in s2 supersession test`): Added `operation="ingest_document"` to mock `job` in `_scenario` fixture to align with non-null `IngestionJobTable.operation` schema and safe supersession checks (58/58 tests passed).
+
+### Verification evidence on integrated SHA `98ecc1ba0638ba4cf2d354b8bb612b7a0fc6797f`
+
+- **OpenAPI Schema Check**: `python scripts/export_openapi.py --check` -> Artifacts current, exit 0.
+- **Ruff Format & Lint**: `ruff format --check .` (535 files formatted) & `ruff check .` -> All checks passed, exit 0.
+- **Frontend & Shared Formatting**:
+  - `npm --prefix frontend run format:check` -> All matched files use Prettier, exit 0.
+  - `npm --prefix frontend run format:shared:check` -> All matched files use Prettier, exit 0.
+- **Git Diff Whitespace Check**: `git diff --check` -> Clean, exit 0.
+- **Local Test Evidence**:
+  - CI partition routing: `backend/test/config/test_ci_checks.py` -> **76 passed in 64.22s**, exit 0.
+  - Corpus store & focused regressions: `test_corpus_store.py` + `test_live_admission.py` -> **7 passed in 6.10s**, exit 0; all 26 `test_corpus_store.py` -> **26 passed in 12.82s**, exit 0.
+  - Evaluation & HTTP suite: `test_live_admission.py`, `test_datasets.py`, `test_runs.py`, `test_scoring.py`, `test_http_evaluation_*.py`, `test_deepeval_capture.py`, `test_ragas_review.py` -> **192 passed in 98.07s**, exit 0.
+  - S2 supersession suite: `backend/test/adapters/postgres/test_s2_supersession.py` -> **58 passed in 1.93s**, exit 0.
+- **GitHub Actions CI required Run `39744569741`**:
+  - `Keycloak`: SUCCESS (22s)
+  - `Database`: SUCCESS (3m 10s)
+  - `Backend (ubuntu-latest)`: SUCCESS (3m 2s)
+  - `Backend (windows-latest)`: SUCCESS (7m 24s)
+  - `Frontend`: SUCCESS (4m 21s)
+  - `CI required`: SUCCESS (7s)
+  - Overall status: **SUCCESS**
+- **GitHub Actions Security Shadow Run `39744569553`**:
+  - `Security shadow (offline unit)`: SUCCESS (25s)
+  - `Security shadow (offline integration)`: SUCCESS (44s)
+  - Overall status: **SUCCESS**
+- **Pull Request #202 Status**:
+  - `mergeable`: **MERGEABLE**
+  - Merge conflict markers: **0**
+  - Unmerged files: **0**
+  - Required status checks: **All passed**
+
+### Budget and authority compliance
+
+- Actual calls/jobs/startups consumed in this integration: **0 external inference calls, 0 live jobs, 0 runtime startups, paid USD 0**.
+- Retained historical journal (`ROOT/package/admission.sqlite3`) and historical captures remain immutable read-only evidence.
+- No live authority was renewed or expanded; final PR #202 merge into `main` and Milestone 5 acceptance remain exclusively with the repository Owner.
