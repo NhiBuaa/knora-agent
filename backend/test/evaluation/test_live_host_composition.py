@@ -24,12 +24,12 @@ from knora.evaluation.runs import EvaluationRunService
 from knora.main import create_app
 from knora.providers.cloudflare.embedding import CloudflareEmbeddingProvider
 from knora.providers.embedding import EmbeddingConfiguration
+from knora.providers.openai_compatible.answer_blocks import ANSWER_BLOCK_SCHEMA
 from knora.providers.openai_compatible.generation import (
     CLOUDFLARE_PROMPT_VERSION,
     CLOUDFLARE_SYSTEM_PROMPT,
     OpenAICompatibleGenerationProvider,
 )
-from knora.providers.structured_generation import STRUCTURED_RESULT_SCHEMA
 
 EMBEDDING = EmbeddingConfiguration.cloudflare_qwen3_06b()
 EMBED_ENDPOINT = (
@@ -140,7 +140,7 @@ async def host(tmp_path, no_external_io, request):
                 '[{"evidence_id": "E1", "content": "The sky is blue."}]}',
             },
         ],
-        "response_format": {"type": "json_schema", "json_schema": STRUCTURED_RESULT_SCHEMA},
+        "response_format": {"type": "json_schema", "json_schema": ANSWER_BLOCK_SCHEMA},
     }
     policy = approval()
     policy.update(scope=scope, max_attempts=3)
@@ -288,8 +288,15 @@ async def host(tmp_path, no_external_io, request):
                             "content": json.dumps(
                                 {
                                     "decision": "ANSWER",
-                                    "answer": "Blue [[E1]]",
-                                    "cited_evidence_ids": ["E1"],
+                                    "before": [
+                                        {
+                                            "text": "Blue",
+                                            "support": ["E1"],
+                                            "bold": None,
+                                        }
+                                    ],
+                                    "items": [],
+                                    "after": [],
                                     "refusal_reason": None,
                                 }
                             )

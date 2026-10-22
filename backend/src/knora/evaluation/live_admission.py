@@ -71,12 +71,14 @@ def response_authority_pins(kind):
     """Pin the installed builders, templates, response schemas and selector source."""
     import knora.answering.evidence as evidence
     import knora.providers.cloudflare.embedding as embedding
+    import knora.providers.openai_compatible.answer_blocks as answer_blocks
     import knora.providers.openai_compatible.generation as generation
     import knora.providers.structured_generation as structured
 
     modules = [
         Path(__file__),
         Path(generation.__file__),
+        Path(answer_blocks.__file__),
         Path(structured.__file__),
         Path(embedding.__file__),
         Path(evidence.__file__),
@@ -1124,8 +1126,9 @@ class LiveAdmission:
         from knora.providers.cloudflare.embedding import QUERY_INSTRUCTION
         from knora.providers.embedding import EmbeddingConfiguration
         from knora.providers.generation import GenerationEvidence
+        from knora.providers.openai_compatible.answer_blocks import ANSWER_BLOCK_SCHEMA
         from knora.providers.openai_compatible.generation import CLOUDFLARE_SYSTEM_PROMPT
-        from knora.providers.structured_generation import STRUCTURED_RESULT_SCHEMA, user_message
+        from knora.providers.structured_generation import user_message
 
         if not responses:
             return {
@@ -1178,7 +1181,7 @@ class LiveAdmission:
                     ),
                 },
             ],
-            "response_format": {"type": "json_schema", "json_schema": STRUCTURED_RESULT_SCHEMA},
+            "response_format": {"type": "json_schema", "json_schema": ANSWER_BLOCK_SCHEMA},
         }
 
     def validate_capture(self, capture):
@@ -1231,10 +1234,17 @@ class LiveAdmission:
             capture = None
             if observation.get("decision") == "ANSWER":
                 generated = json.loads(responses[-1]["choices"][0]["message"]["content"])
-                if (
-                    observation.get("public_answer") != generated["answer"]
-                    or generated["decision"] != "ANSWER"
-                ):
+                if generated.get("decision") != "ANSWER":
+                    raise ValueError("LIVE_OBSERVATION_INVALID")
+                if "answer" in generated:
+                    expected_answer = generated["answer"]
+                else:
+                    from knora.providers.generation import GenerationEvidence
+                    from knora.providers.openai_compatible.answer_blocks import compose_answer
+
+                    evidence = tuple(GenerationEvidence(a, c) for a, c in (self._qa_evidence or []))
+                    expected_answer, _ = compose_answer(generated, evidence)
+                if observation.get("public_answer") != expected_answer:
                     raise ValueError("LIVE_OBSERVATION_INVALID")
                 capture = {
                     "run_id": self._execution["run_id"],
@@ -1821,28 +1831,49 @@ class LiveAdmission:
                 raise ValueError("LIVE_RESPONSE_SCHEMA_INVALID")
         else:
             from knora.answering.generation_validation import validate_generation
-            from knora.providers.generation import GenerationResult
+            from knora.providers.generation import GenerationEvidence, GenerationResult
+            from knora.providers.openai_compatible.answer_blocks import (
+                ANSWER_BLOCK_SCHEMA,
+                compose_answer,
+            )
             from knora.providers.structured_generation import STRUCTURED_RESULT_SCHEMA
 
             content = json.loads(
                 payload["choices"][0]["message"]["content"], object_pairs_hook=_unique_object
             )
-            if (
-                set(content) != set(STRUCTURED_RESULT_SCHEMA["required"])
-                or not isinstance(content["cited_evidence_ids"], list)
-                or any(not isinstance(a, str) for a in content["cited_evidence_ids"])
-            ):
-                raise ValueError("LIVE_RESPONSE_SCHEMA_INVALID")
-            content["cited_evidence_ids"] = tuple(content["cited_evidence_ids"])
-            result = GenerationResult(
-                **content,
-                provider="cloudflare-workers-ai",
-                model=payload["model"],
-                prompt_version=self._binding["generation"]["prompt_version"],
-            )
-            validate_generation(
-                result, available_evidence_ids=tuple(a for a, _ in self._qa_evidence)
-            )
+            available_ids = tuple(a for a, _ in self._qa_evidence)
+            if "before" in content:
+                if set(content) != set(ANSWER_BLOCK_SCHEMA["required"]):
+                    raise ValueError("LIVE_RESPONSE_SCHEMA_INVALID")
+                try:
+                    evidence_tuples = tuple(GenerationEvidence(a, c) for a, c in self._qa_evidence)
+                    answer, cited_ids = compose_answer(content, evidence_tuples)
+                except Exception:
+                    raise ValueError("LIVE_RESPONSE_SCHEMA_INVALID") from None
+                result = GenerationResult(
+                    decision=content["decision"],
+                    answer=answer,
+                    cited_evidence_ids=cited_ids,
+                    refusal_reason=content["refusal_reason"],
+                    provider="cloudflare-workers-ai",
+                    model=payload["model"],
+                    prompt_version=self._binding["generation"]["prompt_version"],
+                )
+            else:
+                if (
+                    set(content) != set(STRUCTURED_RESULT_SCHEMA["required"])
+                    or not isinstance(content["cited_evidence_ids"], list)
+                    or any(not isinstance(a, str) for a in content["cited_evidence_ids"])
+                ):
+                    raise ValueError("LIVE_RESPONSE_SCHEMA_INVALID")
+                content["cited_evidence_ids"] = tuple(content["cited_evidence_ids"])
+                result = GenerationResult(
+                    **content,
+                    provider="cloudflare-workers-ai",
+                    model=payload["model"],
+                    prompt_version=self._binding["generation"]["prompt_version"],
+                )
+            validate_generation(result, available_evidence_ids=available_ids)
 
     def transport(self, *, mock=None):
         if mock is not None and not isinstance(mock, httpx.MockTransport):
