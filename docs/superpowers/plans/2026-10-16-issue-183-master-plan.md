@@ -4083,3 +4083,97 @@ be reset. Prepare that minimum envelope in this Master, retaining the same3quest
 IAB/source/v21/20B/2048 and all cleanup/stop rules. No app3000/other-stack/191 mutation, product
 fix, extra inference, migration or re-ingestion follows from this operational failure. Publish
 this checkpoint for review;183 remains unaccepted and184 Draft, never merge/Done/close/deploy.
+
+### 13.2 Proposed recovery through reviewed execution — 2026-10-22
+
+**Status: proposal awaiting a fresh bounded owner approval, not an opened runtime window.**
+The owner requested investigation/remediation and selected Approve for me. The next turn
+received workspace-write and auto_review. The identical literal-output probe
+`Write-Output 'Start-Process https://example.invalid/'`, rejected before execution in the
+previous turn, now printed the exact literal with exit0. It launched no application and
+opened no URL. This establishes successful execution of that probe under the changed
+permission context, not an actual startup PASS, a returned classifier identity, or causal
+proof about a particular setting. A sandboxed Git status also failed with “must be run in
+a work tree”; the same read-only inspection through reviewed escalation succeeded and
+confirmed the canonical worktree, clean527f4b14a2a756c053aa4402e6eb82333baab878 and PR184 Draft.
+
+**Why one new envelope is necessary:** section13.1 permanently stopped the old package0/6.
+The changed execution permissions do not authorize new inference or reset old slots. This
+proposal replaces only that expired operational allowance. Approval of this whole section
+permits the ordered work below without further small owner gates; automatic tool review
+still decides each restricted operation. A review denial is retained and stops execution,
+not permission to encode, split, hide or reroute the denied operation.
+
+**Expected outcome / scope / budget before edits:** real observations for exactly section13's
+three questions, through JSON → Markdown → API projection/Turn/trace → DOM at1440×960 and
+390×844 in IAB, or a truthful remaining-gap packet. No product, prompt, schema, retrieval,
+model, cap, credential policy, account, source, migration or shared-stack change. Preserve
+one answer call v21, GPT-OSS20B,2048, original Workspace/PDF/version/23chunks/23vectors and
+section12.5's conditional-list criterion. Count-only is permitted; generated list members
+must remain separate, ordered and complete relative to their generated payload. Full-PDF
+semantic completeness and retrieval153 remain outside183. Unsupported claims remain faults.
+
+**Single new package after approval:** `CONDITIONAL-LIST-REVIEWED-20261022`; reuse existing
+helpers by private copy under the existing evidence parent, descriptive run child
+`conditional-list-reviewed-execution-20261022`. Retain every old helper, guard, manifest,
+stop, failure and slot. Do not write a new Master, Skill, framework or knowledge store.
+Fresh limits: at most3 preparations, one window, at most6 physical requests total
+(three query embeddings plus three answer calls), no reserve/retry/resample/document
+embedding, paid allowance0USD, one24-hour deadline beginning at the first runtime side
+effect. Preparation allowances never override a stop condition or permit restarting a
+failed package. No provider credential is loaded before final admission. All section13 quota,
+account, source, context, request-accounting and stop/cleanup conditions carry forward.
+
+**Ordered execution, all included in one approval:**
+
+1. Rebind only copied package/subject/path identifiers and existing tests to this new
+   package. Reproduce old-package denial before accepting the new identity; rerun the
+   existing focused helper suite, import-safe entry points and scoped Ruff checks. Check
+   wrong/missing/changed history/context, stopped/expired/concurrent/pending admission,
+   second window, seventh request and credentials before admission. Never remove P3's
+   mock guard, weaken a failure assertion or change product behavior to make a test pass.
+2. Review the exact helper diff and freeze its hashes. Pin a final clean candidate and
+   its own required CI SUCCESS/ci-subject, checking base/checkout/tree as in13.1. New
+   docs/code commits need their own CI;527f4b1's CI is evidence only for527f4b1. Any review
+   delegation must follow applicable Skill/AGENTS authority; no fabricated independent
+   review from a self-report. No new feature or overlap with frozen191 is authorized.
+3. Recheck owned3183/8183, pinned dependencies without starting/recovering them, source/
+   vectors/history/queue fingerprints and owner login access. Launch API then frontend
+   only through reviewed, fully visible calls to the copied supervised entry point:
+   `Start-Process -FilePath <PWSH> -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',<RUN>/supervise.ps1,<MODE>) -WorkingDirectory <WORKTREE> -WindowStyle Hidden -PassThru`.
+   Retain the original API-health prerequisite and explicit ownership checks when launching
+   frontend; do not change command shape to evade the earlier classifier. The shown command
+   is a proposal for review, not a claim of an already approved startup. Confirm the exact
+   runtime/owner/health before the next phase. Record PID/start/executable/command/script,
+   output/exit, handles and cleanup responsibility. Auto-review rejection or startup failure
+   closes this package, even at0/6. No alternative browser, binary replacement, permission
+   edits, Docker recovery, app3000/other-stack/#191 change or unowned cleanup.
+4. Use existing owner account and previously authorized local credential, never include
+   its value in reports. Change/read back only the three owned OAuth additions with exact
+   rollback. Use IAB for fresh exact-account Workers Free/model/quota observations within
+   600seconds and at most8000/10000, then open the sole six-request window. No cached quota
+   or previous package grants substitute for these checks.
+5. Submit section13's exact ordered questions once each through normal UI: the follow-up
+   in its pinned sole-Turn Conversation and the two other questions in separate zero-Turn
+   Conversations. Retain exact context and final-payload correlation per case. Inspect the
+   five layers, actual desktop/mobile layouts, every chip's original PDF/version/page/
+   locator and reload. Distinguish raw HTTP capture from authoritative API projection.
+   Count-only leaves list coverage UNVERIFIED and permits the other approved cases; never
+   ask again to hunt a list. Unknown/unsupported/invalid outcomes and other inherited
+   safety failures stop immediately; no unbudgeted semantic probe or source re-ingestion.
+6. Reconcile attempts/tokens/latency and unknown actual billing; normally logout, restore
+   only owned OAuth values, stop only verified owned process trees, close owned IAB tabs
+   and restore viewport where observable. Read back source/dependencies/queue/listeners;
+   preserve any failed or unobservable cleanup as such. Review the packet and publish
+   sanitized evidence to existing183/184, with secrets [REDACTED] and local identities
+   normalized. Deliver PR184 for owner review; keep Draft if acceptance is incomplete.
+   No merge, Done, close or deploy, and no inference of semantic/application acceptance
+   from local/mock/CI results.
+
+**Verification for this proposal:** preserve the entire pre-existing Master byte prefix;
+check append-only diff, all inherited question/budget/stop/source/UI restrictions, no secret
+or user-local path, local Markdown link targets and git diff --check. This documentation
+change does not require product/helper test reruns or application startup. Record exact
+new report SHA/CI separately. Source investigation and the literal probe remain diagnostic
+evidence only; no Skill Eval PASS or causal improvement is claimed. Implementation and
+runtime work above remain pending the fresh approval required by13.1.
