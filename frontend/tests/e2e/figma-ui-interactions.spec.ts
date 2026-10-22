@@ -5278,6 +5278,45 @@ test.describe("source fixtures", () => {
           ).toBeGreaterThanOrEqual(44);
         }
 
+        const convActionBtn = drawer
+          .getByRole("button", {
+            name: /^Actions for /,
+          })
+          .first();
+        if (await convActionBtn.isVisible()) {
+          await convActionBtn.click();
+          const archiveMenuItem = page.getByRole("menuitem", {
+            name: "Archive",
+            exact: true,
+          });
+          await expect(archiveMenuItem).toBeVisible();
+          await archiveMenuItem.click();
+          const archiveDialog = page.getByRole("dialog", {
+            name: "Archive conversation",
+          });
+          await expect(archiveDialog).toBeVisible();
+          const archiveCloseBtn = page.getByRole("button", {
+            name: "Close Archive conversation",
+            exact: true,
+          });
+          await expect(archiveCloseBtn).toBeVisible();
+          const archiveCloseBox = await archiveCloseBtn.boundingBox();
+          expect(
+            archiveCloseBox,
+            `Close Archive conversation button at ${vp.width}px`,
+          ).not.toBeNull();
+          expect(
+            Math.round(archiveCloseBox!.width),
+            `Close Archive conversation button width at ${vp.width}px`,
+          ).toBeGreaterThanOrEqual(44);
+          expect(
+            Math.round(archiveCloseBox!.height),
+            `Close Archive conversation button height at ${vp.width}px`,
+          ).toBeGreaterThanOrEqual(44);
+          await archiveCloseBtn.click();
+          await expect(archiveDialog).not.toBeVisible();
+        }
+
         await page.keyboard.press("Escape");
       }
 
@@ -5358,6 +5397,43 @@ test.describe("source fixtures", () => {
           "Collapse rail height on coarse pointer device",
         ).toBeGreaterThanOrEqual(44);
       }
+
+      const wsActionsTouch = touchPage.getByRole("button", {
+        name: "Workspace actions",
+        exact: true,
+      });
+      if (await wsActionsTouch.isVisible()) {
+        const wsBox = await wsActionsTouch.boundingBox();
+        expect(
+          wsBox,
+          "Workspace actions button box on coarse pointer device",
+        ).not.toBeNull();
+        expect(
+          wsBox!.width,
+          "Workspace actions width on coarse pointer device",
+        ).toBeGreaterThanOrEqual(44);
+        expect(
+          wsBox!.height,
+          "Workspace actions height on coarse pointer device",
+        ).toBeGreaterThanOrEqual(44);
+      }
+
+      await touchPage.unrouteAll();
+      await prepareFixture(touchPage, "216:345");
+      const operatorWsActionsTouch = touchPage.getByRole("button", {
+        name: "Workspace actions",
+        exact: true,
+      });
+      await expect(operatorWsActionsTouch).toBeVisible();
+      const opBox = await operatorWsActionsTouch.boundingBox();
+      expect(
+        opBox,
+        "Operator Workspace actions box on coarse pointer",
+      ).not.toBeNull();
+      expect(
+        opBox!.height,
+        "Operator Workspace actions retains 26px height contract on coarse pointer",
+      ).toBe(26);
     } finally {
       await touchContext.close();
     }

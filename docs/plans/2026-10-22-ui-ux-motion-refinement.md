@@ -10,7 +10,7 @@
 
 **Spec:** [Tinh chỉnh trải nghiệm và chuyển động](../specs/2026-10-22-ui-ux-motion-refinement.md).
 
-**Trạng thái:** kế hoạch đề xuất theo yêu cầu người dùng, chưa được duyệt để sửa mã. Liên quan [#212](https://github.com/NhiBuaa/knora-agent/issues/212). Người dùng xác nhận giữ nhận diện; #212 yêu cầu duyệt thiết kế/phạm vi cụ thể trước implementation.
+**Trạng thái:** Đã được phê duyệt thực hiện trực tiếp bởi chủ dự án trong phiên hội thoại ngày 2026-10-22 sau kết quả rà soát G0 (xác nhận giữ nhận diện thương hiệu, áp dụng chuyển động mở nhẹ và bảo đảm tối thiểu 44×44 CSSpx touch targets cho các control di động/con trỏ thô, giữ nguyên hợp đồng 26px của Operator; xử lý các finding P2 và review feedback của PR #227 / Issue #212).
 
 ## Global Constraints
 
