@@ -43,38 +43,16 @@ def _validate_answer_group_completeness(
     """
     norm_answer = unicodedata.normalize("NFKC", answer).casefold()
 
-    # 1. Reject stub answers that only list section headers/markers without substantive facts
-    clean_answer = re.sub(r"\[\[[A-Za-z0-9_-]+\]\]", " ", norm_answer)
-    for sq in required_subquestions:
-        for s in getattr(sq, "protected_spans", ()):
-            stext = unicodedata.normalize("NFKC", getattr(s, "text", "")).casefold().strip()
-            if stext:
-                clean_answer = re.sub(
-                    rf"(?<![a-zA-Z0-9_]){re.escape(stext)}(?![a-zA-Z0-9_])", " ", clean_answer
-                )
-    stopwords = {
-        "và",
-        "với",
-        "là",
-        "của",
-        "cho",
-        "ở",
-        "tại",
-        "các",
-        "những",
-        "được",
-        "có",
-        "trong",
-        "đến",
-        "theo",
-    }
-    substantive_words = [
-        w for w in re.findall(r"\w+", clean_answer) if len(w) >= 2 and w not in stopwords
+    filler_patterns = [
+        r"đây\s+chỉ\s+là\s+phần\s+giới\s+thiệu",
+        r"tổng\s+quan\s+chung",
+        r"giới\s+thiệu\s+tổng\s+quan",
+        r"chưa\s+có\s+thông\s+tin\s+chi\s+tiết",
+        r"nội\s+dung\s+chung",
     ]
-    if len(substantive_words) < 5:
-        _invalid()
+    has_filler = any(re.search(p, norm_answer) for p in filler_patterns)
 
-    # 2. Check each required group has exact section and identifier representation
+    # 1. Check each required group has exact section and identifier representation
     for sq in required_subquestions:
         if not getattr(sq, "required", True):
             continue
@@ -99,7 +77,31 @@ def _validate_answer_group_completeness(
         ):
             _invalid()
 
-    # 3. Check citations match evidence for each required group
+    # 2. Check each required group has substantive factual evidence in answer
+    stopwords = {
+        "và",
+        "với",
+        "là",
+        "của",
+        "cho",
+        "ở",
+        "tại",
+        "các",
+        "những",
+        "được",
+        "có",
+        "trong",
+        "đến",
+        "theo",
+        "chương",
+        "mục",
+        "điều",
+        "khoản",
+        "phần",
+        "chapter",
+        "section",
+        "article",
+    }
     if alias_to_candidate and len(required_subquestions) > 1:
         cited_cands = [alias_to_candidate[m] for m in cited_markers if m in alias_to_candidate]
         for sq in required_subquestions:
@@ -110,18 +112,49 @@ def _validate_answer_group_completeness(
                 for s in getattr(sq, "protected_spans", ())
                 if getattr(s, "category", "") == "section"
             ]
+            matching_cands = []
             if section_spans:
-                has_section_cand = any(
-                    any(
+                matching_cands = [
+                    c
+                    for c in cited_cands
+                    if any(
                         _matches_word_boundary(
                             s, " ".join(c.heading_path).casefold() + " " + c.content.casefold()
                         )
                         for s in section_spans
                     )
-                    for c in cited_cands
-                )
-                if not has_section_cand:
+                ]
+                if not matching_cands:
                     _invalid()
+            else:
+                matching_cands = cited_cands
+
+            section_words = {w for s in section_spans for w in re.findall(r"\w+", s)}
+            identifier_words = {
+                w
+                for s in getattr(sq, "protected_spans", ())
+                if getattr(s, "category", "") == "identifier"
+                for w in re.findall(r"\w+", s.text.casefold())
+            }
+            excluded_words = stopwords | section_words | identifier_words
+
+            found_factual = False
+            for cand in matching_cands:
+                cand_words = [
+                    w
+                    for w in re.findall(r"\w+", cand.content.casefold())
+                    if w not in excluded_words
+                ]
+                matched = [w for w in cand_words if _matches_word_boundary(w, norm_answer)]
+                if len(matched) >= 1:
+                    found_factual = True
+                    break
+
+            if not found_factual:
+                _invalid()
+
+        if has_filler:
+            _invalid()
 
 
 def validate_generation(
