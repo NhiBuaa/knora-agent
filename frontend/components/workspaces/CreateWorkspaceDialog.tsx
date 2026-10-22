@@ -81,14 +81,14 @@ export function CreateWorkspaceDialog({
         {error && <p role="alert">{error}</p>}
         <div className="workspace-dialog-actions mt-[34px] flex flex-wrap justify-end gap-2.5">
           <Button
-            className="min-h-[38px] min-w-[82px] text-[13px]"
+            className="min-h-[38px] min-w-[82px] text-[13px] max-[639px]:min-h-[44px]"
             variant="secondary"
             onClick={onClose}
           >
             Cancel
           </Button>
           <Button
-            className="min-h-[38px] min-w-[158px] text-[13px]"
+            className="min-h-[38px] min-w-[158px] text-[13px] max-[639px]:min-h-[44px]"
             type="submit"
             disabled={busy || !name.trim()}
             loading={busy}
