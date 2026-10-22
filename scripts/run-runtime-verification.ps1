@@ -133,6 +133,7 @@ try {
         $reports = @{}
         $python = (Join-Path $repositoryRoot '.venv/Scripts/python.exe')
         if (-not (Test-Path $python)) { $python = 'python' }
+        $env:PYTHONPATH = "$repositoryRoot/backend/src;$repositoryRoot"
         function Invoke-RetrievalTest {
             param([string]$Name, [string]$TestFile, [string]$Match)
             $report = Join-Path $profileDir "$Name.xml"
@@ -142,9 +143,9 @@ try {
             if (-not (Test-Path -LiteralPath $report -PathType Leaf)) { throw "RUNTIME_REPORT_MISSING: $Name" }
             return $report
         }
-        $reports.dense_hybrid = Invoke-RetrievalTest 'dense_hybrid' 'backend/test/answering/test_dense_hybrid_contract.py' ''
-        $reports.reranking = Invoke-RetrievalTest 'reranking' 'backend/test/answering/test_reranking_pipeline.py' ''
-        $reports.query_understanding = Invoke-RetrievalTest 'query_understanding' 'backend/test/answering/test_source_verification.py' ''
+        $reports.dense_hybrid = Invoke-RetrievalTest 'dense_hybrid' 'backend/runtime_test/test_dense_hybrid_search.py' 'ann_recall or decoy'
+        $reports.reranking = Invoke-RetrievalTest 'reranking' 'backend/runtime_test/test_reranking_evidence.py' 'invariant or budget or isolation'
+        $reports.query_understanding = Invoke-RetrievalTest 'query_understanding' 'backend/runtime_test/test_query_understanding.py' ''
         $reports.recovery = Invoke-RetrievalTest 'recovery' 'backend/runtime_test/test_retrieval_v3_recovery.py' ''
     } else {
         if (-not $VaultPath) { $VaultPath = Join-Path ([IO.Path]::GetTempPath()) "knora-runtime-vault-$([guid]::NewGuid().ToString('N'))" }

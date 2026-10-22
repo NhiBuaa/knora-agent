@@ -164,6 +164,11 @@ def load_release_dataset(path: Path | None = None) -> ReleaseDataset:
     When `path` is provided, reads and parses the JSON/JSONL artifact, enforcing
     split integrity, category validation, no duplicate IDs, and exact checksum.
     """
+    if path is None:
+        default_file = Path(__file__).with_name("pdf_retrieval_release_v1.jsonl")
+        if default_file.exists():
+            path = default_file
+
     if path is not None:
         target = Path(path)
         if not target.exists():
@@ -200,6 +205,9 @@ def load_release_dataset(path: Path | None = None) -> ReleaseDataset:
             if c.id in seen_ids:
                 raise DatasetContractError(f"Duplicate case id: {c.id}")
             seen_ids.add(c.id)
+            split = c.metadata.get("split")
+            if split is not None and split != "held_out":
+                raise DatasetContractError(f"Case {c.id} has invalid split: {split}")
 
         dataset_hash = hashlib.sha256(raw_bytes).hexdigest()
         return ReleaseDataset(
@@ -219,3 +227,14 @@ def load_release_dataset(path: Path | None = None) -> ReleaseDataset:
         cases=cases,
         dataset_sha256=dataset_hash,
     )
+
+
+def validate_approval(dataset: ReleaseDataset, approval: dict[str, object]) -> None:
+    """Enforces owner approval and version consistency for the release dataset."""
+    if not (
+        isinstance(approval, dict)
+        and approval.get("status") == "approved"
+        and approval.get("owner") == "NhiBuaa"
+        and approval.get("dataset_version") == dataset.version
+    ):
+        raise DatasetContractError("Owner approval missing or invalid for release dataset")

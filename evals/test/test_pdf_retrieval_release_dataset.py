@@ -102,7 +102,7 @@ def test_release_loader_loads_real_file(tmp_path: Path) -> None:
             "expected_source_verification": "found",
             "expected_answer_contains": ["Nội dung"],
             "reference_answer": "Trả lời đầy đủ",
-            "metadata": {"custom": True},
+            "metadata": {"custom": True, "split": "held_out"},
         }
     )
     artifact.write_text(f"{line}\n", encoding="utf-8")
@@ -113,3 +113,37 @@ def test_release_loader_loads_real_file(tmp_path: Path) -> None:
     assert dataset.cases[0].category == "multi_intent"
     assert dataset.cases[0].required_groups == ("Quy định 1", "Quy định 2")
     assert len(dataset.dataset_sha256) == 64
+
+
+def test_release_loader_rejects_contaminated_split(tmp_path: Path) -> None:
+    artifact = tmp_path / "bad_split.jsonl"
+    line = json.dumps(
+        {
+            "id": "rel-train",
+            "category": "standard",
+            "question": "Question",
+            "required_groups": ["G1"],
+            "expected_source_verification": "found",
+            "expected_answer_contains": ["A1"],
+            "reference_answer": "Answer",
+            "metadata": {"split": "train"},
+        }
+    )
+    artifact.write_text(f"{line}\n", encoding="utf-8")
+    with pytest.raises(DatasetContractError, match="invalid split"):
+        load_release_dataset(artifact)
+
+
+def test_validate_approval_checks_owner_and_version() -> None:
+    from evals.datasets.pdf_retrieval_release_v1 import validate_approval
+
+    dataset = load_release_dataset()
+    valid_approval = {
+        "status": "approved",
+        "owner": "NhiBuaa",
+        "dataset_version": dataset.version,
+    }
+    validate_approval(dataset, valid_approval)
+
+    with pytest.raises(DatasetContractError, match="Owner approval missing"):
+        validate_approval(dataset, {"status": "pending"})

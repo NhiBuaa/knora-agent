@@ -27,7 +27,7 @@ Retrieval V3 hiện đại hóa toàn diện kiến trúc tìm kiếm và trích
 
 ## 2. Ma trận So sánh Toàn diện §6 (Comparative Evaluation Matrix)
 
-Đo lường trên tập dữ liệu kiểm thử độc lập đóng băng (held-out release dataset `evals/datasets/pdf_retrieval_release_v1.jsonl`) gồm 40 ca kiểm thử thuộc các nhóm: câu hỏi đơn ý định, câu hỏi so sánh đa chương, truy vấn chứa mã lỗi kỹ thuật, câu hỏi có lỗi gõ tiếng Việt và câu hỏi ngoài phạm vi tài liệu (adversarial/out-of-scope):
+Đo lường trên tập dữ liệu kiểm thử độc lập đóng băng (held-out release dataset `evals/datasets/pdf_retrieval_release_v1.jsonl`) gồm 4 ca kiểm thử mẫu đại diện theo manifest và approval đã duyệt, thuộc các nhóm: câu hỏi đơn ý định, câu hỏi so sánh đa chương, truy vấn chứa mã lỗi kỹ thuật, câu hỏi có lỗi gõ tiếng Việt và câu hỏi ngoài phạm vi tài liệu (adversarial/out-of-scope):
 
 | Cấu hình Tìm kiếm (Retrieval Mode) | Recall@200 (ANN vs Exact) | nDCG@10 | MRR@10 | Độ chính xác trích dẫn | False Refusal Rate | Độ trễ p50 (ms) | Độ trễ p95 (ms) | Local AI Weights |
 |---|---|---|---|---|---|---|---|---|
