@@ -5230,6 +5230,88 @@ test.describe("source fixtures", () => {
 
       await page.keyboard.press("Escape");
       await page.unrouteAll();
+      // 5. Panel drawer & evidence sheet controls at mobile/tablet viewports
+      await prepareFixture(page, "128:110");
+      const showConvBtn = page.getByRole("button", {
+        name: "Show conversations",
+        exact: true,
+      });
+      if (await showConvBtn.isVisible()) {
+        await showConvBtn.click();
+        const drawer = page.locator(".conversation-rail-drawer");
+        await expect(drawer).toBeVisible();
+
+        const newConvBtn = drawer.getByRole("button", {
+          name: "New Conversation",
+        });
+        await expect(newConvBtn).toBeVisible();
+        const newConvBox = await newConvBtn.boundingBox();
+        expect(
+          newConvBox,
+          `New Conversation in drawer at ${vp.width}px`,
+        ).not.toBeNull();
+        expect(
+          newConvBox!.height,
+          `New Conversation height at ${vp.width}px`,
+        ).toBeGreaterThanOrEqual(44);
+        expect(
+          newConvBox!.width,
+          `New Conversation width at ${vp.width}px`,
+        ).toBeGreaterThanOrEqual(44);
+
+        const collapseRailBtn = drawer.getByRole("button", {
+          name: /collapse rail/i,
+        });
+        if (await collapseRailBtn.isVisible()) {
+          const collapseBox = await collapseRailBtn.boundingBox();
+          expect(
+            collapseBox,
+            `Collapse rail in drawer at ${vp.width}px`,
+          ).not.toBeNull();
+          expect(
+            collapseBox!.height,
+            `Collapse rail height at ${vp.width}px`,
+          ).toBeGreaterThanOrEqual(44);
+          expect(
+            collapseBox!.width,
+            `Collapse rail width at ${vp.width}px`,
+          ).toBeGreaterThanOrEqual(44);
+        }
+
+        await page.keyboard.press("Escape");
+      }
+
+      const openEvidenceBtn = page.getByRole("button", {
+        name: "Open evidence",
+        exact: true,
+      });
+      if (await openEvidenceBtn.isVisible()) {
+        await openEvidenceBtn.click();
+        const evidenceSheet = page.locator(".conversation-evidence-sheet");
+        await expect(evidenceSheet).toBeVisible();
+
+        const closeEvBtn = evidenceSheet.getByRole("button", {
+          name: "Close evidence",
+          exact: true,
+        });
+        await expect(closeEvBtn).toBeVisible();
+        const closeEvBox = await closeEvBtn.boundingBox();
+        expect(
+          closeEvBox,
+          `Close evidence in sheet at ${vp.width}px`,
+        ).not.toBeNull();
+        expect(
+          closeEvBox!.height,
+          `Close evidence height at ${vp.width}px`,
+        ).toBeGreaterThanOrEqual(44);
+        expect(
+          closeEvBox!.width,
+          `Close evidence width at ${vp.width}px`,
+        ).toBeGreaterThanOrEqual(44);
+
+        await page.keyboard.press("Escape");
+      }
+      await page.unrouteAll();
     }
 
     // 5. Coarse pointer device test
@@ -5254,6 +5336,28 @@ test.describe("source fixtures", () => {
         askBox!.height,
         "Ask button height on coarse pointer device",
       ).toBeGreaterThanOrEqual(44);
+
+      const newConvTouch = touchPage.getByRole("button", {
+        name: "New Conversation",
+      });
+      if (await newConvTouch.isVisible()) {
+        const box = await newConvTouch.boundingBox();
+        expect(
+          box!.height,
+          "New Conversation height on coarse pointer device",
+        ).toBeGreaterThanOrEqual(44);
+      }
+
+      const collapseTouch = touchPage.getByRole("button", {
+        name: /collapse rail/i,
+      });
+      if (await collapseTouch.isVisible()) {
+        const box = await collapseTouch.boundingBox();
+        expect(
+          box!.height,
+          "Collapse rail height on coarse pointer device",
+        ).toBeGreaterThanOrEqual(44);
+      }
     } finally {
       await touchContext.close();
     }
