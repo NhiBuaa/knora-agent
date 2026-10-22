@@ -1,5 +1,22 @@
 # Issue #183 — Master Implementation Plan
 
+## Current disposition — 2026-10-22
+
+Issue [#183 is closed](https://github.com/NhiBuaa/knora-agent/issues/183#issuecomment-6336019670)
+after the [owner's explicit acceptance and merge instruction](https://github.com/NhiBuaa/knora-agent/issues/183#issuecomment-6335868578).
+[PR #184](https://github.com/NhiBuaa/knora-agent/pull/184) merged at 2026-10-22 15:02:59
+Asia/Saigon as `0f76233b7ebbdf49cedba0b3affe96e132b069e4`.
+The closing record does not claim additional browser/provider runs, merge-commit CI or deployment.
+The interrupted independent review did not return a result; it is not review PASS.
+
+All dated checkpoints below, including “Current”, “Latest”, Draft/Open instructions,
+failed/unverified results and proposed runtime packages, are **historical records**.
+Read the linked closure for the final disposition and [§12.5](#125-owner-clarification--conditional-lists-not-compulsory-enumeration)
+for the conditional-list contract. Historical packages remain stopped; neither this file nor
+closure grants a new runtime window. Preserve their evidence and approval history.
+
+## Historical execution and planning checkpoints
+
 **Latest section13 execution — 2026-10-21:** Package `CONDITIONAL-LIST-20261021` is
 **STOPPED0/6**, preparation1/3, windows opened0; no remaining live authority. Offline helpers
 237/237 and own required CI39587990645/attempt2 passed. API preparation reached health200;
