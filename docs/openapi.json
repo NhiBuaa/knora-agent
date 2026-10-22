@@ -844,6 +844,11 @@
             "title": "Chunking Configuration Id",
             "type": "string"
           },
+          "document_archived": {
+            "default": false,
+            "title": "Document Archived",
+            "type": "boolean"
+          },
           "document_id": {
             "title": "Document Id",
             "type": "string"
@@ -1271,6 +1276,11 @@
       },
       "PdfSubmissionResponse": {
         "properties": {
+          "document_archived": {
+            "default": false,
+            "title": "Document Archived",
+            "type": "boolean"
+          },
           "document_id": {
             "title": "Document Id",
             "type": "string"

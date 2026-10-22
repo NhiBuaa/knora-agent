@@ -645,4 +645,84 @@ describe("document management", () => {
     expect(keys[0]).toBe("reprocess-key-one");
     expect(keys[1]).toBe("reprocess-key-one");
   });
+  it("informs user when uploaded document is archived and offers restore action", async () => {
+    const archivedDoc = {
+      ...document,
+      document_id: "doc-archived",
+      source_name: "manual.pdf",
+      archived: true,
+      revision: 3,
+    };
+    const fetchMock = vi
+      .fn()
+      // Initial list
+      .mockResolvedValueOnce(jsonResponse({ documents: [] }))
+      // Upload response with document_archived: true
+      .mockResolvedValueOnce(
+        jsonResponse(
+          {
+            ingestion_job_id: "job-dedup",
+            document_id: "doc-archived",
+            document_version_id: "version-1",
+            submission_outcome: "deduplicated",
+            status: "succeeded",
+            document_archived: true,
+          },
+          200,
+        ),
+      )
+      // Reload list after upload
+      .mockResolvedValueOnce(jsonResponse({ documents: [archivedDoc] }))
+      // Unarchive call response
+      .mockResolvedValueOnce(
+        jsonResponse({ ...archivedDoc, archived: false, revision: 4 }),
+      )
+      // Reload list after unarchive
+      .mockResolvedValueOnce(
+        jsonResponse({
+          documents: [{ ...archivedDoc, archived: false, revision: 4 }],
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
+    );
+    await screen.findByText("No documents yet.");
+    fireEvent.click(screen.getByRole("button", { name: "Upload document" }));
+    fireEvent.change(screen.getByLabelText("Document file"), {
+      target: {
+        files: [new File(["%PDF"], "manual.pdf", { type: "application/pdf" })],
+      },
+    });
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Upload document",
+      }),
+    );
+
+    // Should display notice that document already exists and is archived
+    expect(
+      await screen.findByText(
+        "This document already exists and is archived. Restore it to use it again.",
+      ),
+    ).toBeInTheDocument();
+
+    // Should have Restore document button
+    const restoreBtn = screen.getByRole("button", { name: "Restore document" });
+    expect(restoreBtn).toBeInTheDocument();
+
+    // Click Restore document
+    fireEvent.click(restoreBtn);
+
+    await waitFor(() => {
+      const unarchiveCall = fetchMock.mock.calls.find(
+        (call) =>
+          call[0] ===
+            "/api/v1/workspaces/ws-1/documents/doc-archived/unarchive" &&
+          call[1]?.method === "POST",
+      );
+      expect(unarchiveCall).toBeDefined();
+    });
+  });
 });

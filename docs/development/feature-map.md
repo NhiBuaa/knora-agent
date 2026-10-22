@@ -111,7 +111,10 @@ dialog `Upload document` / field `Document file`, then submit. Open the source-n
 for details, `← Documents` to return. Row button `Actions for <source name>` offers
 `View details`, `Archive document` or `Restore document`. `Show archived` includes
 archived sources. `Search documents` is the search field. `Request deletion` requires
-the deletion capability and an explicit confirmation dialog.
+the deletion capability and an explicit confirmation dialog. When re-uploading a file
+whose document is currently archived, Knora retains the archived state, displays a clear
+notice (`This document already exists and is archived. Restore it to use it again.`), and
+provides a direct `Restore document` action to unarchive and re-activate it.
 
 ### Driving it with Playwright
 
