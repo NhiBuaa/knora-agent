@@ -914,6 +914,7 @@ async function operatorSourceGeometry(
     .soft(flow.description.ink.y + flow.description.ink.height)
     .toBeLessThanOrEqual(flow.navigation.y);
   expect.soft(flow.navigation.height).toBeGreaterThanOrEqual(42);
+  expect.soft(flow.tabs).toHaveLength(5);
   expect.soft(flow.tabs.filter((tab) => tab.active)).toHaveLength(1);
   for (const tab of flow.tabs) {
     expect.soft(tab.fits).toBe(true);
@@ -943,9 +944,9 @@ async function operatorSourceGeometry(
       .toMatchObject({ top: 193, height: 1 });
     for (const [index, tab] of flow.tabs.entries()) {
       expect.soft(tab).toMatchObject({
-        offsetX: [0, 104, 182][index],
+        offsetX: [0, 104, 182, 292, 402][index],
         offsetY: 7.5,
-        width: [76, 50, 82][index],
+        width: [76, 50, 82, 82, 82][index],
         height: 27,
         labelOffsetY: operations ? 0 : 5,
         underlineTop: 25,

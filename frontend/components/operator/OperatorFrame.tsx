@@ -22,6 +22,16 @@ const SECTIONS = {
     description:
       "Inspect a persisted evaluation report for this workspace when one is available.",
   },
+  datasets: {
+    title: "Datasets",
+    description:
+      "Prepare PDF sources, review cases, and reuse approved Gold Dataset versions.",
+  },
+  runs: {
+    title: "Runs",
+    description:
+      "Select a dataset, check readiness, and inspect new evaluation results and traces.",
+  },
 } as const;
 
 export function OperatorFrame({
@@ -37,7 +47,12 @@ export function OperatorFrame({
   const search = useSearchParams();
   const section = pathname.split("/")[2];
   const active =
-    section === "traces" || section === "evaluations" ? section : "operations";
+    section === "traces" ||
+    section === "evaluations" ||
+    section === "datasets" ||
+    section === "runs"
+      ? section
+      : "operations";
   const target = search.get("workspaceId");
   return (
     <main className="workspace-shell-main operator-surface mx-auto w-full max-w-[1200px] px-0 pt-[45px] pb-10 text-text-primary max-[1248px]:px-6 max-md:px-4">

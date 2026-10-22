@@ -40,10 +40,23 @@ knora-ingest = "knora.adapters.cli.ingest:main"
 [tool.hatch.build.targets.wheel]
 packages = ["src/knora"]
 
-[tool.pytest.ini_options]
-addopts = "-p no:deepeval"
-pythonpath = ["src"]
-testpaths = ["backend/test"]
+[tool.hatch.build.targets.wheel.force-include]
+"../evals/datasets/milestone_3.py" = "evals/datasets/milestone_3.py"
+"../evals/datasets/milestone_3.jsonl" = "evals/datasets/milestone_3.jsonl"
+"../evals/datasets/milestone_3.manifest.json" = "evals/datasets/milestone_3.manifest.json"
+"../evals/corpora/milestone_3/manifest.json" = "evals/corpora/milestone_3/manifest.json"
+"../evals/corpora/milestone_3/refund-policy.txt" = "evals/corpora/milestone_3/refund-policy.txt"
+"../evals/corpora/milestone_3/shipping-policy.txt" = "evals/corpora/milestone_3/shipping-policy.txt"
+"../evals/corpora/milestone_3/account-security.txt" = "evals/corpora/milestone_3/account-security.txt"
+"../evals/corpora/milestone_3/billing-policy.txt" = "evals/corpora/milestone_3/billing-policy.txt"
+"../evals/runners/milestone_3.py" = "evals/runners/milestone_3.py"
+"../evals/runners/milestone_3_comparison.py" = "evals/runners/milestone_3_comparison.py"
+"../evals/runners/m3_claim_authority.py" = "evals/runners/m3_claim_authority.py"
+"../evals/runners/evaluation_ownership.py" = "evals/runners/evaluation_ownership.py"
+"../evals/runners/ragas_review.py" = "evals/runners/ragas_review.py"
+"../evals/runners/evaluation.py" = "evals/runners/evaluation.py"
+"../evals/scorers/deepeval_cloudflare.py" = "evals/scorers/deepeval_cloudflare.py"
+"../docs/design/m3-improvement-claim-rule-v1.policy.json" = "docs/design/m3-improvement-claim-rule-v1.policy.json"
 
 [tool.ruff]
 line-length = 100

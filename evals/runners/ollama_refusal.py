@@ -22,7 +22,8 @@ from knora.providers.ollama.embedding import (
     OllamaEmbeddingProvider,
     resolve_ollama_embedding_configuration,
 )
-from knora.providers.ollama.generation import OLLAMA_PROMPT_VERSION, OllamaGenerationProvider
+from knora.providers.ollama.generation import OllamaGenerationProvider
+from knora.providers.prompts.policy import OLLAMA_PROMPT_VERSION
 
 
 async def evaluate_case(
