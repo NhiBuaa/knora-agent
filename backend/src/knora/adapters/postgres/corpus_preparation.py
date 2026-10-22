@@ -239,8 +239,9 @@ class PostgresCorpusPreparationStore:
             rows = self._load(session, plan)
             now = self._now(session)
             _require(now < admission.valid_until)
-            for pin, document, original in rows:
+            for pin, _, _ in rows:
                 _require(session.get(IngestionJobTable, pin.job_id) is None)
+            for pin, document, original in rows:
                 prepared = PreparedPdfSubmission(
                     workspace_id=scope["workspace_id"],
                     source_key=pin.source_key,
@@ -294,6 +295,7 @@ class PostgresCorpusPreparationStore:
                         updated_at=now,
                     )
                 )
+                session.flush()
                 session.add(
                     IngestionJobAttemptTable(
                         ingestion_job_id=pin.job_id,
@@ -307,6 +309,7 @@ class PostgresCorpusPreparationStore:
                         claim_request_fingerprint=prepared.content_fingerprint,
                     )
                 )
+                session.flush()
                 claims.append(
                     ClaimedAttempt(
                         token=FencingToken(pin.job_id, 1, worker, 1),

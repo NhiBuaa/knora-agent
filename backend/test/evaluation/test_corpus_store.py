@@ -214,6 +214,87 @@ def adapter(factory):
     return PostgresCorpusPreparationStore(factory, database_now=lambda s: NOW)
 
 
+@pytest.fixture
+def constrained_corpus_db(corpus_db):
+    plan, factory = corpus_db
+    with factory.kw["bind"].connect() as connection:
+        connection.exec_driver_sql("PRAGMA foreign_keys=ON")
+        assert connection.exec_driver_sql("PRAGMA foreign_keys").scalar_one() == 1
+        assert connection.exec_driver_sql("PRAGMA foreign_key_check").all() == []
+    return plan, factory
+
+
+def test_begin_with_enforced_foreign_keys(constrained_corpus_db, tmp_path):
+    plan, factory = constrained_corpus_db
+    store, gate = adapter(factory), admitted(tmp_path, plan)
+    with gate.corpus_operation(plan.scope(), plan.payload()):
+        claims = store.begin(plan, gate)
+    expected = {p.job_id for p in plan.sources}
+    assert {c.token.job_id for c in claims} == expected
+    with factory() as session:
+        assert {j.id for j in session.scalars(select(IngestionJobTable))} == expected
+        attempts = session.scalars(select(IngestionJobAttemptTable)).all()
+        assert len(attempts) == 2
+        assert {a.ingestion_job_id for a in attempts} == expected
+        assert session.get(EvaluationGoldVersionTable, "gold").frozen_json == plan.frozen_json
+        assert len(session.scalars(select(DocumentVersionTable)).all()) == 2
+
+
+def test_begin_rolls_back_all_writes_on_second_source_failure(constrained_corpus_db, tmp_path):
+    plan, factory = constrained_corpus_db
+    store, gate = adapter(factory), admitted(tmp_path, plan)
+
+    with factory() as session:
+        initial_documents = [
+            (
+                d.id,
+                d.current_document_version_id,
+                d.active_embedding_set_id,
+                d.revision,
+            )
+            for d in session.scalars(select(DocumentTable)).all()
+        ]
+        initial_sources = [
+            (s.id, s.status) for s in session.scalars(select(DatasetSourceTable)).all()
+        ]
+        initial_gold_digest = session.get(EvaluationGoldVersionTable, "gold").digest
+
+    from sqlalchemy import event
+
+    def reject_second_attempt(mapper, connection, target):
+        if target.ingestion_job_id == plan.sources[1].job_id:
+            raise RuntimeError("second-source-insert-failure")
+
+    event.listen(IngestionJobAttemptTable, "before_insert", reject_second_attempt)
+    try:
+        with (
+            pytest.raises(RuntimeError, match="second-source-insert-failure"),
+            gate.corpus_operation(plan.scope(), plan.payload()),
+        ):
+            store.begin(plan, gate)
+    finally:
+        event.remove(IngestionJobAttemptTable, "before_insert", reject_second_attempt)
+
+    with factory() as session:
+        assert session.scalars(select(IngestionJobTable)).all() == []
+        assert session.scalars(select(IngestionJobAttemptTable)).all() == []
+        final_documents = [
+            (
+                d.id,
+                d.current_document_version_id,
+                d.active_embedding_set_id,
+                d.revision,
+            )
+            for d in session.scalars(select(DocumentTable)).all()
+        ]
+        assert final_documents == initial_documents
+        final_sources = [
+            (s.id, s.status) for s in session.scalars(select(DatasetSourceTable)).all()
+        ]
+        assert final_sources == initial_sources
+        assert session.get(EvaluationGoldVersionTable, "gold").digest == initial_gold_digest
+
+
 def test_admission_reuses_versions_and_retains_gold(corpus_db, tmp_path):
     plan, factory = corpus_db
     store, gate = adapter(factory), admitted(tmp_path, plan)
