@@ -1123,3 +1123,37 @@ Status: Fully integrated with `origin/main` (commit `d1efd6999310067462c17062bcc
 - Actual calls/jobs/startups consumed in this integration: **0 external inference calls, 0 live jobs, 0 runtime startups, paid USD 0**.
 - Retained historical journal (`ROOT/package/admission.sqlite3`) and historical captures remain immutable read-only evidence.
 - No live authority was renewed or expanded; final PR #202 merge into `main` and Milestone 5 acceptance remain exclusively with the repository Owner.
+## Integration follow-up: Upstream PR #184 sync (Structured Answer Lists)
+
+Following the initial merge of `origin/main` (`d1efd699`), upstream PR #184 (`fix/issue-183-answer-lists`, commit `0f76233b`) was merged into `main`. The branch was merged cleanly with `0f76233b` via `git merge origin/main`.
+
+### Upstream contract change and alignment
+
+PR #184 introduced structured answer blocks (`ANSWER_BLOCK_SCHEMA` and `compose_answer`) for Cloudflare Workers AI generation providers, replacing the legacy `STRUCTURED_RESULT_SCHEMA` structure for Cloudflare while preserving public Markdown output.
+
+1. **Live admission authority pins**:
+   - `backend/src/knora/evaluation/live_admission.py`: Added `knora.providers.openai_compatible.answer_blocks` to pinned modules in `response_authority_pins("qa")`.
+
+2. **Q&A chain request validation**:
+   - `backend/src/knora/evaluation/live_admission.py`: Updated `_qa_request` to build Cloudflare generation requests with `ANSWER_BLOCK_SCHEMA`.
+   - Updated `_validate_chain_response` and `validate_qa_observation` to recognize and validate `ANSWER_BLOCK_SCHEMA` payloads using `compose_answer`, while maintaining compatibility with legacy `STRUCTURED_RESULT_SCHEMA`.
+
+3. **Host composition test alignment**:
+   - `backend/test/evaluation/test_live_host_composition.py`: Updated mock Cloudflare generation transport and policy request digests to use `ANSWER_BLOCK_SCHEMA`. All 16 host composition tests pass.
+
+### Verification evidence
+
+- **OpenAPI Export Check**: `python scripts/export_openapi.py --check` -> Artifacts current, exit 0.
+- **Ruff Format & Lint**: `python -m ruff format --check .` (538 files formatted) & `python -m ruff check .` -> All checks passed, exit 0.
+- **Frontend & Shared Formatting**:
+  - `npm --prefix frontend run format:check` -> All matched files use Prettier, exit 0.
+  - `npm --prefix frontend run format:shared:check` -> All matched files use Prettier, exit 0.
+- **Git Diff Whitespace Check**: `git diff --check` -> Clean, exit 0.
+- **Evaluation Test Suite**: `backend/test/evaluation/` -> **348 passed in 184.71s**, exit 0.
+- **Focused OpenAI Compatible Suite**: `backend/test/providers/openai_compatible/` -> 74 unit tests passed (2 database integration tests deferred to CI Database container).
+
+### Budget and authority compliance
+
+- Actual calls/jobs/startups consumed: **0 external inference calls, 0 live jobs, 0 runtime startups, paid USD 0**.
+- Retained historical journal (`ROOT/package/admission.sqlite3`) and historical captures remain immutable read-only evidence.
+- Final PR #202 merge into `main` remains exclusively with the repository Owner.
