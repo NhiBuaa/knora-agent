@@ -193,19 +193,18 @@ class NativeQdrantSearchIndex:
             ):
                 raise ProjectionResponseError("Qdrant collection configuration is incompatible")
 
-            if self.index.turbo_quant and "quantization_config" in dense_params:
+            if self.index.turbo_quant:
                 quant = dense_params.get("quantization_config")
 
-                if quant is None:
+                if not isinstance(quant, dict):
                     raise ProjectionResponseError("Qdrant collection configuration is incompatible")
 
-                if isinstance(quant, dict):
-                    turbo = quant.get("turbo") if isinstance(quant.get("turbo"), dict) else quant
+                turbo = quant.get("turbo")
+                if not isinstance(turbo, dict):
+                    raise ProjectionResponseError("Qdrant collection configuration is incompatible")
 
-                    if isinstance(turbo, dict) and turbo.get("bits") not in {"bits4", None}:
-                        raise ProjectionResponseError(
-                            "Qdrant collection configuration is incompatible"
-                        )
+                if turbo.get("bits") != "bits4" or turbo.get("always_ram") is not True:
+                    raise ProjectionResponseError("Qdrant collection configuration is incompatible")
 
         for body in self.index.payload_index_bodies():
             response = self._request(
