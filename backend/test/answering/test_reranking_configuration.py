@@ -153,7 +153,7 @@ def test_retrieval_configuration_hybrid_rerank_top8_v3() -> None:
     assert config.strategy == "hybrid"
     assert config.fusion_policy_id == "dbsf-v1"
     assert config.sdm_policy_id == "sdm-metzler-croft-2005-v1"
-    assert config.reranking_policy_id == "cross-encoder-bge-reranker-base-v1"
+    assert config.reranking_policy_id == "reranking-cloudflare-bge-base-v1"
     assert config.max_evidence_chunks == 5
     assert config.max_evidence_tokens == 3000
 
@@ -164,3 +164,10 @@ def test_retrieval_configuration_hybrid_rerank_top8_v3() -> None:
         "retrieval-hybrid-rerank-top8-v3", vector_min_similarity=None
     )
     assert resolved_dep == config
+
+
+def test_resolve_reranking_configuration_supports_cross_encoder_alias() -> None:
+    cf_config = resolve_reranking_configuration("reranking-cloudflare-bge-base-v1")
+    alias_config = resolve_reranking_configuration("cross-encoder-bge-reranker-base-v1")
+    assert cf_config is not None
+    assert alias_config == cf_config

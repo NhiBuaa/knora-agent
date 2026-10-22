@@ -317,10 +317,10 @@ class AnswerQuestion:
                     "candidates_count": 0,
                     "duration_ms": 0.0,
                 }
-        rerank_started = self._clock()
         reranking_observation: dict[str, object] = {"status": "not_run"}
         rerank_config = None
         if retrieval_configuration.reranking_policy_id is not None:
+            rerank_started = self._clock()
             rerank_config = (
                 self._reranking_configuration_resolver.resolve()
                 if self._reranking_configuration_resolver is not None

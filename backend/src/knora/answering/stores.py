@@ -157,7 +157,7 @@ class RetrievalConfiguration:
         lexical_policy_id: str = "bm25-word-frozen47-population-v1",
         fusion_policy_id: str = "dbsf-v1",
         sdm_policy_id: str = "sdm-metzler-croft-2005-v1",
-        reranking_policy_id: str = "cross-encoder-bge-reranker-base-v1",
+        reranking_policy_id: str = "reranking-cloudflare-bge-base-v1",
     ) -> "RetrievalConfiguration":
         """Hybrid Top8 with SDM reranking and cross-encoder evidence selection."""
         base = cls.hybrid_sdm_top8_v3(
