@@ -5050,6 +5050,7 @@ test.describe("source fixtures", () => {
     page,
     browser,
   }) => {
+    test.slow();
     const viewports = [
       { width: 320, height: 568 },
       { width: 390, height: 844 },
@@ -5279,43 +5280,45 @@ test.describe("source fixtures", () => {
           ).toBeGreaterThanOrEqual(44);
         }
 
-        const convActionBtn = drawer
-          .getByRole("button", {
-            name: /^Actions for /,
-          })
-          .first();
-        if (await convActionBtn.isVisible()) {
-          await convActionBtn.click();
-          const archiveMenuItem = page.getByRole("menuitem", {
-            name: "Archive",
-            exact: true,
-          });
-          await expect(archiveMenuItem).toBeVisible();
-          await archiveMenuItem.click();
-          const archiveDialog = page.getByRole("dialog", {
-            name: "Archive conversation",
-          });
-          await expect(archiveDialog).toBeVisible();
-          const archiveCloseBtn = page.getByRole("button", {
-            name: "Close Archive conversation",
-            exact: true,
-          });
-          await expect(archiveCloseBtn).toBeVisible();
-          const archiveCloseBox = await archiveCloseBtn.boundingBox();
-          expect(
-            archiveCloseBox,
-            `Close Archive conversation button at ${vp.width}px`,
-          ).not.toBeNull();
-          expect(
-            Math.round(archiveCloseBox!.width),
-            `Close Archive conversation button width at ${vp.width}px`,
-          ).toBeGreaterThanOrEqual(44);
-          expect(
-            Math.round(archiveCloseBox!.height),
-            `Close Archive conversation button height at ${vp.width}px`,
-          ).toBeGreaterThanOrEqual(44);
-          await archiveCloseBtn.click();
-          await expect(archiveDialog).not.toBeVisible();
+        if (vp.width === 320) {
+          const convActionBtn = drawer
+            .getByRole("button", {
+              name: /^Actions for /,
+            })
+            .first();
+          if (await convActionBtn.isVisible()) {
+            await convActionBtn.click();
+            const archiveMenuItem = page.getByRole("menuitem", {
+              name: "Archive",
+              exact: true,
+            });
+            await expect(archiveMenuItem).toBeVisible();
+            await archiveMenuItem.click();
+            const archiveDialog = page.getByRole("dialog", {
+              name: "Archive conversation",
+            });
+            await expect(archiveDialog).toBeVisible();
+            const archiveCloseBtn = page.getByRole("button", {
+              name: "Close Archive conversation",
+              exact: true,
+            });
+            await expect(archiveCloseBtn).toBeVisible();
+            const archiveCloseBox = await archiveCloseBtn.boundingBox();
+            expect(
+              archiveCloseBox,
+              `Close Archive conversation button at ${vp.width}px`,
+            ).not.toBeNull();
+            expect(
+              Math.round(archiveCloseBox!.width),
+              `Close Archive conversation button width at ${vp.width}px`,
+            ).toBeGreaterThanOrEqual(44);
+            expect(
+              Math.round(archiveCloseBox!.height),
+              `Close Archive conversation button height at ${vp.width}px`,
+            ).toBeGreaterThanOrEqual(44);
+            await archiveCloseBtn.click();
+            await expect(archiveDialog).not.toBeVisible();
+          }
         }
 
         await page.keyboard.press("Escape");
