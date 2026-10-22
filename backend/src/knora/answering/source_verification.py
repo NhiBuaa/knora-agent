@@ -11,7 +11,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Sequence
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from typing import Any
 
 from knora.answering.evidence_support import assess_evidence_support
@@ -88,12 +88,26 @@ async def verify_missing_sources(
 
         try:
             # Execute targeted BM25 lookup (0 query embeddings)
+            if retrieval_configuration.strategy != "bm25-only":
+                lookup_config = replace(
+                    retrieval_configuration,
+                    strategy="bm25-only",
+                    min_similarity=None,
+                    fusion_policy_id=None,
+                    fusion_policy_version=None,
+                    lexical_policy_id=retrieval_configuration.lexical_policy_id
+                    or "bm25-word-frozen47-population-v1",
+                    candidate_k=max(20, retrieval_configuration.candidate_k),
+                )
+            else:
+                lookup_config = retrieval_configuration
+
             retrieval_res = store.retrieve_candidates(
                 workspace_id=workspace_id,
                 query_text=query_text,
                 query_vector=None,
                 embedding_configuration=None,
-                retrieval_configuration=retrieval_configuration,
+                retrieval_configuration=lookup_config,
             )
             raw_cands = [c for c in retrieval_res.candidates if c.chunk_id not in known_cids]
 

@@ -296,11 +296,8 @@ async def run_live(args):
         OllamaEmbeddingProvider,
         resolve_ollama_embedding_configuration,
     )
-    from knora.providers.ollama.generation import (
-        OLLAMA_PROMPT_VERSION,
-        OLLAMA_SYSTEM_PROMPT,
-        OllamaGenerationProvider,
-    )
+    from knora.providers.ollama.generation import OllamaGenerationProvider
+    from knora.providers.prompts.policy import OLLAMA_PROMPT_VERSION, OLLAMA_SYSTEM_PROMPT
 
     database_url = os.environ["KNORA_DATABASE_URL"]
     validate_evaluation_database(database_url)

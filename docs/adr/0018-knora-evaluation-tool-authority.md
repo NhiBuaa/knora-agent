@@ -40,3 +40,71 @@ remains In Progress until the owner accepts actual quality.
 Decision records: [approved implementation](https://github.com/NhiBuaa/knora-agent/issues/158#issuecomment-6170561475),
 [shared boundary](https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6170886584),
 [zero-cost preflight](https://github.com/NhiBuaa/knora-agent/issues/158#issuecomment-6170823327).
+
+## Evaluation Workbench
+
+The [approved Workbench contract](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6185802219)
+connects Dataset Builder and Evaluation Runner through Knora-owned, versioned gold. Gold approval
+verifies original-PDF evidence independently of current extraction/chunking or runtime binding;
+binding incompleteness does not prevent freeze. Selection and binding are separate artifacts rather
+than rewritten gold. Reports retain every selected case, including missing/unscorable/failed cases,
+and disclose metric-specific populations. New PDF evidence-group coverage has its own scope and
+contract; it does not replace M3 or #153 metrics.
+
+R3 (#198) is accepted using manually authored, reviewed/frozen A2 gold and a deterministic report.
+Ragas-to-Runner integration belongs to the final parent #192 demo; DeepEval is supplementary and
+cannot block deterministic evaluation. Partial deterministic reports explicitly retain pending
+semantic sections and do not weaken complete M3 report validation. Owner gold approval grants
+neither provider egress permission nor live execution authority. See
+[owner approval](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6185965119) and
+[design](../design/evaluation-workbench.md).
+
+## Corpus preparation authority
+
+The owner selected the separate `corpus_prepare` trusted-host scope for the Workbench. One
+immutable operation may materialize and activate exactly two pinned READY PDF Document Versions;
+Gold may retain additional sources, including failed extraction records, while the plan pins only
+the two-source subset and the adapter rejects non-READY sources;
+it must retain their Document Version identities and cannot touch the FAILED source, another
+Workspace, Gold, thresholds or historical runs. The plan binds owner identity, Workspace/dataset
+revisions, raw and original-object hashes, extraction snapshots, chunking/embedding configurations,
+job IDs and one bounded attempt per source. Existing read-only binding preparation remains
+read-only, while Q&A, scoring, proposal and binding-review authorities stay separate.
+
+Admission records the plan before mutation and persists the stop/deadline state. The authority is
+rechecked before job admission, at each provider dispatch and immediately before and after the
+existing fenced activation finalizer. Ordinary worker claim and expiry recovery exclude these jobs;
+missing authority, drift, expiry, stop or an uncertain operation fails closed. This design is
+implemented and tested only with offline/mock I/O under the approved implementation scope; no
+runtime activation, real provider call, billing change, export or deployment follows from it.
+
+## Response-dependent admission and one bounded execution package
+
+The owner approved code implementation of the [reviewed continuation plan](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6267679308),
+recorded in [the code approval checkpoint](https://github.com/NhiBuaa/knora-agent/issues/192#issuecomment-6268076220).
+Q&A generation depends on selected retrieval evidence, and later DeepEval prompts depend on earlier
+judge responses. Mock request hashes cannot authorize those real requests. The trusted host must
+derive each permitted request from pinned Knora input, code/template/schema identities and validated
+responses of the same case or saved capture, then journal its digest before dispatch. Corpus
+preparation and proposal requests retain exact-digest authorization. Browser payloads cannot supply
+or enlarge this authority; the default live registry remains denied.
+
+The same admission journal owns one immutable execution package and seven fixed operation slots:
+corpus preparation (2), Gold v1 ANSWER (2), Gold v1 REFUSAL (2), Ragas proposal (1), Ragas ANSWER (2),
+and two judge batches (12 each). The total is at most 33 HTTP attempts, with no retries or transfer of spare
+capacity. Package, slot and request reservation must be atomic. Input binding is one-time; missing
+or changed journal identity, pending/ambiguous operations, stop, error or expiry prevents further
+inference. A restart cannot reset consumed calls or replay a started slot.
+
+A separately approved live decision pins the reviewed code SHA, package identity, account/resources,
+journal and manifest. It starts the 24-hour first-start limit and 48-hour package deadline; code
+approval starts neither clock. At most three owned runtime windows, each at most 15 minutes, require
+startup reservation and independent cleanup before their deadline. Each slot requires fresh Free
+quota proof and immutable admission valid at most 5 minutes. No retained runtime or old envelope is
+adopted merely because files still exist. Binding review remains a separate authority.
+
+After reopening a draft, the owner reviews all current case digests again before freeze. Before
+judge scoring, the owner records independent correctness/relevancy/faithfulness assessments against
+the saved captures. The later comparison retains disagreements and missing evidence. Agreement on
+two pilot answers is neither judge calibration nor benchmark-wide quality acceptance. Implementation,
+offline tests, exact-SHA CI, actual PostgreSQL/provider execution and owner acceptance remain distinct.

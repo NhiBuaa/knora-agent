@@ -538,7 +538,18 @@ def test_ensure_collection_validates_dense_named_vector(wire) -> None:
                         "config": {
                             "params": {
                                 "shard_number": 1,
-                                "vectors": {"dense": {"size": 1024, "distance": "Cosine"}},
+                                "vectors": {
+                                    "dense": {
+                                        "size": 1024,
+                                        "distance": "Cosine",
+                                        "datatype": "float32",
+                                        "on_disk": True,
+                                        "hnsw_config": {"m": 16, "ef_construct": 100},
+                                        "quantization_config": {
+                                            "turbo": {"bits": "bits4", "always_ram": True}
+                                        },
+                                    }
+                                },
                                 "sparse_vectors": {"bm25": {"modifier": "idf"}},
                             }
                         }
@@ -640,7 +651,7 @@ def test_stage_generation_with_dense_vectors(wire, generation) -> None:
             "datatype": "float16",
             "on_disk": True,
             "hnsw_config": {"m": 16, "ef_construct": 100},
-            "quantization_config": {"turbo": {"bits": "bits4"}},
+            "quantization_config": {"turbo": {"bits": "bits4", "always_ram": True}},
         },
         {
             "size": 768,
@@ -648,7 +659,7 @@ def test_stage_generation_with_dense_vectors(wire, generation) -> None:
             "datatype": "float32",
             "on_disk": False,
             "hnsw_config": {"m": 16, "ef_construct": 100},
-            "quantization_config": {"turbo": {"bits": "bits4"}},
+            "quantization_config": {"turbo": {"bits": "bits4", "always_ram": True}},
         },
         {
             "size": 768,
@@ -656,7 +667,7 @@ def test_stage_generation_with_dense_vectors(wire, generation) -> None:
             "datatype": "float32",
             "on_disk": True,
             "hnsw_config": {"m": 0, "ef_construct": 4},
-            "quantization_config": {"turbo": {"bits": "bits4"}},
+            "quantization_config": {"turbo": {"bits": "bits4", "always_ram": True}},
         },
         {
             "size": 768,
@@ -665,6 +676,38 @@ def test_stage_generation_with_dense_vectors(wire, generation) -> None:
             "on_disk": True,
             "hnsw_config": {"m": 16, "ef_construct": 100},
             "quantization_config": None,
+        },
+        {
+            "size": 768,
+            "distance": "Cosine",
+            "datatype": "float32",
+            "on_disk": True,
+            "hnsw_config": {"m": 16, "ef_construct": 100},
+            # missing quantization_config entirely
+        },
+        {
+            "size": 768,
+            "distance": "Cosine",
+            "datatype": "float32",
+            "on_disk": True,
+            "hnsw_config": {"m": 16, "ef_construct": 100},
+            "quantization_config": {"scalar": {"type": "int8", "always_ram": False}},
+        },
+        {
+            "size": 768,
+            "distance": "Cosine",
+            "datatype": "float32",
+            "on_disk": True,
+            "hnsw_config": {"m": 16, "ef_construct": 100},
+            "quantization_config": {"turbo": {"bits": None, "always_ram": True}},
+        },
+        {
+            "size": 768,
+            "distance": "Cosine",
+            "datatype": "float32",
+            "on_disk": True,
+            "hnsw_config": {"m": 16, "ef_construct": 100},
+            "quantization_config": {"turbo": {"bits": "bits4", "always_ram": False}},
         },
     ],
 )

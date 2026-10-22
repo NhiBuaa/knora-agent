@@ -125,6 +125,17 @@ def _build_answer_question(
     reranker: RerankingProvider | None = None,
     rerank_config: RerankingConfiguration | None = None,
 ) -> AnswerQuestion:
+    from knora.answering.sequential_dependence import CorpusStatistics
+
+    if not hasattr(store, "read_corpus_statistics") or isinstance(
+        store.read_corpus_statistics.return_value, Mock
+    ):
+        store.read_corpus_statistics.return_value = CorpusStatistics(
+            total_tokens=1000,
+            total_chunks=10,
+            unigram_frequencies={},
+            statistics_digest="a" * 64,
+        )
     embedding_config = EmbeddingConfiguration(
         id="bge-test",
         dimensions=768,

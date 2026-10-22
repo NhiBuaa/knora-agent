@@ -186,6 +186,16 @@ def is_fast_path_eligible(question: str) -> bool:
         if len(sections) >= 2:
             return False
 
+    # Check for typos or glued alphanumeric tokens (e.g. chuong2)
+    from knora.answering.query_correction import generate_typo_hypotheses
+
+    try:
+        typo_res = generate_typo_hypotheses(norm)
+        if typo_res.has_typos:
+            return False
+    except Exception:
+        pass
+
     # Check for question length or complexity
     words = norm.split()
     return len(words) <= 30
@@ -248,8 +258,21 @@ class QueryPlanner:
         ]
 
         if len(sections) >= 2:
+            clean_q = question
+            for sec in sections:
+                clean_q = re.sub(
+                    rf"(?<!\w){re.escape(sec)}(?!\w)", " ", clean_q, flags=re.IGNORECASE
+                )
+            clean_q = _COMPARISON_CUE.sub(" ", clean_q)
+            clean_q = re.sub(r"(?:kèm|theo|với|cùng)", " ", clean_q, flags=re.IGNORECASE)
+            core_predicate = " ".join(clean_q.split()).strip()
+
             for idx, sec in enumerate(sections, start=1):
-                sq_text = f"Thông tin quy định về {sec}"
+                sq_text = (
+                    f"{sec} {core_predicate}".strip()
+                    if core_predicate
+                    else f"Thông tin quy định về {sec}"
+                )
                 sq_protected = extract_protected_spans(sq_text)
                 subquestions.append(
                     Subquestion(
