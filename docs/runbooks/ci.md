@@ -148,7 +148,7 @@ python -m pytest backend/test evals/test --ci-suite=database --ci-selection="$ev
 
 Capture `$LASTEXITCODE` immediately after executing a single pytest command.
 
-**Database target safety**: Setting `$env:KNORA_DATABASE_URL` is a statement of intent that the specified database target is permitted for destructive fixtures (such as those that truncate or commit data). Application smoke tests use the shared local development database sequentially without running this destructive test suite. Note that this preparation guard checks `$env:KNORA_DATABASE_URL` in the command template; bare `pytest` invocations bypassing the template fall back to the implicit default URL.
+**Database target safety**: Setting `$env:KNORA_DATABASE_URL` alone does not prove permission to truncate or reset data; an operator must separately verify that the targeted database is an authorized, disposable test instance before invoking the database suite. Certain database suite fixtures (such as `backend/test/adapters/postgres/test_object_lifecycle_store.py:30–36`) execute `TRUNCATE` and commit transactions before and after tests, which permanently destroys persistent data. Never run the database test suite against a shared development database preserving project records. Ordinary local application smoke tests use the shared local database sequentially and do not run this destructive test suite. Note that this preparation guard checks `$env:KNORA_DATABASE_URL` in the command template; bare `pytest` invocations bypassing the template fall back to the implicit default URL.
 
 ### Long-running command evidence pattern
 

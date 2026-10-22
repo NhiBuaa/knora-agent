@@ -2705,7 +2705,7 @@ def test_launcher_reservation_diagnostics_when_metadata_malformed(tmp_path: Path
 
     lock_file = shared_temp / "knora-dev-reservation-knora-dev.lock"
     lock_file.write_text(
-        "INVALID_ENTRY_NOT_KEY_VALUE\nPID=not_a_number\nTIMESTAMP=\n",
+        "INVALID_ENTRY_NOT_KEY_VALUE\nPID=999999999999999999999\nTIMESTAMP=::::\n",
         encoding="utf-8",
     )
 
