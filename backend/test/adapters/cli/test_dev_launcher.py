@@ -82,8 +82,35 @@ def test_daily_launcher_rejects_occupied_port_before_starting_services(tmp_path,
             pass
 
 
+@pytest.fixture
+def broken_proxy_environment(monkeypatch, request):
+    broken = getattr(request, "param", False)
+    if broken:
+        for name in (
+            "HTTP_PROXY",
+            "HTTPS_PROXY",
+            "ALL_PROXY",
+            "http_proxy",
+            "https_proxy",
+            "all_proxy",
+        ):
+            monkeypatch.setenv(name, "socks5h://127.0.0.1:1")
+        for name in ("NO_PROXY", "no_proxy"):
+            monkeypatch.setenv(name, "")
+    return broken
+
+
 @pytest.fixture(autouse=True)
-def isolate_generation_environment(monkeypatch):
+def isolate_generation_environment(monkeypatch, tmp_path, broken_proxy_environment):
+    # Reservation files belong to this test, never the developer's daily launcher.
+    runtime_temp = tmp_path / "runtime-temp"
+    runtime_temp.mkdir()
+    monkeypatch.setenv("TEMP", str(runtime_temp))
+    monkeypatch.setenv("TMP", str(runtime_temp))
+    # Launcher doubles use loopback; ambient developer proxies must not affect them.
+    for name in list(os.environ):
+        if name.lower() in {"http_proxy", "https_proxy", "all_proxy", "no_proxy"}:
+            monkeypatch.delenv(name, raising=False)
     for key in (
         "KNORA_EMBEDDING_PROVIDER",
         "KNORA_GENERATION_PROVIDER",
@@ -97,6 +124,7 @@ def isolate_generation_environment(monkeypatch):
         "KNORA_EXPECTED_GENERATION_MODEL_DIGEST",
     ):
         monkeypatch.delenv(key, raising=False)
+    return os.environ.copy()
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
@@ -696,7 +724,10 @@ def _ollama_server(
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
-def test_dev_launcher_preflight_uses_real_profile_and_pdf_safety(tmp_path: Path) -> None:
+@pytest.mark.parametrize("broken_proxy_environment", [False, True], indirect=True)
+def test_dev_launcher_preflight_uses_real_profile_and_pdf_safety(
+    tmp_path: Path, broken_proxy_environment, isolate_generation_environment
+) -> None:
     env_file = tmp_path / ".env"
     env_file.write_text(
         "KEYCLOAK_REDIRECT_URI=http://127.0.0.1:3000/api/auth/callback\n",
@@ -732,6 +763,7 @@ def test_dev_launcher_preflight_uses_real_profile_and_pdf_safety(tmp_path: Path)
             text=True,
             timeout=25,
             check=False,
+            env=isolate_generation_environment,
         )
 
     assert result.returncode == 0, result.stderr
@@ -742,6 +774,11 @@ def test_dev_launcher_preflight_uses_real_profile_and_pdf_safety(tmp_path: Path)
     assert "API_URL=http://127.0.0.1:8765" in result.stdout
     assert "OIDC_REDIRECT_URI=http://127.0.0.1:8766/api/auth/callback" in result.stdout
     assert "OIDC_ISSUER=http://127.0.0.1:8180/realms/knora-dev" in result.stdout
+
+    assert not any(
+        name.lower() in {"http_proxy", "https_proxy", "all_proxy", "no_proxy"}
+        for name in isolate_generation_environment
+    )
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")

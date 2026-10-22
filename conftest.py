@@ -69,6 +69,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     parser.addoption("--ci-selection", type=Path)
 
 
+def pytest_sessionstart(session: pytest.Session) -> None:
+    import knora
+
+    expected = (Path(__file__).resolve().parent / "backend/src/knora/__init__.py").resolve()
+    source = getattr(knora, "__file__", None)
+    if source is None or Path(source).resolve() != expected:
+        raise pytest.UsageError(
+            "KNORA_CHECKOUT_MISMATCH: knora must load from this checkout's backend/src; "
+            "check pytest configuration and preloaded plugins"
+        )
+
+
 def pytest_ignore_collect(collection_path: Path, config: pytest.Config) -> bool | None:
     suite = config.getoption("--ci-suite")
     if suite and collection_path.is_file():
