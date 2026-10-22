@@ -245,28 +245,45 @@ class AnswerQuestion:
             )
         ):
             raise KnoraError("RETRIEVAL_PROVENANCE_INVALID")
-        sdm_started = self._clock()
         sdm_observation: dict[str, object] = {"status": "not_run"}
         if retrieval_configuration.sdm_policy_id is not None:
+            sdm_started = self._clock()
             if candidates:
                 sdm_config = SequentialDependenceConfig(
                     policy_id=retrieval_configuration.sdm_policy_id
                 )
-                total_tokens = sum(c.token_count for c in candidates if c.token_count > 0) or (
-                    len(candidates) * 100
+                policy_id = retrieval_configuration.lexical_policy_id or (
+                    lexical_generations[0].lexical_policy_id if lexical_generations else ""
                 )
-                freqs: dict[str, int] = {}
-                for c in candidates:
-                    for tok in tokenize_lexical_text(c.content):
-                        freqs[tok] = freqs.get(tok, 0) + 1
-                corpus_stats = CorpusStatistics(
-                    total_tokens=max(1, total_tokens),
-                    total_chunks=len(candidates),
-                    unigram_frequencies=freqs,
-                    statistics_digest=(
-                        lexical_generations[0].lexical_policy_id if lexical_generations else None
-                    ),
-                )
+                corpus_stats: CorpusStatistics | None = None
+                if hasattr(self._store, "read_corpus_statistics"):
+                    try:
+                        res = self._store.read_corpus_statistics(command.workspace_id, policy_id)
+                        if isinstance(res, CorpusStatistics):
+                            corpus_stats = res
+                    except Exception:
+                        corpus_stats = None
+
+                if corpus_stats is None:
+                    stats_digest = (
+                        getattr(lexical_generations[0], "statistics_digest", None)
+                        if lexical_generations
+                        else None
+                    ) or (lexical_generations[0].lexical_policy_id if lexical_generations else None)
+                    total_tokens = sum(c.token_count for c in candidates if c.token_count > 0) or (
+                        len(candidates) * 100
+                    )
+                    freqs: dict[str, int] = {}
+                    for c in candidates:
+                        for tok in tokenize_lexical_text(c.content):
+                            freqs[tok] = freqs.get(tok, 0) + 1
+                    corpus_stats = CorpusStatistics(
+                        total_tokens=max(1, total_tokens),
+                        total_chunks=len(candidates),
+                        unigram_frequencies=freqs,
+                        statistics_digest=stats_digest,
+                    )
+
                 scorer = SequentialDependenceScorer(config=sdm_config, corpus_stats=corpus_stats)
                 sdm_results = scorer.score_candidates(retrieval_query, candidates)
                 candidates = tuple(res.candidate for res in sdm_results)
@@ -281,6 +298,7 @@ class AnswerQuestion:
                     "lambda_u": sdm_config.lambda_u,
                     "window_size": sdm_config.window_size,
                     "blend_alpha": sdm_config.blend_alpha,
+                    "statistics_digest": corpus_stats.statistics_digest,
                 }
             else:
                 sdm_observation = {

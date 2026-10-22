@@ -350,6 +350,7 @@ class LexicalGeneration:
     chunk_set_id: str
     index_generation_id: str
     lexical_policy_id: str
+    statistics_digest: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -429,6 +430,12 @@ class AnsweringStore(Protocol):
         embedding_configuration: EmbeddingConfiguration | None,
         retrieval_configuration: RetrievalConfiguration,
     ) -> RetrievalResult: ...
+
+    def read_corpus_statistics(
+        self,
+        workspace_id: str,
+        lexical_policy_id: str,
+    ) -> object | None: ...
 
     def persist_trace(self, trace: QuestionTraceRecord) -> str: ...
 

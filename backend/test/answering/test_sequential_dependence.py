@@ -307,4 +307,4 @@ def test_retrieval_configuration_hybrid_sdm_top8_v3():
     assert config.strategy == "hybrid"
     assert config.sdm_policy_id == "sdm-metzler-croft-2005-v1"
     assert config.fusion_policy_id == "dbsf-v1"
-    assert config.candidate_k == 8
+    assert config.candidate_k == 100
