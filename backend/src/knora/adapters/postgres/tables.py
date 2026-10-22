@@ -666,6 +666,7 @@ class ChunkSetTable(Base):
         String(100), nullable=True, index=True
     )
     status: Mapped[str] = mapped_column(String(30), nullable=False)
+    canonical_structure: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
 
 class ChunkTable(Base):
@@ -692,6 +693,9 @@ class ChunkTable(Base):
     page_end: Mapped[int | None] = mapped_column(Integer, nullable=True)
     start_offset: Mapped[int | None] = mapped_column(Integer, nullable=True)
     end_offset: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    block_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    table_ids: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    search_context: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class EmbeddingConfigurationTable(Base):

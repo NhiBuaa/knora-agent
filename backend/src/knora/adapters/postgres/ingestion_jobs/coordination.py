@@ -73,6 +73,7 @@ from knora.ingestion.job_processing import (
 )
 from knora.ingestion.pdf_structure import (
     CanonicalStructureValidationError,
+    canonical_document_to_dict,
     validate_canonical_document,
 )
 from knora.ingestion.search_indexing import (
@@ -961,6 +962,11 @@ class PostgresIngestionJobCoordinationStore:
                         normalizer_configuration_id=job.normalizer_configuration_id,
                         chunking_configuration_id=chunking.id,
                         status="pending",
+                        canonical_structure=(
+                            canonical_document_to_dict(success.extraction.structure)
+                            if success.extraction.structure is not None
+                            else None
+                        ),
                     )
                     session.add(chunk_set)
                     session.flush()
@@ -973,6 +979,9 @@ class PostgresIngestionJobCoordinationStore:
                                 heading_path=(
                                     list(chunk.heading_path) if chunk.heading_path else []
                                 ),
+                                block_ids=list(chunk.block_ids) if chunk.block_ids else [],
+                                table_ids=list(chunk.table_ids) if chunk.table_ids else [],
+                                search_context=chunk.search_context,
                                 start_line=self._pdf_line_number(
                                     success.extraction.pages, chunk.page_number, chunk.start_offset
                                 ),
@@ -1300,6 +1309,11 @@ class PostgresIngestionJobCoordinationStore:
                         normalizer_configuration_id=job.normalizer_configuration_id,
                         chunking_configuration_id=chunking.id,
                         status="pending",
+                        canonical_structure=(
+                            canonical_document_to_dict(success.extraction.structure)
+                            if success.extraction.structure is not None
+                            else None
+                        ),
                     )
                     session.add(chunk_set)
                     session.flush()
@@ -1312,6 +1326,9 @@ class PostgresIngestionJobCoordinationStore:
                                 heading_path=(
                                     list(chunk.heading_path) if chunk.heading_path else []
                                 ),
+                                block_ids=list(chunk.block_ids) if chunk.block_ids else [],
+                                table_ids=list(chunk.table_ids) if chunk.table_ids else [],
+                                search_context=chunk.search_context,
                                 start_line=self._pdf_line_number(
                                     success.extraction.pages, chunk.page_number, chunk.start_offset
                                 ),

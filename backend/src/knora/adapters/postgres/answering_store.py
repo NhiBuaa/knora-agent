@@ -56,6 +56,13 @@ class PostgresAnsweringStore(AnsweringStore):
         self._lexical_index = lexical_index
         self._lexical_population = lexical_population
 
+    def read_corpus_statistics(self, workspace_id: str, lexical_policy_id: str) -> object:
+        with self._session_factory.begin() as session:
+            authority = PostgresSearchIndexStore(self._session_factory)
+            return authority.read_corpus_statistics_in_transaction(
+                session, workspace_id, lexical_policy_id
+            )
+
     def revalidate_lexical_snapshot(
         self,
         workspace_id: str,

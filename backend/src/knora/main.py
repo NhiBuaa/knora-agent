@@ -39,6 +39,11 @@ from knora.adapters.postgres.workspace_store import PostgresWorkspaceStore
 from knora.adapters.qdrant.native_search_index import NativeQdrantSearchIndex
 from knora.adapters.qdrant.search_index import QdrantSearchIndex
 from knora.answering.module import AnswerQuestion
+from knora.answering.reranking_configuration import (
+    DeploymentRerankingConfigurationResolver,
+    RerankingConfigurationResolver,
+    resolve_reranking_configuration,
+)
 from knora.answering.retrieval_configuration import (
     DeploymentRetrievalConfigurationResolver,
     resolve_retrieval_configuration,
@@ -89,7 +94,9 @@ from knora.ingestion.pdf import PdfTextExtractor
 from knora.ingestion.processing import DocumentProcessor
 from knora.ingestion.search_indexing import DerivationJobHandler, LexicalIndexHandler
 from knora.providers.cloudflare.pdf_understanding import CloudflarePdfUnderstandingProvider
+from knora.providers.cloudflare.reranking import CloudflareRerankingProvider
 from knora.providers.embedding import EmbeddingConfiguration
+from knora.providers.reranking import RerankingProvider
 from knora.tools import (
     CapabilityRegistry,
     ExternalScopeBinding,
@@ -121,6 +128,8 @@ def create_app(
     document_reader: DocumentReader | None = None,
     document_lifecycle: DocumentLifecycleService | None = None,
     answer_question: AnswerQuestion | None = None,
+    reranking_provider: RerankingProvider | None = None,
+    reranking_configuration_resolver: RerankingConfigurationResolver | None = None,
     api_key_authenticator: ApiKeyAuthenticator | None = None,
     keycloak_authenticator: KeycloakAuthenticator | None = None,
     embedding_configuration: EmbeddingConfiguration | None = None,
@@ -164,6 +173,34 @@ def create_app(
     ):
         raise ValueError("lexical runtime requires Qdrant URL and collection")
     providers = build_provider_selection(settings)
+    deployed_reranking_configuration = None
+    reranking_policy_id = settings.reranking_configuration_id or (
+        deployed_retrieval_configuration.reranking_policy_id
+        if deployed_retrieval_configuration is not None
+        else None
+    )
+    if reranking_policy_id is not None:
+        deployed_reranking_configuration = resolve_reranking_configuration(reranking_policy_id)
+
+    selected_reranking_resolver = reranking_configuration_resolver
+    if selected_reranking_resolver is None and deployed_reranking_configuration is not None:
+        selected_reranking_resolver = DeploymentRerankingConfigurationResolver(
+            deployed_reranking_configuration
+        )
+
+    selected_reranking_provider = reranking_provider
+    if (
+        selected_reranking_provider is None
+        and settings.cloudflare_account_id
+        and settings.cloudflare_api_token
+    ):
+        selected_reranking_provider = CloudflareRerankingProvider(
+            account_id=settings.cloudflare_account_id,
+            api_token=settings.cloudflare_api_token.get_secret_value(),
+            model=settings.cloudflare_reranker_model,
+            timeout_seconds=settings.cloudflare_timeout_seconds,
+        )
+
     lexical_client = None
     lexical_index = None
     if lexical_population is not None:
@@ -187,6 +224,10 @@ def create_app(
         finally:
             if lexical_client is not None:
                 lexical_client.close()
+            if selected_reranking_provider is not None:
+                close_reranking = getattr(selected_reranking_provider, "close", None)
+                if close_reranking is not None:
+                    close_reranking()
             close_embedding = getattr(providers.embedding_provider, "close", None)
             if close_embedding is not None:
                 close_embedding()
@@ -230,6 +271,8 @@ def create_app(
         retrieval_configuration_resolver=DeploymentRetrievalConfigurationResolver(
             deployed_retrieval_configuration
         ),
+        reranking_provider=selected_reranking_provider,
+        reranking_configuration_resolver=selected_reranking_resolver,
         admission_store=workspace_admissions,
     )
     application.state.ingest_document = ingest_document or IngestDocument(

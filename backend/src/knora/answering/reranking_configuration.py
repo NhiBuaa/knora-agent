@@ -127,8 +127,10 @@ def resolve_reranking_configuration(
     """Resolve the immutable deployment reranking configuration by ID."""
     if not configuration_id:
         return None
+    cf_config = RerankingConfiguration.cloudflare_bge_reranker_v1()
     configurations = {
-        "reranking-cloudflare-bge-base-v1": RerankingConfiguration.cloudflare_bge_reranker_v1(),
+        "reranking-cloudflare-bge-base-v1": cf_config,
+        "cross-encoder-bge-reranker-base-v1": cf_config,
         "reranking-deterministic-v1": RerankingConfiguration.deterministic_v1(),
     }
     try:

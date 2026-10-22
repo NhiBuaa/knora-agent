@@ -32,7 +32,7 @@ class DoclingExtractionConfiguration(PdfExtractionConfiguration):
     enable_local_models: bool = False
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        PdfExtractionConfiguration.__post_init__(self)
         if self.enable_local_models:
             raise ValueError(
                 "local models and weights downloads are strictly prohibited under Q3/G3"
@@ -79,37 +79,127 @@ class DoclingTextExtractor:
         stream: BinaryIO,
         configuration: DoclingExtractionConfiguration,
     ) -> PdfExtractionResult:
-        raw_bytes = stream.read()
+        raw_bytes = stream.read(configuration.max_raw_bytes + 1)
         if len(raw_bytes) > configuration.max_raw_bytes:
             raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="RAW_FILE_SIZE")
 
         raw_source_hash = hashlib.sha256(raw_bytes).hexdigest()
 
-        if self._cf_provider is None:
-            raise PdfExtractionError(
-                "PDF_EXTRACTOR_UNAVAILABLE",
-                reason="CLOUDFLARE_PROVIDER_UNCONFIGURED",
-                retryable=True,
-            )
+        # Try physical page-aware parsing using pypdf
+        canonical_pages: list[CanonicalPage] = []
+        is_pdf_stream = False
+        try:
+            from io import BytesIO
 
-        conversion = self._cf_provider.convert_to_markdown(raw_bytes)
-        markdown_text = conversion.content.strip()
+            from pypdf import PdfReader
 
-        if len(markdown_text) < configuration.minimum_extracted_characters:
+            reader = PdfReader(BytesIO(raw_bytes), strict=False)
+            if reader.is_encrypted:
+                raise PdfExtractionError("PDF_ENCRYPTED", reason="ENCRYPTED")
+            num_pages = len(reader.pages)
+            if num_pages > configuration.max_pages:
+                raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="PAGE_COUNT")
+            is_pdf_stream = True
+
+            for page_idx, page in enumerate(reader.pages, start=1):
+                native_text = (page.extract_text() or "").strip()
+                if len(native_text) >= configuration.minimum_extracted_characters:
+                    blocks = self._parse_page_blocks(
+                        page_idx, native_text, SourceOrigin.NATIVE_TEXT
+                    )
+                    canonical_pages.append(
+                        CanonicalPage(
+                            page_number=page_idx,
+                            text=native_text,
+                            content_checksum=hashlib.sha256(native_text.encode()).hexdigest(),
+                            blocks=tuple(blocks),
+                            completeness=PageCompleteness(is_complete=True, status="COMPLETE"),
+                        )
+                    )
+                else:
+                    ocr_applied = False
+                    if self._cf_provider is not None:
+                        try:
+                            if hasattr(page, "images") and len(page.images) > 0:
+                                img_data = page.images[0].data
+                                ocr_resp = self._cf_provider.ocr_page_image(img_data)
+                                ocr_text = ocr_resp.text.strip()
+                                if ocr_text:
+                                    blocks = self._parse_page_blocks(
+                                        page_idx,
+                                        ocr_text,
+                                        SourceOrigin.OCR,
+                                        confidence=ocr_resp.confidence,
+                                    )
+                                    canonical_pages.append(
+                                        CanonicalPage(
+                                            page_number=page_idx,
+                                            text=ocr_text,
+                                            content_checksum=hashlib.sha256(
+                                                ocr_text.encode()
+                                            ).hexdigest(),
+                                            blocks=tuple(blocks),
+                                            completeness=PageCompleteness(
+                                                is_complete=True, status="COMPLETE"
+                                            ),
+                                        )
+                                    )
+                                    ocr_applied = True
+                        except Exception:
+                            ocr_applied = False
+
+                    if not ocr_applied:
+                        canonical_pages.append(
+                            CanonicalPage(
+                                page_number=page_idx,
+                                text="",
+                                content_checksum=hashlib.sha256(b"").hexdigest(),
+                                blocks=(),
+                                completeness=PageCompleteness(is_complete=False, status="EMPTY"),
+                            )
+                        )
+        except PdfExtractionError:
+            raise
+        except Exception:
+            is_pdf_stream = False
+
+        if not is_pdf_stream or not canonical_pages:
+            if self._cf_provider is None:
+                raise PdfExtractionError(
+                    "PDF_EXTRACTOR_UNAVAILABLE",
+                    reason="CLOUDFLARE_PROVIDER_UNCONFIGURED",
+                    retryable=True,
+                )
+
+            conversion = self._cf_provider.convert_to_markdown(raw_bytes)
+            markdown_text = conversion.content.strip()
+
+            if len(markdown_text) < configuration.minimum_extracted_characters:
+                raise PdfExtractionError(
+                    "PDF_TEXT_INSUFFICIENT",
+                    reason="INSUFFICIENT_EXTRACTABLE_TEXT",
+                )
+
+            canonical_pages = list(self._parse_markdown_into_pages(markdown_text, configuration))
+
+        total_extracted_chars = sum(len(p.text) for p in canonical_pages)
+        if total_extracted_chars < configuration.minimum_extracted_characters:
             raise PdfExtractionError(
                 "PDF_TEXT_INSUFFICIENT",
                 reason="INSUFFICIENT_EXTRACTABLE_TEXT",
             )
 
-        # Parse markdown into structured canonical blocks
-        canonical_pages = self._parse_markdown_into_pages(markdown_text, configuration)
         canonical_doc = CanonicalDocument(
             raw_source_hash=raw_source_hash,
             derivation_identity=configuration.derivation_identity,
             parser_version=configuration.parser_version,
-            pages=canonical_pages,
-            is_complete=True,
-            completeness_status="COMPLETE",
+            pages=tuple(canonical_pages),
+            is_complete=all(p.completeness.is_complete for p in canonical_pages),
+            completeness_status=(
+                "COMPLETE"
+                if all(p.completeness.is_complete for p in canonical_pages)
+                else "INCOMPLETE"
+            ),
         )
         validate_canonical_document(canonical_doc)
 
@@ -136,6 +226,58 @@ class DoclingTextExtractor:
             structure=canonical_doc,
         )
 
+    def _parse_page_blocks(
+        self,
+        page_number: int,
+        page_text: str,
+        source_origin: SourceOrigin,
+        confidence: float | None = None,
+    ) -> list[CanonicalBlock]:
+        raw_sections = [s.strip() for s in re.split(r"\n{2,}", page_text) if s.strip()]
+        if not raw_sections:
+            return []
+
+        blocks: list[CanonicalBlock] = []
+        heading_stack: list[str] = []
+        current_offset = 0
+
+        for idx, section in enumerate(raw_sections, start=1):
+            start = current_offset
+            end = start + len(section)
+            block_type = BlockType.PARAGRAPH
+            heading_level = None
+
+            heading_match = re.match(r"^(#{1,6})\s+(.*)$", section)
+            if heading_match:
+                block_type = BlockType.HEADING
+                level = len(heading_match.group(1))
+                heading_level = level
+                title = heading_match.group(2).strip()
+                heading_stack = heading_stack[: level - 1] + [title]
+                clean_text = section
+            elif section.startswith("|") and section.endswith("|"):
+                block_type = BlockType.TABLE
+                clean_text = section
+            else:
+                clean_text = section
+
+            blocks.append(
+                CanonicalBlock(
+                    block_id=f"p{page_number}_b{idx}",
+                    page_number=page_number,
+                    block_type=block_type,
+                    start_offset=start,
+                    end_offset=end,
+                    text=clean_text,
+                    heading_level=heading_level,
+                    heading_path=tuple(heading_stack),
+                    source_origin=source_origin,
+                    confidence=confidence,
+                )
+            )
+            current_offset = end + 2  # account for "\n\n"
+        return blocks
+
     def _process_single_page(
         self,
         page_number: int,
@@ -151,39 +293,24 @@ class DoclingTextExtractor:
         ):
             ocr_resp = self._cf_provider.ocr_page_image(page_image_bytes)
             page_text = ocr_resp.text.strip()
-            block = CanonicalBlock(
-                block_id=f"p{page_number}_b1",
-                page_number=page_number,
-                block_type=BlockType.PARAGRAPH,
-                start_offset=0,
-                end_offset=len(page_text),
-                text=page_text,
-                source_origin=SourceOrigin.OCR,
-                confidence=ocr_resp.confidence,
+            blocks = self._parse_page_blocks(
+                page_number, page_text, SourceOrigin.OCR, confidence=ocr_resp.confidence
             )
             return CanonicalPage(
                 page_number=page_number,
                 text=page_text,
                 content_checksum=hashlib.sha256(page_text.encode()).hexdigest(),
-                blocks=(block,),
+                blocks=tuple(blocks),
                 completeness=PageCompleteness(is_complete=True, status="COMPLETE"),
             )
 
         page_text = native_text.strip()
-        block = CanonicalBlock(
-            block_id=f"p{page_number}_b1",
-            page_number=page_number,
-            block_type=BlockType.PARAGRAPH,
-            start_offset=0,
-            end_offset=len(page_text),
-            text=page_text,
-            source_origin=SourceOrigin.NATIVE_TEXT,
-        )
+        blocks = self._parse_page_blocks(page_number, page_text, SourceOrigin.NATIVE_TEXT)
         return CanonicalPage(
             page_number=page_number,
             text=page_text,
             content_checksum=hashlib.sha256(page_text.encode()).hexdigest(),
-            blocks=(block,),
+            blocks=tuple(blocks),
             completeness=PageCompleteness(is_complete=True, status="COMPLETE"),
         )
 
@@ -192,56 +319,38 @@ class DoclingTextExtractor:
         markdown_text: str,
         config: DoclingExtractionConfiguration,
     ) -> tuple[CanonicalPage, ...]:
-        # Split into blocks based on blank lines
-        raw_sections = [s.strip() for s in re.split(r"\n{2,}", markdown_text) if s.strip()]
-        page_text = "\n\n".join(raw_sections)
+        if "\x0c" in markdown_text:
+            raw_pages = markdown_text.split("\x0c")
+        elif "\n<!-- pagebreak -->\n" in markdown_text:
+            raw_pages = markdown_text.split("\n<!-- pagebreak -->\n")
+        else:
+            raw_pages = [markdown_text]
 
-        blocks: list[CanonicalBlock] = []
-        heading_stack: list[str] = []
-        current_offset = 0
-
-        for idx, section in enumerate(raw_sections, start=1):
-            start = current_offset
-            end = start + len(section)
-            block_type = BlockType.PARAGRAPH
-            heading_level = None
-
-            # Detect headings
-            heading_match = re.match(r"^(#{1,6})\s+(.*)$", section)
-            if heading_match:
-                block_type = BlockType.HEADING
-                level = len(heading_match.group(1))
-                heading_level = level
-                title = heading_match.group(2).strip()
-                # Maintain heading stack for hierarchy
-                heading_stack = heading_stack[: level - 1] + [title]
-                clean_text = section
-            elif section.startswith("|") and section.endswith("|"):
-                block_type = BlockType.TABLE
-                clean_text = section
-            else:
-                clean_text = section
-
-            blocks.append(
-                CanonicalBlock(
-                    block_id=f"p1_b{idx}",
-                    page_number=1,
-                    block_type=block_type,
-                    start_offset=start,
-                    end_offset=end,
-                    text=clean_text,
-                    heading_level=heading_level,
-                    heading_path=tuple(heading_stack),
-                    source_origin=SourceOrigin.NATIVE_TEXT,
+        pages: list[CanonicalPage] = []
+        for page_idx, page_content in enumerate(raw_pages, start=1):
+            p_text = page_content.strip()
+            if not p_text:
+                continue
+            blocks = self._parse_page_blocks(page_idx, p_text, SourceOrigin.NATIVE_TEXT)
+            pages.append(
+                CanonicalPage(
+                    page_number=page_idx,
+                    text=p_text,
+                    content_checksum=hashlib.sha256(p_text.encode()).hexdigest(),
+                    blocks=tuple(blocks),
+                    completeness=PageCompleteness(is_complete=True, status="COMPLETE"),
                 )
             )
-            current_offset = end + 2  # account for "\n\n"
-
-        page = CanonicalPage(
-            page_number=1,
-            text=page_text,
-            content_checksum=hashlib.sha256(page_text.encode()).hexdigest(),
-            blocks=tuple(blocks),
-            completeness=PageCompleteness(is_complete=True, status="COMPLETE"),
+        return (
+            tuple(pages)
+            if pages
+            else (
+                CanonicalPage(
+                    page_number=1,
+                    text="",
+                    content_checksum=hashlib.sha256(b"").hexdigest(),
+                    blocks=(),
+                    completeness=PageCompleteness(is_complete=False, status="EMPTY"),
+                ),
+            )
         )
-        return (page,)

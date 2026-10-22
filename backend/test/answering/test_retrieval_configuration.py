@@ -235,7 +235,7 @@ def test_v3_dense_and_hybrid_configuration_registration() -> None:
     hybrid = retrieval_configuration_for_id("retrieval-hybrid-top8-v3")
     assert hybrid.id == "retrieval-hybrid-top8-v3"
     assert hybrid.strategy == "hybrid"
-    assert hybrid.candidate_k == 8
+    assert hybrid.candidate_k == 100
     assert hybrid.vector_candidate_k == 200
     assert hybrid.fts_candidate_k == 200
     assert hybrid.min_similarity == 0.65

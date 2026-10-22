@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import math
 from unittest.mock import Mock
 
 from knora.answering import stores
 from knora.answering.interface import QuestionCommand
 from knora.answering.module import AnswerQuestion
+from knora.answering.sequential_dependence import CorpusStatistics
 from knora.domain.access import WorkspacePrincipal
 from knora.providers.embedding import EmbeddingBatch, EmbeddingConfiguration
 from knora.providers.generation import GenerationResult
@@ -56,6 +58,7 @@ def _make_retrieval_result(
         chunk_set_id="cset-1",
         index_generation_id="gen-1",
         lexical_policy_id="bm25-word-frozen47-population-v1",
+        statistics_digest="a" * 64,
     )
     obs = tuple(
         stores.BranchObservation(
@@ -285,3 +288,102 @@ def test_sdm_pipeline_preserves_all_chunk_locators():
     assert dec["chunk_id"] == "chunk-1"
     assert "sdm_contribution" in dec
     assert dec["sdm_contribution"]["sdm_rank"] == 1
+
+
+def test_sdm_distractor_invariance_and_statistics_digest_trace():
+    """Verify SDM scores for target candidates are invariant to distractor pool changes,
+    and actual statistics_digest is bound into trace."""
+    c_target = _make_candidate(2, "exact query phrase sequential dependence", fusion_score=0.70)
+    c_distractor1 = _make_candidate(1, "completely unrelated sports text", fusion_score=0.90)
+    c_distractor2 = _make_candidate(3, "another unrelated financial report", fusion_score=0.85)
+
+    # 1. Pipeline execution with only target candidate
+    retrieval_single = _make_retrieval_result((c_target,))
+    store_single = Mock()
+    store_single.retrieve_candidates.return_value = retrieval_single
+    store_single.require_lexical_corpus.return_value = None
+    store_single.persist_trace.return_value = "trace-single"
+    corpus_stats = CorpusStatistics(
+        total_tokens=1000,
+        total_chunks=10,
+        unigram_frequencies={"exact": 5, "query": 5, "phrase": 5, "sequential": 5, "dependence": 5},
+        statistics_digest="e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    )
+    store_single.read_corpus_statistics.return_value = corpus_stats
+
+    generator = Mock()
+    generator.generate = Mock(
+        side_effect=lambda **kwargs: asyncio.sleep(
+            0,
+            result=GenerationResult(
+                decision="ANSWER",
+                answer="Answer [[E1]].",
+                cited_evidence_ids=("E1",),
+                refusal_reason=None,
+                provider="cf",
+                model="llama",
+                finish_reason="stop",
+                usage={},
+            ),
+        )
+    )
+    embedding_config = EmbeddingConfiguration(
+        id="bge-test",
+        dimensions=768,
+        distance_metric="cosine",
+        provider="cloudflare",
+        model="@cf/baai/bge-base-en-v1.5",
+    )
+    embedding_provider = Mock()
+    embedding_provider.embed_queries.return_value = EmbeddingBatch(
+        provider="cloudflare",
+        model="@cf/baai/bge-base-en-v1.5",
+        vectors=((0.1,) * 768,),
+    )
+    config = stores.RetrievalConfiguration.hybrid_sdm_top8_v3()
+
+    aq_single = AnswerQuestion(
+        store=store_single,
+        generation_provider=generator,
+        embedding_provider=embedding_provider,
+        embedding_configuration=embedding_config,
+        retrieval_configuration=config,
+    )
+    command = QuestionCommand(workspace_id="ws-1", question="sequential dependence")
+    principal = WorkspacePrincipal(workspace_id="ws-1", key_id="key-1")
+
+    asyncio.run(aq_single.execute(command, principal))
+    trace_single = store_single.persist_trace.call_args[0][0]
+    sdm_single_score = trace_single.candidate_decisions[0]["sdm_contribution"]["sdm_score"]
+
+    # Verify trace records the authoritative statistics_digest
+    assert (
+        trace_single.provider_metadata["retrieval"]["sdm"]["statistics_digest"]
+        == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    )
+
+    # 2. Pipeline execution with target candidate + distractors in candidate pool
+    retrieval_multi = _make_retrieval_result((c_distractor1, c_distractor2, c_target))
+    store_multi = Mock()
+    store_multi.retrieve_candidates.return_value = retrieval_multi
+    store_multi.require_lexical_corpus.return_value = None
+    store_multi.persist_trace.return_value = "trace-multi"
+    store_multi.read_corpus_statistics.return_value = corpus_stats
+
+    aq_multi = AnswerQuestion(
+        store=store_multi,
+        generation_provider=generator,
+        embedding_provider=embedding_provider,
+        embedding_configuration=embedding_config,
+        retrieval_configuration=config,
+    )
+    asyncio.run(aq_multi.execute(command, principal))
+    trace_multi = store_multi.persist_trace.call_args[0][0]
+
+    # Find target candidate decision in multi-candidate trace
+    target_dec = next(d for d in trace_multi.candidate_decisions if d["chunk_id"] == "chunk-2")
+    sdm_multi_score = target_dec["sdm_contribution"]["sdm_score"]
+
+    # Background probabilities are pinned to corpus snapshot, not candidate pool:
+    # Target candidate SDM score is IDENTICAL regardless of distractors in pool!
+    assert math.isclose(sdm_single_score, sdm_multi_score, rel_tol=1e-9)
