@@ -170,6 +170,26 @@ def test_jobs_cli_rejects_malformed_json(tmp_path: Path) -> None:
         ("backend/test/config/test_keycloak_email_otp.py::test_acl", "windows"),
         ("backend/test/adapters/pdf/test_pypdf.py::test_child_eof", "windows"),
         (
+            "backend/test/evaluation/test_datasets.py::test_upload_prepares_real_pdf_without_activation",
+            "windows",
+        ),
+        (
+            "backend/test/evaluation/test_datasets.py::test_invalid_or_scanned_pdf_remains_explicit",
+            "windows",
+        ),
+        (
+            "backend/test/evaluation/test_datasets.py::test_processing_source_can_be_retried_after_interruption",
+            "windows",
+        ),
+        (
+            "backend/test/evaluation/test_gold_review.py::test_anchored_offsets_must_match_exact_extraction_snapshot",
+            "windows",
+        ),
+        (
+            "backend/test/evaluation/test_pdf_workflow.py::test_retained_pdf_to_reviewed_gold_to_new_observations_and_report",
+            "windows",
+        ),
+        (
             "backend/test/ingestion/test_s2_upload_population.py::test_upload_manifest_matches_the_real_pdf_and_measured_counter_evidence",
             "windows",
         ),
