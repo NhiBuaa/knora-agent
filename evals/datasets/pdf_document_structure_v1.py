@@ -288,9 +288,12 @@ def load_document_structure_dataset(
 
     expected_data_sha = manifest_raw.get("dataset_sha256")
     if data_sha != expected_data_sha:
-        raise StructureDatasetContractError(
-            f"Dataset checksum mismatch: expected {expected_data_sha}, got {data_sha}"
-        )
+        # Check normalized LF line endings for Windows checkout portability (F20)
+        normalized_sha = hashlib.sha256(data_bytes.replace(b"\r\n", b"\n")).hexdigest()
+        if normalized_sha != expected_data_sha:
+            raise StructureDatasetContractError(
+                f"Dataset checksum mismatch: expected {expected_data_sha}, got {data_sha}"
+            )
 
     # Verify source PDF files closure
     evals_root = manifest_file.parents[1]
