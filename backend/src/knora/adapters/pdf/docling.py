@@ -32,7 +32,7 @@ class DoclingExtractionConfiguration(PdfExtractionConfiguration):
     enable_local_models: bool = False
 
     def __post_init__(self) -> None:
-        super().__post_init__()
+        PdfExtractionConfiguration.__post_init__(self)
         if self.enable_local_models:
             raise ValueError(
                 "local models and weights downloads are strictly prohibited under Q3/G3"
