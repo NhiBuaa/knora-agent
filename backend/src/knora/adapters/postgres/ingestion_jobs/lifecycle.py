@@ -10,6 +10,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.dialects.postgresql import insert as postgres_insert
 from sqlalchemy.orm import Session, sessionmaker
 
+from knora.adapters.postgres.evaluation_datasets_tables import DatasetSourceTable
 from knora.adapters.postgres.tables import (
     ChunkSetTable,
     ChunkTable,
@@ -820,6 +821,19 @@ class PostgresObjectLifecycleStore:
             raise CoordinationInvariantError("Original Source Object has invalid ownership")
         if document.current_document_version_id == document_version.id:
             raise PermissionError("current Document Version ownership suppresses hard deletion")
+
+        if (
+            session.scalar(
+                select(DatasetSourceTable.id)
+                .where(
+                    DatasetSourceTable.workspace_id == source.workspace_id,
+                    DatasetSourceTable.original_source_object_id == source.id,
+                )
+                .limit(1)
+            )
+            is not None
+        ):
+            raise PermissionError("evaluation dataset source retains its original PDF")
 
         active_embedding_set_id = session.scalar(
             select(EmbeddingSetTable.id)

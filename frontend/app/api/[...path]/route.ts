@@ -3,6 +3,22 @@ import { getSession } from "@/lib/auth/session";
 
 type Context = { params: Promise<{ path: string[] }> };
 async function forward(request: Request, context: Context) {
+  const { path } = await context.params;
+  const targetPath = `/${path.join("/")}`;
+  let normalizedPath: string;
+  try {
+    normalizedPath = decodeURIComponent(
+      new URL(targetPath, "http://internal.invalid").pathname,
+    );
+  } catch {
+    return NextResponse.json({ detail: "INVALID_PATH" }, { status: 400 });
+  }
+  // Workbench mutations must pass the dedicated origin/capability/body checks.
+  if (/^\/v1\/workspaces\/[^/]+\/evaluation(?:\/|$)/.test(normalizedPath))
+    return NextResponse.json(
+      { detail: "NOT_FOUND" },
+      { status: 404, headers: { "cache-control": "no-store" } },
+    );
   let session;
   try {
     session = await getSession(true);
@@ -17,8 +33,6 @@ async function forward(request: Request, context: Context) {
       { detail: "Authentication required" },
       { status: 401 },
     );
-  const { path } = await context.params;
-  const targetPath = `/${path.join("/")}`;
   const base = process.env.KNORA_API_URL ?? "http://localhost:8000";
   const headers = new Headers(request.headers);
   headers.set("authorization", `Bearer ${session.accessToken}`);
