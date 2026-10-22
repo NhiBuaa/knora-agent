@@ -125,7 +125,8 @@ def test_docling_extractor_native_conversion_with_cf_provider() -> None:
 
     assert len(result.pages) >= 1
     assert result.structure is not None
-    assert result.structure.is_complete is True
+    assert result.structure.is_complete is False
+    assert result.structure.completeness_status == "INCOMPLETE"
     assert len(result.structure.pages[0].blocks) >= 2
     # Check that headings and paragraphs are recognized
     heading_blocks = [
@@ -277,3 +278,71 @@ def test_docling_resource_limits_max_pages() -> None:
         extractor.extract(BytesIO(pdf_bytes), config)
     assert exc_info.value.code == "PDF_RESOURCE_LIMIT_EXCEEDED"
     assert exc_info.value.reason == "PAGE_COUNT"
+
+
+def test_three_newline_and_multiline_block_offsets() -> None:
+    import hashlib
+
+    from knora.ingestion.pdf_structure import (
+        CanonicalDocument,
+        CanonicalPage,
+        validate_canonical_document,
+    )
+
+    extractor = DoclingTextExtractor()
+    text = "First paragraph.\n\n\nSecond paragraph.\r\n\r\nThird paragraph."
+    blocks = extractor._parse_page_blocks(1, text, SourceOrigin.NATIVE_TEXT)
+    page = CanonicalPage(
+        page_number=1,
+        text=text,
+        content_checksum=hashlib.sha256(text.encode()).hexdigest(),
+        blocks=tuple(blocks),
+    )
+    doc = CanonicalDocument(
+        raw_source_hash="a" * 64,
+        derivation_identity="test-identity",
+        parser_version="test-parser",
+        pages=(page,),
+    )
+    # validate_canonical_document checks that page.text[b.start_offset : b.end_offset] == b.text
+    validate_canonical_document(doc)
+    assert len(blocks) == 3
+    assert blocks[0].text == "First paragraph."
+    assert blocks[1].text == "Second paragraph."
+    assert blocks[2].text == "Third paragraph."
+    for b in blocks:
+        assert text[b.start_offset : b.end_offset] == b.text
+
+
+def test_unparseable_pdf_conversion_is_incomplete() -> None:
+    from knora.providers.cloudflare.pdf_understanding import CloudflareToMarkdownResponse
+
+    class MockConversionProvider:
+        def convert_to_markdown(self, raw: bytes) -> CloudflareToMarkdownResponse:
+            return CloudflareToMarkdownResponse(
+                content="Page one source\n\nPage two source",
+                format="markdown",
+            )
+
+    extractor = DoclingTextExtractor(cf_provider=MockConversionProvider())  # type: ignore[arg-type]
+    config = DoclingExtractionConfiguration.cloudflare_native_v1()
+    result = extractor.extract(BytesIO(b"%PDF-invalid"), config)
+
+    assert result.structure is not None
+    assert result.structure.is_complete is False
+    assert result.structure.completeness_status == "INCOMPLETE"
+    assert all(p.completeness.is_complete is False for p in result.structure.pages)
+
+
+def test_stream_caps_1byte_rejected() -> None:
+    from dataclasses import replace
+
+    extractor = DoclingTextExtractor()
+    config = DoclingExtractionConfiguration.cloudflare_native_v1()
+    capped_config = replace(config, max_page_stream_bytes=1, max_total_stream_bytes=1)
+
+    pdf_bytes = _create_test_pdf("Content stream far greater than one byte.")
+    with pytest.raises(PdfExtractionError) as exc_info:
+        extractor.extract(BytesIO(pdf_bytes), capped_config)
+    assert exc_info.value.code == "PDF_RESOURCE_LIMIT_EXCEEDED"
+    assert exc_info.value.reason in ("PAGE_STREAM_SIZE", "TOTAL_STREAM_SIZE")
