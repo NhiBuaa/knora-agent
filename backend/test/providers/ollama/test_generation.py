@@ -60,7 +60,7 @@ async def test_gpt_oss_receives_schema_in_prompt_as_well_as_native_format() -> N
 async def test_gpt_oss_uses_named_reasoning_and_keeps_only_final_structured_content(
     monkeypatch,
 ) -> None:
-    from knora.providers.ollama import generation as module
+    from knora.providers.prompts import policy as module
 
     monkeypatch.setattr(module, "OLLAMA_PROMPT_VERSION", "ollama-test-base-v9")
     bodies: list[dict] = []

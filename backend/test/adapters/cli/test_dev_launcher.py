@@ -1125,6 +1125,8 @@ def launcher_runtime(tmp_path: Path):
         "'@\n"
         "[CtrlReset]::SetConsoleCtrlHandler([IntPtr]::Zero, $false) | Out-Null\n"
         "function docker { $global:LASTEXITCODE = 0; if ($args -contains 'exec') { '1' } }\n"
+        "Add-Type -Path $env:FIXTURE_NATIVE\n"
+        "Write-Output 'FIXTURE_NATIVE_READY'\n"
         "& $env:FIXTURE_LAUNCHER -NoBrowser -EnvFile $env:FIXTURE_ENV "
         "-PythonExe $env:FIXTURE_PYTHON -EmbeddingProvider deterministic-local "
         "-GenerationProvider deterministic-local -ApiPort $env:FIXTURE_API_PORT "
@@ -1220,6 +1222,7 @@ def test_launcher_cleans_owned_descendants(launcher_runtime, shell: str, scenari
         TEMP=str(root),
         TMP=str(root),
         FIXTURE_LAUNCHER=str(root / "scripts/start-dev.ps1"),
+        FIXTURE_NATIVE=str(root / "scripts/dev-process-job.cs"),
         FIXTURE_ENV=str(root / "empty.env"),
         FIXTURE_PYTHON=sys.executable,
         SESSION_SECRET="synthetic-session-secret-000000000000",
@@ -1266,6 +1269,9 @@ def test_launcher_cleans_owned_descendants(launcher_runtime, shell: str, scenari
                         known.update(o.children(recursive=True))
                 return log_path.read_text(errors="replace")
 
+            # Match native-job tests' compile bound;
+            # runtime readiness and cleanup keep their bounds.
+            _wait_until(lambda p=launcher: "FIXTURE_NATIVE_READY" in observe(p), timeout=40)
             is_early_failure = scenario in (
                 "startup-failure",
                 "api-log-open-failure",
@@ -1308,10 +1314,21 @@ def test_launcher_cleans_owned_descendants(launcher_runtime, shell: str, scenari
                 if scenario in startup_log_failures:
                     assert "OPEN_STANDARD_STREAM" in combined_check
             elif scenario == "cleanup-failure":
-                _wait_until(
-                    lambda p=launcher: "DEV_READY" in observe(p),
-                    timeout=20,
-                )
+                try:
+                    _wait_until(
+                        lambda p=launcher: "DEV_READY" in observe(p),
+                        timeout=20,
+                    )
+                except pytest.fail.Exception:
+                    service_logs = "\n".join(
+                        f"{path.name}:\n{path.read_text(errors='replace')[-4000:]}"
+                        for path in sorted((root / "knora-dev-runtime").glob("*.log"))
+                    )
+                    pytest.fail(
+                        f"Launcher readiness timeout; exit={launcher.poll()}\n"
+                        f"{observe(launcher)}\n{service_logs}",
+                        pytrace=False,
+                    )
                 if launcher.poll() is None:
                     _console_ctrl_c(launcher.pid)
                 _wait_until(lambda p=launcher: observe(p) and p.poll() is not None)
@@ -1339,10 +1356,21 @@ def test_launcher_cleans_owned_descendants(launcher_runtime, shell: str, scenari
                 assert res_check.returncode == 2, combined_check
                 assert "DEV_PROJECT_RESERVED:knora-dev" in combined_check
             else:
-                _wait_until(
-                    lambda p=launcher: "DEV_READY" in observe(p),
-                    timeout=20,
-                )
+                try:
+                    _wait_until(
+                        lambda p=launcher: "DEV_READY" in observe(p),
+                        timeout=20,
+                    )
+                except pytest.fail.Exception:
+                    service_logs = "\n".join(
+                        f"{path.name}:\n{path.read_text(errors='replace')[-4000:]}"
+                        for path in sorted((root / "knora-dev-runtime").glob("*.log"))
+                    )
+                    pytest.fail(
+                        f"Launcher readiness timeout; exit={launcher.poll()}\n"
+                        f"{observe(launcher)}\n{service_logs}",
+                        pytrace=False,
+                    )
                 if scenario == "exited-root":
                     frontend_pid = int(re.search(r"FRONTEND_PID=(\d+)", observe(launcher))[1])
                     frontend_root = next(

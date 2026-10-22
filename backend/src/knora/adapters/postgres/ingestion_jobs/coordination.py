@@ -119,8 +119,10 @@ class PostgresIngestionJobCoordinationStore:
         database_now: Callable[[Session], datetime],
         lifecycle_store: PostgresObjectLifecycleStore,
         enqueue_terminal_cleanup: Callable[..., None] | None = None,
+        corpus_activation_guard: Callable[[Session, ClaimedAttempt, bool], None] | None = None,
     ) -> None:
         self._session_factory = session_factory
+        self._corpus_activation_guard = corpus_activation_guard
         self._database_now = database_now
         self._lifecycle_store = lifecycle_store
         self._search_index_store = PostgresSearchIndexStore(session_factory)
@@ -223,6 +225,7 @@ class PostgresIngestionJobCoordinationStore:
                     IngestionJobAttemptTable.ingestion_job_id == IngestionJobTable.id,
                 )
                 .where(
+                    IngestionJobTable.operation != "corpus_prepare",
                     IngestionJobTable.status == "processing",
                     IngestionJobTable.lease_expires_at.is_not(None),
                     IngestionJobTable.lease_expires_at <= database_now,
@@ -248,6 +251,16 @@ class PostgresIngestionJobCoordinationStore:
                 lease_expires_at=job.lease_expires_at,
             )
 
+    def _reject_corpus_job(self, job_id: str) -> None:
+        """Keep ordinary worker transitions fail-closed for corpus preparation jobs."""
+
+        with self._session_factory() as session:
+            operation = session.scalar(
+                select(IngestionJobTable.operation).where(IngestionJobTable.id == job_id)
+            )
+        if operation == "corpus_prepare":
+            raise CoordinationInvariantError("corpus preparation authority required")
+
     def apply_expired_recovery(
         self,
         *,
@@ -256,6 +269,7 @@ class PostgresIngestionJobCoordinationStore:
         failure: CanonicalFailureV1,
         decision: ScheduleRetry | RetryExhausted,
     ) -> RecoveryResult:
+        self._reject_corpus_job(observation.job_id)
         self._validate_expired_recovery_input(
             observation=observation,
             failure=failure,
@@ -323,6 +337,8 @@ class PostgresIngestionJobCoordinationStore:
             )
             if job is None:
                 return StaleObservation()
+            if job.operation == "corpus_prepare":
+                raise CoordinationInvariantError("corpus preparation authority required")
             attempt = session.scalar(
                 select(IngestionJobAttemptTable)
                 .where(
@@ -454,6 +470,8 @@ class PostgresIngestionJobCoordinationStore:
                 )
                 if job is None:
                     raise CoordinationInvariantError("claim operation refers to a missing job")
+                if job.operation == "corpus_prepare":
+                    raise CoordinationInvariantError("corpus preparation authority required")
                 database_now = self._database_now(session)
                 if not self._owns_current_unexpired_token(
                     job,
@@ -499,6 +517,7 @@ class PostgresIngestionJobCoordinationStore:
                             IngestionJobTable.next_attempt_at <= func.clock_timestamp(),
                         ),
                     ),
+                    IngestionJobTable.operation != "corpus_prepare",
                     IngestionJobTable.attempt_count < IngestionJobTable.max_attempts,
                 )
                 .order_by(
@@ -608,6 +627,8 @@ class PostgresIngestionJobCoordinationStore:
             )
             if job is None:
                 return Fenced()
+            if job.operation == "corpus_prepare":
+                raise CoordinationInvariantError("corpus preparation authority required")
             database_now = self._database_now(session)
             request_fingerprint = self._heartbeat_fingerprint(token, lease_duration)
             if job.last_heartbeat_operation_id == str(operation_id):
@@ -642,6 +663,7 @@ class PostgresIngestionJobCoordinationStore:
         failure: CanonicalFailureV1,
         decision: ScheduleRetry,
     ) -> RetryScheduleResult:
+        self._reject_corpus_job(claim.token.job_id)
         transition_fingerprint = self._transition_fingerprint(
             claim=claim,
             failure=failure,
@@ -705,6 +727,8 @@ class PostgresIngestionJobCoordinationStore:
             )
             if job is None:
                 return Fenced()
+            if job.operation == "corpus_prepare":
+                raise CoordinationInvariantError("corpus preparation authority required")
 
             attempt = session.scalar(
                 select(IngestionJobAttemptTable)
@@ -938,6 +962,11 @@ class PostgresIngestionJobCoordinationStore:
                     embedding_configuration=embedding_configuration,
                 )
 
+                if job.operation == "corpus_prepare":
+                    if self._corpus_activation_guard is None:
+                        raise CoordinationInvariantError("corpus activation authority required")
+                    self._corpus_activation_guard(session, claim, False)
+
                 chunk_set = session.scalar(
                     select(ChunkSetTable)
                     .where(
@@ -1122,6 +1151,9 @@ class PostgresIngestionJobCoordinationStore:
                 self._enqueue_terminal_cleanup(
                     session=session, job=job, database_now=final_database_now
                 )
+                if job.operation == "corpus_prepare":
+                    session.flush()
+                    self._corpus_activation_guard(session, claim, True)
                 return FinalizationApplied(
                     attempt=AttemptRef(
                         job_id=claim.token.job_id,
@@ -1942,6 +1974,7 @@ class PostgresIngestionJobCoordinationStore:
         failure: CanonicalFailureV1,
         decision: RetryExhausted | FailTerminal | None = None,
     ) -> FinalizationResult:
+        self._reject_corpus_job(claim.token.job_id)
         transition_fingerprint = self._transition_fingerprint(
             claim=claim,
             failure=failure,
@@ -1998,6 +2031,8 @@ class PostgresIngestionJobCoordinationStore:
             )
             if job is None:
                 return Fenced()
+            if job.operation == "corpus_prepare":
+                raise CoordinationInvariantError("corpus preparation authority required")
 
             database_now = self._database_now(session)
             if not self._owns_current_unexpired_attempt(job, claim, database_now):
@@ -2077,6 +2112,7 @@ class PostgresIngestionJobCoordinationStore:
         claim: ClaimedAttempt,
         outcome: WorkSuperseded,
     ) -> FinalizationResult:
+        self._reject_corpus_job(claim.token.job_id)
         transition_fingerprint = self._superseded_fingerprint(claim=claim, outcome=outcome)
         replay = self._read_superseded_replay(
             operation_id=str(operation_id), request_fingerprint=transition_fingerprint
@@ -2137,6 +2173,8 @@ class PostgresIngestionJobCoordinationStore:
             )
             if job is None:
                 return Fenced()
+            if job.operation == "corpus_prepare":
+                raise CoordinationInvariantError("corpus preparation authority required")
             attempt = session.scalar(
                 select(IngestionJobAttemptTable)
                 .where(

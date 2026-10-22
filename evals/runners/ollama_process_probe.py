@@ -31,8 +31,13 @@ from evals.runners.vietnamese_conversation import code_provenance, validate_priv
 
 from knora.answering.generation_validation import validate_generation
 from knora.domain.errors import KnoraError
+from knora.providers import structured_generation
 from knora.providers.generation import GenerationResult
 from knora.providers.ollama.generation import OllamaGenerationProvider
+from knora.providers.openai_compatible import answer_blocks
+from knora.providers.prompts import policy
+from knora.providers.prompts.builder import build_prompt
+from knora.providers.prompts.versioning import PromptDefinition
 
 
 def runtime_module_sources():
@@ -42,6 +47,11 @@ def runtime_module_sources():
         (OllamaGenerationProvider, "backend/src/knora/providers/ollama/generation.py"),
         (GenerationResult, "backend/src/knora/providers/generation.py"),
         (validate_generation, "backend/src/knora/answering/generation_validation.py"),
+        (policy, "backend/src/knora/providers/prompts/policy.py"),
+        (build_prompt, "backend/src/knora/providers/prompts/builder.py"),
+        (PromptDefinition, "backend/src/knora/providers/prompts/versioning.py"),
+        (structured_generation, "backend/src/knora/providers/structured_generation.py"),
+        (answer_blocks, "backend/src/knora/providers/openai_compatible/answer_blocks.py"),
     ):
         actual = Path(inspect.getfile(symbol)).resolve()
         if actual != (root / relative).resolve():
