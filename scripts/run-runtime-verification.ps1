@@ -5,7 +5,7 @@ param(
     [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{40}$')][string]$WorkflowSha,
     [string]$RunId = $env:GITHUB_RUN_ID,
     [string]$RunAttempt = $env:GITHUB_RUN_ATTEMPT,
-    [string]$OutputDir = (Join-Path (Split-Path $PSScriptRoot -Parent) '.verification/runtime'),
+    [string]$OutputDir = '',
     [string]$VaultPath,
     [string]$AdminUsername = 'figma-test-admin',
     [string]$AdminPassword = 'figma-test-admin-password'
@@ -13,6 +13,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = [IO.Path]::GetFullPath((Split-Path $PSScriptRoot -Parent))
+if (-not $OutputDir) {
+    $OutputDir = Join-Path $repositoryRoot '.verification/runtime'
+}
 $actualSha = (& git -C $repositoryRoot rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0 -or $actualSha -cne $SubjectSha) {
     throw 'RUNTIME_SUBJECT_SHA_MISMATCH'
@@ -139,9 +142,9 @@ try {
             if (-not (Test-Path -LiteralPath $report -PathType Leaf)) { throw "RUNTIME_REPORT_MISSING: $Name" }
             return $report
         }
-        $reports.dense_hybrid = Invoke-RetrievalTest 'dense_hybrid' 'backend/test/answering/test_bm25_contract.py' ''
-        $reports.reranking = Invoke-RetrievalTest 'reranking' 'backend/test/answering/test_reranking_mmr.py' ''
-        $reports.query_understanding = Invoke-RetrievalTest 'query_understanding' 'backend/test/answering/test_query_plan_models.py' ''
+        $reports.dense_hybrid = Invoke-RetrievalTest 'dense_hybrid' 'backend/test/answering/test_dense_hybrid_contract.py' ''
+        $reports.reranking = Invoke-RetrievalTest 'reranking' 'backend/test/answering/test_reranking_pipeline.py' ''
+        $reports.query_understanding = Invoke-RetrievalTest 'query_understanding' 'backend/test/answering/test_source_verification.py' ''
         $reports.recovery = Invoke-RetrievalTest 'recovery' 'backend/runtime_test/test_retrieval_v3_recovery.py' ''
     } else {
         if (-not $VaultPath) { $VaultPath = Join-Path ([IO.Path]::GetTempPath()) "knora-runtime-vault-$([guid]::NewGuid().ToString('N'))" }

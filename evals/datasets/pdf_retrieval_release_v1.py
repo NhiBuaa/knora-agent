@@ -89,8 +89,125 @@ _SAMPLE_RELEASE_CASES = (
 )
 
 
+ALLOWED_CATEGORIES = {
+    "multi_intent",
+    "typo_recovery",
+    "source_absence",
+    "follow_up",
+    "standard",
+}
+ALLOWED_SOURCE_VERIFICATIONS = {"found", "verified_absent", "not_needed"}
+
+
+def _parse_and_validate_case(record: dict[str, object], idx: int) -> ReleaseTestCase:
+    if not isinstance(record, dict):
+        raise DatasetContractError(f"Record {idx} must be a dictionary")
+    required_fields = {
+        "id",
+        "category",
+        "question",
+        "required_groups",
+        "expected_source_verification",
+        "expected_answer_contains",
+        "reference_answer",
+    }
+    missing = required_fields - set(record.keys())
+    if missing:
+        raise DatasetContractError(f"Record {idx} missing required fields: {sorted(missing)}")
+
+    case_id = str(record["id"]).strip()
+    if not case_id:
+        raise DatasetContractError(f"Record {idx} has empty id")
+
+    category = str(record["category"])
+    if category not in ALLOWED_CATEGORIES:
+        allowed = sorted(ALLOWED_CATEGORIES)
+        raise DatasetContractError(
+            f"Record {case_id} has invalid category {category!r}, allowed: {allowed}"
+        )
+
+    expected_sv = str(record["expected_source_verification"])
+    if expected_sv not in ALLOWED_SOURCE_VERIFICATIONS:
+        raise DatasetContractError(
+            f"Record {case_id} has invalid expected_source_verification {expected_sv!r}"
+        )
+
+    required_groups = record.get("required_groups")
+    if not isinstance(required_groups, (list, tuple)):
+        raise DatasetContractError(f"Record {case_id} required_groups must be list or tuple")
+
+    expected_contains = record.get("expected_answer_contains")
+    if not isinstance(expected_contains, (list, tuple)):
+        raise DatasetContractError(
+            f"Record {case_id} expected_answer_contains must be list or tuple"
+        )
+
+    metadata = record.get("metadata", {})
+    if not isinstance(metadata, dict):
+        metadata = {}
+
+    return ReleaseTestCase(
+        id=case_id,
+        category=category,
+        question=str(record["question"]),
+        required_groups=tuple(str(g) for g in required_groups),
+        expected_source_verification=expected_sv,
+        expected_answer_contains=tuple(str(a) for a in expected_contains),
+        reference_answer=str(record["reference_answer"]),
+        metadata=dict(metadata),
+    )
+
+
 def load_release_dataset(path: Path | None = None) -> ReleaseDataset:
-    """Loads and cryptographically validates the release evaluation dataset."""
+    """Loads and cryptographically validates the release evaluation dataset.
+
+    When `path` is provided, reads and parses the JSON/JSONL artifact, enforcing
+    split integrity, category validation, no duplicate IDs, and exact checksum.
+    """
+    if path is not None:
+        target = Path(path)
+        if not target.exists():
+            raise FileNotFoundError(f"Release dataset not found at {target}")
+        if target.is_dir():
+            raise DatasetContractError(
+                f"Expected file for release dataset, got directory: {target}"
+            )
+
+        raw_bytes = target.read_bytes()
+        content = raw_bytes.decode("utf-8")
+        parsed_cases: list[ReleaseTestCase] = []
+        seen_ids: set[str] = set()
+
+        if target.suffix == ".jsonl":
+            lines = [line.strip() for line in content.splitlines() if line.strip()]
+            for idx, line in enumerate(lines, start=1):
+                try:
+                    record = json.loads(line)
+                except json.JSONDecodeError as exc:
+                    raise DatasetContractError(f"Invalid JSON at line {idx}: {exc}") from exc
+                parsed_cases.append(_parse_and_validate_case(record, idx))
+        else:
+            try:
+                data = json.loads(content)
+            except json.JSONDecodeError as exc:
+                raise DatasetContractError(f"Invalid JSON payload: {exc}") from exc
+            if not isinstance(data, list):
+                raise DatasetContractError("Release dataset JSON payload must be a list of records")
+            for idx, record in enumerate(data, start=1):
+                parsed_cases.append(_parse_and_validate_case(record, idx))
+
+        for c in parsed_cases:
+            if c.id in seen_ids:
+                raise DatasetContractError(f"Duplicate case id: {c.id}")
+            seen_ids.add(c.id)
+
+        dataset_hash = hashlib.sha256(raw_bytes).hexdigest()
+        return ReleaseDataset(
+            version="pdf_retrieval_release_v1",
+            cases=tuple(parsed_cases),
+            dataset_sha256=dataset_hash,
+        )
+
     cases = _SAMPLE_RELEASE_CASES
     raw_payload = json.dumps(
         [asdict(c) for c in cases], sort_keys=True, separators=(",", ":")

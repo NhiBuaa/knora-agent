@@ -16,7 +16,8 @@
 3. **Bảo toàn định danh kỹ thuật (Protected Spans):**
    - Các mã định danh (`AUTH_403`, `ISO_27001`), chỉ số phân đoạn (`Chương 2`, `mục 3.1`), ngày tháng và từ phủ định không bao giờ bị viết lại hoặc đánh mất trong bước Query Planning.
 4. **Hệ thống Dự phòng Đa tầng (Multi-tier Fallback Hierarchy):**
-   - Cross-Encoder Reranker lỗi/timeout $\to$ DBSF + SDM cục bộ $\to$ BM25 + Phrase Boost $\to$ PostgreSQL FTS.
+   - Cross-Encoder Reranker lỗi/timeout $\to$ DBSF + SDM cục bộ $\to$ BM25 cục bộ (`retrieval-bm25-top8-v1`).
+   - Lưu ý: Phrase Boost chỉ sử dụng trong đánh giá và đo đạc thử nghiệm (evaluation comparator), không dùng làm fallback trong production.
    - Không để lỗi mạng của nhà cung cấp AI đám mây làm gián đoạn toàn bộ dịch vụ hỏi đáp.
 
 ---
@@ -31,8 +32,8 @@ if (-not $env:CLOUDFLARE_ACCOUNT_ID -or -not $env:CLOUDFLARE_API_TOKEN) {
     throw "Thiếu thông tin xác thực Cloudflare Workers AI"
 }
 
-# 2. Kiểm tra sức khỏe cơ sở dữ liệu PostgreSQL và pgvector
-python -m knora.adapters.cli.reindex_search --check-only
+# 2. Kiểm tra tiến trình reindex ở chế độ dry-run
+python -m knora.adapters.cli.reindex_search --workspace-id <TARGET_WORKSPACE_ID> --dry-run
 
 # 3. Kiểm tra tính toàn vẹn của OpenAPI artifacts và format code
 python scripts/export_openapi.py --check
@@ -42,8 +43,8 @@ python -m ruff check .
 ### Bước 2: Tái lập Chỉ mục và Chuyển đổi Dữ liệu (Re-indexing / Backfill)
 Chạy lệnh đánh chỉ mục cho toàn bộ các tài liệu hiện có trong workspace:
 ```powershell
-# Đánh chỉ mục đồng thời cả dense vector và lexical BM25/SDM
-python -m knora.adapters.cli.reindex_search --workspace-id <TARGET_WORKSPACE_ID> --mode hybrid
+# Đánh chỉ mục đồng thời cả dense vector và lexical BM25/SDM theo checkpoint và batch
+python -m knora.adapters.cli.reindex_search --workspace-id <TARGET_WORKSPACE_ID> --batch-size 100 --checkpoint-file checkpoint.json
 ```
 
 ### Bước 3: Kiểm chứng Môi trường Thực thi (Runtime Verification)
@@ -62,14 +63,14 @@ python scripts/runtime_evidence.py validate $rcSha .verification/runtime/retriev
 ```
 
 ### Bước 4: Kích hoạt Chế độ Hoạt động (Traffic Cutover)
-Cập nhật cấu hình retrieval mặc định sang `retrieval-v3-hybrid-sdm-rerank`:
+Cập nhật cấu hình retrieval mặc định sang `retrieval-hybrid-rerank-top8-v3`:
 ```json
 {
-  "retrieval_configuration_id": "retrieval-v3-hybrid-sdm-rerank",
+  "retrieval_configuration_id": "retrieval-hybrid-rerank-top8-v3",
   "candidate_k": 200,
   "max_evidence_chunks": 5,
   "max_evidence_tokens": 3000,
-  "reranker_model": "@cf/baai/bge-reranker-large",
+  "reranker_model": "@cf/baai/bge-reranker-base",
   "embedding_model": "@cf/baai/bge-m3"
 }
 ```
@@ -81,11 +82,10 @@ Cập nhật cấu hình retrieval mặc định sang `retrieval-v3-hybrid-sdm-r
 Khi phát hiện sự cố nghiêm trọng (ví dụ: Cloudflare Workers AI tê liệt trên diện rộng, độ trễ p95 vượt quá 1000ms kéo dài, hoặc tỷ lệ lỗi hệ thống tăng cao):
 
 1. **Hạ cấp tức thì về chế độ tìm kiếm từ khóa cục bộ (Local Lexical Fallback):**
-   Chuyển đổi cấu hình `retrieval_configuration_id` sang `bm25-top8-v1` hoặc `postgres-fts-legacy`. Hệ thống sẽ lập tức chuyển sang tìm kiếm từ khóa BM25/FTS cục bộ mà không cần gọi API đám mây:
+   Chuyển đổi cấu hình `retrieval_configuration_id` sang `retrieval-bm25-top8-v1`. Hệ thống sẽ lập tức chuyển sang tìm kiếm từ khóa BM25 cục bộ mà không cần gọi API đám mây:
    ```json
    {
-     "retrieval_configuration_id": "bm25-top8-v1",
-     "strategy": "bm25-only"
+     "retrieval_configuration_id": "retrieval-bm25-top8-v1"
    }
    ```
 2. **Khôi phục trạng thái bộ nhớ:**
