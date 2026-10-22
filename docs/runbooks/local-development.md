@@ -572,6 +572,119 @@ data, the daily launcher enforces three preflight safety guards:
   upon timeout forcefully terminates the entire process tree without blocking on streams,
   hanging the shell, freezing CI runners, or leaving orphaned descendant processes.
 
+#### Recovery triage (preserve retained data)
+
+These steps describe the current `scripts/start-dev.ps1` guards. Read-only diagnosis
+and mocked launcher tests do not prove a live recovery. Commands with side effects
+below require an owned maintenance window, a recoverable backup and rechecking the
+observed state immediately before acting. Stop on unavailable metadata or ambiguous
+ownership; a matching project name alone does not establish ownership.
+
+From the checkout that originally created the daily project, inspect only relevant
+metadata (full `docker inspect`/resolved Compose output can expose secrets):
+
+```powershell
+$devCompose = @('-p', 'knora-dev', '-f', 'docker-compose.dev.yml')
+$devIds = @(docker ps -a --filter label=com.docker.compose.project=knora-dev --quiet)
+foreach ($id in $devIds) {
+    docker inspect --format '{{.Id}} {{.State.Running}} {{index .Config.Labels "com.docker.compose.service"}} {{index .Config.Labels "com.docker.compose.project.working_dir"}}' $id
+    docker inspect --format '{{json .Mounts}}' $id
+    docker inspect --format '{{json .NetworkSettings.Ports}}' $id
+}
+docker volume ls --filter label=com.docker.compose.project=knora-dev --format '{{.Name}}'
+docker volume inspect knora-dev_knora_postgres_data --format '{{.Name}} {{index .Labels "com.docker.compose.project"}} {{index .Labels "com.docker.compose.volume"}}'
+```
+
+Require successful command exits and compare the creating checkout, service, labels,
+mount type/name/destination and bindings with the guard above. The PostgreSQL role is
+`knora_postgres_data`, mounted at `/var/lib/postgresql/data`; its internal port stays
+5432. Inspect the other expected volumes too if implicated. Do not publish user-local
+paths or secret output in evidence.
+
+**Retained reservation file.** Inspect the recorded owner locally:
+
+```powershell
+$devLock = Join-Path ([IO.Path]::GetTempPath()) 'knora-dev-reservation-knora-dev.lock'
+Get-Content -LiteralPath $devLock
+# Substitute the recorded PID; inspect ancestry locally, without publishing arguments.
+Get-CimInstance Win32_Process -Filter 'ProcessId = <recorded PID>' |
+    Select-Object ProcessId, ParentProcessId, CreationDate, ExecutablePath
+Get-NetTCPConnection -State Listen -LocalPort 8000,3000 -ErrorAction SilentlyContinue |
+    Select-Object LocalAddress, LocalPort, OwningProcess
+```
+
+Include any originally selected custom ports. Correlate reservation REPO/PROJECT,
+PID start time (PIDs can be reused), parent/descendant processes, owned logs and the
+container inventory. Age or an absent PID alone is insufficient: retained containers
+or surviving children may still be in use. An unreadable file may still be held by a
+live launcher. Coordinate with the recorded owner and quiesce its runtime. Only after
+proving no valid launcher or orphaned host process remains, understanding any retained
+storage state and excluding concurrent starts, remove that exact file in the owned
+maintenance window: `Remove-Item -LiteralPath $devLock`. Retry the authorized launcher
+once; `DEV_PROJECT_RESERVED:knora-dev` still means stop and investigate. Never clear an
+active lock or delete storage to make the reservation pass.
+
+**PostgreSQL port occupied.** Inspect the selected port and its owner:
+
+```powershell
+Get-NetTCPConnection -State Listen -LocalPort 5432 |
+    Select-Object LocalAddress, LocalPort, OwningProcess
+# For the owned PostgreSQL container identified above:
+$devPostgres = docker compose @devCompose ps -a -q postgres
+docker inspect --format '{{.State.Running}} {{json .NetworkSettings.Ports}}' $devPostgres
+```
+
+The guard permits reuse only when the running PostgreSQL container belongs to this
+checkout/project, every storage check succeeds and its sole binding is
+`127.0.0.1:<selected port>` to `5432/tcp`. A stopped container or another stack/process
+is not reuse authority. `PORT_IN_USE:PostgresPort:<port>` can also mask failed ownership
+checks when that port is occupied; inspect both, and leave foreign processes alone.
+
+For an owned project whose existing PostgreSQL container needs a different host port,
+stop its launcher and coordinate all database clients first. Check the new port is free,
+preserve the volume identity/backup, image and original checkout/Compose configuration.
+In that maintenance window, apply the same port to Compose and the subsequent launcher:
+
+```powershell
+# Example only: confirm 5433 is free before choosing it.
+$env:KNORA_EVAL_POSTGRES_HOST_PORT = '5433'
+docker compose @devCompose config --quiet
+if ($LASTEXITCODE -ne 0) { throw 'Invalid Compose configuration' }
+docker compose @devCompose up -d --no-deps --force-recreate --wait postgres
+if ($LASTEXITCODE -ne 0) { throw 'PostgreSQL recreation failed; inspect owned state' }
+docker inspect --format '{{json .Mounts}} {{json .NetworkSettings.Ports}}' (docker compose @devCompose ps -q postgres)
+# Compare the retained volume name/destination and new loopback binding before launch.
+.\scripts\start-dev.ps1 -PostgresPort 5433
+```
+
+Keep the original authorized environment/secret inputs; do not invent missing values.
+Update other authorized host database clients to that same host port and database name;
+the launcher sets `KNORA_DATABASE_URL` for its API/workers itself. Container-to-container
+clients keep service port 5432. Restore any previous process override after the window.
+`restart` alone does not apply a changed port mapping; Compose recreation preserves
+mounted volumes ([Compose up reference](https://docs.docker.com/reference/cli/docker/compose/up/)).
+This recipe has no claim of live recovery verification; confirm the mount identity,
+readiness and database/schema before resuming clients. Missing container/unknown mount
+ownership follows the next case rather than this recreation recipe.
+
+**Volume remains but its container is missing.** List all containers mounting the
+specific retained volume, including containers outside the daily project:
+
+```powershell
+docker ps -a --filter volume=knora-dev_knora_postgres_data --format '{{.ID}} {{.Names}}'
+docker volume inspect knora-dev_knora_postgres_data --format '{{.Name}} {{index .Labels "com.docker.compose.project"}} {{index .Labels "com.docker.compose.volume"}}'
+```
+
+A retained volume without its verified service mount fails the guard even when its
+labels look right (`COMPOSE_PROJECT_OWNERSHIP_UNVERIFIED:knora-dev` when the selected
+PostgreSQL port is free). Do not run the port-recreation recipe, automatically adopt
+that volume, reset the database or use `down --volumes`. The launcher has no verified
+automatic recovery for this case. Stop and request an explicit recovery plan from the
+data owner: provenance/backup, quiesced clients, exact original image/configuration,
+service-to-volume mapping, approved recreation and post-recovery mount/data/schema checks.
+If provenance is missing, keep the volume intact and report the blocker. Do not bypass
+the guard or describe container recreation as verified data recovery.
+
 The helper uses the Windows [Job Object API](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects)
 and loads through PowerShell's `Add-Type`; it requires no additional dependency.
 
