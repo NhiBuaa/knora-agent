@@ -249,7 +249,7 @@ class QueryPlanner:
 
         if len(sections) >= 2:
             for idx, sec in enumerate(sections, start=1):
-                sq_text = f"Thông tin về {sec} trong {question}"
+                sq_text = f"Thông tin quy định về {sec}"
                 sq_protected = extract_protected_spans(sq_text)
                 subquestions.append(
                     Subquestion(

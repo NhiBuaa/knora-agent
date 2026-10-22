@@ -144,8 +144,17 @@ class AnswerQuestion:
                 workspace_id=command.workspace_id
             )
 
-        query_plan = self._query_planner.plan(command.question)
-        query_plan_observation = query_plan.to_observation()
+        is_v3_retrieval = bool(retrieval_configuration.id) and retrieval_configuration.id.endswith(
+            "-v3"
+        )
+        query_plan = self._query_planner.plan(command.question) if is_v3_retrieval else None
+        query_plan_observation = query_plan.to_observation() if query_plan is not None else None
+        has_multiple_subquestions = (
+            query_plan is not None
+            and not query_plan.is_fast_path
+            and len(query_plan.subquestions) > 1
+        )
+        active_subquestions = query_plan.subquestions if has_multiple_subquestions else None
 
         lexical = retrieval_configuration.strategy == "bm25-only"
         dense_or_hybrid_v3 = retrieval_configuration.strategy in {
@@ -405,11 +414,11 @@ class AnswerQuestion:
                 )
                 else None
             ),
-            subquestions=query_plan.subquestions if query_plan is not None else None,
+            subquestions=active_subquestions,
         )
         verification_observation: dict[str, object] | None = None
         if (
-            query_plan is not None
+            has_multiple_subquestions
             and selection.support_assessment is not None
             and not selection.support_assessment.all_required_supported
         ):
@@ -441,7 +450,7 @@ class AnswerQuestion:
                         )
                         else None
                     ),
-                    subquestions=query_plan.subquestions,
+                    subquestions=active_subquestions,
                 )
 
         selection_ended = self._clock()
@@ -454,7 +463,8 @@ class AnswerQuestion:
             generation_ended=selection_ended,
         )
         if not selection.selected or (
-            selection.support_assessment is not None
+            has_multiple_subquestions
+            and selection.support_assessment is not None
             and not selection.support_assessment.all_required_supported
         ):
             trace_id = self._store.persist_trace(
@@ -523,7 +533,7 @@ class AnswerQuestion:
             validated = validate_generation(
                 generation,
                 available_evidence_ids=tuple(alias_to_candidate),
-                required_subquestions=query_plan.subquestions if query_plan is not None else None,
+                required_subquestions=active_subquestions,
                 alias_to_candidate=alias_to_candidate,
             )
         except KnoraError:

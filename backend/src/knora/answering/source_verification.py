@@ -129,13 +129,16 @@ async def verify_missing_sources(
                         )
                         continue
 
-                # If no chunks at all returned by targeted search
+                # Invariant Q6: empty search results do not prove absence without complete catalog
                 if not raw_cands:
                     outcomes.append(
                         GroupVerificationOutcome(
                             group_id=sq.id,
-                            status="verified_absent",
-                            reason="Targeted search across source returned zero results",
+                            status="unverified",
+                            reason=(
+                                "Targeted search returned zero candidates; absence cannot be "
+                                "verified without complete section catalog (Q6)"
+                            ),
                             checked_sections=tuple(section_spans),
                         )
                     )

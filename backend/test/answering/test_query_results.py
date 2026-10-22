@@ -78,3 +78,22 @@ def test_merge_cross_query_max_cap():
     merged = merge_cross_query_candidates(results, max_total_candidates=100)
     assert merged.total_candidates == 100
     assert len(merged.candidates) == 100
+
+
+def test_cap_is_enforced_inside_round_robin():
+    result = merge_cross_query_candidates(
+        {f"q{i}": [_make_candidate(f"c{i}", 0.5)] for i in range(3)},
+        max_total_candidates=2,
+    )
+    assert result.total_candidates == 2
+    assert len(result.candidates) == 2
+
+
+def test_merge_cross_query_rejects_non_positive_cap():
+    import pytest
+
+    with pytest.raises(ValueError, match="max_total_candidates must be positive"):
+        merge_cross_query_candidates(
+            {"q1": [_make_candidate("c1", 0.5)]},
+            max_total_candidates=0,
+        )

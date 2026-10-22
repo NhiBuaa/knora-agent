@@ -151,3 +151,41 @@ def test_answer_completeness_rejects_when_text_omits_section_name() -> None:
             alias_to_candidate=alias_map,
         )
     assert exc_info.value.code == "GENERATION_OUTPUT_INVALID"
+
+
+def test_answer_completeness_rejects_empty_stub_without_substantive_facts() -> None:
+    """Red test: Answer simply lists sections and citations without substantive facts."""
+    sq1 = Subquestion(
+        id="sq1",
+        text="Chương 2 đổi trả",
+        protected_spans=(ProtectedSpan("Chương 2", "section", 0, 8),),
+        required=True,
+    )
+    sq2 = Subquestion(
+        id="sq2",
+        text="Chương 5 vận chuyển",
+        protected_spans=(ProtectedSpan("Chương 5", "section", 0, 8),),
+        required=True,
+    )
+
+    c1 = _make_cand("c1", "Nội dung Chương 2", ("Chương 2",))
+    c2 = _make_cand("c2", "Nội dung Chương 5", ("Chương 5",))
+
+    alias_map = {"E1": c1, "E2": c2}
+
+    # Empty stub that lists names and markers without facts
+    result = GenerationResult(
+        decision="ANSWER",
+        answer="Chương 2 và Chương 5. [[E1]] [[E2]]",
+        cited_evidence_ids=("E1", "E2"),
+        refusal_reason=None,
+    )
+
+    with pytest.raises(KnoraError) as exc_info:
+        validate_generation(
+            result,
+            available_evidence_ids=("E1", "E2"),
+            required_subquestions=[sq1, sq2],
+            alias_to_candidate=alias_map,
+        )
+    assert exc_info.value.code == "GENERATION_OUTPUT_INVALID"

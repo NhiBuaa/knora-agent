@@ -140,3 +140,31 @@ async def test_unverified_when_store_unavailable_or_indeterminate() -> None:
 
     assert result.overall_status == "unverified"
     assert result.outcomes[0].status == "unverified"
+
+
+@pytest.mark.asyncio
+async def test_empty_search_without_catalog_returns_unverified_per_q6() -> None:
+    """Invariant Q6: empty search results cannot verify absence without complete catalog."""
+    store = _FakeStore([])
+
+    sq = Subquestion(
+        id="sq_ch5",
+        text="Chương 5 quy định gì?",
+        protected_spans=(ProtectedSpan("Chương 5", "section", 0, 8),),
+        required=True,
+    )
+
+    retrieval_cfg = RetrievalConfiguration.bm25_top8_v1()
+
+    # No catalog passed
+    result = await verify_missing_sources(
+        missing_subquestions=[sq],
+        store=store,
+        workspace_id="ws-1",
+        retrieval_configuration=retrieval_cfg,
+        known_section_catalog=None,
+    )
+
+    assert result.overall_status == "unverified"
+    assert result.outcomes[0].status == "unverified"
+    assert "Q6" in result.outcomes[0].reason

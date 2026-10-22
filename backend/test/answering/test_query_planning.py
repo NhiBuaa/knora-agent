@@ -100,3 +100,24 @@ def test_query_planner_decomposes_multi_section_comparison():
     assert any("chương 2" in sq.text.lower() for sq in plan.subquestions)
     assert any("chương 5" in sq.text.lower() for sq in plan.subquestions)
     assert len(plan.variants) >= 2
+
+
+def test_query_decomposition_creates_atomic_subquestions_without_cross_contamination():
+    planner = QueryPlanner()
+    query = "So sánh quy định về thời hạn tại Chương 2 và giảm giá tại Chương 5"
+    plan = planner.plan(query)
+
+    assert not plan.is_fast_path
+    assert len(plan.subquestions) == 2
+    sq1, sq2 = plan.subquestions
+
+    sq1_sections = [s.text for s in sq1.protected_spans if s.category == "section"]
+    sq2_sections = [s.text for s in sq2.protected_spans if s.category == "section"]
+
+    # sq1 must only contain Chapter 2 constraint, not Chapter 5
+    assert any("Chương 2" in s for s in sq1_sections)
+    assert not any("Chương 5" in s for s in sq1_sections)
+
+    # sq2 must only contain Chapter 5 constraint, not Chapter 2
+    assert any("Chương 5" in s for s in sq2_sections)
+    assert not any("Chương 2" in s for s in sq2_sections)
