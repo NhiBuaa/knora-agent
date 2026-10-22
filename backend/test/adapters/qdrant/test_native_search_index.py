@@ -621,3 +621,84 @@ def test_stage_generation_with_dense_vectors(wire, generation) -> None:
         )
         receipt.validate(generation)
         assert len(requests) == 2
+
+
+@pytest.mark.parametrize(
+    "actual_dense",
+    [
+        {
+            "size": 768,
+            "distance": "Dot",
+            "datatype": "float16",
+            "on_disk": False,
+            "hnsw_config": {"m": 0, "ef_construct": 4},
+            "quantization_config": None,
+        },
+        {
+            "size": 768,
+            "distance": "Cosine",
+            "datatype": "float16",
+            "on_disk": True,
+            "hnsw_config": {"m": 16, "ef_construct": 100},
+            "quantization_config": {"turbo": {"bits": "bits4"}},
+        },
+        {
+            "size": 768,
+            "distance": "Cosine",
+            "datatype": "float32",
+            "on_disk": False,
+            "hnsw_config": {"m": 16, "ef_construct": 100},
+            "quantization_config": {"turbo": {"bits": "bits4"}},
+        },
+        {
+            "size": 768,
+            "distance": "Cosine",
+            "datatype": "float32",
+            "on_disk": True,
+            "hnsw_config": {"m": 0, "ef_construct": 4},
+            "quantization_config": {"turbo": {"bits": "bits4"}},
+        },
+        {
+            "size": 768,
+            "distance": "Cosine",
+            "datatype": "float32",
+            "on_disk": True,
+            "hnsw_config": {"m": 16, "ef_construct": 100},
+            "quantization_config": None,
+        },
+    ],
+)
+def test_ensure_collection_rejects_incompatible_dense_readback(wire, actual_dense) -> None:
+    from knora.providers.embedding import EmbeddingConfiguration
+
+    dense_wire = QdrantSearchIndex(
+        "review",
+        wire.profile,
+        embedding_configuration=EmbeddingConfiguration.cloudflare_bge_base_en(),
+        turbo_quant=True,
+    )
+
+    def handler(request):
+        if request.method == "GET" and request.url.path.endswith("/exists"):
+            result = {"exists": True}
+        elif request.method == "GET":
+            result = {
+                "config": {
+                    "params": {
+                        "shard_number": 1,
+                        "sparse_vectors": {"bm25": {"modifier": "idf"}},
+                        "vectors": {"dense": actual_dense},
+                    }
+                }
+            }
+        else:
+            result = {"status": "completed"}
+        return httpx.Response(200, json={"status": "ok", "result": result})
+
+    with (
+        httpx.Client(
+            base_url="http://127.0.0.1:16433", transport=httpx.MockTransport(handler)
+        ) as client,
+        pytest.raises(ProjectionResponseError, match="incompatible"),
+    ):
+        NativeQdrantSearchIndex(index=dense_wire, client=client).ensure_collection()

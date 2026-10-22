@@ -736,3 +736,10 @@ def test_postgres_hydration_rejects_unauthorized_high_scoring_decoy(
             projection=MockProjection(test_profile),
             embedding_configuration=test_embedding_config,
         )
+
+
+def test_hybrid_preserves_candidates_up_to_100_beyond_top_8() -> None:
+    cfg = stores.RetrievalConfiguration.hybrid_top8_v3()
+    assert cfg.candidate_k == 100
+    assert cfg.vector_candidate_k == 200
+    assert cfg.fts_candidate_k == 200

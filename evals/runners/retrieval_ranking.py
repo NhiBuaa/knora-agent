@@ -113,15 +113,19 @@ def compute_hit_at_k(
     return 1.0 if any(g > 0 for g in ranked_grades[:k]) else 0.0
 
 
-def compute_mrr(ranked_grades: Sequence[float | int], total_positive: int | float) -> float | None:
+def compute_mrr(
+    ranked_grades: Sequence[float | int], total_positive: int | float, k: int | None = None
+) -> float | None:
     """Mean Reciprocal Rank (MRR): 1 / rank of first relevant item (grade > 0).
 
     Returns 0.0 if no relevant items are retrieved.
     Returns None if total_positive == 0 (no relevant items exist).
+    If k is specified, items at rank > k are ignored and return 0.0.
     """
     if total_positive <= 0:
         return None
-    for rank, grade in enumerate(ranked_grades, start=1):
+    window = ranked_grades[:k] if k is not None else ranked_grades
+    for rank, grade in enumerate(window, start=1):
         if grade > 0:
             return 1.0 / rank
     return 0.0
@@ -130,13 +134,13 @@ def compute_mrr(ranked_grades: Sequence[float | int], total_positive: int | floa
 def compute_recall_at_k(
     ranked_grades: Sequence[float | int], total_positive: int | float, k: int = 10
 ) -> float | None:
-    """Recall@k: sum of positive grades retrieved in top-k / total positive items.
+    """Recall@k: count of positive items retrieved in top-k / total positive items.
 
     Returns None if total_positive == 0.
     """
     if total_positive <= 0:
         return None
-    retrieved_positive = sum(g for g in ranked_grades[:k] if g > 0)
+    retrieved_positive = sum(1 for g in ranked_grades[:k] if g > 0)
     return min(1.0, retrieved_positive / total_positive)
 
 
@@ -212,9 +216,9 @@ def score_ranking_case(
     idcg = compute_idcg(available_grades, k=k)
     ndcg = (min(1.0, dcg / idcg)) if idcg > 0.0 else None
 
-    total_positive = sum(g for g in available_grades if g > 0)
+    total_positive = sum(1 for g in available_grades if g > 0)
     hit_at_k = compute_hit_at_k(ranked_grades, total_positive, k=k)
-    mrr = compute_mrr(full_ranked_grades, total_positive)
+    mrr = compute_mrr(full_ranked_grades, total_positive, k=k)
     recall_at_k = compute_recall_at_k(ranked_grades, total_positive, k=k)
     precision_at_k = compute_precision_at_k(ranked_grades, k=k)
 

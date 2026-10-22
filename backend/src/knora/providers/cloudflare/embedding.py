@@ -67,12 +67,18 @@ class CloudflareEmbeddingProvider:
                 batch = [
                     unicodedata.normalize("NFKC", text) for text in texts[offset : offset + 32]
                 ]
-                body: dict[str, object] = {role: batch}
                 if (
-                    role == "queries"
-                    and configuration == EmbeddingConfiguration.cloudflare_qwen3_06b()
+                    "bge" in configuration.model.lower()
+                    or configuration == EmbeddingConfiguration.cloudflare_bge_base_en()
                 ):
-                    body["instruction"] = QUERY_INSTRUCTION
+                    body: dict[str, object] = {"text": batch}
+                else:
+                    body: dict[str, object] = {role: batch}
+                    if (
+                        role == "queries"
+                        and configuration == EmbeddingConfiguration.cloudflare_qwen3_06b()
+                    ):
+                        body["instruction"] = QUERY_INSTRUCTION
                 response = self._client.post(
                     target_url,
                     headers={"Authorization": f"Bearer {self._api_token}"},
