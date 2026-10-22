@@ -13,25 +13,11 @@ M5 is split into four independently testable slices:
 
 M5.1 locks public contracts first. M5.2 and M5.3 may run in parallel only after that checkpoint. M5.4 runs last.
 
-## Allowed skills
+## Skill selection
 
-Use only:
-
-- using-superpowers
-- brainstorming
-- writing-plans
-- using-git-worktrees
-- subagent-driven-development
-- test-driven-development
-- dispatching-parallel-agents
-- requesting-code-review
-- receiving-code-review
-- systematic-debugging
-- verification-before-completion
-- finishing-a-development-branch
-- executing-plans
-
-Verify each selected skill's SKILL.md against the canonical source and current session catalog before use.
+Follow the [repository skill policy](../../AGENTS.md#skill-policy) for discovery, applicability and authorization.
+The skills named in the phases below guide those workflows; they are not an exhaustive allowlist.
+Other matching, available and authorized skills may be used under the same policy.
 
 ## Non-negotiable rules
 

@@ -1,11 +1,24 @@
-# Issue153 S2 — implementation checkpoint (incomplete)
+# Issue153 S2 — historical implementation checkpoint
+
+## Current status — S2 accepted and merged, 2026-10-21
+
+The owner [accepted S2 PASS](https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6308954098).
+[PR #204](https://github.com/NhiBuaa/knora-agent/pull/204) merged as
+`de7f97dac40823cc5b9da3e626522a05caa8b732`. Acceptance covers the approved finite S2
+scope, not all Retrieval V3, Issue #153, AI quality or deployment.
+
+All dated checkpoints below are historical, including incomplete/uncommitted states
+and expired runtime permissions. They are not current instructions or authorization
+to restart runtime. Current progress and next steps belong to Issue #153 and its PRs.
+
+## Historical record — preserved unchanged
 
 Date: 2026-10-16 (Asia/Saigon). Parent implementation gate: S2.1 `e78a3b5`,
 [exact-head CI success](https://github.com/NhiBuaa/knora-agent/actions/runs/38748177861).
 Whole-plan owner approval: PR203 `1346b7c`,
 [execution record](https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6199183792).
 
-## Latest takeover state — uncommitted implementation
+## Historical takeover state — uncommitted implementation
 
 ### CI correction — 2026-10-19
 

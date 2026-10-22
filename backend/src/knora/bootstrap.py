@@ -40,13 +40,14 @@ def build_provider_selection(runtime_settings: Settings) -> ProviderSelection:
     )
 
     if is_v3:
-        if runtime_settings.embedding_provider not in {"cloudflare", "deterministic-local"}:
+        valid_v3 = {"cloudflare-workers-ai", "cloudflare", "deterministic-local"}
+        if runtime_settings.embedding_provider not in valid_v3:
             raise ValueError(
                 "V3 retrieval requires Cloudflare AI providers exclusively "
                 f"(got embedding_provider={runtime_settings.embedding_provider})"
             )
 
-        if runtime_settings.generation_provider not in {"cloudflare", "deterministic-local"}:
+        if runtime_settings.generation_provider not in valid_v3:
             raise ValueError(
                 "V3 retrieval requires Cloudflare AI providers exclusively "
                 f"(got generation_provider={runtime_settings.generation_provider})"
@@ -107,7 +108,7 @@ def _build_selected_embedding(
     runtime_settings: Settings, choice: str
 ) -> tuple[EmbeddingProvider, EmbeddingConfiguration]:
 
-    if choice == "cloudflare-workers-ai":
+    if choice in {"cloudflare-workers-ai", "cloudflare"}:
         account_id, api_token = _cloudflare_credentials(runtime_settings)
 
         configuration = EmbeddingConfiguration.cloudflare_qwen3_06b()
@@ -237,7 +238,7 @@ def _build_selected_embedding(
 
 def _build_selected_generation(runtime_settings: Settings, choice: str) -> GenerationProvider:
 
-    if choice == "cloudflare-workers-ai":
+    if choice in {"cloudflare-workers-ai", "cloudflare"}:
         account_id, api_token = _cloudflare_credentials(runtime_settings)
 
         if runtime_settings.cloudflare_generation_model != "@cf/openai/gpt-oss-20b":
@@ -254,7 +255,7 @@ def _build_selected_generation(runtime_settings: Settings, choice: str) -> Gener
             pricing_version=None,
             timeout_seconds=runtime_settings.cloudflare_timeout_seconds,
             provider_identity="cloudflare-workers-ai",
-            max_tokens=1024,
+            max_tokens=2048,
             direct_json_schema=True,
         )
 
