@@ -253,4 +253,3 @@ Dừng đúng hành động phụ thuộc khi permission/ownership/SHA conflict 
 Mỗi checkpoint: actual calls/jobs/startups của lần xử lý này (mong đợi0/0/0), SHA, diff, command/exit/counts, artifact digest; redact account/token/private URL/path bằng [REDACTED], <USER_HOME>, <WORKTREE>, <PYTHON_ENV>. Không ghi secrets từ .env.
 
 Hoàn tất fixes khi hai findings có regression đạt và review đọc được diff; hoàn tất CI khi đúng SHA cuối xanh; sẵn sàng nghiệm thu khi có packet nêu rõ runtime/quality gaps. Không tự tuyên bố merge, deploy hay owner acceptance.
-
