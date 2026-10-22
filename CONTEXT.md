@@ -622,6 +622,20 @@ natively blocked by R1 and R2. Historical approval, seal and evaluation artifact
 rewritten; missing, self-authored/self-approved, mutated, subset, or same-shaped-wrong-digest
 evidence fails closed.
 
+## Issue #183 presentation policy (2026-10-18)
+
+The owner-approved Master section 4.9 uses one Cloudflare answer call with prompt identity
+`cloudflare-gpt-oss-cited-answer-v21`. The original question and Evidence Set feed the unchanged
+fixed `before/items/after` schema and composer. Selector count/condition generation, retained-note
+appending and selector-only stage metadata are removed. Formatting preserves every accepted text
+field in slot/member order, including repeated content; invalid fields fail instead of being
+silently omitted. Citation/refusal validation and Workspace access remain unchanged.
+
+Semantic completeness against the PDF is outside #183. Missing evidence routes to #153; omissions
+despite sufficient evidence belong to a proposed separate Answer Generation issue. This policy is
+not a semantic guarantee or runtime acceptance. See the sole
+[Master Plan](docs/superpowers/plans/2026-10-16-issue-183-master-plan.md).
+
 ## Retrieval V3 S2 approved design
 
 - **Lexical Generation** identifies one immutable Chunk Set/profile derivation. PostgreSQL

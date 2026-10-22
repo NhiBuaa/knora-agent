@@ -24,8 +24,8 @@ def test_frozen_selection_has_32_cases_26_eligible_and_14_controls():
 
 
 def test_payload_uses_existing_adapter_and_untrusted_history_assembly():
+    from knora.providers.openai_compatible.answer_blocks import ANSWER_BLOCK_SCHEMA
     from knora.providers.openai_compatible.generation import CLOUDFLARE_SYSTEM_PROMPT
-    from knora.providers.structured_generation import STRUCTURED_RESULT_SCHEMA
 
     case = next(c for c in selection()[0] if c["case_id"] == "188-outcome-v1-vi-02-adverse")
     payload = build_payload(case)
@@ -34,7 +34,7 @@ def test_payload_uses_existing_adapter_and_untrusted_history_assembly():
     assert "Untrusted prior conversation context" in message["question"]
     assert case["history"] in message["question"]
     assert "freshly retrieved evidence only" in message["question"]
-    assert payload["response_format"]["json_schema"] == STRUCTURED_RESULT_SCHEMA
+    assert payload["response_format"]["json_schema"] == ANSWER_BLOCK_SCHEMA
     assert payload["max_tokens"] == 512
     assert payload["model"] == "@cf/openai/gpt-oss-20b"
     assert "KNORA188_CONFIG_ONLY" not in json.dumps(payload)
@@ -160,8 +160,9 @@ async def test_prepared_payload_matches_actual_adapter_request():
                                 "content": json.dumps(
                                     {
                                         "decision": "REFUSAL",
-                                        "answer": None,
-                                        "cited_evidence_ids": [],
+                                        "before": [],
+                                        "items": [],
+                                        "after": [],
                                         "refusal_reason": "INSUFFICIENT_EVIDENCE",
                                     }
                                 )
