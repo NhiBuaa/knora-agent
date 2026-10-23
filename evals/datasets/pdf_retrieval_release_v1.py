@@ -233,7 +233,7 @@ def load_release_dataset(
                 raise DatasetContractError(f"Duplicate case id: {c.id}")
             seen_ids.add(c.id)
 
-        dataset_hash = hashlib.sha256(raw_bytes).hexdigest()
+        dataset_hash = hashlib.sha256(raw_bytes.replace(b"\r\n", b"\n")).hexdigest()
         dataset = ReleaseDataset(
             version="pdf_retrieval_release_v1",
             cases=tuple(parsed_cases),
