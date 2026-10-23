@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+import time
 from dataclasses import dataclass
 from typing import BinaryIO
 
@@ -17,6 +18,8 @@ from knora.ingestion.pdf_structure import (
     CanonicalBlock,
     CanonicalDocument,
     CanonicalPage,
+    CanonicalTable,
+    CanonicalTableCell,
     PageCompleteness,
     SourceOrigin,
     validate_canonical_document,
@@ -78,7 +81,25 @@ class DoclingTextExtractor:
         self,
         stream: BinaryIO,
         configuration: DoclingExtractionConfiguration,
+        cancellation: object | None = None,
     ) -> PdfExtractionResult:
+        if not isinstance(configuration, DoclingExtractionConfiguration):
+            raise PdfExtractionError(
+                "PDF_EXTRACTOR_UNAVAILABLE",
+                reason="INCOMPATIBLE_EXTRACTION_CONFIGURATION",
+                retryable=False,
+            )
+
+        start_time = time.monotonic()
+        timeout = configuration.extraction_timeout_seconds
+
+        def check_limits() -> None:
+            if cancellation is not None and getattr(cancellation, "is_cancelled", lambda: False)():
+                raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="CANCELLED")
+            if time.monotonic() - start_time > timeout:
+                raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="TIMEOUT")
+
+        check_limits()
         raw_bytes = stream.read(configuration.max_raw_bytes + 1)
         if len(raw_bytes) > configuration.max_raw_bytes:
             raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="RAW_FILE_SIZE")
@@ -111,6 +132,7 @@ class DoclingTextExtractor:
 
             total_stream_bytes = 0
             for page_idx, page in enumerate(reader.pages, start=1):
+                check_limits()
                 try:
                     stream_bytes = _page_stream_bytes(
                         page,
@@ -132,65 +154,160 @@ class DoclingTextExtractor:
                     )
 
                 native_text = (page.extract_text() or "").strip()
-                if len(native_text) >= configuration.minimum_extracted_characters:
+                check_limits()
+
+                page_images = list(getattr(page, "images", []))
+                has_images = len(page_images) > 0
+                has_native = len(native_text) >= configuration.minimum_extracted_characters
+
+                if has_native and not has_images:
+                    # Pure native text page
                     blocks = self._parse_page_blocks(
                         page_idx, native_text, SourceOrigin.NATIVE_TEXT
                     )
+                    tables = self._extract_tables_from_blocks(page_idx, blocks)
                     canonical_pages.append(
                         CanonicalPage(
                             page_number=page_idx,
                             text=native_text,
                             content_checksum=hashlib.sha256(native_text.encode()).hexdigest(),
                             blocks=tuple(blocks),
+                            tables=tuple(tables),
                             completeness=PageCompleteness(is_complete=True, status="COMPLETE"),
                         )
                     )
-                else:
-                    ocr_applied = False
-                    if self._cf_provider is not None:
-                        try:
-                            if hasattr(page, "images") and len(page.images) > 0:
-                                img_data = page.images[0].data
-                                ocr_resp = self._cf_provider.ocr_page_image(img_data)
-                                ocr_text = ocr_resp.text.strip()
-                                if ocr_text:
-                                    blocks = self._parse_page_blocks(
-                                        page_idx,
-                                        ocr_text,
-                                        SourceOrigin.OCR,
-                                        confidence=ocr_resp.confidence,
-                                    )
-                                    canonical_pages.append(
-                                        CanonicalPage(
-                                            page_number=page_idx,
-                                            text=ocr_text,
-                                            content_checksum=hashlib.sha256(
-                                                ocr_text.encode()
-                                            ).hexdigest(),
-                                            blocks=tuple(blocks),
-                                            completeness=PageCompleteness(
-                                                is_complete=True, status="COMPLETE"
-                                            ),
-                                        )
-                                    )
-                                    ocr_applied = True
-                        except Exception:
-                            ocr_applied = False
-
-                    if not ocr_applied:
+                elif has_native and has_images:
+                    # Mixed page: text + images
+                    if self._cf_provider is None:
+                        blocks = self._parse_page_blocks(
+                            page_idx, native_text, SourceOrigin.NATIVE_TEXT
+                        )
+                        tables = self._extract_tables_from_blocks(page_idx, blocks)
                         canonical_pages.append(
                             CanonicalPage(
                                 page_number=page_idx,
-                                text="",
-                                content_checksum=hashlib.sha256(b"").hexdigest(),
-                                blocks=(),
-                                completeness=PageCompleteness(is_complete=False, status="EMPTY"),
+                                text=native_text,
+                                content_checksum=hashlib.sha256(native_text.encode()).hexdigest(),
+                                blocks=tuple(blocks),
+                                tables=tuple(tables),
+                                completeness=PageCompleteness(
+                                    is_complete=False,
+                                    status="INCOMPLETE",
+                                    reason="UNPROCESSED_PAGE_IMAGES",
+                                ),
                             )
                         )
+                    else:
+                        ocr_texts: list[str] = []
+                        all_ocr_success = True
+                        for img in page_images:
+                            check_limits()
+                            try:
+                                resp = self._cf_provider.ocr_page_image(img.data)
+                                t = resp.text.strip()
+                                if t:
+                                    ocr_texts.append(t)
+                                else:
+                                    all_ocr_success = False
+                            except Exception:
+                                all_ocr_success = False
+
+                        if ocr_texts:
+                            combined = f"{native_text}\n\n" + "\n\n".join(ocr_texts)
+                        else:
+                            combined = native_text
+
+                        blocks = self._parse_page_blocks(
+                            page_idx, combined, SourceOrigin.NATIVE_TEXT
+                        )
+                        tables = self._extract_tables_from_blocks(page_idx, blocks)
+                        is_complete = all_ocr_success and bool(ocr_texts)
+                        canonical_pages.append(
+                            CanonicalPage(
+                                page_number=page_idx,
+                                text=combined,
+                                content_checksum=hashlib.sha256(combined.encode()).hexdigest(),
+                                blocks=tuple(blocks),
+                                tables=tuple(tables),
+                                completeness=PageCompleteness(
+                                    is_complete=is_complete,
+                                    status="COMPLETE" if is_complete else "INCOMPLETE",
+                                    reason=None if is_complete else "MIXED_PAGE_OCR_FAILED",
+                                ),
+                            )
+                        )
+                elif not has_native and has_images:
+                    # Scanned page: OCR across all image tiles
+                    ocr_texts = []
+                    all_ocr_success = True
+                    if self._cf_provider is not None:
+                        for img in page_images:
+                            check_limits()
+                            try:
+                                resp = self._cf_provider.ocr_page_image(img.data)
+                                t = resp.text.strip()
+                                if t:
+                                    ocr_texts.append(t)
+                                else:
+                                    all_ocr_success = False
+                            except Exception:
+                                all_ocr_success = False
+                    else:
+                        all_ocr_success = False
+
+                    if ocr_texts and all_ocr_success:
+                        scanned_text = "\n\n".join(ocr_texts)
+                        blocks = self._parse_page_blocks(page_idx, scanned_text, SourceOrigin.OCR)
+                        tables = self._extract_tables_from_blocks(page_idx, blocks)
+                        canonical_pages.append(
+                            CanonicalPage(
+                                page_number=page_idx,
+                                text=scanned_text,
+                                content_checksum=hashlib.sha256(scanned_text.encode()).hexdigest(),
+                                blocks=tuple(blocks),
+                                tables=tuple(tables),
+                                completeness=PageCompleteness(is_complete=True, status="COMPLETE"),
+                            )
+                        )
+                    else:
+                        scanned_text = "\n\n".join(ocr_texts) if ocr_texts else ""
+                        blocks = (
+                            self._parse_page_blocks(page_idx, scanned_text, SourceOrigin.OCR)
+                            if scanned_text
+                            else ()
+                        )
+                        canonical_pages.append(
+                            CanonicalPage(
+                                page_number=page_idx,
+                                text=scanned_text,
+                                content_checksum=hashlib.sha256(scanned_text.encode()).hexdigest(),
+                                blocks=tuple(blocks),
+                                tables=(),
+                                completeness=PageCompleteness(
+                                    is_complete=False,
+                                    status="EMPTY" if not scanned_text else "INCOMPLETE",
+                                    reason="SCANNED_PAGE_OCR_FAILED",
+                                ),
+                            )
+                        )
+                else:
+                    # Blank page (no native text, no images)
+                    canonical_pages.append(
+                        CanonicalPage(
+                            page_number=page_idx,
+                            text="",
+                            content_checksum=hashlib.sha256(b"").hexdigest(),
+                            blocks=(),
+                            tables=(),
+                            completeness=PageCompleteness(is_complete=False, status="EMPTY"),
+                        )
+                    )
         except PdfExtractionError:
             raise
         except Exception:
             is_pdf_stream = False
+
+        check_limits()
 
         if not is_pdf_stream or not canonical_pages:
             if self._cf_provider is None:
@@ -262,6 +379,84 @@ class DoclingTextExtractor:
             structure=canonical_doc,
         )
 
+    @staticmethod
+    def _parse_markdown_table(
+        table_id: str,
+        page_number: int,
+        table_text: str,
+        start_offset: int,
+        end_offset: int,
+    ) -> CanonicalTable | None:
+        lines = [line.strip() for line in table_text.strip().splitlines() if line.strip()]
+        table_lines = [line for line in lines if line.startswith("|") and line.endswith("|")]
+        if len(table_lines) < 2:
+            return None
+
+        sep_pattern = re.compile(r"^\|(\s*:?-+:?\s*\|)+$")
+        has_separator = bool(sep_pattern.match(table_lines[1]))
+
+        def parse_cells(line: str) -> list[str]:
+            inner = line[1:-1]
+            return [cell.strip() for cell in inner.split("|")]
+
+        rows_data: list[tuple[bool, list[str]]] = []
+        for idx, line in enumerate(table_lines):
+            if idx == 1 and has_separator:
+                continue
+            is_header = idx == 0 and has_separator
+            cell_values = parse_cells(line)
+            rows_data.append((is_header, cell_values))
+
+        if not rows_data:
+            return None
+
+        num_columns = max(len(cells) for _, cells in rows_data)
+        if num_columns == 0:
+            return None
+        num_rows = len(rows_data)
+
+        cells: list[CanonicalTableCell] = []
+        for r_idx, (is_header, row_cells) in enumerate(rows_data):
+            padded = row_cells + [""] * (num_columns - len(row_cells))
+            for c_idx, cell_text in enumerate(padded[:num_columns]):
+                cells.append(
+                    CanonicalTableCell(
+                        row_index=r_idx,
+                        column_index=c_idx,
+                        text=cell_text,
+                        is_header=is_header,
+                    )
+                )
+
+        return CanonicalTable(
+            table_id=table_id,
+            page_number=page_number,
+            num_rows=num_rows,
+            num_columns=num_columns,
+            cells=tuple(cells),
+            start_offset=start_offset,
+            end_offset=end_offset,
+        )
+
+    def _extract_tables_from_blocks(
+        self,
+        page_number: int,
+        blocks: list[CanonicalBlock] | tuple[CanonicalBlock, ...],
+    ) -> list[CanonicalTable]:
+        tables: list[CanonicalTable] = []
+        for idx, block in enumerate(blocks, start=1):
+            if block.block_type == BlockType.TABLE or ("|" in block.text and "\n" in block.text):
+                parsed = self._parse_markdown_table(
+                    table_id=f"p{page_number}_t{idx}",
+                    page_number=page_number,
+                    table_text=block.text,
+                    start_offset=block.start_offset,
+                    end_offset=block.end_offset,
+                )
+                if parsed is not None:
+                    tables.append(parsed)
+        return tables
+
     def _parse_page_blocks(
         self,
         page_number: int,
@@ -295,11 +490,16 @@ class DoclingTextExtractor:
                 title = heading_match.group(2).strip()
                 heading_stack = heading_stack[: level - 1] + [title]
                 clean_text = section
-            elif section.startswith("|") and section.endswith("|"):
-                block_type = BlockType.TABLE
-                clean_text = section
             else:
-                clean_text = section
+                table_lines = [line.strip() for line in section.splitlines() if line.strip()]
+                if (
+                    len(table_lines) >= 2
+                    and all(line.startswith("|") and line.endswith("|") for line in table_lines)
+                ) or (section.startswith("|") and section.endswith("|")):
+                    block_type = BlockType.TABLE
+                    clean_text = section
+                else:
+                    clean_text = section
 
             blocks.append(
                 CanonicalBlock(
@@ -335,21 +535,25 @@ class DoclingTextExtractor:
             blocks = self._parse_page_blocks(
                 page_number, page_text, SourceOrigin.OCR, confidence=ocr_resp.confidence
             )
+            tables = self._extract_tables_from_blocks(page_number, blocks)
             return CanonicalPage(
                 page_number=page_number,
                 text=page_text,
                 content_checksum=hashlib.sha256(page_text.encode()).hexdigest(),
                 blocks=tuple(blocks),
+                tables=tuple(tables),
                 completeness=PageCompleteness(is_complete=True, status="COMPLETE"),
             )
 
         page_text = native_text.strip()
         blocks = self._parse_page_blocks(page_number, page_text, SourceOrigin.NATIVE_TEXT)
+        tables = self._extract_tables_from_blocks(page_number, blocks)
         return CanonicalPage(
             page_number=page_number,
             text=page_text,
             content_checksum=hashlib.sha256(page_text.encode()).hexdigest(),
             blocks=tuple(blocks),
+            tables=tuple(tables),
             completeness=PageCompleteness(is_complete=True, status="COMPLETE"),
         )
 
@@ -372,12 +576,14 @@ class DoclingTextExtractor:
             if not p_text:
                 continue
             blocks = self._parse_page_blocks(page_idx, p_text, SourceOrigin.NATIVE_TEXT)
+            tables = self._extract_tables_from_blocks(page_idx, blocks)
             pages.append(
                 CanonicalPage(
                     page_number=page_idx,
                     text=p_text,
                     content_checksum=hashlib.sha256(p_text.encode()).hexdigest(),
                     blocks=tuple(blocks),
+                    tables=tuple(tables),
                     completeness=PageCompleteness(
                         is_complete=is_complete,
                         status="COMPLETE" if is_complete else "INCOMPLETE",
@@ -394,6 +600,7 @@ class DoclingTextExtractor:
                     text="",
                     content_checksum=hashlib.sha256(b"").hexdigest(),
                     blocks=(),
+                    tables=(),
                     completeness=PageCompleteness(is_complete=False, status="EMPTY"),
                 ),
             )

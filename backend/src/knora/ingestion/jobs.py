@@ -42,6 +42,26 @@ class PdfSubmissionConfiguration:
     embedding_configuration: EmbeddingConfiguration
 
     @classmethod
+    def docling_native(
+        cls, *, embedding_configuration: EmbeddingConfiguration
+    ) -> PdfSubmissionConfiguration:
+        from knora.adapters.pdf.docling import DoclingExtractionConfiguration
+
+        docling = DoclingExtractionConfiguration.cloudflare_native_v1()
+        legacy = cls.milestone_two(embedding_configuration=embedding_configuration)
+        return replace(
+            legacy,
+            parser_configuration_id="pdf-parser-docling-native-cloudflare-v1",
+            normalizer_configuration_id=docling.normalizer_version,
+            chunking_configuration=replace(
+                legacy.chunking_configuration,
+                id="chunking-docling-native-cf-v1",
+                parser_version=docling.parser_version,
+                chunker_version=docling.chunking_policy_version,
+            ),
+        )
+
+    @classmethod
     def layout_preserving(
         cls, *, embedding_configuration: EmbeddingConfiguration
     ) -> PdfSubmissionConfiguration:

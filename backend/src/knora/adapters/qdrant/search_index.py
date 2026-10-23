@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass
 from math import isfinite
@@ -125,7 +126,11 @@ class QdrantSearchIndex:
             raise LexicalGenerationError("native staging requires one batch of at most 64 points")
 
     def _point_payload(
-        self, generation: LexicalGeneration, chunk: LexicalChunk, content_digest: str
+        self,
+        generation: LexicalGeneration,
+        chunk: LexicalChunk,
+        content_digest: str,
+        vector_digest: str | None = None,
     ) -> dict[str, str]:
         payload = {
             "workspace_id": generation.workspace_id,
@@ -138,6 +143,8 @@ class QdrantSearchIndex:
         }
         if self.embedding_configuration is not None:
             payload["embedding_configuration_id"] = self.embedding_configuration.id
+        if vector_digest is not None:
+            payload["vector_digest"] = vector_digest
         return payload
 
     def stage_body(
@@ -179,6 +186,7 @@ class QdrantSearchIndex:
             ):
                 raise LexicalGenerationError("authoritative chunk text checksum is invalid")
             vector_entry: dict[str, Any] = {"bm25": self._document(text)}
+            vec_digest: str | None = None
             if chunk_vectors is not None:
                 vec = chunk_vectors[chunk.chunk_id]
                 if (
@@ -198,18 +206,30 @@ class QdrantSearchIndex:
                 ):
                     raise LexicalGenerationError("chunk vector dimension mismatch")
                 vector_entry["dense"] = list(vec)
+                vec_digest = hashlib.sha256(
+                    json.dumps([float(v) for v in vec], separators=(",", ":")).encode("utf-8")
+                ).hexdigest()
             points.append(
                 {
                     "id": lexical_point_id(generation.generation_id, chunk.chunk_id),
                     "vector": vector_entry,
-                    "payload": self._point_payload(generation, chunk, content_digest),
+                    "payload": self._point_payload(
+                        generation, chunk, content_digest, vector_digest=vec_digest
+                    ),
                 }
             )
         return {"points": points}
 
     def persisted_points_body(self, generation: LexicalGeneration) -> dict[str, Any]:
         self._validate_generation(generation)
-        return {"ids": list(generation.point_ids()), "with_payload": True, "with_vector": False}
+        with_vector: bool | list[str] = (
+            ["dense"] if self.embedding_configuration is not None else False
+        )
+        return {
+            "ids": list(generation.point_ids()),
+            "with_payload": True,
+            "with_vector": with_vector,
+        }
 
     def parse_stage_response(
         self, generation: LexicalGeneration, points: list[dict[str, Any]]
@@ -219,26 +239,81 @@ class QdrantSearchIndex:
         if not isinstance(points, list) or len(points) != len(generation.chunks):
             raise ProjectionResponseError("persisted generation point count is incomplete")
         content_digest = generation.content_digest()
-        expected = {
-            lexical_point_id(generation.generation_id, chunk.chunk_id): self._point_payload(
-                generation, chunk, content_digest
-            )
-            for chunk in generation.chunks
-        }
         seen = set()
         for point in points:
             if not isinstance(point, dict):
                 raise ProjectionResponseError("persisted point is not an object")
             point_id = point.get("id")
+            if not isinstance(point_id, str):
+                raise ProjectionResponseError("persisted point id is missing")
+            chunk_match = None
+            for c in generation.chunks:
+                if lexical_point_id(generation.generation_id, c.chunk_id) == point_id:
+                    chunk_match = c
+                    break
+            if chunk_match is None or point_id in seen:
+                raise ProjectionResponseError(
+                    "persisted point identity or digest differs from manifest"
+                )
+            payload = point.get("payload")
+            if not isinstance(payload, dict):
+                raise ProjectionResponseError("persisted point payload is missing")
+
+            # Check core payload fields
             if (
-                not isinstance(point_id, str)
-                or point_id not in expected
-                or point_id in seen
-                or point.get("payload") != expected[point_id]
+                payload.get("workspace_id") != generation.workspace_id
+                or payload.get("generation_id") != generation.generation_id
+                or payload.get("chunk_id") != chunk_match.chunk_id
+                or payload.get("profile_id") != generation.lexical_profile.id
+                or payload.get("profile_digest") != generation.lexical_profile.digest()
+                or payload.get("content_checksum") != chunk_match.content_checksum
+                or payload.get("content_digest") != content_digest
             ):
                 raise ProjectionResponseError(
                     "persisted point identity or digest differs from manifest"
                 )
+            if (
+                self.embedding_configuration is not None
+                and payload.get("embedding_configuration_id") != self.embedding_configuration.id
+            ):
+                raise ProjectionResponseError("embedding configuration mismatch in payload")
+
+            # If embedding configuration is active, validate persisted vector
+            if self.embedding_configuration is not None:
+                p_vector = point.get("vector")
+                if not p_vector:
+                    raise ProjectionResponseError("persisted dense vector is missing")
+                if isinstance(p_vector, dict):
+                    dense_vec = p_vector.get("dense")
+                elif isinstance(p_vector, list):
+                    dense_vec = p_vector
+                else:
+                    dense_vec = None
+
+                if (
+                    not isinstance(dense_vec, (list, tuple))
+                    or len(dense_vec) != self.embedding_configuration.dimensions
+                    or not all(
+                        isinstance(v, (int, float)) and not isinstance(v, bool) and isfinite(v)
+                        for v in dense_vec
+                    )
+                ):
+                    raise ProjectionResponseError(
+                        "persisted dense vector is missing or has dimension mismatch"
+                    )
+
+                expected_vec_digest = payload.get("vector_digest")
+                if expected_vec_digest is not None:
+                    actual_vec_digest = hashlib.sha256(
+                        json.dumps([float(v) for v in dense_vec], separators=(",", ":")).encode(
+                            "utf-8"
+                        )
+                    ).hexdigest()
+                    if actual_vec_digest != expected_vec_digest:
+                        raise ProjectionResponseError(
+                            "persisted dense vector content has been altered or corrupted"
+                        )
+
             seen.add(point_id)
         return StageReceipt(generation.generation_id, len(seen), content_digest)
 

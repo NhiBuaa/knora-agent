@@ -281,9 +281,8 @@ class AnswerQuestion:
                     if lexical_generations
                     else None
                 )
-                if (
+                if corpus_stats.statistics_digest is None or (
                     expected_digest is not None
-                    and corpus_stats.statistics_digest is not None
                     and corpus_stats.statistics_digest != expected_digest
                 ):
                     raise KnoraError("CORPUS_STATISTICS_UNAVAILABLE")
