@@ -186,3 +186,49 @@ runtime or authorize real calls. Gold v1, thresholds and historical runs remain 
 Actual corpus/binding verification and a compatible saved ANSWER are still needed before an
 approved judge/calibration trial. Ragas proposals, human review/freeze and R3 retain their separate
 gate. No offline result establishes real model compatibility, semantic quality or owner acceptance.
+
+
+## Evaluation Tools Acceptance Checkpoint — 23 October 2026
+
+Branch: `feat/evaluation-tools-acceptance` (branched from `main`).
+Plan: `docs/plans/evaluation-tools-acceptance.md` approved by Owner at commit `51f11e721ba9fe95a155f40da010136b068a5cfd`.
+
+### Completed Offline Work (Tasks 1–4)
+
+1. **Task 1 — Pilot Audit & Target Cases Inventory** (`83d15098`):
+   - Audited 4 legacy SQLite journals in temp in read-only mode (`PRAGMA query_only=ON`). Identified 6 distinct
+     startup reservation timestamps, confirming journals were reset. Historical pilot was declared diagnostic-only.
+   - Pinned 8 target cases (6 clean ANSWER + 2 REFUSAL) from `baseline-b-layout-v2-continuation/captures/`,
+     confirming 100% SHA256 match with archive manifest, full candidate contents, and valid context bindings.
+   - Published audit artifact: `docs/development/issue-158-pilot-audit-and-input-inventory.md`.
+2. **Task 2 — Native PDF Capture Scorer & Human Review Packet** (`93377421`):
+   - Preserved native `attempt`, `attempt_id`, and `validation_origin` throughout scorer and export projections.
+   - Integrated 4 deterministic synthetic controls (`wrong-fact`, `off-topic`, `unsupported`, `missing-exception`)
+     with explicit provenance descriptors and failure metric assertions.
+   - Created blind 12-item review packet generator (`evals/runners/evaluation_review_packet.py`) with deterministic
+     seed 158 shuffle and zero prior judge scores, published at `docs/development/issue-158-human-review-packet.md`.
+3. **Task 3 — Versioned Admission & Corpus Preparation** (`77eda55e`):
+   - Added `manifest_version: 2` support to `LivePackage` (aggregate 139 attempts cap, 2 startups, 8 windows x 60m,
+     7-day deadline from first dispatch, and `skipped_slots` for saved branch).
+   - Updated `CorpusPreparationPlan(plan_version=2)` to support 1 to 6 pinned PDF sources and up to 6 embedding calls.
+   - Added Addendum to ADR 0018 (`docs/adr/0018-knora-evaluation-tool-authority.md`) and updated `docs/evaluation.md`.
+4. **Task 4 — Langfuse Bridge Readback & Exact-ID Deletion** (`313f1839`):
+   - Preserved native `attempt_id` and added `attempt_number` in OpenTelemetry span projections.
+   - Added atomic, no-clobber filesystem `ReceiptManager` for export and deletion reservations.
+   - Added exact-ID batch deletion (`DELETE /api/public/traces`) with polling readback verification.
+   - Added full pilot cycle coordinator enforcing bounded canary-then-real sequence (2 POSTs, 2 DELETEs, 0 scores).
+
+### Offline Verification Evidence (§5 Contract)
+
+Executed full offline test suite from worktree `feat-evaluation-tools-acceptance` using Python `.venv-eval`:
+
+```powershell
+pytest backend/test/evaluation evals/test/test_deepeval_capture.py evals/test/test_pdf_retrieval_v3.py evals/test/test_ragas_review.py evals/test/test_langfuse_bridge.py backend/test/adapters/http/test_http_evaluation_scoring.py -q -p no:cacheprovider -p no:deepeval --junitxml suite.xml
+```
+
+- **Result**: **485 passed in 298.89s (0:04:58)**, exit code 0.
+- **Ruff Format & Lint**: `547 files already formatted`, all checks passed.
+- **OpenAPI Schema Check**: `export_openapi.py --check` passed, artifacts current.
+- **Git Diff Check**: `git diff --check` clean, zero whitespace errors.
+- **Resource Budget**: **0 live inference calls, 0 cloud writes, paid USD 0**.
+- **Authority Constraints**: PR created into `main` without merge. No auto-deployment or closing of Issue #158.
