@@ -19,6 +19,7 @@ SECURITY_SHADOW_FILES = {
 DATABASE_FILES = {
     "backend/test/adapters/cli/test_ingest.py",
     "backend/test/adapters/cli/test_ingestion_worker.py",
+    "backend/test/adapters/cli/test_reindex_search.py",
     "backend/test/adapters/http/test_ingestion.py",
     "backend/test/adapters/http/test_questions.py",
     "backend/test/ingestion/test_issue_19_application_e2e.py",
