@@ -121,3 +121,64 @@ def test_query_decomposition_creates_atomic_subquestions_without_cross_contamina
     # sq2 must only contain Chapter 5 constraint, not Chapter 2
     assert any("Chương 5" in s for s in sq2_sections)
     assert not any("Chương 2" in s for s in sq2_sections)
+
+
+def test_query_decomposition_preserves_positional_predicates_and_scoped_facts():
+    """F12: Verify positional predicate preservation and isolated group constraints."""
+    import hashlib
+
+    from knora.answering.evidence_support import assess_evidence_support
+    from knora.answering.stores import RetrievalCandidate
+
+    def _make_cand(cid: str, text: str, heading: tuple[str, ...]) -> RetrievalCandidate:
+        return RetrievalCandidate(
+            document_id="d",
+            document_version_id="v",
+            source_key="policy",
+            source_name="policy.pdf",
+            chunk_set_id="s",
+            embedding_set_id=None,
+            embedding_configuration_id=None,
+            chunk_id=cid,
+            chunk_ordinal=0,
+            heading_path=heading,
+            start_line=1,
+            end_line=10,
+            content=text,
+            content_checksum=hashlib.sha256(text.encode()).hexdigest(),
+            token_count=len(text.split()),
+            cosine_distance=None,
+            similarity=None,
+            fusion_score=0.5,
+        )
+
+    planner = QueryPlanner()
+
+    # Case 1: Shared predicate before sections, global modifier after
+    q1 = "So sánh thời hạn đổi trả Chương 2 và Chương 5, kèm AUTH_403 và AUTH_404"
+    plan1 = planner.plan(q1)
+    assert len(plan1.subquestions) == 2
+    assert all("thời hạn đổi trả" in sq.text for sq in plan1.subquestions)
+
+    # Distractor candidates talking about uniforms must not be falsely supported
+    unrelated = [
+        _make_cand("2", "Chương 2 quy định về đồng phục nhân viên.", ("Chương 2",)),
+        _make_cand("5", "Chương 5 quy định về đồng phục nhân viên.", ("Chương 5",)),
+    ]
+    eval1 = assess_evidence_support(plan1.subquestions, unrelated)
+    assert eval1.all_required_supported is False
+
+    # Case 2: Positional predicate per section (7 days for C2, 20% discount for C5)
+    q2 = "So sánh Chương 2 đổi trả trong 7 ngày và Chương 5 giảm giá 20%"
+    plan2 = planner.plan(q2)
+    assert len(plan2.subquestions) == 2
+    sq1, sq2 = plan2.subquestions
+    assert "7 ngày" in sq1.text and "20%" not in sq1.text
+    assert "20%" in sq2.text and "7 ngày" not in sq2.text
+
+    scoped_sources = [
+        _make_cand("a", "Chương 2 đổi trả trong 7 ngày", ("Chương 2",)),
+        _make_cand("b", "Chương 5 giảm giá 20%", ("Chương 5",)),
+    ]
+    eval2 = assess_evidence_support(plan2.subquestions, scoped_sources)
+    assert eval2.all_required_supported is True

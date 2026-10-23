@@ -78,3 +78,84 @@ def test_non_string_answer_fails_as_generation_contract_error() -> None:
 
     with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
         validate_generation(result, available_evidence_ids=("E1",))
+
+
+def test_citation_alignment_and_factual_substance_probes() -> None:
+    """F14: Verify citation-level segment alignment, number fidelity, and substantive facts."""
+    import hashlib
+    import re
+
+    from knora.answering.query_planning import Subquestion, extract_protected_spans
+    from knora.answering.stores import RetrievalCandidate
+
+    def _make_cand(cid: str, text: str, heading: tuple[str, ...]) -> RetrievalCandidate:
+        return RetrievalCandidate(
+            document_id="d",
+            document_version_id="v",
+            source_key="policy",
+            source_name="policy.pdf",
+            chunk_set_id="s",
+            embedding_set_id=None,
+            embedding_configuration_id=None,
+            chunk_id=cid,
+            chunk_ordinal=0,
+            heading_path=heading,
+            start_line=1,
+            end_line=10,
+            content=text,
+            content_checksum=hashlib.sha256(text.encode()).hexdigest(),
+            token_count=len(text.split()),
+            cosine_distance=None,
+            similarity=None,
+            fusion_score=0.5,
+        )
+
+    c2 = _make_cand("c2", "Chương 2 thời hạn đổi trả 7 ngày.", ("Chương 2",))
+    c5 = _make_cand("c5", "Chương 5 miễn phí vận chuyển.", ("Chương 5",))
+    groups = [
+        Subquestion(
+            id="s2",
+            text="Chương 2 thời hạn đổi trả",
+            protected_spans=extract_protected_spans("Chương 2"),
+        ),
+        Subquestion(
+            id="s5",
+            text="Chương 5 phí vận chuyển",
+            protected_spans=extract_protected_spans("Chương 5"),
+        ),
+    ]
+    alias_map = {"E1": c2, "E2": c5}
+
+    def _check(ans_text: str):
+        g = GenerationResult(
+            decision="ANSWER",
+            answer=ans_text,
+            cited_evidence_ids=tuple(re.findall(r"\[\[(E\d+)\]\]", ans_text)),
+            refusal_reason=None,
+        )
+        return validate_generation(
+            g,
+            available_evidence_ids=("E1", "E2"),
+            required_subquestions=groups,
+            alias_to_candidate=alias_map,
+        )
+
+    # 1. Padded heading-only answer must fail closed
+    with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+        _check("Chương 2 và Chương 5, đây chỉ là phần giới thiệu tổng quan chung. [[E1]] [[E2]]")
+
+    # 2. Concise factually supported answer must pass
+    val = _check("Chương 2: 7 ngày [[E1]]. Chương 5: miễn phí [[E2]].")
+    assert val.parsed_markers == ("E1", "E2")
+
+    # 3. Wrong number (70 vs 7) must fail closed
+    with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+        _check("Chương 2: thời hạn đổi trả 70 ngày [[E1]]. Chương 5: miễn phí vận chuyển [[E2]].")
+
+    # 4. Swapped citations (E2 for C2, E1 for C5) must fail closed
+    with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+        _check("Chương 2: 7 ngày [[E2]]. Chương 5: miễn phí [[E1]].")
+
+    # 5. Factless answer with one shared word must fail closed
+    with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+        _check("Chương 2: thời gian [[E1]]. Chương 5: phí khác [[E2]].")

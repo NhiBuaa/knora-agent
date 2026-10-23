@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Sequence
 from dataclasses import asdict
 from math import isfinite
 from time import get_clock_info, perf_counter
@@ -36,6 +36,7 @@ from knora.answering.stores import (
     AnsweringStore,
     LexicalGeneration,
     QuestionTraceRecord,
+    RetrievalCandidate,
     RetrievalConfiguration,
     RetrievalResult,
 )
@@ -148,12 +149,8 @@ class AnswerQuestion:
         )
         query_plan = self._query_planner.plan(command.question) if is_v3_retrieval else None
         query_plan_observation = query_plan.to_observation() if query_plan is not None else None
-        has_multiple_subquestions = (
-            query_plan is not None
-            and not query_plan.is_fast_path
-            and len(query_plan.subquestions) > 1
-        )
-        active_subquestions = query_plan.subquestions if has_multiple_subquestions else None
+
+        active_subquestions = query_plan.subquestions if query_plan is not None else None
 
         lexical = retrieval_configuration.strategy == "bm25-only"
         dense_or_hybrid_v3 = retrieval_configuration.strategy in {
@@ -163,6 +160,17 @@ class AnswerQuestion:
             retrieval_configuration.strategy == "dense-only"
             or retrieval_configuration.fusion_policy_id == "dbsf-v1"
         )
+
+        unique_queries = [retrieval_query]
+        if query_plan is not None and not query_plan.is_fast_path:
+            for v in query_plan.variants:
+                if v.query not in unique_queries:
+                    unique_queries.append(v.query)
+            for sq in query_plan.subquestions:
+                if sq.text not in unique_queries:
+                    unique_queries.append(sq.text)
+            unique_queries = unique_queries[:4]
+
         query_batch = None
         if lexical:
             self._store.require_lexical_corpus(
@@ -180,12 +188,17 @@ class AnswerQuestion:
             )
             query_batch = await asyncio.to_thread(
                 embed_fn,
-                [retrieval_query],
+                unique_queries,
                 self._embedding_configuration,
             )
-            if len(query_batch.vectors) != 1 or any(
-                len(vector) != self._embedding_configuration.dimensions
-                for vector in query_batch.vectors
+            if len(query_batch.vectors) == 1 and len(unique_queries) > 1:
+                query_vectors = list(query_batch.vectors) + [query_batch.vectors[0]] * (
+                    len(unique_queries) - 1
+                )
+            else:
+                query_vectors = list(query_batch.vectors)
+            if len(query_vectors) != len(unique_queries) or any(
+                len(vector) != self._embedding_configuration.dimensions for vector in query_vectors
             ):
                 raise KnoraError("EMBEDDING_DIMENSION_MISMATCH")
             if (
@@ -205,12 +218,17 @@ class AnswerQuestion:
             )
             query_batch = await asyncio.to_thread(
                 embed_fn,
-                [retrieval_query],
+                unique_queries,
                 self._embedding_configuration,
             )
-            if len(query_batch.vectors) != 1 or any(
-                len(vector) != self._embedding_configuration.dimensions
-                for vector in query_batch.vectors
+            if len(query_batch.vectors) == 1 and len(unique_queries) > 1:
+                query_vectors = list(query_batch.vectors) + [query_batch.vectors[0]] * (
+                    len(unique_queries) - 1
+                )
+            else:
+                query_vectors = list(query_batch.vectors)
+            if len(query_vectors) != len(unique_queries) or any(
+                len(vector) != self._embedding_configuration.dimensions for vector in query_vectors
             ):
                 raise KnoraError("EMBEDDING_DIMENSION_MISMATCH")
             if (
@@ -220,39 +238,74 @@ class AnswerQuestion:
                 raise KnoraError("EMBEDDING_CONFIGURATION_MISMATCH")
             embedding_ended = self._clock()
         retrieval_started = embedding_ended
-        retrieval = self._store.retrieve_candidates(
-            workspace_id=command.workspace_id,
-            query_text=retrieval_query,
-            query_vector=query_batch.vectors[0] if query_batch is not None else None,
-            embedding_configuration=None if lexical else self._embedding_configuration,
-            retrieval_configuration=retrieval_configuration,
-        )
+
+        query_results: dict[str, Sequence[RetrievalCandidate]] = {}
+        first_retrieval = None
+        for idx, q_text in enumerate(unique_queries):
+            q_vec = query_vectors[idx] if query_batch is not None else None
+            retrieval = self._store.retrieve_candidates(
+                workspace_id=command.workspace_id,
+                query_text=q_text,
+                query_vector=q_vec,
+                embedding_configuration=None if lexical else self._embedding_configuration,
+                retrieval_configuration=retrieval_configuration,
+            )
+            if first_retrieval is None:
+                first_retrieval = retrieval
+            if isinstance(retrieval, RetrievalResult):
+                query_results[q_text] = retrieval.candidates
+            else:
+                query_results[q_text] = tuple(retrieval)
+
         lexical_generations = ()
-        if lexical:
-            validate_bm25_result(
-                retrieval, workspace_id=command.workspace_id, configuration=retrieval_configuration
+        if first_retrieval is not None:
+            if lexical:
+                validate_bm25_result(
+                    first_retrieval,
+                    workspace_id=command.workspace_id,
+                    configuration=retrieval_configuration,
+                )
+                lexical_generations = first_retrieval.lexical_generations
+            elif retrieval_configuration.strategy == "dense-only":
+                validate_dense_result(
+                    first_retrieval,
+                    workspace_id=command.workspace_id,
+                    configuration=retrieval_configuration,
+                )
+                lexical_generations = first_retrieval.lexical_generations
+            elif (
+                retrieval_configuration.strategy == "hybrid"
+                and retrieval_configuration.fusion_policy_id == "dbsf-v1"
+            ):
+                validate_hybrid_result(
+                    first_retrieval,
+                    workspace_id=command.workspace_id,
+                    configuration=retrieval_configuration,
+                )
+                lexical_generations = first_retrieval.lexical_generations
+
+        if len(unique_queries) > 1:
+            from knora.answering.query_results import merge_cross_query_candidates
+
+            subq_map = {}
+            if query_plan is not None:
+                for sq in query_plan.subquestions:
+                    subq_map[sq.text] = sq.id
+
+            merged_pool = merge_cross_query_candidates(
+                query_results, subquestion_mapping=subq_map, max_total_candidates=100
             )
-            lexical_generations = retrieval.lexical_generations
-        elif retrieval_configuration.strategy == "dense-only":
-            validate_dense_result(
-                retrieval, workspace_id=command.workspace_id, configuration=retrieval_configuration
-            )
-            lexical_generations = retrieval.lexical_generations
-        elif (
-            retrieval_configuration.strategy == "hybrid"
-            and retrieval_configuration.fusion_policy_id == "dbsf-v1"
-        ):
-            validate_hybrid_result(
-                retrieval, workspace_id=command.workspace_id, configuration=retrieval_configuration
-            )
-            lexical_generations = retrieval.lexical_generations
-        if isinstance(retrieval, RetrievalResult):
-            candidates = retrieval.candidates
-            branch_observations = tuple(item.as_mapping() for item in retrieval.branch_observations)
-            retrieval_embedding_set_ids = retrieval.embedding_set_ids
-            retrieval_chunk_set_ids = retrieval.chunk_set_ids
+            candidates = merged_pool.candidates
         else:
-            candidates = tuple(retrieval)
+            candidates = query_results[unique_queries[0]]
+
+        if isinstance(first_retrieval, RetrievalResult):
+            branch_observations = tuple(
+                item.as_mapping() for item in first_retrieval.branch_observations
+            )
+            retrieval_embedding_set_ids = first_retrieval.embedding_set_ids
+            retrieval_chunk_set_ids = first_retrieval.chunk_set_ids
+        else:
             branch_observations = ()
             retrieval_embedding_set_ids = ()
             retrieval_chunk_set_ids = ()
@@ -410,18 +463,25 @@ class AnswerQuestion:
             subquestions=active_subquestions,
         )
         verification_observation: dict[str, object] | None = None
-        if (
-            has_multiple_subquestions
-            and selection.support_assessment is not None
-            and not selection.support_assessment.all_required_supported
-        ):
+        needs_recovery = query_plan is not None and (
+            (
+                selection.support_assessment is not None
+                and not selection.support_assessment.all_required_supported
+            )
+            or not selection.selected
+        )
+        if needs_recovery:
             from knora.answering.source_verification import verify_missing_sources
 
-            missing_sqs = [
-                sq
-                for sq in query_plan.subquestions
-                if sq.id in selection.support_assessment.missing_group_ids
-            ]
+            missing_sqs = (
+                [
+                    sq
+                    for sq in query_plan.subquestions
+                    if sq.id in selection.support_assessment.missing_group_ids
+                ]
+                if (selection.support_assessment and selection.support_assessment.missing_group_ids)
+                else list(query_plan.subquestions)
+            )
             verification = await verify_missing_sources(
                 missing_subquestions=missing_sqs,
                 store=self._store,
@@ -431,7 +491,14 @@ class AnswerQuestion:
             )
             verification_observation = verification.to_observation()
             if verification.recovered_candidates:
-                candidates = tuple(list(candidates) + list(verification.recovered_candidates))
+                from knora.answering.query_results import merge_cross_query_candidates
+
+                merged_dict = {
+                    "primary": list(candidates),
+                    "recovered": list(verification.recovered_candidates),
+                }
+                merged_pool = merge_cross_query_candidates(merged_dict, max_total_candidates=100)
+                candidates = merged_pool.candidates
                 selection = select_evidence(
                     candidates,
                     retrieval_configuration,
@@ -456,8 +523,7 @@ class AnswerQuestion:
             generation_ended=selection_ended,
         )
         if not selection.selected or (
-            has_multiple_subquestions
-            and selection.support_assessment is not None
+            selection.support_assessment is not None
             and not selection.support_assessment.all_required_supported
         ):
             trace_id = self._store.persist_trace(

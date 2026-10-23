@@ -778,3 +778,223 @@ async def test_prior_answer_cannot_bypass_fresh_evidence_refusal_for_a_follow_up
     assert embedding.calls == [[context.retrieval_query]]
     assert store.traces[0].question == question
     assert store.traces[0].conversation_turn_id == "turn-current"
+
+
+@pytest.mark.asyncio
+async def test_multi_query_variants_are_executed_and_merged_in_v3() -> None:
+    """F18: Verify all query plan variants are searched and merged via cross-query pooling."""
+    from unittest.mock import Mock
+
+    from knora.answering.sequential_dependence import CorpusStatistics
+    from knora.answering.stores import (
+        BranchObservation,
+        LexicalGeneration,
+        RetrievalCandidate,
+        RetrievalResult,
+    )
+
+    searched_queries = []
+
+    c1 = RetrievalCandidate(
+        document_id="doc-1",
+        document_version_id="ver-1",
+        source_key="policy",
+        source_name="policy.pdf",
+        chunk_set_id="cset-1",
+        embedding_set_id=None,
+        embedding_configuration_id="embedding-local-m1-v2",
+        chunk_id="chunk-1",
+        chunk_ordinal=0,
+        heading_path=("Section 1",),
+        start_line=1,
+        end_line=5,
+        content="Evidence content",
+        content_checksum="chk-1",
+        token_count=10,
+        cosine_distance=None,
+        similarity=None,
+        fusion_score=0.5,
+        index_generation_id="gen-1",
+    )
+
+    snapshot = LexicalGeneration(
+        workspace_id="workspace-a",
+        document_id="doc-1",
+        document_version_id="ver-1",
+        chunk_set_id="cset-1",
+        index_generation_id="gen-1",
+        lexical_policy_id="bm25-word-frozen47-population-v1",
+        statistics_digest="a" * 64,
+    )
+    obs = (
+        BranchObservation(
+            branch="fused",
+            status="ELIGIBLE",
+            chunk_id="chunk-1",
+            branch_rank=1,
+            raw_score=0.5,
+            score_kind="dbsf",
+            index_generation_id="gen-1",
+        ),
+    )
+    v3_result = RetrievalResult(
+        candidates=(c1,),
+        branch_observations=obs,
+        chunk_set_ids=("cset-1",),
+        lexical_generations=(snapshot,),
+    )
+
+    class SpyStore(EmptyStore):
+        def require_lexical_corpus(self, workspace_id, lexical_policy_id=None):
+            pass
+
+        def revalidate_lexical_snapshot(self, *args, **kwargs):
+            pass
+
+        def read_corpus_statistics(self, workspace_id, policy_id):
+            return CorpusStatistics(
+                total_tokens=1000,
+                total_chunks=10,
+                unigram_frequencies={"evidence": 5, "content": 5},
+                statistics_digest="a" * 64,
+            )
+
+        def retrieve_candidates(self, **kwargs):
+            searched_queries.append(kwargs["query_text"])
+            return v3_result
+
+    store = SpyStore()
+    mock_gen = Mock()
+    mock_gen.generate = Mock(
+        side_effect=lambda **kwargs: asyncio.sleep(
+            0,
+            result=GenerationResult(
+                decision="ANSWER",
+                answer="Evidence content [[E1]].",
+                cited_evidence_ids=("E1",),
+                refusal_reason=None,
+            ),
+        )
+    )
+
+    service = AnswerQuestion(
+        embedding_provider=QueryEmbeddingProvider(),
+        generation_provider=mock_gen,
+        store=store,
+        embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+        retrieval_configuration=RetrievalConfiguration.hybrid_rerank_top8_v3(),
+    )
+
+    # Typo query generates variants
+    question = "chuong2 quy dinh thoi han bao hanh san pham"
+    result = await service.execute(
+        QuestionCommand(workspace_id="workspace-a", question=question),
+        WorkspacePrincipal(workspace_id="workspace-a", key_id="test-a"),
+    )
+
+    assert result is not None
+    assert len(searched_queries) >= 2
+    assert question in searched_queries
+    assert any("chương 2" in q for q in searched_queries)
+
+
+@pytest.mark.asyncio
+async def test_single_intent_missing_evidence_triggers_recovery() -> None:
+    """F13: Single-intent queries without required evidence trigger recovery pass."""
+    from knora.answering.stores import (
+        BranchObservation,
+        LexicalGeneration,
+        RetrievalCandidate,
+        RetrievalResult,
+    )
+
+    recovery_called = False
+
+    c_unrelated = RetrievalCandidate(
+        document_id="doc-1",
+        document_version_id="ver-1",
+        source_key="policy",
+        source_name="policy.pdf",
+        chunk_set_id="cset-1",
+        embedding_set_id=None,
+        embedding_configuration_id=None,
+        chunk_id="chunk-unrelated",
+        chunk_ordinal=0,
+        heading_path=("Chương 1",),
+        start_line=1,
+        end_line=5,
+        content="Nội dung điều khoản chung về nhân sự",
+        content_checksum="chk-unrelated",
+        token_count=10,
+        cosine_distance=None,
+        similarity=None,
+        bm25_score=5.0,
+        bm25_rank=1,
+        index_generation_id="gen-1",
+    )
+
+    snapshot = LexicalGeneration(
+        workspace_id="workspace-a",
+        document_id="doc-1",
+        document_version_id="ver-1",
+        chunk_set_id="cset-1",
+        index_generation_id="gen-1",
+        lexical_policy_id="bm25-word-frozen47-population-v1",
+        statistics_digest="a" * 64,
+    )
+    obs = (
+        BranchObservation(
+            branch="bm25",
+            status="ELIGIBLE",
+            chunk_id="chunk-unrelated",
+            branch_rank=1,
+            raw_score=5.0,
+            score_kind="bm25",
+            index_generation_id="gen-1",
+            lexical_policy_id="bm25-word-frozen47-population-v1",
+        ),
+    )
+    initial_result = RetrievalResult(
+        candidates=(c_unrelated,),
+        branch_observations=obs,
+        chunk_set_ids=("cset-1",),
+        lexical_generations=(snapshot,),
+    )
+
+    class RecoveryAwareStore(EmptyStore):
+        def require_lexical_corpus(self, workspace_id, lexical_policy_id=None):
+            pass
+
+        def revalidate_lexical_snapshot(self, *args, **kwargs):
+            pass
+
+        def retrieve_candidates(self, **kwargs):
+            nonlocal recovery_called
+            query = kwargs.get("query_text", "")
+            # Recovery lookup searches for missing section anchor 'Mục 3.1'
+            if "Mục 3.1" in query:
+                recovery_called = True
+            return initial_result
+
+    store = RecoveryAwareStore()
+    bm25_v3_config = replace(
+        RetrievalConfiguration.bm25_top8_v1(),
+        id="retrieval-bm25-top8-v3",
+    )
+    service = AnswerQuestion(
+        embedding_provider=QueryEmbeddingProvider(),
+        generation_provider=GeneratorThatMustNotRun(),
+        store=store,
+        embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+        retrieval_configuration=bm25_v3_config,
+    )
+
+    # Query with section anchor 'Mục 3.1' but initial candidate only contains Chapter 1
+    question = "Quy định tại Mục 3.1"
+    result = await service.execute(
+        QuestionCommand(workspace_id="workspace-a", question=question),
+        WorkspacePrincipal(workspace_id="workspace-a", key_id="test-a"),
+    )
+
+    assert result.decision == "REFUSAL"
+    assert recovery_called is True
