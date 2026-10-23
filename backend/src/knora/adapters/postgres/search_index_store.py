@@ -35,7 +35,6 @@ from knora.ingestion.search_indexing import (
     StaleGenerationError,
 )
 
-
 _CORPUS_STATS_CACHE: dict[tuple[str, str], CorpusStatistics] = {}
 
 
