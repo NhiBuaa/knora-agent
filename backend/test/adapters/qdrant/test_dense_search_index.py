@@ -8,6 +8,7 @@ import pytest
 
 from knora.adapters.qdrant.native_search_index import NativeQdrantSearchIndex
 from knora.adapters.qdrant.search_index import (
+    ProjectionResponseError,
     QdrantSearchIndex,
 )
 from knora.ingestion.search_indexing import (
@@ -210,10 +211,13 @@ def test_native_stage_generation_with_dense_vectors_readback(
 
         if request.method == "POST" and "/points" in request.url.path:
             # Readback persisted points
-
+            vec_digest = hashlib.sha256(
+                json.dumps([float(v) for v in vec], separators=(",", ":")).encode("utf-8")
+            ).hexdigest()
             persisted = [
                 {
                     "id": lexical_point_id(sample_generation.generation_id, "chunk-1"),
+                    "vector": {"dense": list(vec)},
                     "payload": {
                         "workspace_id": "ws-tenant-1",
                         "generation_id": "gen-test-1",
@@ -223,6 +227,7 @@ def test_native_stage_generation_with_dense_vectors_readback(
                         "content_checksum": sample_generation.chunks[0].content_checksum,
                         "content_digest": sample_generation.content_digest(),
                         "embedding_configuration_id": dense_index.embedding_configuration.id,
+                        "vector_digest": vec_digest,
                     },
                 }
             ]
@@ -365,3 +370,77 @@ def test_transient_transport_error_raises_lexical_projection_unavailable(
 
     with pytest.raises(LexicalProjectionUnavailable):
         native_index.remove_generation(sample_generation)
+
+
+def test_parse_stage_response_rejects_altered_corrupted_vector(
+    dense_index: QdrantSearchIndex, sample_generation: LexicalGeneration
+) -> None:
+    vec = tuple(0.01 * i for i in range(768))
+    vec_digest = hashlib.sha256(
+        json.dumps([float(v) for v in vec], separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    # Return vector with altered values [9.0] * 768
+    altered_points = [
+        {
+            "id": lexical_point_id(sample_generation.generation_id, "chunk-1"),
+            "vector": {"dense": [9.0] * 768},
+            "payload": {
+                "workspace_id": "ws-tenant-1",
+                "generation_id": "gen-test-1",
+                "chunk_id": "chunk-1",
+                "profile_id": sample_generation.lexical_profile.id,
+                "profile_digest": sample_generation.lexical_profile.digest(),
+                "content_checksum": sample_generation.chunks[0].content_checksum,
+                "content_digest": sample_generation.content_digest(),
+                "embedding_configuration_id": dense_index.embedding_configuration.id,
+                "vector_digest": vec_digest,
+            },
+        }
+    ]
+    with pytest.raises(ProjectionResponseError, match="altered or corrupted"):
+        dense_index.parse_stage_response(sample_generation, altered_points)
+
+
+def test_parse_stage_response_rejects_missing_vector(
+    dense_index: QdrantSearchIndex, sample_generation: LexicalGeneration
+) -> None:
+    missing_vector_points = [
+        {
+            "id": lexical_point_id(sample_generation.generation_id, "chunk-1"),
+            "payload": {
+                "workspace_id": "ws-tenant-1",
+                "generation_id": "gen-test-1",
+                "chunk_id": "chunk-1",
+                "profile_id": sample_generation.lexical_profile.id,
+                "profile_digest": sample_generation.lexical_profile.digest(),
+                "content_checksum": sample_generation.chunks[0].content_checksum,
+                "content_digest": sample_generation.content_digest(),
+                "embedding_configuration_id": dense_index.embedding_configuration.id,
+            },
+        }
+    ]
+    with pytest.raises(ProjectionResponseError, match="dense vector is missing"):
+        dense_index.parse_stage_response(sample_generation, missing_vector_points)
+
+
+def test_parse_stage_response_rejects_dimension_mismatch(
+    dense_index: QdrantSearchIndex, sample_generation: LexicalGeneration
+) -> None:
+    mismatch_points = [
+        {
+            "id": lexical_point_id(sample_generation.generation_id, "chunk-1"),
+            "vector": {"dense": [0.0] * 512},
+            "payload": {
+                "workspace_id": "ws-tenant-1",
+                "generation_id": "gen-test-1",
+                "chunk_id": "chunk-1",
+                "profile_id": sample_generation.lexical_profile.id,
+                "profile_digest": sample_generation.lexical_profile.digest(),
+                "content_checksum": sample_generation.chunks[0].content_checksum,
+                "content_digest": sample_generation.content_digest(),
+                "embedding_configuration_id": dense_index.embedding_configuration.id,
+            },
+        }
+    ]
+    with pytest.raises(ProjectionResponseError, match="dimension mismatch"):
+        dense_index.parse_stage_response(sample_generation, mismatch_points)

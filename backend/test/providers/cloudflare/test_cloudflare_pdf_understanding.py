@@ -39,27 +39,112 @@ def test_tomarkdown_parses_real_envelope() -> None:
         assert resp.request_id == "ray_abc123"
 
 
-def test_tomarkdown_handles_dict_envelope_fallback() -> None:
-    def endpoint(request: httpx.Request) -> httpx.Response:
+def test_tomarkdown_rejects_dict_envelope_and_malformed() -> None:
+    def endpoint_dict(request: httpx.Request) -> httpx.Response:
         return httpx.Response(
             200,
             json={
                 "success": True,
                 "result": {
+                    "name": "document.pdf",
                     "format": "markdown",
                     "data": "# Fallback Dict Content",
                 },
             },
         )
 
-    with httpx.Client(transport=httpx.MockTransport(endpoint), trust_env=False) as client:
+    with httpx.Client(transport=httpx.MockTransport(endpoint_dict), trust_env=False) as client:
         provider = CloudflarePdfUnderstandingProvider(
             account_id="0123456789abcdef0123456789abcdef",
             api_token="test-only-token",
             client=client,
         )
-        resp = provider.convert_to_markdown(b"%PDF-1.4 test bytes")
-        assert resp.content == "# Fallback Dict Content"
+        with pytest.raises(PdfExtractionError) as exc_info:
+            provider.convert_to_markdown(b"%PDF-1.4 test bytes")
+        assert "CLOUDFLARE_MALFORMED_OUTPUT" in exc_info.value.reason
+
+
+def test_tomarkdown_rejects_name_mismatch_and_non_string_data() -> None:
+    def endpoint_wrong_name(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "success": True,
+                "result": [
+                    {
+                        "name": "wrong_file.pdf",
+                        "format": "markdown",
+                        "data": "hello",
+                    }
+                ],
+            },
+        )
+
+    with httpx.Client(
+        transport=httpx.MockTransport(endpoint_wrong_name), trust_env=False
+    ) as client:
+        provider = CloudflarePdfUnderstandingProvider(
+            account_id="0123456789abcdef0123456789abcdef",
+            api_token="test-only-token",
+            client=client,
+        )
+        with pytest.raises(PdfExtractionError) as exc_info:
+            provider.convert_to_markdown(b"%PDF-1.4 test bytes")
+        assert "CLOUDFLARE_NAME_MISMATCH" in exc_info.value.reason
+
+    def endpoint_dict_data(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "success": True,
+                "result": [
+                    {
+                        "name": "document.pdf",
+                        "format": "markdown",
+                        "data": {"text": "hello"},
+                    }
+                ],
+            },
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(endpoint_dict_data), trust_env=False) as client:
+        provider = CloudflarePdfUnderstandingProvider(
+            account_id="0123456789abcdef0123456789abcdef",
+            api_token="test-only-token",
+            client=client,
+        )
+        with pytest.raises(PdfExtractionError) as exc_info:
+            provider.convert_to_markdown(b"%PDF-1.4 test bytes")
+        assert "CLOUDFLARE_MALFORMED_OUTPUT" in exc_info.value.reason
+
+
+def test_tomarkdown_rejects_format_error_in_result() -> None:
+    def endpoint_format_error(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "success": True,
+                "result": [
+                    {
+                        "name": "document.pdf",
+                        "format": "error",
+                        "error": "conversion failed",
+                    }
+                ],
+            },
+        )
+
+    with httpx.Client(
+        transport=httpx.MockTransport(endpoint_format_error), trust_env=False
+    ) as client:
+        provider = CloudflarePdfUnderstandingProvider(
+            account_id="0123456789abcdef0123456789abcdef",
+            api_token="test-only-token",
+            client=client,
+        )
+        with pytest.raises(PdfExtractionError) as exc_info:
+            provider.convert_to_markdown(b"%PDF-1.4 test bytes")
+        assert "CLOUDFLARE_CONVERSION_FAILED" in exc_info.value.reason
 
 
 def test_tomarkdown_handles_api_errors_and_malformed() -> None:
