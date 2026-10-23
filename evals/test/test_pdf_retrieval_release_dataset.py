@@ -53,6 +53,7 @@ def test_release_loader_rejects_duplicate_case_ids(tmp_path: Path) -> None:
             "expected_source_verification": "found",
             "expected_answer_contains": ["A1"],
             "reference_answer": "Answer 1",
+            "metadata": {"split": "held_out"},
         }
     )
     line2 = json.dumps(
@@ -64,6 +65,7 @@ def test_release_loader_rejects_duplicate_case_ids(tmp_path: Path) -> None:
             "expected_source_verification": "found",
             "expected_answer_contains": ["A2"],
             "reference_answer": "Answer 2",
+            "metadata": {"split": "held_out"},
         }
     )
     artifact.write_text(f"{line1}\n{line2}\n", encoding="utf-8")
@@ -83,6 +85,7 @@ def test_release_loader_rejects_invalid_category(tmp_path: Path) -> None:
             "expected_source_verification": "found",
             "expected_answer_contains": ["A1"],
             "reference_answer": "Answer",
+            "metadata": {"split": "held_out"},
         }
     )
     artifact.write_text(f"{line}\n", encoding="utf-8")
@@ -134,6 +137,55 @@ def test_release_loader_rejects_contaminated_split(tmp_path: Path) -> None:
         load_release_dataset(artifact)
 
 
+def test_release_loader_rejects_missing_split(tmp_path: Path) -> None:
+    artifact = tmp_path / "missing_split.jsonl"
+    line = json.dumps(
+        {
+            "id": "rel-nosplit",
+            "category": "standard",
+            "question": "Question",
+            "required_groups": ["G1"],
+            "expected_source_verification": "found",
+            "expected_answer_contains": ["A1"],
+            "reference_answer": "Answer",
+            "metadata": {},
+        }
+    )
+    artifact.write_text(f"{line}\n", encoding="utf-8")
+    with pytest.raises(DatasetContractError, match="missing or invalid split"):
+        load_release_dataset(artifact)
+
+
+def test_release_loader_rejects_manifest_hash_mismatch(tmp_path: Path) -> None:
+    artifact = tmp_path / "data.jsonl"
+    line = json.dumps(
+        {
+            "id": "rel-test-1",
+            "category": "standard",
+            "question": "Question",
+            "required_groups": ["G1"],
+            "expected_source_verification": "found",
+            "expected_answer_contains": ["A1"],
+            "reference_answer": "Answer",
+            "metadata": {"split": "held_out"},
+        }
+    )
+    artifact.write_text(f"{line}\n", encoding="utf-8")
+    manifest = tmp_path / "data.manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "dataset_version": "pdf_retrieval_release_v1",
+                "dataset_sha256": "wrong" * 16,
+                "num_cases": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(DatasetContractError, match="Manifest dataset_sha256 mismatch"):
+        load_release_dataset(artifact, manifest_path=manifest)
+
+
 def test_validate_approval_checks_owner_and_version() -> None:
     from evals.datasets.pdf_retrieval_release_v1 import validate_approval
 
@@ -142,8 +194,20 @@ def test_validate_approval_checks_owner_and_version() -> None:
         "status": "approved",
         "owner": "NhiBuaa",
         "dataset_version": dataset.version,
+        "dataset_sha256": dataset.dataset_sha256,
     }
     validate_approval(dataset, valid_approval)
 
     with pytest.raises(DatasetContractError, match="Owner approval missing"):
         validate_approval(dataset, {"status": "pending"})
+
+    with pytest.raises(DatasetContractError, match="Approval dataset_sha256 mismatch"):
+        validate_approval(
+            dataset,
+            {
+                "status": "approved",
+                "owner": "NhiBuaa",
+                "dataset_version": dataset.version,
+                "dataset_sha256": "wrong" * 16,
+            },
+        )

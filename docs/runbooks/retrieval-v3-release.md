@@ -27,23 +27,30 @@
 ### Bước 1: Kiểm tra Điều kiện Tiên quyết (Pre-flight Checks)
 Xác nhận cấu hình môi trường và tính khả dụng của các dịch vụ:
 ```powershell
-# 1. Kiểm tra biến môi trường Cloudflare Workers AI
-if (-not $env:CLOUDFLARE_ACCOUNT_ID -or -not $env:CLOUDFLARE_API_TOKEN) {
-    throw "Thiếu thông tin xác thực Cloudflare Workers AI"
+# 1. Kiểm tra biến môi trường chuẩn tiền tố KNORA_ cho Cloudflare Workers AI
+$cfAccount = $env:KNORA_CLOUDFLARE_ACCOUNT_ID ?? $env:CLOUDFLARE_ACCOUNT_ID
+$cfToken = $env:KNORA_CLOUDFLARE_API_TOKEN ?? $env:CLOUDFLARE_API_TOKEN
+if (-not $cfAccount -or -not $cfToken) {
+    throw "Thiếu thông tin xác thực Cloudflare Workers AI (yêu cầu KNORA_CLOUDFLARE_ACCOUNT_ID và KNORA_CLOUDFLARE_API_TOKEN)"
 }
 
-# 2. Kiểm tra tiến trình reindex ở chế độ dry-run
+# 2. Kiểm tra trạng thái migration cơ sở dữ liệu và kết nối Qdrant
+python -m alembic current
+python -c "from knora.infrastructure.settings import Settings; s = Settings(); print(f'Database & Qdrant endpoints verified: {s.qdrant_url}')"
+
+# 3. Kiểm tra tiến trình reindex ở chế độ dry-run (trần pool 100 candidates)
 python -m knora.adapters.cli.reindex_search --workspace-id <TARGET_WORKSPACE_ID> --dry-run
 
-# 3. Kiểm tra tính toàn vẹn của OpenAPI artifacts và format code
+# 4. Kiểm tra tính toàn vẹn của OpenAPI artifacts và format code
 python scripts/export_openapi.py --check
 python -m ruff check .
+python -m ruff format --check .
 ```
 
 ### Bước 2: Tái lập Chỉ mục và Chuyển đổi Dữ liệu (Re-indexing / Backfill)
 Chạy lệnh đánh chỉ mục cho toàn bộ các tài liệu hiện có trong workspace:
 ```powershell
-# Đánh chỉ mục đồng thời cả dense vector và lexical BM25/SDM theo checkpoint và batch
+# Đánh chỉ mục đồng thời cả dense vector và lexical BM25/SDM theo checkpoint và batch (pool trần 100 candidates)
 python -m knora.adapters.cli.reindex_search --workspace-id <TARGET_WORKSPACE_ID> --batch-size 100 --checkpoint-file checkpoint.json
 ```
 
@@ -63,11 +70,12 @@ python scripts/runtime_evidence.py validate $rcSha .verification/runtime/retriev
 ```
 
 ### Bước 4: Kích hoạt Chế độ Hoạt động (Traffic Cutover)
-Cập nhật cấu hình retrieval mặc định sang `retrieval-hybrid-rerank-top8-v3`:
+Cập nhật cấu hình retrieval mặc định sang `retrieval-hybrid-rerank-top8-v3` (với trần candidate pool 100):
 ```json
 {
   "retrieval_configuration_id": "retrieval-hybrid-rerank-top8-v3",
-  "candidate_k": 200,
+  "candidate_k": 8,
+  "max_candidate_pool": 100,
   "max_evidence_chunks": 5,
   "max_evidence_tokens": 3000,
   "reranker_model": "@cf/baai/bge-reranker-base",
@@ -88,8 +96,14 @@ Khi phát hiện sự cố nghiêm trọng (ví dụ: Cloudflare Workers AI tê 
      "retrieval_configuration_id": "retrieval-bm25-top8-v1"
    }
    ```
-2. **Khôi phục trạng thái bộ nhớ:**
-   Tất cả các bản ghi chỉ mục nguồn trong PostgreSQL và Qdrant được bảo toàn nguyên vẹn, không cần xóa cơ sở dữ liệu khi rollback.
+2. **Khôi phục trạng thái bộ nhớ và xác nhận tính toàn vẹn:**
+   - Tất cả bản ghi chỉ mục nguồn trong PostgreSQL và Qdrant được bảo toàn nguyên vẹn; không chạy lệnh DROP hay TRUNCATE khi rollback.
+   - Các collection Qdrant và bảng BM25 giữ nguyên phiên bản đã tạo, cho phép chuyển đổi hai chiều tức thì giữa `retrieval-bm25-top8-v1` và `retrieval-hybrid-rerank-top8-v3`.
+3. **Kiểm tra trạng thái sau rollback (Post-rollback Health Check):**
+   ```powershell
+   # Xác nhận hệ thống trả lời bằng lexical BM25 thành công mà không gọi Cloudflare
+   python -m pytest backend/test/answering/test_bm25_contract.py
+   ```
 
 ---
 

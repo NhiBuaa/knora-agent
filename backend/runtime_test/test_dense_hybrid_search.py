@@ -183,6 +183,8 @@ def test_dense_candidates_retrieval_wire_contract_and_hydration(monkeypatch):
                     source_key="src-1",
                     source_name="src-1",
                     archived=False,
+                    active_embedding_configuration_id="cloudflare-bge-base-en-v1.5",
+                    active_embedding_set_id="emb-set-1",
                 )
             return None
 
@@ -312,6 +314,8 @@ def test_hybrid_candidates_retrieval_wire_contract_and_dbsf(monkeypatch):
                     source_key="src-1",
                     source_name="src-1",
                     archived=False,
+                    active_embedding_configuration_id="cloudflare-bge-base-en-v1.5",
+                    active_embedding_set_id="emb-set-1",
                 )
             return None
 

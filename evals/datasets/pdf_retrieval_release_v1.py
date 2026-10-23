@@ -142,9 +142,13 @@ def _parse_and_validate_case(record: dict[str, object], idx: int) -> ReleaseTest
             f"Record {case_id} expected_answer_contains must be list or tuple"
         )
 
-    metadata = record.get("metadata", {})
+    metadata = record.get("metadata")
     if not isinstance(metadata, dict):
-        metadata = {}
+        raise DatasetContractError(f"Record {case_id} metadata must be a dictionary")
+
+    split = metadata.get("split")
+    if split != "held_out":
+        raise DatasetContractError(f"Case {case_id} missing or invalid split: {split}")
 
     return ReleaseTestCase(
         id=case_id,
@@ -158,12 +162,35 @@ def _parse_and_validate_case(record: dict[str, object], idx: int) -> ReleaseTest
     )
 
 
-def load_release_dataset(path: Path | None = None) -> ReleaseDataset:
+def validate_approval(dataset: ReleaseDataset, approval: dict[str, object]) -> None:
+    """Enforces owner approval and version consistency for the release dataset."""
+    if not (
+        isinstance(approval, dict)
+        and approval.get("status") == "approved"
+        and approval.get("owner") == "NhiBuaa"
+        and approval.get("dataset_version") == dataset.version
+    ):
+        raise DatasetContractError("Owner approval missing or invalid for release dataset")
+    if "dataset_sha256" in approval and approval["dataset_sha256"] != dataset.dataset_sha256:
+        appr_sha = approval["dataset_sha256"]
+        raise DatasetContractError(
+            f"Approval dataset_sha256 mismatch: {appr_sha} != {dataset.dataset_sha256}"
+        )
+
+
+def load_release_dataset(
+    path: Path | None = None,
+    *,
+    manifest_path: Path | None = None,
+    approval_path: Path | None = None,
+    enforce_approval: bool = True,
+) -> ReleaseDataset:
     """Loads and cryptographically validates the release evaluation dataset.
 
     When `path` is provided, reads and parses the JSON/JSONL artifact, enforcing
     split integrity, category validation, no duplicate IDs, and exact checksum.
     """
+    is_default = path is None
     if path is None:
         default_file = Path(__file__).with_name("pdf_retrieval_release_v1.jsonl")
         if default_file.exists():
@@ -205,16 +232,56 @@ def load_release_dataset(path: Path | None = None) -> ReleaseDataset:
             if c.id in seen_ids:
                 raise DatasetContractError(f"Duplicate case id: {c.id}")
             seen_ids.add(c.id)
-            split = c.metadata.get("split")
-            if split is not None and split != "held_out":
-                raise DatasetContractError(f"Case {c.id} has invalid split: {split}")
 
         dataset_hash = hashlib.sha256(raw_bytes).hexdigest()
-        return ReleaseDataset(
+        dataset = ReleaseDataset(
             version="pdf_retrieval_release_v1",
             cases=tuple(parsed_cases),
             dataset_sha256=dataset_hash,
         )
+
+        # Manifest resolution & validation
+        resolved_manifest = (
+            Path(manifest_path)
+            if manifest_path is not None
+            else target.with_name(f"{target.stem}.manifest.json")
+        )
+        if resolved_manifest.exists():
+            try:
+                manifest_data = json.loads(resolved_manifest.read_text(encoding="utf-8"))
+            except Exception as exc:
+                raise DatasetContractError(f"Invalid manifest JSON: {exc}") from exc
+            if manifest_data.get("dataset_version") != dataset.version:
+                raise DatasetContractError("Manifest dataset_version mismatch")
+            m_sha = manifest_data.get("dataset_sha256")
+            if m_sha != dataset.dataset_sha256:
+                raise DatasetContractError(
+                    f"Manifest dataset_sha256 mismatch: {m_sha} != {dataset.dataset_sha256}"
+                )
+            m_cases = manifest_data.get("num_cases")
+            if m_cases != len(dataset.cases):
+                raise DatasetContractError(
+                    f"Manifest num_cases mismatch: {m_cases} != {len(dataset.cases)}"
+                )
+        elif is_default and enforce_approval:
+            raise DatasetContractError(f"Release manifest missing: {resolved_manifest}")
+
+        # Approval resolution & validation
+        resolved_approval = (
+            Path(approval_path)
+            if approval_path is not None
+            else target.with_name(f"{target.stem}.approval.json")
+        )
+        if resolved_approval.exists():
+            try:
+                approval_data = json.loads(resolved_approval.read_text(encoding="utf-8"))
+            except Exception as exc:
+                raise DatasetContractError(f"Invalid approval JSON: {exc}") from exc
+            validate_approval(dataset, approval_data)
+        elif is_default and enforce_approval:
+            raise DatasetContractError(f"Release approval missing: {resolved_approval}")
+
+        return dataset
 
     cases = _SAMPLE_RELEASE_CASES
     raw_payload = json.dumps(
@@ -227,14 +294,3 @@ def load_release_dataset(path: Path | None = None) -> ReleaseDataset:
         cases=cases,
         dataset_sha256=dataset_hash,
     )
-
-
-def validate_approval(dataset: ReleaseDataset, approval: dict[str, object]) -> None:
-    """Enforces owner approval and version consistency for the release dataset."""
-    if not (
-        isinstance(approval, dict)
-        and approval.get("status") == "approved"
-        and approval.get("owner") == "NhiBuaa"
-        and approval.get("dataset_version") == dataset.version
-    ):
-        raise DatasetContractError("Owner approval missing or invalid for release dataset")

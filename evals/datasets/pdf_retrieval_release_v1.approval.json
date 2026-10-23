@@ -2,6 +2,7 @@
   "status": "approved",
   "owner": "NhiBuaa",
   "dataset_version": "pdf_retrieval_release_v1",
+  "dataset_sha256": "ae632583691e189c97e28325ed3200838dd95696eb1b83fa28faa031260d8399",
   "approved_on": "2026-10-22",
   "approval_source": "https://github.com/NhiBuaa/knora-agent/issues/153"
 }
