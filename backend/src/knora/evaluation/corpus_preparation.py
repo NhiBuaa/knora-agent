@@ -61,12 +61,24 @@ class CorpusPreparationPlan:
     embedding_request_digests: tuple[str, ...]
     max_provider_calls: int
     max_provider_retries: int = 0
+    plan_version: int = 1
 
     def __post_init__(self):
         try:
             frozen = FrozenDataset.from_json(self.frozen_json)
-            _require(isinstance(self.sources, tuple) and len(self.sources) == 2)
-            _require(len(frozen.gold.sources) >= 2)
+            if self.plan_version == 1:
+                _require(isinstance(self.sources, tuple) and len(self.sources) == 2)
+                _require(len(frozen.gold.sources) >= 2)
+                expected_count = 2
+                _require(type(self.max_provider_calls) is int and self.max_provider_calls > 0)
+            elif self.plan_version == 2:
+                _require(isinstance(self.sources, tuple) and 1 <= len(self.sources) <= 6)
+                _require(len(frozen.gold.sources) >= len(self.sources))
+                expected_count = len(self.sources)
+                _require(type(self.max_provider_calls) is int and 0 < self.max_provider_calls <= 6)
+            else:
+                raise ValueError("CORPUS_PLAN_INVALID")
+
             _require(isinstance(self.profile_id, str) and 0 < len(self.profile_id) <= 50)
             _require(
                 (self.owner_issuer, self.owner_subject)
@@ -87,7 +99,7 @@ class CorpusPreparationPlan:
                 "original_source_object_id",
                 "snapshot_id",
             ):
-                _require(len({getattr(p, field) for p in self.sources}) == 2)
+                _require(len({getattr(p, field) for p in self.sources}) == expected_count)
                 _require(
                     all(
                         isinstance(getattr(p, field), str) and getattr(p, field)
@@ -129,7 +141,6 @@ class CorpusPreparationPlan:
                     for digest in self.embedding_request_digests
                 )
             )
-            _require(type(self.max_provider_calls) is int and self.max_provider_calls > 0)
             _require(self.max_provider_retries == 0)
             _require(
                 self.configuration
@@ -151,6 +162,7 @@ class CorpusPreparationPlan:
             "frozen_json": json.loads(self.frozen_json),
             "job_attempts_per_source": 1,
             "activation": "pinned_versions",
+            "plan_version": self.plan_version,
         }
 
     def scope(self):
@@ -219,7 +231,9 @@ def prepare_corpus(
     results = []
     with admission.corpus_operation(scope, plan.payload()):
         claims = store.begin(plan, admission)
-        if len(claims) != 2 or {c.token.job_id for c in claims} != {p.job_id for p in plan.sources}:
+        if len(claims) != len(plan.sources) or {c.token.job_id for c in claims} != {
+            p.job_id for p in plan.sources
+        }:
             raise ValueError("CORPUS_JOB_MISMATCH")
         successes = []
         for claim in claims:
@@ -243,7 +257,7 @@ def prepare_corpus(
         if state["attempts"] != plan.max_provider_calls or state["pending"] is not None:
             raise ValueError("CORPUS_ENVELOPE_MISMATCH")
         results = store.activate_batch(plan, admission, tuple(successes))
-        if len(results) != 2:
+        if len(results) != len(plan.sources):
             raise ValueError("CORPUS_ACTIVATION_FAILED")
         for result in results:
             if not isinstance(result, FinalizationApplied) or result.outcome != "succeeded":

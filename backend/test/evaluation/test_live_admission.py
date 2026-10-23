@@ -1729,3 +1729,305 @@ def test_package_fails_closed_when_pinned_file_unreadable(monkeypatch, tmp_path)
         pass
     assert effects == []
     assert package.snapshot()["startups"] == 0
+
+
+def package_manifest_v2(tmp_path):
+    from knora.evaluation.live_admission import _SLOTS_V2, reviewed_build_pins
+
+    build = reviewed_build_pins()
+    return {
+        "manifest_version": 2,
+        "package_id": "acceptance-v2-package",
+        "journal_path": str((tmp_path / "package_v2.sqlite").resolve()),
+        "code_sha": build["code_sha"],
+        "reviewed_build": build,
+        "gold_v1": {
+            "dataset_id": "pdf-set-v2",
+            "dataset_digest": "6" * 64,
+            "version": 1,
+            "cases": {"ANSWER": "answer", "REFUSAL": "refusal"},
+            "sources": {
+                "version-1": {"document_id": "document-1", "raw_sha256": "a" * 64},
+                "version-2": {"document_id": "document-2", "raw_sha256": "b" * 64},
+            },
+        },
+        "decision_reference": "issue158/evaluation-tools-acceptance",
+        "approved_by": "owner",
+        "account_id": "a" * 32,
+        "ownership": {"workspace_id": "w1", "resource_id": "owned-test-stack-v2"},
+        "live_approved_at": NOW.isoformat(),
+        "package_deadline": (NOW + timedelta(days=7)).isoformat(),
+        "max_attempts": 139,
+        "startup_cap": 2,
+        "window_cap": 8,
+        "slots": dict(_SLOTS_V2),
+        "skipped_slots": ["corpus_prepare", "qa_gold_v1_answer"],
+    }
+
+
+def test_package_v2_initialization_and_table_driven_checks(tmp_path):
+    from copy import deepcopy
+
+    from knora.evaluation.live_admission import LivePackage
+
+    manifest = package_manifest_v2(tmp_path)
+    path = tmp_path / "package_v2.sqlite"
+    package = LivePackage.initialize(manifest, path, clock=lambda: NOW)
+    snap = package.snapshot()
+    assert snap["attempts"] == 0
+    assert snap["startups"] == 0
+    assert snap["slots"]["corpus_prepare"]["status"] == "SKIPPED"
+    assert snap["slots"]["qa_gold_v1_answer"]["status"] == "SKIPPED"
+    assert snap["slots"]["judge_real"]["status"] == "WAITING"
+
+    # Rejection of invalid limits for V2
+    for mod_key, mod_val in (
+        ("max_attempts", 140),
+        ("max_attempts", 33),
+        ("startup_cap", 3),
+        ("window_cap", 9),
+        ("manifest_version", 3),
+        ("package_deadline", (NOW + timedelta(hours=48)).isoformat()),
+        ("skipped_slots", ["unknown_slot"]),
+    ):
+        bad_manifest = deepcopy(manifest)
+        bad_manifest[mod_key] = mod_val
+        bad_manifest["journal_path"] = str((tmp_path / f"bad_{mod_key}.sqlite").resolve())
+        with pytest.raises(ValueError, match="LIVE_PACKAGE_IDENTITY"):
+            LivePackage.initialize(bad_manifest, bad_manifest["journal_path"], clock=lambda: NOW)
+
+
+def test_package_v2_window_and_startup_limits(tmp_path):
+    from knora.evaluation.live_admission import LivePackage
+
+    manifest = package_manifest_v2(tmp_path)
+    path = tmp_path / "package_v2.sqlite"
+    package = LivePackage.initialize(manifest, path, clock=lambda: NOW)
+
+    # 60 minute window is accepted in V2
+    cleanup_60 = {
+        "registration_id": "test-v2",
+        "scope": manifest["ownership"],
+        "deadline": (NOW + timedelta(minutes=60)).isoformat(),
+        "proof_digest": "f" * 64,
+    }
+    with package.window(
+        scope=manifest["ownership"],
+        cleanup=cleanup_60,
+        start=lambda: None,
+        stop=lambda: None,
+        stack_startup=False,
+    ):
+        pass
+    assert package.snapshot()["startups"] == 0
+
+    # 61 minute window is rejected
+    cleanup_61 = {
+        "registration_id": "test-v2-long",
+        "scope": manifest["ownership"],
+        "deadline": (NOW + timedelta(minutes=61)).isoformat(),
+        "proof_digest": "f" * 64,
+    }
+    with (
+        pytest.raises(ValueError, match="LIVE_CLEANUP_UNPROVEN"),
+        package.window(
+            scope=manifest["ownership"], cleanup=cleanup_61, start=lambda: None, stop=lambda: None
+        ),
+    ):
+        pass
+
+    # Up to 8 windows are accepted
+    for i in range(7):
+        c = {
+            "registration_id": f"window-{i}",
+            "scope": manifest["ownership"],
+            "deadline": (NOW + timedelta(minutes=10)).isoformat(),
+            "proof_digest": "f" * 64,
+        }
+        with package.window(
+            scope=manifest["ownership"],
+            cleanup=c,
+            start=lambda: None,
+            stop=lambda: None,
+            stack_startup=False,
+        ):
+            pass
+
+    # 9th window is rejected
+    c9 = {
+        "registration_id": "window-9",
+        "scope": manifest["ownership"],
+        "deadline": (NOW + timedelta(minutes=10)).isoformat(),
+        "proof_digest": "f" * 64,
+    }
+    with (
+        pytest.raises(ValueError, match="LIVE_WINDOW_CAP"),
+        package.window(
+            scope=manifest["ownership"],
+            cleanup=c9,
+            start=lambda: None,
+            stop=lambda: None,
+            stack_startup=False,
+        ),
+    ):
+        pass
+
+
+def test_package_v2_stack_startup_cap(tmp_path):
+    from knora.evaluation.live_admission import LivePackage
+
+    manifest = package_manifest_v2(tmp_path)
+    path = tmp_path / "package_v2_stack.sqlite"
+    manifest["journal_path"] = str(path.resolve())
+    package = LivePackage.initialize(manifest, path, clock=lambda: NOW)
+
+    # Stack startup 1
+    c1 = {
+        "registration_id": "s1",
+        "scope": manifest["ownership"],
+        "deadline": (NOW + timedelta(minutes=10)).isoformat(),
+        "proof_digest": "f" * 64,
+    }
+    with package.window(
+        scope=manifest["ownership"],
+        cleanup=c1,
+        start=lambda: None,
+        stop=lambda: None,
+        stack_startup=True,
+    ):
+        pass
+    assert package.snapshot()["startups"] == 1
+
+    # Stack startup 2
+    c2 = {
+        "registration_id": "s2",
+        "scope": manifest["ownership"],
+        "deadline": (NOW + timedelta(minutes=10)).isoformat(),
+        "proof_digest": "f" * 64,
+    }
+    with package.window(
+        scope=manifest["ownership"],
+        cleanup=c2,
+        start=lambda: None,
+        stop=lambda: None,
+        stack_startup=True,
+    ):
+        pass
+    assert package.snapshot()["startups"] == 2
+
+    # Stack startup 3 rejected
+    c3 = {
+        "registration_id": "s3",
+        "scope": manifest["ownership"],
+        "deadline": (NOW + timedelta(minutes=10)).isoformat(),
+        "proof_digest": "f" * 64,
+    }
+    with (
+        pytest.raises(ValueError, match="LIVE_STARTUP_CAP"),
+        package.window(
+            scope=manifest["ownership"],
+            cleanup=c3,
+            start=lambda: None,
+            stop=lambda: None,
+            stack_startup=True,
+        ),
+    ):
+        pass
+
+
+def test_package_v2_saved_branch_judge_binding_and_synthetic_origin(tmp_path):
+    from knora.evaluation.contracts import digest_json
+    from knora.evaluation.live_admission import LivePackage, slot_authority_pins
+
+    manifest = package_manifest_v2(tmp_path)
+    path = tmp_path / "package_v2_saved.sqlite"
+    manifest["journal_path"] = str(path.resolve())
+    package = LivePackage.initialize(manifest, path, clock=lambda: NOW)
+
+    saved_capture = {
+        "run_id": "run-001",
+        "case_id": "004",
+        "trace_id": "trace-001",
+        "attempt": 2,
+        "attempt_id": "run-001:004:2",
+        "question": "Q4",
+        "answer": "A4",
+    }
+    capture_digest = digest_json(saved_capture)
+
+    # Bind judge_real with skipped parent qa_gold_v1_answer
+    judge_policy = approval()
+    judge_policy.update(approval_id=package.approval_id("judge_real"), max_attempts=12)
+    judge_policy["scope"].update(purpose="scoring", input_digest=digest_json({"saved": 1}))
+
+    inputs = {
+        "input_digest": judge_policy["scope"]["input_digest"],
+        **slot_authority_pins(package._manifest, "judge_real", judge_policy, {"saved": 1}),
+        "authority": {"saved": 1},
+        "identities": {
+            "request_id": "judge_real",
+            "batch_id": "batch-1",
+            "dataset_digest": manifest["gold_v1"]["dataset_digest"],
+            "selection_digest": "a" * 64,
+            "run_id": "run-001",
+            "case_id": "004",
+            "trace_id": "trace-001",
+            "capture_digest": capture_digest,
+        },
+        "ancestry": {"qa_gold_v1_answer": "skipped"},
+        "saved_capture": saved_capture,
+    }
+    package.bind_slot("judge_real", judge_policy, inputs)
+    assert package.snapshot()["slots"]["judge_real"]["status"] == "BOUND"
+
+    # Complete judge_real so judge_synthetic can bind
+    package.bind_execution("judge_real", inputs["identities"])
+    cleanup = {
+        "registration_id": "w1",
+        "scope": manifest["ownership"],
+        "deadline": (NOW + timedelta(minutes=10)).isoformat(),
+        "proof_digest": "f" * 64,
+    }
+    with (
+        package.window(
+            scope=manifest["ownership"],
+            cleanup=cleanup,
+            start=lambda: None,
+            stop=lambda: None,
+            stack_startup=False,
+        ),
+        package.operation("judge_real"),
+    ):
+        package.record_result(
+            "judge_real", {"capture": saved_capture, "identities": inputs["identities"]}
+        )
+
+    # Bind judge_synthetic with valid synthetic origin
+    synth_policy = approval()
+    synth_policy.update(approval_id=package.approval_id("judge_synthetic"), max_attempts=12)
+    synth_policy["scope"].update(purpose="scoring", input_digest=digest_json({"synth": 1}))
+
+    synth_inputs = {
+        "input_digest": synth_policy["scope"]["input_digest"],
+        **slot_authority_pins(package._manifest, "judge_synthetic", synth_policy, {"synth": 1}),
+        "authority": {"synth": 1},
+        "identities": {
+            "request_id": "judge_synthetic",
+            "batch_id": "batch-2",
+            "dataset_digest": manifest["gold_v1"]["dataset_digest"],
+            "selection_digest": "a" * 64,
+            "run_id": "run-001",
+            "case_id": "004",
+            "trace_id": "trace-001",
+            "capture_digest": capture_digest,
+        },
+        "ancestry": {"judge_real": digest_json(inputs)},
+        "validation_origin": {
+            "origin_type": "synthetic_control",
+            "variant_id": "wrong-fact",
+            "parent_capture_sha256": "a" * 64,
+            "transformation_digest": "b" * 64,
+        },
+    }
+    package.bind_slot("judge_synthetic", synth_policy, synth_inputs)
+    assert package.snapshot()["slots"]["judge_synthetic"]["status"] == "BOUND"

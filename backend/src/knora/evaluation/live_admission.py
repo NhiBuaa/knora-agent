@@ -47,6 +47,22 @@ _SLOT_PARENTS = {
     "judge_gold_v1": ("qa_gold_v1_answer",),
     "judge_ragas": ("qa_ragas_answer",),
 }
+_SLOTS_V2 = {
+    "corpus_prepare": 6,
+    "qa_gold_v1_answer": 12,
+    "ragas_vi_draft": 1,
+    "judge_real": 72,
+    "judge_synthetic": 48,
+    "refusal_deterministic": 0,
+}
+_SLOT_PARENTS_V2 = {
+    "corpus_prepare": (),
+    "qa_gold_v1_answer": ("corpus_prepare",),
+    "ragas_vi_draft": ("corpus_prepare",),
+    "judge_real": ("qa_gold_v1_answer",),
+    "judge_synthetic": ("judge_real",),
+    "refusal_deterministic": (),
+}
 
 
 def _journal_schema(db):
@@ -118,11 +134,17 @@ def reviewed_build_pins():
     revision = subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=root, check=True, capture_output=True, text=True
     ).stdout.strip()
+    extra_paths = [
+        root / "evals/runners/ragas_review.py",
+        root / "evals/runners/evaluation_review_packet.py",
+        root / "evals/runners/run_deepeval_capture.py",
+        root / "evals/runners/langfuse_bridge.py",
+        root / "evals/scorers/deepeval_cloudflare.py",
+    ]
     paths = sorted(
         {
             *root.joinpath("backend/src/knora").rglob("*.py"),
-            root / "evals/runners/ragas_review.py",
-            root / "evals/scorers/deepeval_cloudflare.py",
+            *(p for p in extra_paths if p.is_file()),
         }
     )
     sources = {
@@ -143,7 +165,7 @@ def reviewed_build_pins():
 def slot_authority_pins(manifest, slot, policy, authority):
     kind = (
         "qa"
-        if slot.startswith("qa_")
+        if slot.startswith("qa_") or slot in ("corpus_prepare", "refusal_deterministic")
         else "deepeval"
         if slot.startswith("judge_")
         else "ragas"
@@ -197,9 +219,20 @@ class LivePackage:
                 "operation_id TEXT, attempts INTEGER NOT NULL DEFAULT 0, "
                 "execution_json TEXT, result_json TEXT)"
             )
+            version = manifest.get("manifest_version", 1)
+            slots_map = _SLOTS_V2 if version == 2 else _SLOTS
+            skipped = set(manifest.get("skipped_slots", [])) if version == 2 else set()
             db.executemany(
-                "INSERT INTO slots(name,approval_id,cap,status) VALUES(?,?,?,'WAITING')",
-                [(name, manifest["package_id"] + ":" + name, cap) for name, cap in _SLOTS.items()],
+                "INSERT INTO slots(name,approval_id,cap,status) VALUES(?,?,?,?)",
+                [
+                    (
+                        name,
+                        manifest["package_id"] + ":" + name,
+                        cap,
+                        "SKIPPED" if name in skipped else "WAITING",
+                    )
+                    for name, cap in slots_map.items()
+                ],
             )
             db.execute(
                 "CREATE TABLE startups (sequence INTEGER PRIMARY KEY, scope TEXT NOT NULL, "
@@ -224,9 +257,25 @@ class LivePackage:
         try:
             _require(Path(path).is_absolute())
             _require(str(Path(path).resolve()) == manifest["journal_path"])
-            _require(manifest["max_attempts"] == 33 and type(manifest["max_attempts"]) is int)
-            _require(manifest["startup_cap"] == 3 and type(manifest["startup_cap"]) is int)
-            _require(manifest["slots"] == _SLOTS)
+            version = manifest.get("manifest_version", 1)
+            _require(version in (1, 2) and type(version) is int)
+            if version == 1:
+                _require(manifest["max_attempts"] == 33 and type(manifest["max_attempts"]) is int)
+                _require(manifest["startup_cap"] == 3 and type(manifest["startup_cap"]) is int)
+                _require(manifest["slots"] == _SLOTS)
+            else:
+                _require(manifest["max_attempts"] == 139 and type(manifest["max_attempts"]) is int)
+                _require(manifest["startup_cap"] == 2 and type(manifest["startup_cap"]) is int)
+                _require(
+                    manifest.get("window_cap", 8) == 8
+                    and type(manifest.get("window_cap", 8)) is int
+                )
+                _require(manifest["slots"] == _SLOTS_V2)
+                skipped = manifest.get("skipped_slots", [])
+                _require(
+                    isinstance(skipped, (list, tuple)) and all(s in _SLOTS_V2 for s in skipped)
+                )
+
             _require(re.fullmatch(r"[a-f0-9]{40}", manifest["code_sha"]))
             _require(re.fullmatch(r"[a-f0-9]{32}", manifest["account_id"]))
             for key in ("package_id", "approved_by", "decision_reference"):
@@ -236,20 +285,27 @@ class LivePackage:
             approved = datetime.fromisoformat(manifest["live_approved_at"])
             deadline = datetime.fromisoformat(manifest["package_deadline"])
             _require(approved.utcoffset() is not None and deadline.utcoffset() is not None)
-            _require(deadline - approved == timedelta(hours=48))
+            if version == 1:
+                _require(deadline - approved == timedelta(hours=48))
+            else:
+                _require(deadline - approved == timedelta(days=7))
             gold = manifest["gold_v1"]
             _require(_HEX.fullmatch(gold["dataset_digest"]))
             _require(gold["version"] == 1 and gold["dataset_id"])
-            _require(set(gold["cases"]) == {"ANSWER", "REFUSAL"})
-            _require(all(isinstance(v, str) and v for v in gold["cases"].values()))
-            _require(len(set(gold["cases"].values())) == 2)
-            _require(gold["sources"])
+            if version == 1:
+                _require(set(gold["cases"]) == {"ANSWER", "REFUSAL"})
+                _require(all(isinstance(v, str) and v for v in gold["cases"].values()))
+                _require(len(set(gold["cases"].values())) == 2)
+                _require(gold["sources"])
+            else:
+                _require(isinstance(gold["sources"], dict) and 1 <= len(gold["sources"]) <= 6)
         except (KeyError, TypeError, ValueError) as error:
             raise ValueError("LIVE_PACKAGE_IDENTITY") from error
 
     def __init__(self, manifest, path, *, clock=lambda: datetime.now(UTC)):
         self._validate_manifest(manifest, path)
         self._manifest, self._path, self._clock = deepcopy(manifest), str(Path(path)), clock
+        self._version = manifest.get("manifest_version", 1)
         self._window = None
         self._approved = datetime.fromisoformat(manifest["live_approved_at"])
         self._deadline = datetime.fromisoformat(manifest["package_deadline"])
@@ -288,8 +344,9 @@ class LivePackage:
             )
         ]:
             raise ValueError("LIVE_PACKAGE_IDENTITY")
+        slots_map = _SLOTS_V2 if self._version == 2 else _SLOTS
         slots = db.execute("SELECT name,approval_id,cap FROM slots").fetchall()
-        if set(slots) != {(s, self.approval_id(s), c) for s, c in _SLOTS.items()}:
+        if set(slots) != {(s, self.approval_id(s), c) for s, c in slots_map.items()}:
             raise ValueError("LIVE_PACKAGE_IDENTITY")
         attempts, startups = db.execute("SELECT attempts,startups FROM package").fetchone()
         counts = db.execute("SELECT count(*),count(DISTINCT approval_id) FROM requests").fetchone()
@@ -297,7 +354,10 @@ class LivePackage:
         approval_total = db.execute("SELECT coalesce(sum(attempts),0) FROM approvals").fetchone()[0]
         if attempts != counts[0] or attempts != slot_total or attempts != approval_total:
             raise ValueError("LIVE_PACKAGE_COUNTER_MISMATCH")
-        if startups != db.execute("SELECT count(*) FROM startups").fetchone()[0]:
+        if (
+            self._version == 1
+            and startups != db.execute("SELECT count(*) FROM startups").fetchone()[0]
+        ):
             raise ValueError("LIVE_PACKAGE_COUNTER_MISMATCH")
         foreign = db.execute(
             "SELECT id FROM approvals WHERE id NOT IN (SELECT approval_id FROM slots)"
@@ -335,13 +395,15 @@ class LivePackage:
                 raise ValueError("LIVE_PACKAGE_COUNTER_MISMATCH")
 
     def approval_id(self, slot):
-        if slot not in _SLOTS:
+        slots_map = _SLOTS_V2 if self._version == 2 else _SLOTS
+        if slot not in slots_map:
             raise ValueError("LIVE_SLOT_UNKNOWN")
         return self._manifest["package_id"] + ":" + slot
 
     def parents(self, slot):
         self.approval_id(slot)
-        return _SLOT_PARENTS[slot]
+        parents_map = _SLOT_PARENTS_V2 if self._version == 2 else _SLOT_PARENTS
+        return parents_map[slot]
 
     def slot_binding(self, slot):
         self.approval_id(slot)
@@ -450,14 +512,22 @@ class LivePackage:
             if slot == "ragas_vi_draft"
             else "corpus_prepare"
         )
+        slots_map = _SLOTS_V2 if self._version == 2 else _SLOTS
+        slot_cap = slots_map[slot]
+        attempts_valid = (
+            (policy.get("max_attempts") == 0)
+            if slot_cap == 0
+            else (
+                type(policy.get("max_attempts")) is int and 0 < policy["max_attempts"] <= slot_cap
+            )
+        )
         if (
             policy.get("account_id") != self._manifest["account_id"]
             or policy.get("scope", {}).get("purpose") != purpose
             or policy.get("scope", {}).get("workspace_id")
             != self._manifest["ownership"].get("workspace_id")
             or policy.get("approved_by") != self._manifest["approved_by"]
-            or type(policy.get("max_attempts")) is not int
-            or not 0 < policy["max_attempts"] <= _SLOTS[slot]
+            or not attempts_valid
         ):
             raise ValueError("LIVE_SLOT_APPROVAL")
         observed = datetime.fromisoformat(policy["proof_observed_at"])
@@ -472,18 +542,23 @@ class LivePackage:
             raise ValueError("LIVE_APPROVAL_EXPIRED")
         if not isinstance(inputs, dict) or not inputs:
             raise ValueError("LIVE_SLOT_INPUT")
+        expected_keys = {
+            "input_digest",
+            "source_digest",
+            "configuration_digest",
+            "prompt_digest",
+            "schema_digest",
+            "identities",
+            "ancestry",
+            "authority",
+        }
+        extra_keys = set(inputs) - expected_keys
+        if extra_keys and (
+            self._version != 2 or not extra_keys.issubset({"saved_capture", "validation_origin"})
+        ):
+            raise ValueError("LIVE_SLOT_INPUT")
         if (
-            set(inputs)
-            != {
-                "input_digest",
-                "source_digest",
-                "configuration_digest",
-                "prompt_digest",
-                "schema_digest",
-                "identities",
-                "ancestry",
-                "authority",
-            }
+            not expected_keys.issubset(set(inputs))
             or inputs["input_digest"] != policy["scope"]["input_digest"]
             or any(
                 not isinstance(inputs[k], str) or not _HEX.fullmatch(inputs[k])
@@ -519,7 +594,7 @@ class LivePackage:
         if slot in {"qa_gold_v1_answer", "qa_gold_v1_refusal"}:
             role = "ANSWER" if slot.endswith("answer") else "REFUSAL"
             gold = self._manifest["gold_v1"]
-            if (
+            if self._version == 1 and (
                 inputs["identities"]["case_id"] != gold["cases"][role]
                 or inputs["identities"]["dataset_digest"] != gold["dataset_digest"]
             ):
@@ -538,26 +613,61 @@ class LivePackage:
                 row = db.execute(
                     "SELECT status,input_json FROM slots WHERE name=?", (parent,)
                 ).fetchone()
-                if row[0] != "COMPLETED" or inputs["ancestry"][parent] != digest_json(
+                if row[0] == "SKIPPED":
+                    if inputs["ancestry"][parent] != "skipped" and not _HEX.fullmatch(
+                        inputs["ancestry"][parent]
+                    ):
+                        raise ValueError("LIVE_SLOT_ANCESTRY")
+                elif row[0] != "COMPLETED" or inputs["ancestry"][parent] != digest_json(
                     json.loads(row[1])
                 ):
                     raise ValueError("LIVE_SLOT_ANCESTRY")
             if slot.startswith("judge_"):
-                result = self.slot_result(parents[0])
-                capture = result.get("capture")
-                expected = {**result.get("identities", {}), "capture_digest": digest_json(capture)}
-                if not capture or any(
-                    inputs["identities"].get(k) != expected.get(k)
-                    for k in (
-                        "dataset_digest",
-                        "selection_digest",
-                        "run_id",
-                        "case_id",
-                        "trace_id",
-                        "capture_digest",
+                parent_status = db.execute(
+                    "SELECT status FROM slots WHERE name=?", (parents[0],)
+                ).fetchone()[0]
+                if parent_status == "SKIPPED":
+                    capture = inputs.get("saved_capture")
+                    if not capture:
+                        raise ValueError("LIVE_SLOT_ANCESTRY")
+                    expected_digest = inputs.get("identities", {}).get("capture_digest")
+                    if not expected_digest or digest_json(capture) != expected_digest:
+                        raise ValueError("LIVE_SLOT_ANCESTRY")
+                else:
+                    result = self.slot_result(parents[0])
+                    capture = result.get("capture")
+                    expected = {
+                        **result.get("identities", {}),
+                        "capture_digest": digest_json(capture),
+                    }
+                    if not capture or any(
+                        inputs["identities"].get(k) != expected.get(k)
+                        for k in (
+                            "dataset_digest",
+                            "selection_digest",
+                            "run_id",
+                            "case_id",
+                            "trace_id",
+                            "capture_digest",
+                        )
+                    ):
+                        raise ValueError("LIVE_SLOT_ANCESTRY")
+            if slot == "judge_synthetic":
+                validation_origin = inputs.get("validation_origin")
+                if (
+                    not isinstance(validation_origin, dict)
+                    or validation_origin.get("origin_type") != "synthetic_control"
+                    or validation_origin.get("variant_id")
+                    not in (
+                        "wrong-fact",
+                        "off-topic",
+                        "unsupported",
+                        "missing-exception",
                     )
+                    or not _HEX.fullmatch(validation_origin.get("parent_capture_sha256", ""))
+                    or not _HEX.fullmatch(validation_origin.get("transformation_digest", ""))
                 ):
-                    raise ValueError("LIVE_SLOT_ANCESTRY")
+                    raise ValueError("LIVE_SYNTHETIC_ORIGIN_INVALID")
             for (saved,) in db.execute("SELECT input_json FROM slots WHERE input_json IS NOT NULL"):
                 if json.loads(saved)["source_digest"] != inputs["source_digest"]:
                     raise ValueError("LIVE_SLOT_SOURCE_DRIFT")
@@ -604,37 +714,42 @@ class LivePackage:
             )
 
     @contextmanager
-    def window(self, *, scope, cleanup, start, stop):
+    def window(self, *, scope, cleanup, start, stop, stack_startup=None):
         deadline = datetime.fromisoformat(cleanup["deadline"])
+        max_duration = timedelta(minutes=60 if self._version == 2 else 15)
         if (
             scope != self._manifest["ownership"]
             or cleanup.get("scope") != scope
             or not isinstance(cleanup.get("registration_id"), str)
             or not cleanup["registration_id"]
             or not _HEX.fullmatch(cleanup.get("proof_digest", ""))
-            or not self._clock()
-            < deadline
-            <= min(self._clock() + timedelta(minutes=15), self._deadline)
+            or not self._clock() < deadline <= min(self._clock() + max_duration, self._deadline)
         ):
             raise ValueError("LIVE_CLEANUP_UNPROVEN")
+        is_stack = (
+            True
+            if self._version == 1
+            else (stack_startup if stack_startup is not None else scope.get("runtime_stack", False))
+        )
         with self._db() as db:
             db.execute("BEGIN IMMEDIATE")
             self._check(db)
+            total_windows = db.execute("SELECT count(*) FROM startups").fetchone()[0]
+            max_windows = self._manifest.get("window_cap", 8) if self._version == 2 else 3
+            if total_windows >= max_windows:
+                raise ValueError("LIVE_WINDOW_CAP" if self._version == 2 else "LIVE_STARTUP_CAP")
             count = db.execute("SELECT startups FROM package").fetchone()[0]
-            if (
-                not self._clock()
-                < deadline
-                <= min(self._clock() + timedelta(minutes=15), self._deadline)
-            ):
+            if not self._clock() < deadline <= min(self._clock() + max_duration, self._deadline):
                 raise ValueError("LIVE_CLEANUP_UNPROVEN")
-            if count >= 3:
+            if is_stack and count >= self._manifest["startup_cap"]:
                 raise ValueError("LIVE_STARTUP_CAP")
-            if count == 0 and self._clock() > self._approved + timedelta(hours=24):
+            if total_windows == 0 and self._clock() > self._approved + timedelta(hours=24):
                 raise ValueError("LIVE_FIRST_START_EXPIRED")
             if db.execute("SELECT 1 FROM startups WHERE status!='COMPLETED'").fetchone():
                 raise ValueError("LIVE_STARTUP_INDETERMINATE")
-            self._window = count + 1
-            db.execute("UPDATE package SET startups=startups+1")
+            self._window = total_windows + 1
+            if is_stack:
+                db.execute("UPDATE package SET startups=startups+1")
             db.execute(
                 "INSERT INTO startups VALUES(?,?,?,?,?,'STARTED')",
                 (
@@ -728,7 +843,11 @@ class LivePackage:
         ).fetchone()
         if not row or context != (self, slot, row[1]) or row[0] != "STARTED":
             raise ValueError("LIVE_SLOT_NONREPLAYABLE")
-        if row[2] >= row[3] or db.execute("SELECT attempts FROM package").fetchone()[0] >= 33:
+        if (
+            row[2] >= row[3]
+            or db.execute("SELECT attempts FROM package").fetchone()[0]
+            >= self._manifest["max_attempts"]
+        ):
             raise ValueError("LIVE_PACKAGE_CAP")
         db.execute("UPDATE package SET attempts=attempts+1")
         db.execute("UPDATE slots SET attempts=attempts+1 WHERE name=?", (slot,))
