@@ -121,8 +121,11 @@ class PostgresAnsweringStore(AnsweringStore):
                 raise ValueError("missing lexical trace snapshot")
             if any(
                 not isinstance(item, dict)
-                or len(item) != 6
-                or any(not isinstance(value, str) or not value for value in item.values())
+                or len(item) not in (6, 7)
+                or any(
+                    k != "statistics_digest" and (not isinstance(value, str) or not value)
+                    for k, value in item.items()
+                )
                 for item in data
             ):
                 raise ValueError("invalid lexical trace snapshot")
