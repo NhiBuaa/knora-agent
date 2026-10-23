@@ -716,7 +716,9 @@ When developing or verifying an Issue branch in an isolated Git worktree (e.g., 
    Passing `-EnvFile` or setting configuration variables does **not** grant execution permissions or create isolated backend services. The daily development launcher targets the shared `knora-dev` Docker Compose project and `knora_dev` database. Before launching:
    - Verify that ports 5432, 8180, 8000, 3000, and 9000 are not occupied by foreign or active developer sessions.
    - Never override ownership guards, remove reservation locks (`%TEMP%\knora-dev-reservation-knora-dev.lock`), or run mutating commands (`docker compose down -v`) against an active or unverified stack.
-   - If isolated databases, buckets, or providers are unavailable, stop before service mutation and report the runtime gap honestly.
+   - Shared local databases and services are used sequentially by default for local development and deterministic smoke testing.
+   - Use an isolated test database only when tests execute destructive fixtures (such as table truncations or resets), run schema migrations, or require an empty initial state.
+   - Unit and contract tests must use mocks, fakes, or in-memory stores instead of live databases.
 4. **Configuration precedence and issue overrides**:
    Configuration values resolve in strict hierarchical order:
    ```text
