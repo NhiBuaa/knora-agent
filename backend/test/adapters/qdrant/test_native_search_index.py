@@ -620,7 +620,7 @@ def test_stage_generation_with_dense_vectors(wire, generation) -> None:
             "points"
         ]
         for point in points:
-            point.pop("vector")
+            point["vector"] = {"dense": point["vector"]["dense"]}
         return httpx.Response(200, json={"status": "ok", "result": points})
 
     with httpx.Client(

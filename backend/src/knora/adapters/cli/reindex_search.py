@@ -52,6 +52,13 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     parser.add_argument(
+        "--profile-file",
+        type=Path,
+        default=None,
+        help="Path to JSON file containing explicit LexicalProfile definition",
+    )
+
+    parser.add_argument(
         "--batch-size",
         type=int,
         default=100,
@@ -61,7 +68,21 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def load_profile() -> LexicalProfile:
+def load_profile(profile_file: Path | None = None) -> LexicalProfile:
+    if profile_file is not None:
+        if not profile_file.exists():
+            raise ValueError(f"profile file not found: {profile_file}")
+        with open(profile_file, encoding="utf-8") as f:
+            data = json.load(f)
+        return LexicalProfile(
+            id=data["id"],
+            tokenizer=data.get("tokenizer", "tiktoken"),
+            tokenizer_version=data.get("tokenizer_version", "cl100k_base"),
+            k1=float(data.get("k1", 1.2)),
+            b=float(data.get("b", 0.75)),
+            avg_len=float(data.get("avg_len", 256.0)),
+            statistics_digest=data.get("statistics_digest", "0" * 64),
+        )
     configuration = resolve_retrieval_configuration(
         settings.retrieval_configuration_id,
         vector_min_similarity=settings.vector_min_similarity,
@@ -69,6 +90,17 @@ def load_profile() -> LexicalProfile:
     population = load_lexical_population(configuration, settings.lexical_population_manifest)
     if population is not None:
         return population.profile
+    if configuration.strategy in ("dense-only", "hybrid", "bm25-only"):
+        lexical_policy_id = configuration.lexical_policy_id or "lexical-bm25-v1"
+        return LexicalProfile(
+            id=lexical_policy_id,
+            tokenizer="tiktoken",
+            tokenizer_version="cl100k_base",
+            k1=1.2,
+            b=0.75,
+            avg_len=256.0,
+            statistics_digest="0" * 64,
+        )
     raise ValueError("reindex requires a reviewed lexical population profile or explicit profile")
 
 
@@ -374,11 +406,13 @@ def main() -> int:
     args = build_parser().parse_args()
 
     try:
+        profile = load_profile(args.profile_file)
         result = run_reindex(
             workspace_id=args.workspace_id,
             dry_run=args.dry_run,
             checkpoint_file=args.checkpoint_file,
             batch_size=args.batch_size,
+            profile=profile,
         )
 
         print(json.dumps(result, ensure_ascii=False))
