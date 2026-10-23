@@ -608,24 +608,23 @@ export function DocumentList({
         </div>
       </div>
       {uploadState && (
-        <div role="status" className="m-0 flex flex-col gap-1 text-sm">
-          <p className="m-0">
-            Upload:{" "}
-            {"status" in uploadState ? uploadState.status : uploadState.outcome}
-            {"ingestion_job_id" in uploadState
-              ? ` · job ${uploadState.ingestion_job_id}`
-              : ""}
-          </p>
-          {uploadState.document_archived && (
-            <div className="flex flex-wrap items-center gap-2 text-text-muted">
-              <span>
-                This document already exists and is archived. Restore it to use
-                it again.
-              </span>
+        <div role="status" className="m-0 flex flex-col gap-2">
+          {uploadState.document_archived ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-status-warning/40 bg-[color-mix(in_srgb,var(--status-warning)_10%,var(--surface))] p-3.5 text-sm text-text-primary shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <span
+                  className="inline-flex size-2 shrink-0 rounded-full bg-status-warning"
+                  aria-hidden="true"
+                />
+                <span className="font-medium">
+                  This document already exists and is archived. Restore it to
+                  use it again.
+                </span>
+              </div>
               {canWrite && (
                 <Button
-                  variant="secondary"
-                  className="h-7 px-2.5 text-xs"
+                  variant="primary"
+                  className="h-8 px-3 text-xs"
                   disabled={busy.includes(uploadState.document_id)}
                   loading={busy.includes(uploadState.document_id)}
                   onClick={() =>
@@ -636,6 +635,16 @@ export function DocumentList({
                 </Button>
               )}
             </div>
+          ) : (
+            <p className="m-0 text-sm">
+              Upload:{" "}
+              {"status" in uploadState
+                ? uploadState.status
+                : uploadState.outcome}
+              {"ingestion_job_id" in uploadState
+                ? ` · job ${uploadState.ingestion_job_id}`
+                : ""}
+            </p>
           )}
         </div>
       )}

@@ -1052,7 +1052,16 @@ describe("document management", () => {
     await waitFor(() => expect(finishRestore).toBeDefined());
 
     await uploadFile("b.txt");
-    await screen.findByText("Upload: created");
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.filter(
+          (c) =>
+            typeof c[0] === "string" &&
+            c[0].endsWith("/documents") &&
+            c[1]?.method === "POST",
+        ),
+      ).toHaveLength(2),
+    );
 
     restored = true;
     finishRestore(jsonResponse({ ...docA, archived: false, revision: 4 }));
