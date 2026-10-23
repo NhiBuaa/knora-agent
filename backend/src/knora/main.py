@@ -189,6 +189,7 @@ def create_app(
     ):
         raise ValueError("lexical runtime requires Qdrant URL and collection")
     providers = build_provider_selection(settings)
+    selected_embedding_configuration = embedding_configuration or providers.embedding_configuration
     deployed_reranking_configuration = None
     reranking_policy_id = settings.reranking_configuration_id or (
         deployed_retrieval_configuration.reranking_policy_id
@@ -216,7 +217,6 @@ def create_app(
             model=settings.cloudflare_reranker_model,
             timeout_seconds=settings.cloudflare_timeout_seconds,
         )
-
     lexical_client = None
     lexical_index = None
     if lexical_population is not None:
@@ -227,6 +227,24 @@ def create_app(
         )
         lexical_index = NativeQdrantSearchIndex(
             index=QdrantSearchIndex(settings.lexical_qdrant_collection, lexical_population.profile),
+            client=lexical_client,
+        )
+    elif (
+        deployed_retrieval_configuration.strategy in ("dense-only", "hybrid", "bm25-only")
+        and bool(settings.lexical_qdrant_url)
+        and bool(settings.lexical_qdrant_collection)
+    ):
+        lexical_client = httpx.Client(
+            base_url=settings.lexical_qdrant_url,
+            timeout=10,
+            trust_env=False,
+        )
+        lexical_index = NativeQdrantSearchIndex(
+            index=QdrantSearchIndex(
+                settings.lexical_qdrant_collection,
+                profile=None,
+                embedding_configuration=selected_embedding_configuration,
+            ),
             client=lexical_client,
         )
 
@@ -252,10 +270,19 @@ def create_app(
                 await close_generation()
 
     application = FastAPI(title="Knora Agent", version="0.1.0", lifespan=lifespan)
-    selected_embedding_configuration = embedding_configuration or providers.embedding_configuration
-    dense_pdf_configuration = PdfSubmissionConfiguration.layout_preserving(
-        embedding_configuration=selected_embedding_configuration
+    use_docling = (
+        settings.pdf_parser_driver == "docling"
+        and bool(settings.cloudflare_account_id)
+        and bool(settings.cloudflare_api_token)
     )
+    if use_docling:
+        dense_pdf_configuration = PdfSubmissionConfiguration.docling_native(
+            embedding_configuration=selected_embedding_configuration
+        )
+    else:
+        dense_pdf_configuration = PdfSubmissionConfiguration.layout_preserving(
+            embedding_configuration=selected_embedding_configuration
+        )
     application.state.pdf_submission_configuration = (
         PdfExtractionSubmissionConfiguration(
             parser_configuration_id=dense_pdf_configuration.parser_configuration_id,

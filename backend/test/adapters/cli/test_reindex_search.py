@@ -6,7 +6,7 @@ from uuid import uuid4
 
 from sqlalchemy import select
 
-from knora.adapters.cli.reindex_search import build_parser, run_reindex
+from knora.adapters.cli.reindex_search import build_parser, load_profile, run_reindex
 from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.ingestion_store import PostgresIngestionStore
 from knora.adapters.postgres.tables import (
@@ -69,6 +69,8 @@ def test_reindex_search_parser() -> None:
             "--dry-run",
             "--checkpoint-file",
             "ckpt.json",
+            "--profile-file",
+            "profile.json",
             "--batch-size",
             "50",
         ]
@@ -76,7 +78,46 @@ def test_reindex_search_parser() -> None:
     assert args.workspace_id == "ws-123"
     assert args.dry_run is True
     assert args.checkpoint_file == Path("ckpt.json")
+    assert args.profile_file == Path("profile.json")
     assert args.batch_size == 50
+
+
+def test_load_profile_with_explicit_file(tmp_path: Path) -> None:
+    prof_file = tmp_path / "custom_profile.json"
+    prof_file.write_text(
+        json.dumps(
+            {
+                "id": "custom-bm25-v1",
+                "tokenizer": "tiktoken",
+                "tokenizer_version": "cl100k_base",
+                "k1": 1.5,
+                "b": 0.8,
+                "avg_len": 300.0,
+                "statistics_digest": "b" * 64,
+            }
+        ),
+        encoding="utf-8",
+    )
+    loaded = load_profile(prof_file)
+    assert loaded.id == "custom-bm25-v1"
+    assert loaded.k1 == 1.5
+    assert loaded.b == 0.8
+    assert loaded.avg_len == 300.0
+    assert loaded.statistics_digest == "b" * 64
+
+
+def test_load_profile_v3_dynamic_fallback() -> None:
+    # When no profile file is provided and retrieval configuration is v3 dynamic
+    from knora.infrastructure.settings import settings
+
+    orig_id = settings.retrieval_configuration_id
+    try:
+        settings.retrieval_configuration_id = "retrieval-hybrid-top8-v3"
+        loaded = load_profile(None)
+        assert loaded.id == "bm25-word-frozen47-population-v1"
+        assert loaded.tokenizer == "tiktoken"
+    finally:
+        settings.retrieval_configuration_id = orig_id
 
 
 def test_reindex_search_dry_run() -> None:

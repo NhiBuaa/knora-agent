@@ -157,6 +157,162 @@ def _validate_answer_group_completeness(
             _invalid()
 
 
+_SECTION_REF_PATTERN = re.compile(
+    r"(?<!\w)(?:chương|phần|mục|điều|khoản|chapter|section|article)\s+[0-9a-zA-Z._-]+(?!\w)",
+    re.IGNORECASE,
+)
+
+_STOPWORDS = {
+    "và",
+    "với",
+    "là",
+    "của",
+    "cho",
+    "ở",
+    "tại",
+    "các",
+    "những",
+    "được",
+    "có",
+    "trong",
+    "đến",
+    "theo",
+    "chương",
+    "mục",
+    "điều",
+    "khoản",
+    "phần",
+    "chapter",
+    "section",
+    "article",
+    "đây",
+    "chỉ",
+    "nội",
+    "dung",
+    "về",
+    "thông",
+    "tin",
+    "quy",
+    "định",
+    "tổng",
+    "quan",
+    "chung",
+    "giới",
+    "thiệu",
+    "chi",
+    "tiết",
+    "khác",
+    "nào",
+    "một",
+    "hai",
+    "ba",
+    "bốn",
+    "năm",
+    "sáu",
+    "bảy",
+    "tám",
+    "chín",
+    "mười",
+    "này",
+    "kia",
+    "đó",
+    "thì",
+    "sẽ",
+    "đã",
+    "đang",
+    "cũng",
+    "khi",
+    "như",
+    "nhưng",
+    "hoặc",
+    "hay",
+    "đều",
+    "phải",
+    "bị",
+    "bởi",
+    "do",
+    "bằng",
+}
+
+
+def _validate_citation_alignment(
+    answer: str,
+    alias_to_candidate: Mapping[str, Any],
+) -> None:
+    matches = list(MARKER_PATTERN.finditer(answer))
+    if not matches:
+        return
+
+    segments: list[tuple[str, str]] = []
+    prev_boundary = 0
+
+    for match in matches:
+        marker = match.group(1)
+        start = match.start()
+        text_before = answer[prev_boundary:start]
+        boundary_matches = list(re.finditer(r"[.;\n]", text_before))
+        if boundary_matches:
+            seg_start = prev_boundary + boundary_matches[-1].end()
+        else:
+            seg_start = prev_boundary
+
+        seg_text = answer[seg_start:start].strip()
+        if not seg_text and segments:
+            seg_text = segments[-1][1]
+        segments.append((marker, seg_text))
+        prev_boundary = match.end()
+
+    for marker, seg_text in segments:
+        if marker not in alias_to_candidate:
+            continue
+        cand = alias_to_candidate[marker]
+        cand_content = unicodedata.normalize("NFKC", cand.content).casefold()
+        cand_heading = unicodedata.normalize("NFKC", " ".join(cand.heading_path)).casefold()
+        cand_full = f"{cand_heading} {cand_content}"
+
+        norm_seg = unicodedata.normalize("NFKC", seg_text).casefold()
+
+        # 1. Section references inside segment must match candidate heading/content
+        seg_sections = _SECTION_REF_PATTERN.findall(norm_seg)
+        for sec in seg_sections:
+            if not _matches_word_boundary(sec, cand_full):
+                _invalid()
+
+        # 2. Number constraints: every non-section number must exist in candidate context
+        non_section_text = _SECTION_REF_PATTERN.sub(" ", norm_seg)
+        seg_numbers = re.findall(r"\b\d+(?:[.,]\d+)?\b", non_section_text)
+        for num in seg_numbers:
+            if not _matches_word_boundary(num, cand_full):
+                _invalid()
+
+        # 3. Factual substance check: must not be completely factless or only filler
+        cand_words = set(re.findall(r"\w+", cand_content)) - _STOPWORDS
+        cand_words = {w for w in cand_words if len(w) >= 2 and not w.isdigit()}
+
+        seg_words = [
+            w for w in re.findall(r"\w+", norm_seg) if w not in _STOPWORDS and not w.isdigit()
+        ]
+        matched_words = [w for w in seg_words if w in cand_words]
+
+        if seg_numbers:
+            if seg_words and not matched_words:
+                _invalid()
+        else:
+            has_2gram = False
+            content_words_in_seg = [
+                w for w in re.findall(r"\w+", norm_seg) if w not in _STOPWORDS and not w.isdigit()
+            ]
+            for i in range(len(content_words_in_seg) - 1):
+                w1, w2 = content_words_in_seg[i], content_words_in_seg[i + 1]
+                bigram = f"{w1} {w2}"
+                if bigram in cand_content:
+                    has_2gram = True
+                    break
+
+            if not has_2gram and len(matched_words) < 2:
+                _invalid()
+
+
 def validate_generation(
     result: GenerationResult,
     *,
@@ -192,6 +348,9 @@ def validate_generation(
         _invalid()
     if result.cited_evidence_ids != markers:
         _invalid()
+
+    if alias_to_candidate and required_subquestions:
+        _validate_citation_alignment(result.answer, alias_to_candidate)
 
     if required_subquestions and len(required_subquestions) > 1:
         _validate_answer_group_completeness(

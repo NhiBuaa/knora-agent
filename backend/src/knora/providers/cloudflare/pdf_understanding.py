@@ -74,7 +74,7 @@ class CloudflarePdfUnderstandingProvider:
                     reason="CLOUDFLARE_MALFORMED_OUTPUT",
                     retryable=False,
                 )
-            if payload.get("success") is False:
+            if payload.get("success") is not True:
                 errors = payload.get("errors") or []
                 err_msg = str(errors[0]) if errors else "UNKNOWN_ERROR"
                 raise PdfExtractionError(
@@ -83,47 +83,47 @@ class CloudflarePdfUnderstandingProvider:
                     retryable=True,
                 )
             result = payload.get("result")
-            content = ""
-            fmt = "markdown"
-            if isinstance(result, list):
-                if not result:
-                    raise PdfExtractionError(
-                        "PDF_TEXT_INSUFFICIENT",
-                        reason="EMPTY_CONVERSION_RESULT",
-                        retryable=False,
-                    )
-                item = result[0]
-                if not isinstance(item, dict):
-                    raise PdfExtractionError(
-                        "PDF_EXTRACTOR_UNAVAILABLE",
-                        reason="CLOUDFLARE_MALFORMED_OUTPUT",
-                        retryable=False,
-                    )
-                if item.get("format") == "error" or "error" in item:
-                    err_msg = str(item.get("error") or "CONVERSION_FAILED")
-                    raise PdfExtractionError(
-                        "PDF_EXTRACTOR_UNAVAILABLE",
-                        reason=f"CLOUDFLARE_CONVERSION_FAILED: {err_msg}",
-                        retryable=True,
-                    )
-                content = item.get("data") or item.get("content") or ""
-                fmt = item.get("format", "markdown")
-            elif isinstance(result, dict):
-                if result.get("format") == "error" or "error" in result:
-                    err_msg = str(result.get("error") or "CONVERSION_FAILED")
-                    raise PdfExtractionError(
-                        "PDF_EXTRACTOR_UNAVAILABLE",
-                        reason=f"CLOUDFLARE_CONVERSION_FAILED: {err_msg}",
-                        retryable=True,
-                    )
-                content = result.get("data") or result.get("content") or ""
-                fmt = result.get("format", "markdown")
-            else:
+            if not isinstance(result, list) or len(result) != 1:
                 raise PdfExtractionError(
                     "PDF_EXTRACTOR_UNAVAILABLE",
                     reason="CLOUDFLARE_MALFORMED_OUTPUT",
                     retryable=False,
                 )
+            item = result[0]
+            if not isinstance(item, dict):
+                raise PdfExtractionError(
+                    "PDF_EXTRACTOR_UNAVAILABLE",
+                    reason="CLOUDFLARE_MALFORMED_OUTPUT",
+                    retryable=False,
+                )
+            if item.get("name") != "document.pdf":
+                raise PdfExtractionError(
+                    "PDF_EXTRACTOR_UNAVAILABLE",
+                    reason="CLOUDFLARE_NAME_MISMATCH",
+                    retryable=False,
+                )
+            if item.get("format") == "error" or "error" in item:
+                err_msg = str(item.get("error") or "CONVERSION_FAILED")
+                raise PdfExtractionError(
+                    "PDF_EXTRACTOR_UNAVAILABLE",
+                    reason=f"CLOUDFLARE_CONVERSION_FAILED: {err_msg}",
+                    retryable=True,
+                )
+            fmt = item.get("format")
+            if fmt != "markdown":
+                raise PdfExtractionError(
+                    "PDF_EXTRACTOR_UNAVAILABLE",
+                    reason="CLOUDFLARE_FORMAT_UNSUPPORTED",
+                    retryable=False,
+                )
+            raw_content = item.get("data") if "data" in item else item.get("content")
+            if not isinstance(raw_content, str):
+                raise PdfExtractionError(
+                    "PDF_EXTRACTOR_UNAVAILABLE",
+                    reason="CLOUDFLARE_MALFORMED_OUTPUT",
+                    retryable=False,
+                )
+            content = raw_content
 
             request_id = response.headers.get("cf-ray") or response.headers.get("x-request-id")
             return CloudflareToMarkdownResponse(content=content, format=fmt, request_id=request_id)

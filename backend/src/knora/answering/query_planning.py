@@ -250,29 +250,62 @@ class QueryPlanner:
 
         # Multi-intent decomposition logic (heuristic baseline when no LLM adapter is passed)
         protected = extract_protected_spans(question)
-        sections = _SECTION_PATTERN.findall(question)
+        section_matches = list(_SECTION_PATTERN.finditer(question))
 
         subquestions: list[Subquestion] = []
         variants: list[QueryVariant] = [
             QueryVariant(query=question, reason="original_query", variant_kind="original")
         ]
 
-        if len(sections) >= 2:
-            clean_q = question
-            for sec in sections:
-                clean_q = re.sub(
-                    rf"(?<!\w){re.escape(sec)}(?!\w)", " ", clean_q, flags=re.IGNORECASE
-                )
-            clean_q = _COMPARISON_CUE.sub(" ", clean_q)
-            clean_q = re.sub(r"(?:kèm|theo|với|cùng)", " ", clean_q, flags=re.IGNORECASE)
-            core_predicate = " ".join(clean_q.split()).strip()
+        if len(section_matches) >= 2:
+            section_matches.sort(key=lambda m: m.start())
+            first_start = section_matches[0].start()
+            prefix_raw = question[:first_start].strip()
+            clean_prefix = _COMPARISON_CUE.sub(" ", prefix_raw)
+            prefix = " ".join(clean_prefix.split()).strip()
 
-            for idx, sec in enumerate(sections, start=1):
-                sq_text = (
-                    f"{sec} {core_predicate}".strip()
-                    if core_predicate
-                    else f"Thông tin quy định về {sec}"
-                )
+            after_last_sec = question[section_matches[-1].end() :]
+            postfix_match = re.search(
+                r",?\s*(?:kèm|theo|cùng|đi\s+kèm)\s+(.+)$", after_last_sec, flags=re.IGNORECASE
+            )
+
+            clauses: list[str] = []
+            for idx, match in enumerate(section_matches):
+                start = match.start()
+                if idx + 1 < len(section_matches):
+                    end = section_matches[idx + 1].start()
+                elif postfix_match:
+                    end = section_matches[-1].end() + postfix_match.start()
+                else:
+                    end = len(question)
+
+                clause = question[start:end].strip()
+                clause = re.sub(
+                    r"\s*(?:,|;|và|với|cùng\s+với|đồng\s+thời|vs\.?|versus)\s*$",
+                    "",
+                    clause,
+                    flags=re.IGNORECASE,
+                ).strip()
+                clauses.append(clause)
+
+            for idx, (match, clause) in enumerate(
+                zip(section_matches, clauses, strict=True), start=1
+            ):
+                sec = match.group(0)
+                clause_without_sec = re.sub(
+                    rf"(?<!\w){re.escape(sec)}(?!\w)", "", clause, flags=re.IGNORECASE
+                ).strip()
+                clause_without_sec = re.sub(
+                    r"^(?:,|;|và|với|cùng|là|về)\s*", "", clause_without_sec, flags=re.IGNORECASE
+                ).strip()
+
+                if clause_without_sec:
+                    sq_text = f"{clause} {prefix}".strip() if prefix else clause
+                elif prefix:
+                    sq_text = f"{sec} {prefix}".strip()
+                else:
+                    sq_text = f"Thông tin quy định về {sec}"
+
                 sq_protected = extract_protected_spans(sq_text)
                 subquestions.append(
                     Subquestion(
