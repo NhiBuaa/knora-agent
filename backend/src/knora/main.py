@@ -180,6 +180,7 @@ def create_app(
     ):
         raise ValueError("lexical runtime requires Qdrant URL and collection")
     providers = build_provider_selection(settings)
+    selected_embedding_configuration = embedding_configuration or providers.embedding_configuration
     lexical_client = None
     lexical_index = None
     if lexical_population is not None:
@@ -190,6 +191,24 @@ def create_app(
         )
         lexical_index = NativeQdrantSearchIndex(
             index=QdrantSearchIndex(settings.lexical_qdrant_collection, lexical_population.profile),
+            client=lexical_client,
+        )
+    elif (
+        deployed_retrieval_configuration.strategy in ("dense-only", "hybrid", "bm25-only")
+        and bool(settings.lexical_qdrant_url)
+        and bool(settings.lexical_qdrant_collection)
+    ):
+        lexical_client = httpx.Client(
+            base_url=settings.lexical_qdrant_url,
+            timeout=10,
+            trust_env=False,
+        )
+        lexical_index = NativeQdrantSearchIndex(
+            index=QdrantSearchIndex(
+                settings.lexical_qdrant_collection,
+                profile=None,
+                embedding_configuration=selected_embedding_configuration,
+            ),
             client=lexical_client,
         )
 
@@ -211,7 +230,6 @@ def create_app(
                 await close_generation()
 
     application = FastAPI(title="Knora Agent", version="0.1.0", lifespan=lifespan)
-    selected_embedding_configuration = embedding_configuration or providers.embedding_configuration
     use_docling = (
         settings.pdf_parser_driver == "docling"
         and bool(settings.cloudflare_account_id)
