@@ -197,7 +197,10 @@ class PostgresIngestionJobCoordinationStore:
             return DoclingExtractionConfiguration.cloudflare_native_v1()
         if parser_configuration_id == "pdf-parser-pypdf-6-14-2-layout-lines-v2":
             return PdfExtractionConfiguration.layout_preserving()
-        if parser_configuration_id == "pdf-parser-pypdf-6-14-2-plain-layout-v1":
+        if parser_configuration_id in (
+            "pdf-parser-pypdf-6-14-2-plain-layout-v1",
+            "pdf-parser-pypdf-m2-v1",
+        ):
             return PdfExtractionConfiguration.milestone_two()
         raise CoordinationInvariantError(
             f"unsupported parser_configuration_id: {parser_configuration_id}"
