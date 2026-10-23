@@ -71,6 +71,7 @@ from knora.ingestion.job_processing import (
     TransitionOperationId,
     WorkSuperseded,
 )
+from knora.ingestion.pdf import PdfExtractionConfiguration
 from knora.ingestion.pdf_structure import (
     CanonicalStructureValidationError,
     canonical_document_to_dict,
@@ -139,7 +140,6 @@ class PostgresIngestionJobCoordinationStore:
         """Resolve the worker's immutable profile from the claimed Job configuration IDs."""
 
         from knora.ingestion.job_processing import PdfDerivationProfile
-        from knora.ingestion.pdf import PdfExtractionConfiguration
 
         with self._session_factory() as session:
             if work.derivation_kind == "pdf_extraction":
@@ -168,10 +168,8 @@ class PostgresIngestionJobCoordinationStore:
                     parser_configuration_id=work.parser_configuration_id,
                     normalizer_configuration_id=work.normalizer_configuration_id,
                     chunking_configuration_id=work.chunking_configuration_id,
-                    extraction_configuration=(
-                        PdfExtractionConfiguration.layout_preserving()
-                        if work.parser_configuration_id == "pdf-parser-pypdf-6-14-2-layout-lines-v2"
-                        else PdfExtractionConfiguration.milestone_two()
+                    extraction_configuration=self._resolve_extraction_configuration(
+                        work.parser_configuration_id
                     ),
                     lexical_profile=profile,
                 )
@@ -183,13 +181,27 @@ class PostgresIngestionJobCoordinationStore:
                 parser_configuration_id=work.parser_configuration_id,
                 normalizer_configuration_id=work.normalizer_configuration_id,
                 chunking_configuration_id=work.chunking_configuration_id,
-                extraction_configuration=(
-                    PdfExtractionConfiguration.layout_preserving()
-                    if work.parser_configuration_id == "pdf-parser-pypdf-6-14-2-layout-lines-v2"
-                    else PdfExtractionConfiguration.milestone_two()
+                extraction_configuration=self._resolve_extraction_configuration(
+                    work.parser_configuration_id
                 ),
                 embedding_configuration=configuration_from_row(embedding),
             )
+
+    @staticmethod
+    def _resolve_extraction_configuration(
+        parser_configuration_id: str,
+    ) -> PdfExtractionConfiguration:
+        if parser_configuration_id == "pdf-parser-docling-native-cloudflare-v1":
+            from knora.adapters.pdf.docling import DoclingExtractionConfiguration
+
+            return DoclingExtractionConfiguration.cloudflare_native_v1()
+        if parser_configuration_id == "pdf-parser-pypdf-6-14-2-layout-lines-v2":
+            return PdfExtractionConfiguration.layout_preserving()
+        if parser_configuration_id == "pdf-parser-pypdf-6-14-2-plain-layout-v1":
+            return PdfExtractionConfiguration.milestone_two()
+        raise CoordinationInvariantError(
+            f"unsupported parser_configuration_id: {parser_configuration_id}"
+        )
 
     @staticmethod
     def _work_for_job(

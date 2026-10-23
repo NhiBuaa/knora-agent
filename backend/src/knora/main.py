@@ -212,9 +212,19 @@ def create_app(
 
     application = FastAPI(title="Knora Agent", version="0.1.0", lifespan=lifespan)
     selected_embedding_configuration = embedding_configuration or providers.embedding_configuration
-    dense_pdf_configuration = PdfSubmissionConfiguration.layout_preserving(
-        embedding_configuration=selected_embedding_configuration
+    use_docling = (
+        settings.pdf_parser_driver == "docling"
+        and bool(settings.cloudflare_account_id)
+        and bool(settings.cloudflare_api_token)
     )
+    if use_docling:
+        dense_pdf_configuration = PdfSubmissionConfiguration.docling_native(
+            embedding_configuration=selected_embedding_configuration
+        )
+    else:
+        dense_pdf_configuration = PdfSubmissionConfiguration.layout_preserving(
+            embedding_configuration=selected_embedding_configuration
+        )
     application.state.pdf_submission_configuration = (
         PdfExtractionSubmissionConfiguration(
             parser_configuration_id=dense_pdf_configuration.parser_configuration_id,

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from io import BytesIO
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -346,3 +346,217 @@ def test_stream_caps_1byte_rejected() -> None:
         extractor.extract(BytesIO(pdf_bytes), capped_config)
     assert exc_info.value.code == "PDF_RESOURCE_LIMIT_EXCEEDED"
     assert exc_info.value.reason in ("PAGE_STREAM_SIZE", "TOTAL_STREAM_SIZE")
+
+
+def _create_test_pdf_with_images(native_text: str, num_images: int = 1) -> bytes:
+    from pypdf import PdfWriter
+    from pypdf.generic import (
+        DecodedStreamObject,
+        DictionaryObject,
+        NameObject,
+        NumberObject,
+    )
+
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=612, height=792)
+    font = DictionaryObject(
+        {
+            NameObject("/Type"): NameObject("/Font"),
+            NameObject("/Subtype"): NameObject("/Type1"),
+            NameObject("/BaseFont"): NameObject("/Helvetica"),
+        }
+    )
+    xobjects = DictionaryObject()
+    for idx in range(num_images):
+        img_stream = DecodedStreamObject()
+        img_stream.set_data(b"\x00" * 100)
+        img_stream[NameObject("/Type")] = NameObject("/XObject")
+        img_stream[NameObject("/Subtype")] = NameObject("/Image")
+        img_stream[NameObject("/Width")] = NumberObject(10)
+        img_stream[NameObject("/Height")] = NumberObject(10)
+        img_stream[NameObject("/ColorSpace")] = NameObject("/DeviceGray")
+        img_stream[NameObject("/BitsPerComponent")] = NumberObject(8)
+        xobjects[NameObject(f"/Im{idx + 1}")] = writer._add_object(img_stream)
+
+    page[NameObject("/Resources")] = DictionaryObject(
+        {
+            NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font)}),
+            NameObject("/XObject"): xobjects,
+        }
+    )
+    commands = ["BT /F1 12 Tf"]
+    if native_text.strip():
+        for index, line in enumerate(native_text.splitlines()):
+            line = line or " "
+            escaped = line.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+            commands.append(f"1 0 0 1 72 {720 - index * 18} Tm ({escaped}) Tj")
+    commands.append("ET")
+    for idx in range(num_images):
+        commands.append(f"/Im{idx + 1} Do")
+    stream = DecodedStreamObject()
+    stream.set_data("\n".join(commands).encode("latin-1"))
+    page[NameObject("/Contents")] = writer._add_object(stream)
+
+    output = BytesIO()
+    writer.write(output)
+    return output.getvalue()
+
+
+def test_mixed_page_requires_ocr_and_marks_incomplete_without_provider() -> None:
+    # Page with native header AND scanned image
+    pdf_bytes = _create_test_pdf_with_images("Header only text for native layer", num_images=1)
+    extractor = DoclingTextExtractor(cf_provider=None)
+    config = DoclingExtractionConfiguration.cloudflare_native_v1()
+
+    result = extractor.extract(BytesIO(pdf_bytes), config)
+    assert len(result.pages) == 1
+    assert result.structure is not None
+    assert result.structure.is_complete is False
+    assert result.structure.completeness_status == "INCOMPLETE"
+    assert result.structure.pages[0].completeness.is_complete is False
+    assert result.structure.pages[0].completeness.reason == "UNPROCESSED_PAGE_IMAGES"
+
+
+def test_mixed_page_applies_ocr_to_images_and_completes() -> None:
+    mock_provider = MagicMock(spec=CloudflarePdfUnderstandingProvider)
+    mock_provider.ocr_page_image.return_value = CloudflareVisionOcrResponse(
+        text="Scanned body content recovered by OCR.",
+        confidence=0.98,
+    )
+    pdf_bytes = _create_test_pdf_with_images("Header only text for native layer", num_images=1)
+    extractor = DoclingTextExtractor(cf_provider=mock_provider)
+    config = DoclingExtractionConfiguration.cloudflare_native_v1()
+
+    result = extractor.extract(BytesIO(pdf_bytes), config)
+    assert result.structure is not None
+    assert result.structure.is_complete is True
+    assert result.structure.completeness_status == "COMPLETE"
+    page = result.structure.pages[0]
+    assert page.completeness.is_complete is True
+    assert "Header only text" in page.text
+    assert "Scanned body content recovered" in page.text
+    mock_provider.ocr_page_image.assert_called_once()
+
+
+def test_tiled_scans_all_regions_ocred() -> None:
+    mock_provider = MagicMock(spec=CloudflarePdfUnderstandingProvider)
+    mock_provider.ocr_page_image.side_effect = [
+        CloudflareVisionOcrResponse(text="Tile 1 content", confidence=0.9),
+        CloudflareVisionOcrResponse(text="Tile 2 content", confidence=0.9),
+    ]
+    # No native text, 2 scanned tiles
+    pdf_bytes = _create_test_pdf_with_images("", num_images=2)
+    extractor = DoclingTextExtractor(cf_provider=mock_provider)
+    config = DoclingExtractionConfiguration.cloudflare_native_v1()
+
+    result = extractor.extract(BytesIO(pdf_bytes), config)
+    assert result.structure is not None
+    assert result.structure.is_complete is True
+    page = result.structure.pages[0]
+    assert "Tile 1 content" in page.text
+    assert "Tile 2 content" in page.text
+    assert mock_provider.ocr_page_image.call_count == 2
+
+
+def test_markdown_table_parsing_creates_canonical_table() -> None:
+    table_text = (
+        "# Document Header\n\n"
+        "| Header 1 | Header 2 |\n"
+        "| --- | --- |\n"
+        "| Cell A1 | Cell A2 |\n"
+        "| Cell B1 | Cell B2 |"
+    )
+    pdf_bytes = _create_test_pdf(table_text)
+    extractor = DoclingTextExtractor()
+    config = DoclingExtractionConfiguration.cloudflare_native_v1()
+
+    result = extractor.extract(BytesIO(pdf_bytes), config)
+    assert result.structure is not None
+    page = result.structure.pages[0]
+    assert len(page.tables) == 1
+    table = page.tables[0]
+    assert table.num_rows == 3  # Header row + 2 data rows
+    assert table.num_columns == 2
+    assert len(table.cells) == 6
+    header_cells = [c for c in table.cells if c.is_header]
+    assert len(header_cells) == 2
+    assert header_cells[0].text == "Header 1"
+    assert header_cells[1].text == "Header 2"
+
+
+def test_extraction_timeout_enforced() -> None:
+    import time
+    from dataclasses import replace
+
+    extractor = DoclingTextExtractor()
+    config = DoclingExtractionConfiguration.cloudflare_native_v1()
+    # 1 millisecond timeout
+    timeout_config = replace(config, extraction_timeout_seconds=0.001)
+
+    # Simulate delay in extract_text by monkeypatching
+    from pypdf import PageObject
+
+    original_extract = PageObject.extract_text
+
+    def slow_extract(self: PageObject) -> str:
+        time.sleep(0.01)  # 10ms > 1ms timeout
+        return original_extract(self)
+
+    pdf_bytes = _create_test_pdf("Some sample text content for page")
+    with patch.object(PageObject, "extract_text", slow_extract):
+        with pytest.raises(PdfExtractionError) as exc_info:
+            extractor.extract(BytesIO(pdf_bytes), timeout_config)
+        assert exc_info.value.code == "PDF_RESOURCE_LIMIT_EXCEEDED"
+        assert exc_info.value.reason == "TIMEOUT"
+
+
+def test_cancellation_enforced() -> None:
+    class DummyCancellation:
+        def is_cancelled(self) -> bool:
+            return True
+
+    extractor = DoclingTextExtractor()
+    config = DoclingExtractionConfiguration.cloudflare_native_v1()
+    pdf_bytes = _create_test_pdf("Sample text")
+    with pytest.raises(PdfExtractionError) as exc_info:
+        extractor.extract(BytesIO(pdf_bytes), config, cancellation=DummyCancellation())
+    assert exc_info.value.code == "PDF_RESOURCE_LIMIT_EXCEEDED"
+    assert exc_info.value.reason == "CANCELLED"
+
+
+def test_r2_n02_identity_and_configuration_isolation() -> None:
+    from knora.adapters.postgres.ingestion_jobs.coordination import (
+        CoordinationInvariantError,
+        PostgresIngestionJobCoordinationStore,
+    )
+    from knora.ingestion.jobs import PdfSubmissionConfiguration
+    from knora.providers.embedding import EmbeddingConfiguration
+
+    embed_cfg = EmbeddingConfiguration.cloudflare_qwen3_06b()
+    docling_sub = PdfSubmissionConfiguration.docling_native(embedding_configuration=embed_cfg)
+
+    # 1. Submission IDs must match docling native, not pypdf
+    assert docling_sub.parser_configuration_id == "pdf-parser-docling-native-cloudflare-v1"
+    assert docling_sub.chunking_configuration.id == "chunking-docling-native-cf-v1"
+    assert docling_sub.chunking_configuration.parser_version == "docling-native-cf-v1"
+
+    # 2. DoclingTextExtractor rejects pypdf configuration
+    from knora.ingestion.pdf import PdfExtractionConfiguration
+
+    pypdf_config = PdfExtractionConfiguration.layout_preserving()
+    extractor = DoclingTextExtractor()
+    with pytest.raises(PdfExtractionError) as exc_info:
+        extractor.extract(BytesIO(b"%PDF-1.4"), pypdf_config)  # type: ignore[arg-type]
+    assert exc_info.value.code == "PDF_EXTRACTOR_UNAVAILABLE"
+    assert exc_info.value.reason == "INCOMPATIBLE_EXTRACTION_CONFIGURATION"
+
+    # 3. Coordination store resolves docling native correctly
+    resolved = PostgresIngestionJobCoordinationStore._resolve_extraction_configuration(
+        "pdf-parser-docling-native-cloudflare-v1"
+    )
+    assert isinstance(resolved, DoclingExtractionConfiguration)
+    assert resolved.parser_version == "docling-native-cf-v1"
+
+    # 4. Coordination store rejects unknown parser ID
+    with pytest.raises(CoordinationInvariantError):
+        PostgresIngestionJobCoordinationStore._resolve_extraction_configuration("unknown-parser-id")
