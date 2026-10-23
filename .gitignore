@@ -18,3 +18,4 @@ minio-smoke.txt
 .verification/password-reset/
 .verification/issue-162/
 .python/
+reports/

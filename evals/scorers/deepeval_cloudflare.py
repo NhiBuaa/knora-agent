@@ -198,11 +198,12 @@ class CloudflareJudge(DeepEvalBaseLLM):
             prompt, schema, model=self.model, max_tokens=self.max_output_tokens
         )
         try:
+            timeout = self.client.timeout if self.client is not None else 30
             response = self.client.post(
                 self.endpoint,
                 headers={"Authorization": f"Bearer {self.token}"},
                 json=body,
-                timeout=30,
+                timeout=timeout,
                 follow_redirects=False,
             )
             response.raise_for_status()

@@ -566,8 +566,58 @@ refusal_verdict:
 
 ---
 
-## Phụ lục Ragas Drafts
+## Phụ lục 1: Kết quả Chấm DeepEval & Bảng Đối Chiếu (Task 7 Live Results)
 
-- **Trạng thái**: `not_run`
-- **Mô tả**: Single-call Ragas draft generation in Task 7 (max 2 drafts, language vi, pending live approval).
-- **Bản nháp hiện tại**: 0 drafts (chờ kích hoạt Task 7 sau phê duyệt live).
+- **Mô hình giám định**: `@cf/openai/gpt-oss-20b` (qua Cloudflare Workers AI Free)
+- **Công cụ**: DeepEval 4.2.8 (`GEval`, `AnswerRelevancyMetric`, `FaithfulnessMetric`)
+- **Số lần gọi (Attempts)**: 85 attempts (1 Ragas draft + 51 Real captures + 33 Synthetic controls + 0 Refusal controls)
+- **Chi phí tiền mặt**: USD 0 (Workers Free)
+- **Khởi động runtime stack**: 0 startups
+
+### Bảng đối chiếu 12 mục đánh giá
+
+| Item ID | Mã ca (Case ID) | Loại mục | Quyết định | Correctness | Relevancy | Faithfulness | Kết luận Giám định / Bác bỏ |
+|---|---|---|:---:|:---:|:---:|:---:|---|
+| **REV-01** | `pdf-v3-012-ctrl-missing-exception` | `synthetic_control` | `ANSWER` | `0.30` | `1.00` | `0.50` | **BÁC BỎ ĐẠT** (Kỳ vọng Correctness < 0.5) |
+| **REV-02** | `pdf-v3-045` | `real_answer` | `ANSWER` | `1.00` | `1.00` | N/A* | Chấp nhận (Faithfulness N/A do không có exact context) |
+| **REV-03** | `pdf-v3-005-ctrl-off-topic` | `synthetic_control` | `ANSWER` | `0.00` | `0.00` | `1.00` | **BÁC BỎ ĐẠT** (Kỳ vọng Relevancy < 0.5) |
+| **REV-04** | `pdf-v3-014-ctrl-unsupported` | `synthetic_control` | `ANSWER` | `0.00` | `1.00` | `0.00` | **BÁC BỎ ĐẠT** (Kỳ vọng Faithfulness < 0.5) |
+| **REV-05** | `pdf-v3-002` | `refusal_control` | `REFUSAL` | N/A | N/A | N/A | False Refusal Control (Kỳ vọng ANSWER nhưng model từ chối) |
+| **REV-06** | `pdf-v3-012` | `real_answer` | `ANSWER` | `1.00` | `1.00` | `1.00` | Chấp nhận toàn diện (100% khớp và trung thực) |
+| **REV-07** | `pdf-v3-032` | `real_answer` | `ANSWER` | N/A** | `1.00` | `1.00` | Chấp nhận (Correctness N/A do câu follow-up) |
+| **REV-08** | `pdf-v3-004-ctrl-wrong-fact` | `synthetic_control` | `ANSWER` | `0.00` | `1.00` | `0.00` | **BÁC BỎ ĐẠT** (Kỳ vọng Correctness < 0.5) |
+| **REV-09** | `pdf-v3-004` | `real_answer` | `ANSWER` | `0.70` | `1.00` | `1.00` | Chấp nhận (Correctness 0.70, Relevancy 1.0, Faithfulness 1.0) |
+| **REV-10** | `pdf-v3-005` | `real_answer` | `ANSWER` | `0.90` | `0.40` | `1.00` | Chấp nhận một phần (Relevancy 0.40 do diễn giải thêm chi tiết) |
+| **REV-11** | `pdf-v3-014` | `real_answer` | `ANSWER` | `1.00` | `1.00` | `1.00` | Chấp nhận toàn diện (100% khớp và trung thực) |
+| **REV-12** | `pdf-v3-053` | `refusal_control` | `REFUSAL` | N/A | N/A | N/A | True Refusal Control (Kỳ vọng REFUSAL và model từ chối đúng) |
+
+---
+
+## Phụ lục 2: Ragas Proposal Batch Tiếng Việt (Task 7 Live)
+
+- **Trạng thái**: `SUCCESS` (1 HTTP attempt, `@cf/openai/gpt-oss-20b`)
+- **Generator**: Ragas 0.4.3 + Pydantic Prompt (`KnoraRagasLLM`, prompt version `ragas-vi-v1`)
+- **Release gate**: `false` (Bản nháp độc lập, không tự động thăng hạng vào Gold v1)
+- **Câu hỏi đề xuất**: *"Nếu tôi quên mật khẩu và muốn hoàn tiền, tôi cần làm gì?"*
+- **Đáp án tham chiếu đề xuất**: *"Bạn cần đặt lại mật khẩu qua chức năng Forgot password và sau đó yêu cầu hoàn tiền trong vòng 30 ngày kể từ ngày mua."*
+- **Các bước liên kết cần thiết (Proposed Necessary Hops)**:
+  1. `support/account-security#0`: *"Bạn cần đặt lại mật khẩu qua chức năng Forgot password."* (Quote: *"Use Forgot password on the sign-in page to reset an account password. Never send a password to support by email."*)
+  2. `support/refund-policy#0`: *"Bạn cần yêu cầu hoàn tiền trong vòng 30 ngày kể từ ngày mua."* (Quote: *"Refund requests are accepted within 30 days of purchase. Approved refunds are returned to the original payment method; they are not automatically paid in cash."*)
+
+---
+
+## Phụ lục 3: Trạng thái Langfuse Cloud Pilot
+
+- **Trạng thái**: **BLOCKED / OFF** (0 POSTs, 0 DELETEs, 0 GETs, 0 scores)
+- **Nguyên nhân**: Không phát hiện các biến môi trường `LANGFUSE_SECRET_KEY` và `LANGFUSE_PUBLIC_KEY` trong môi trường runtime.
+- **Tuân thủ chính sách**: Theo đúng quy định tại §4.3 và §5 của plan v1 (`docs/plans/evaluation-tools-acceptance.md`), khi không có credentials hoặc chưa có lệnh tường minh của Owner, module bridge giữ an toàn 100% dữ liệu, không thực hiện bất kỳ egress nào ra cloud.
+
+---
+
+## Phụ lục 4: Chứng Chỉ Nhật Ký & Ranh Giới Tài Nguyên
+
+- **Journal SQLite**: `reports/issue-158-acceptance/package_1792764691.sqlite`
+- **Total attempts**: `85` (Dưới trần ngân sách 121 attempts)
+- **Total startups**: `0` (Sử dụng saved baseline continuation captures)
+- **Package Stopped**: `false` (Đã hoàn tất an toàn, không vi phạm invariant, không trigger emergency stop)
+- **Summary file**: `reports/issue-158-acceptance/acceptance-run-summary.json`
