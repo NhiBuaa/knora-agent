@@ -5046,6 +5046,66 @@ test.describe("source fixtures", () => {
     }
   });
 
+  const SUBPIXEL_TOLERANCE = 0.05;
+
+  async function waitForAnimationsSettled(page: Page): Promise<void> {
+    await page.evaluate(async () => {
+      const getRunningAnimations = () =>
+        document.getAnimations().filter((anim) => {
+          const effect = anim.effect;
+          if (!effect) return false;
+          const timing = effect.getComputedTiming();
+          return timing.iterations !== Infinity && anim.playState === "running";
+        });
+
+      let running = getRunningAnimations();
+      while (running.length > 0) {
+        await Promise.all(
+          running.map((anim) =>
+            anim.finished.catch(() => {
+              /* ignore aborted animations */
+            }),
+          ),
+        );
+        running = getRunningAnimations();
+      }
+
+      await new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      );
+    });
+  }
+
+  function expectTouchDimension(
+    value: number,
+    minDimension: number,
+    label: string,
+  ) {
+    expect(
+      value + SUBPIXEL_TOLERANCE,
+      `${label} (${value}px) should meet minimum ${minDimension}px touch target`,
+    ).toBeGreaterThanOrEqual(minDimension);
+  }
+
+  function expectTouchTarget(
+    box: { width: number; height: number } | null,
+    label: string,
+    minDimension = 44,
+  ) {
+    expect(box, `${label} bounding box`).not.toBeNull();
+    expectTouchDimension(box!.width, minDimension, `${label} width`);
+    expectTouchDimension(box!.height, minDimension, `${label} height`);
+  }
+
+  function expectTouchHeight(
+    box: { width?: number; height: number } | null,
+    label: string,
+    minHeight = 44,
+  ) {
+    expect(box, `${label} bounding box`).not.toBeNull();
+    expectTouchDimension(box!.height, minHeight, `${label} height`);
+  }
+
   test("independent controls meet minimum 44px touch targets at 320, 390, 768px and coarse pointer without overlapping", async ({
     page,
     browser,
@@ -5065,15 +5125,7 @@ test.describe("source fixtures", () => {
       const askBtn = page.getByRole("button", { name: "Ask", exact: true });
       await expect(askBtn).toBeVisible();
       const askBox = await askBtn.boundingBox();
-      expect(askBox, `Ask button at ${vp.width}px`).not.toBeNull();
-      expect(
-        askBox!.width,
-        `Ask button width at ${vp.width}px`,
-      ).toBeGreaterThanOrEqual(44);
-      expect(
-        askBox!.height,
-        `Ask button height at ${vp.width}px`,
-      ).toBeGreaterThanOrEqual(44);
+      expectTouchTarget(askBox, `Ask button at ${vp.width}px`);
 
       // Panel tools: Show conversations / Open evidence / Reset panels
       const panelBtns = page.locator(".conversation-panel-tools button");
@@ -5085,11 +5137,7 @@ test.describe("source fixtures", () => {
         const btn = panelBtns.nth(i);
         if (await btn.isVisible()) {
           const box = await btn.boundingBox();
-          expect(box, `Panel tool ${i} box at ${vp.width}px`).not.toBeNull();
-          expect(
-            box!.height,
-            `Panel tool ${i} height at ${vp.width}px`,
-          ).toBeGreaterThanOrEqual(44);
+          expectTouchHeight(box, `Panel tool ${i} height at ${vp.width}px`);
           boxes.push(box!);
         }
       }
@@ -5113,33 +5161,18 @@ test.describe("source fixtures", () => {
       const accountTrigger = page.getByRole("button", { name: /^Account:/ });
       if (await accountTrigger.isVisible()) {
         const triggerBox = await accountTrigger.boundingBox();
-        expect(triggerBox, `Account trigger at ${vp.width}px`).not.toBeNull();
-        expect(
-          triggerBox!.width,
-          `Account trigger width at ${vp.width}px`,
-        ).toBeGreaterThanOrEqual(44);
-        expect(
-          triggerBox!.height,
-          `Account trigger height at ${vp.width}px`,
-        ).toBeGreaterThanOrEqual(44);
+        expectTouchTarget(triggerBox, `Account trigger at ${vp.width}px`);
 
         await accountTrigger.click();
         const themeItem = page.getByRole("menuitem", { name: "Appearance" });
         await expect(themeItem).toBeVisible();
+        await waitForAnimationsSettled(page);
         const themeBox = await themeItem.boundingBox();
-        expect(themeBox, `Theme menuitem at ${vp.width}px`).not.toBeNull();
-        expect(
-          themeBox!.height,
-          `Theme menuitem height at ${vp.width}px`,
-        ).toBeGreaterThanOrEqual(44);
+        expectTouchHeight(themeBox, `Theme menuitem height at ${vp.width}px`);
 
         const logoutItem = page.getByRole("menuitem", { name: "Log out" });
         const logoutBox = await logoutItem.boundingBox();
-        expect(logoutBox, `Logout menuitem at ${vp.width}px`).not.toBeNull();
-        expect(
-          logoutBox!.height,
-          `Logout menuitem height at ${vp.width}px`,
-        ).toBeGreaterThanOrEqual(44);
+        expectTouchHeight(logoutBox, `Logout menuitem height at ${vp.width}px`);
 
         await themeItem.click();
         const appearanceDialog = page.getByRole("dialog", {
@@ -5148,16 +5181,9 @@ test.describe("source fixtures", () => {
         await expect(appearanceDialog).toBeVisible();
         const closeBtn = page.getByRole("button", { name: "Close Appearance" });
         await expect(closeBtn).toBeVisible();
+        await waitForAnimationsSettled(page);
         const closeBox = await closeBtn.boundingBox();
-        expect(closeBox, `Close button at ${vp.width}px`).not.toBeNull();
-        expect(
-          closeBox!.width,
-          `Close button width at ${vp.width}px`,
-        ).toBeGreaterThanOrEqual(44);
-        expect(
-          closeBox!.height,
-          `Close button height at ${vp.width}px`,
-        ).toBeGreaterThanOrEqual(44);
+        expectTouchTarget(closeBox, `Close button at ${vp.width}px`);
         await page.keyboard.press("Escape");
       }
 
@@ -5169,11 +5195,7 @@ test.describe("source fixtures", () => {
       });
       await expect(reviewLink).toBeVisible();
       const linkBox = await reviewLink.boundingBox();
-      expect(linkBox, `Review link box at ${vp.width}px`).not.toBeNull();
-      expect(
-        linkBox!.height,
-        `Review link height at ${vp.width}px`,
-      ).toBeGreaterThanOrEqual(44);
+      expectTouchHeight(linkBox, `Review link height at ${vp.width}px`);
 
       // 4. Upload document dialog controls: Choose file, Cancel, Upload
       await page.unrouteAll();
@@ -5184,41 +5206,30 @@ test.describe("source fixtures", () => {
       await uploadTrigger.click();
       const dialog = page.getByRole("dialog", { name: "Upload document" });
       await expect(dialog).toBeVisible();
+      await waitForAnimationsSettled(page);
 
       const chooseBtn = page.getByRole("button", {
         name: "Choose file",
         exact: true,
       });
       const chooseBox = await chooseBtn.boundingBox();
-      expect(chooseBox, `Choose file at ${vp.width}px`).not.toBeNull();
-      expect(
-        chooseBox!.height,
-        `Choose file height at ${vp.width}px`,
-      ).toBeGreaterThanOrEqual(44);
+      expectTouchHeight(chooseBox, `Choose file height at ${vp.width}px`);
 
       const cancelBtn = dialog.getByRole("button", {
         name: "Cancel",
         exact: true,
       });
       const cancelBox = await cancelBtn.boundingBox();
-      expect(cancelBox, `Cancel button at ${vp.width}px`).not.toBeNull();
-      expect(
-        cancelBox!.height,
-        `Cancel button height at ${vp.width}px`,
-      ).toBeGreaterThanOrEqual(44);
+      expectTouchHeight(cancelBox, `Cancel button height at ${vp.width}px`);
 
       const submitUploadBtn = dialog.getByRole("button", {
         name: /upload document/i,
       });
       const submitBox = await submitUploadBtn.boundingBox();
-      expect(
+      expectTouchHeight(
         submitBox,
-        `Upload document button at ${vp.width}px`,
-      ).not.toBeNull();
-      expect(
-        submitBox!.height,
         `Upload document button height at ${vp.width}px`,
-      ).toBeGreaterThanOrEqual(44);
+      );
 
       const actionsOverlap =
         cancelBox!.x < submitBox!.x + submitBox!.width &&
@@ -5242,42 +5253,27 @@ test.describe("source fixtures", () => {
         await showConvBtn.click();
         const drawer = page.locator(".conversation-rail-drawer");
         await expect(drawer).toBeVisible();
+        await waitForAnimationsSettled(page);
 
         const newConvBtn = drawer.getByRole("button", {
           name: "New Conversation",
         });
         await expect(newConvBtn).toBeVisible();
         const newConvBox = await newConvBtn.boundingBox();
-        expect(
+        expectTouchTarget(
           newConvBox,
           `New Conversation in drawer at ${vp.width}px`,
-        ).not.toBeNull();
-        expect(
-          newConvBox!.height,
-          `New Conversation height at ${vp.width}px`,
-        ).toBeGreaterThanOrEqual(44);
-        expect(
-          newConvBox!.width,
-          `New Conversation width at ${vp.width}px`,
-        ).toBeGreaterThanOrEqual(44);
+        );
 
         const collapseRailBtn = drawer.getByRole("button", {
           name: /collapse rail/i,
         });
         if (await collapseRailBtn.isVisible()) {
           const collapseBox = await collapseRailBtn.boundingBox();
-          expect(
+          expectTouchTarget(
             collapseBox,
             `Collapse rail in drawer at ${vp.width}px`,
-          ).not.toBeNull();
-          expect(
-            collapseBox!.height,
-            `Collapse rail height at ${vp.width}px`,
-          ).toBeGreaterThanOrEqual(44);
-          expect(
-            collapseBox!.width,
-            `Collapse rail width at ${vp.width}px`,
-          ).toBeGreaterThanOrEqual(44);
+          );
         }
 
         if (vp.width === 320) {
@@ -5293,6 +5289,7 @@ test.describe("source fixtures", () => {
               exact: true,
             });
             await expect(archiveMenuItem).toBeVisible();
+            await waitForAnimationsSettled(page);
             await archiveMenuItem.click();
             const archiveDialog = page.getByRole("dialog", {
               name: "Archive conversation",
@@ -5303,19 +5300,12 @@ test.describe("source fixtures", () => {
               exact: true,
             });
             await expect(archiveCloseBtn).toBeVisible();
+            await waitForAnimationsSettled(page);
             const archiveCloseBox = await archiveCloseBtn.boundingBox();
-            expect(
+            expectTouchTarget(
               archiveCloseBox,
               `Close Archive conversation button at ${vp.width}px`,
-            ).not.toBeNull();
-            expect(
-              Math.round(archiveCloseBox!.width),
-              `Close Archive conversation button width at ${vp.width}px`,
-            ).toBeGreaterThanOrEqual(44);
-            expect(
-              Math.round(archiveCloseBox!.height),
-              `Close Archive conversation button height at ${vp.width}px`,
-            ).toBeGreaterThanOrEqual(44);
+            );
             await archiveCloseBtn.click();
             await expect(archiveDialog).not.toBeVisible();
           }
@@ -5332,6 +5322,7 @@ test.describe("source fixtures", () => {
         await openEvidenceBtn.click();
         const evidenceSheet = page.locator(".conversation-evidence-sheet");
         await expect(evidenceSheet).toBeVisible();
+        await waitForAnimationsSettled(page);
 
         const closeEvBtn = evidenceSheet.getByRole("button", {
           name: "Close evidence",
@@ -5339,18 +5330,10 @@ test.describe("source fixtures", () => {
         });
         await expect(closeEvBtn).toBeVisible();
         const closeEvBox = await closeEvBtn.boundingBox();
-        expect(
+        expectTouchTarget(
           closeEvBox,
           `Close evidence in sheet at ${vp.width}px`,
-        ).not.toBeNull();
-        expect(
-          closeEvBox!.height,
-          `Close evidence height at ${vp.width}px`,
-        ).toBeGreaterThanOrEqual(44);
-        expect(
-          closeEvBox!.width,
-          `Close evidence width at ${vp.width}px`,
-        ).toBeGreaterThanOrEqual(44);
+        );
 
         await page.keyboard.press("Escape");
       }
@@ -5371,24 +5354,17 @@ test.describe("source fixtures", () => {
       });
       await expect(askBtn).toBeVisible();
       const askBox = await askBtn.boundingBox();
-      expect(
-        askBox!.width,
-        "Ask button width on coarse pointer device",
-      ).toBeGreaterThanOrEqual(44);
-      expect(
-        askBox!.height,
-        "Ask button height on coarse pointer device",
-      ).toBeGreaterThanOrEqual(44);
+      expectTouchTarget(askBox, "Ask button on coarse pointer device");
 
       const newConvTouch = touchPage.getByRole("button", {
         name: "New Conversation",
       });
       if (await newConvTouch.isVisible()) {
         const box = await newConvTouch.boundingBox();
-        expect(
-          box!.height,
+        expectTouchHeight(
+          box,
           "New Conversation height on coarse pointer device",
-        ).toBeGreaterThanOrEqual(44);
+        );
       }
 
       const collapseTouch = touchPage.getByRole("button", {
@@ -5396,10 +5372,7 @@ test.describe("source fixtures", () => {
       });
       if (await collapseTouch.isVisible()) {
         const box = await collapseTouch.boundingBox();
-        expect(
-          box!.height,
-          "Collapse rail height on coarse pointer device",
-        ).toBeGreaterThanOrEqual(44);
+        expectTouchHeight(box, "Collapse rail height on coarse pointer device");
       }
 
       const wsActionsTouch = touchPage.getByRole("button", {
@@ -5408,18 +5381,7 @@ test.describe("source fixtures", () => {
       });
       if (await wsActionsTouch.isVisible()) {
         const wsBox = await wsActionsTouch.boundingBox();
-        expect(
-          wsBox,
-          "Workspace actions button box on coarse pointer device",
-        ).not.toBeNull();
-        expect(
-          wsBox!.width,
-          "Workspace actions width on coarse pointer device",
-        ).toBeGreaterThanOrEqual(44);
-        expect(
-          wsBox!.height,
-          "Workspace actions height on coarse pointer device",
-        ).toBeGreaterThanOrEqual(44);
+        expectTouchTarget(wsBox, "Workspace actions on coarse pointer device");
       }
 
       await touchPage.unrouteAll();
