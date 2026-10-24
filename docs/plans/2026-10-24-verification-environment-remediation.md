@@ -391,3 +391,16 @@ Người dùng gửi đoạn sau cùng SHA256 của chính file này sau khi duy
   - T1: UI Regression Evaluation (Chỉ đọc, chạy test owning Vitest `ui-primitives.test.tsx` và `dialog-menu.test.tsx`).
   - T2: PR Review #233 (Chỉ đọc, kiểm tra CI subject, diff nhiệm vụ, báo cáo rủi ro không rò rỉ secret/đường dẫn cá nhân).
   - T3: Documentation & Module Boundary Routing (Chỉ đọc, kiểm tra quy tắc nạp tài liệu và ranh giới hệ thống).
+### F. Kế hoạch đóng finding review V2 (R1–R3, 2026-10-24)
+- **R1 (Lock matching logic & physical target):**
+  - Sửa `scripts/prepare-figma-e2e.ps1`:
+    - Thêm `findLogicalPackage(parentReq, packageName, selectedPackageDir, canonicalFrontend)` duyệt theo danh sách `parentReq.resolve.paths(packageName)`, dùng `lstatSync` phân biệt broken link với missing candidate, so khớp `realpathSync(candidateDir) === selectedPackageDir` để lấy logical candidate đầu tiên.
+    - Sửa `resolveLockNode(lockPackages, startKey, canonicalFrontend, expectedPhysicalDir)`: Duyệt lock link chain qua `resolved`, kiểm tra lexical traversal, target exists, `isPhysicallyWithin`, chu trình lock link (`visited`), và tại terminal node đối chiếu `canonicalTerminal === expectedPhysicalDir`.
+    - Áp dụng đồng bộ cho cả 3 package: `@playwright/test`, `playwright`, `playwright-core`.
+  - Regression tests (`backend/test/config/test_figma_e2e_harness.py`):
+    - Đã bổ sung 7 tests R1: `test_check_frontend_only_rejects_link_to_wrong_target_with_same_name_and_version`, `test_check_frontend_only_rejects_link_to_missing_target`, `test_check_frontend_only_rejects_link_to_outside_target`, `test_check_frontend_only_rejects_link_cycle`, `test_check_frontend_only_rejects_deleted_logical_link_entry`, `test_check_frontend_only_rejects_broken_link_candidate`, `test_check_frontend_only_rejects_case_sensitive_sibling_on_linux`. 21/22 tests PASSED (1 skipped trên Windows do hệ thống tệp không phân biệt chữ hoa/thường).
+- **R2 (Docker BuildKit Probe byte-by-byte & Negative Control):**
+  - Mở rộng `test_docker_build_probe_enforces_exact_context_exclusion`: Xây dựng `expected_payloads` độc lập gồm đúng 248 payload files (177 source, 53 migrations, 16 force-include resources, 2 config) + 2 Docker control files (`backend/Dockerfile`, `Dockerfile.dockerignore`) = 250 files trong exact allowlist. Kiểm tra toàn bộ bytes từng file so với context xuất ra từ BuildKit, loại trừ 100% 12 sentinels (PASSED).
+  - Bổ sung `test_docker_build_probe_negative_control_catches_directory_negation_leak`: Sử dụng cấu hình dockerignore cũ với directory negations để chứng minh negative control leak sentinels vào context và bị assertion phát hiện chính xác (PASSED).
+- **R3 (Quy trình 6 Fresh Trials):**
+  - Đóng băng candidates trước trial; chuẩn bị rubric 4 chiều độc lập (Activation, Task quality, Compliance-evidence, Efficiency); thực hiện tuần tự và cập nhật bảng nghiệm thu vào PR.
