@@ -33,6 +33,7 @@ class CorpusStatistics:
     unigram_frequencies: Mapping[str, int] = field(default_factory=dict)
     average_chunk_length: float | None = None
     statistics_digest: str | None = None
+    snapshot_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.total_tokens <= 0:

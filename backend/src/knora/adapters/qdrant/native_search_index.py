@@ -182,7 +182,8 @@ class NativeQdrantSearchIndex:
             ):
                 raise ProjectionResponseError("Qdrant collection configuration is incompatible")
 
-            if dense_params.get("datatype") == "float16":
+            datatype = dense_params.get("datatype")
+            if datatype is not None and datatype not in ("float32", None):
                 raise ProjectionResponseError("Qdrant collection configuration is incompatible")
 
             if dense_params.get("on_disk") is False:

@@ -629,11 +629,25 @@ def _check_memory(
 def _stop(process: multiprocessing.Process) -> None:
     try:
         alive = process.is_alive()
-    except AssertionError:
+        pid = process.pid
+    except (AssertionError, AttributeError):
         return
+    if pid is not None:
+        try:
+            parent_proc = psutil.Process(pid)
+            children = parent_proc.children(recursive=True)
+            for child in children:
+                with suppress(Exception):
+                    child.kill()
+            with suppress(Exception):
+                parent_proc.kill()
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
     if alive:
-        process.terminate()
-        process.join(timeout=1)
+        with suppress(Exception):
+            process.terminate()
+            process.join(timeout=1)
     if process.is_alive():
-        process.kill()
-        process.join(timeout=1)
+        with suppress(Exception):
+            process.kill()
+            process.join(timeout=1)
