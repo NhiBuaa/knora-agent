@@ -171,7 +171,9 @@ def test_finalize_acceptance_results_success():
     judged = _make_mock_judged_results()
     packet = {"packet_sha256": "digest-123", "items": []}
     res = finalize_acceptance_results(judged, packet)
-    assert res["acceptance_status"] == "ACCEPTED"
+    assert res["acceptance_status"] == "PENDING_OWNER_ACCEPTANCE"
+    assert res["evaluation_status"] == "SCORED_READY_FOR_OWNER_REVIEW"
+    assert res["pending_owner_gate"] == "GATE_3_FINAL_ACCEPTANCE"
     assert res["total_judged"] == 10
     assert res["controls_rejected_count"] == 4
     assert res["refusals"]["pdf-v3-053"]["classification"] == "CORRECT_REFUSAL"
@@ -226,22 +228,27 @@ def test_finalize_acceptance_results_validates_human_packet_digest_and_tracks_di
     with pytest.raises(FinalizerError, match="HUMAN_PACKET_DIGEST_MISMATCH"):
         finalize_acceptance_results(judged, packet, bad_labels)
 
-    # Valid labels with disagreement
+    # Valid labels with disagreement (all 12 items provided)
+    good_items = [
+        {
+            "case_id": "pdf-v3-004",
+            "review": {
+                "correctness": {"verdict": "reject"},  # Judge has 0.95 -> disagreement!
+                "answer_relevancy": {"verdict": "accept"},
+                "faithfulness": {"verdict": "accept"},
+            },
+        }
+    ]
+    for i in range(1, 12):
+        good_items.append({"case_id": f"dummy-{i}", "review": "accept"})
+
     good_labels = {
         "packet_sha256": "digest-correct",
-        "items": [
-            {
-                "case_id": "pdf-v3-004",
-                "review": {
-                    "correctness": {"verdict": "reject"},  # Judge has 0.95 -> disagreement!
-                    "answer_relevancy": {"verdict": "accept"},
-                    "faithfulness": {"verdict": "accept"},
-                },
-            }
-        ],
+        "items": good_items,
     }
     res = finalize_acceptance_results(judged, packet, good_labels)
-    assert res["acceptance_status"] == "ACCEPTED"
+    assert res["acceptance_status"] == "PENDING_OWNER_ACCEPTANCE"
+    assert res["evaluation_status"] == "SCORED_READY_FOR_OWNER_REVIEW"
     disagreements = res["human_review"]["disagreements"]
     assert len(disagreements) == 1
     assert disagreements[0]["case_id"] == "pdf-v3-004"
