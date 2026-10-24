@@ -31,7 +31,6 @@ from evals.runners.ragas_review import (  # noqa: E402
     DraftInput,
     KnoraRagasLLM,
     KnoraReviewPrompt,
-    RagasDraftError,
     SourceChunk,
     build_review_packet,
     load_approved_pdf_chunks,
@@ -56,6 +55,7 @@ def _safe_faith_init(self, *args, **kwargs):
 FaithfulnessMetric.__init__ = _safe_faith_init
 
 from knora.evaluation.live_admission import (  # noqa: E402
+    LiveAdmission,
     LivePackage,
     reviewed_build_pins,
     slot_authority_pins,
@@ -68,56 +68,6 @@ class InMemoryLedger:
 
     def reserve(self) -> int:
         self._count += 1
-        return self._count
-
-    def count(self) -> int:
-        return self._count
-
-
-class PackageJournalLedger:
-    def __init__(
-        self,
-        package: LivePackage,
-        slot: str,
-        item_id: str,
-        approval_id: str,
-        endpoint: str,
-        model: str,
-        clock=lambda: datetime.now(UTC),
-    ) -> None:
-        self.package = package
-        self.slot = slot
-        self.item_id = item_id
-        self.approval_id = approval_id
-        self.endpoint = endpoint
-        self.model = model
-        self.clock = clock
-        self._count = 0
-
-    def reserve(self) -> int:
-        with self.package._db() as db:
-            self.package.reserve(db, self.slot, item_id=self.item_id)
-            self._count += 1
-            now_iso = self.clock().isoformat()
-            db.execute(
-                "INSERT INTO requests(approval_id,sequence,body_digest,endpoint,model,"
-                "reserved_at,finished_at,status,item_id) VALUES(?,?,?,?,?,?,?,?,?)",
-                (
-                    self.approval_id,
-                    self._count,
-                    hashlib.sha256(f"{self.item_id}:{self._count}".encode()).hexdigest(),
-                    self.endpoint,
-                    self.model,
-                    now_iso,
-                    now_iso,
-                    "COMPLETED",
-                    self.item_id,
-                ),
-            )
-            db.execute(
-                "UPDATE approvals SET attempts=? WHERE id=?",
-                (self._count, self.approval_id),
-            )
         return self._count
 
     def count(self) -> int:
@@ -294,6 +244,9 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     now = datetime.now(UTC)
 
+    def clock():
+        return datetime.now(UTC)
+
     if args.mode == "execute":
         if journal_path.exists():
             print(
@@ -393,7 +346,7 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
                     "endpoint": f"https://api.cloudflare.com/client/v4/accounts/{manifest['account_id']}/ai/v1/chat/completions",
                     "model": "@cf/openai/gpt-oss-20b",
                     "max_input_bytes": 131072,
-                    "max_output_tokens": 1024,
+                    "max_output_tokens": 2048,
                     "compatibility_digest": "3" * 64,
                     "request_digests": ["4" * 64],
                 }
@@ -440,118 +393,61 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
                 approved_source_keys=("academic-phonlp", "hierarchy-03"),
             )
 
-            # Ragas mock or live client
-            if args.mock_ragas and mock_handler is not None:
-                mock_transport = httpx.MockTransport(mock_handler)
-                test_client = httpx.Client(transport=mock_transport)
-                judge = CloudflareJudge(
-                    endpoint=ragas_policy["providers"][0]["endpoint"],
-                    token="mock-token",
-                    model="@cf/openai/gpt-oss-20b",
-                    max_output_tokens=2048,
-                    ledger=InMemoryLedger(),
-                    client=test_client,
-                )
-                # simulate recording reserve
-                with package._db() as db:
-                    package.reserve(db, "ragas_vi_draft")
-                    db.execute(
-                        "INSERT INTO requests(approval_id,sequence,body_digest,endpoint,model,"
-                        "reserved_at,finished_at,status) VALUES(?,?,?,?,?,?,?,?)",
-                        (
-                            ragas_policy["approval_id"],
-                            1,
-                            "a" * 64,
-                            ragas_policy["providers"][0]["endpoint"],
-                            "@cf/openai/gpt-oss-20b",
-                            now.isoformat(),
-                            now.isoformat(),
-                            "COMPLETED",
-                        ),
-                    )
-                    db.execute(
-                        "UPDATE approvals SET attempts=1 WHERE id=?", (ragas_policy["approval_id"],)
-                    )
+            # Ragas mock or live client through LiveAdmission
+            admission_ragas = LiveAdmission(
+                ragas_policy,
+                journal_path,
+                clock=clock,
+                package=package,
+                slot="ragas_vi_draft",
+            )
+            with admission_ragas.dispatch(ragas_policy["scope"]):
+                if args.mock_ragas and mock_handler is not None:
+                    mock_transport = httpx.MockTransport(mock_handler)
+                    ragas_client = admission_ragas.sync_client(mock=mock_transport)
+                    ragas_token = "mock-token"
+                elif not args.mock_ragas:
+                    account, ragas_token = load_credentials()
+                    ragas_client = admission_ragas.sync_client()
+                else:
+                    ragas_client = None
+                    ragas_token = "mock-token"
 
-                ragas_llm = KnoraRagasLLM(judge)
-                data = DraftInput(
-                    language="vi", count=1, chunks=[SourceChunk.model_validate(c) for c in chunks]
-                )
-                ragas_raw = asyncio.run(
-                    KnoraReviewPrompt().generate(llm=ragas_llm, data=data, retries_left=0)
-                )
-                try:
-                    ragas_packet = build_review_packet(
-                        [d.model_dump() for d in ragas_raw.drafts],
-                        chunks,
-                        identity,
+                if ragas_client is not None:
+                    judge = CloudflareJudge(
+                        endpoint=ragas_policy["providers"][0]["endpoint"],
+                        token=ragas_token,
                         model="@cf/openai/gpt-oss-20b",
-                        prompt_version="ragas-vi-v1",
+                        max_output_tokens=2048,
+                        ledger=InMemoryLedger(),
+                        client=ragas_client,
                     )
-                    ragas_result = {"status": "SUCCESS", "packet": ragas_packet}
-                except RagasDraftError as error:
-                    ragas_result = {
-                        "status": "VALIDATION_FAILED",
-                        "error": str(error),
-                        "raw_output": [d.model_dump() for d in ragas_raw.drafts],
-                        "identity": identity,
-                    }
-            elif not args.mock_ragas:
-                account, token = load_credentials(
-                    allow_mock=args.mock_ragas or mock_handler is not None
-                )
-                endpoint = f"https://api.cloudflare.com/client/v4/accounts/{manifest['account_id']}/ai/v1/chat/completions"
-                with package._db() as db:
-                    package.reserve(db, "ragas_vi_draft")
-                    db.execute(
-                        "INSERT INTO requests(approval_id,sequence,body_digest,endpoint,model,"
-                        "reserved_at,finished_at,status) VALUES(?,?,?,?,?,?,?,?)",
-                        (
-                            ragas_policy["approval_id"],
-                            1,
-                            "a" * 64,
-                            endpoint,
-                            "@cf/openai/gpt-oss-20b",
-                            now.isoformat(),
-                            now.isoformat(),
-                            "COMPLETED",
-                        ),
+                    ragas_llm = KnoraRagasLLM(judge)
+                    data = DraftInput(
+                        language="vi",
+                        count=1,
+                        chunks=[SourceChunk.model_validate(c) for c in chunks],
                     )
-                    db.execute(
-                        "UPDATE approvals SET attempts=1 WHERE id=?", (ragas_policy["approval_id"],)
-                    )
-
-                judge = CloudflareJudge(
-                    endpoint=endpoint,
-                    token=token,
-                    model="@cf/openai/gpt-oss-20b",
-                    max_output_tokens=2048,
-                    ledger=InMemoryLedger(),
-                )
-                ragas_llm = KnoraRagasLLM(judge)
-                data = DraftInput(
-                    language="vi", count=1, chunks=[SourceChunk.model_validate(c) for c in chunks]
-                )
-                try:
-                    ragas_raw = asyncio.run(
-                        KnoraReviewPrompt().generate(llm=ragas_llm, data=data, retries_left=0)
-                    )
-                    ragas_packet = build_review_packet(
-                        [d.model_dump() for d in ragas_raw.drafts],
-                        chunks,
-                        identity,
-                        model="@cf/openai/gpt-oss-20b",
-                        prompt_version="ragas-vi-v1",
-                    )
-                    ragas_result = {"status": "SUCCESS", "packet": ragas_packet}
-                except Exception as error:
-                    ragas_result = {
-                        "status": "VALIDATION_FAILED",
-                        "error": str(error),
-                        "identity": identity,
-                    }
-            else:
-                ragas_result = {"status": "SKIPPED_OR_MOCKED"}
+                    try:
+                        ragas_raw = asyncio.run(
+                            KnoraReviewPrompt().generate(llm=ragas_llm, data=data, retries_left=0)
+                        )
+                        ragas_packet = build_review_packet(
+                            [d.model_dump() for d in ragas_raw.drafts],
+                            chunks,
+                            identity,
+                            model="@cf/openai/gpt-oss-20b",
+                            prompt_version="ragas-vi-v1",
+                        )
+                        ragas_result = {"status": "SUCCESS", "packet": ragas_packet}
+                    except Exception as error:
+                        ragas_result = {
+                            "status": "VALIDATION_FAILED",
+                            "error": str(error),
+                            "identity": identity,
+                        }
+                else:
+                    ragas_result = {"status": "SKIPPED_OR_MOCKED"}
 
             package.record_result("ragas_vi_draft", ragas_result)
             print("ragas_vi_draft completed successfully.")
@@ -706,12 +602,10 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
                 },
             )
 
-        client = httpx.Client(transport=httpx.MockTransport(mock_judge_handler))
         account = manifest["account_id"]
         token = "mock-token"
     else:
         account, token = load_credentials(allow_mock=args.mock_judge or mock_handler is not None)
-        client = httpx.Client(timeout=45, follow_redirects=False)
 
     endpoint = f"https://api.cloudflare.com/client/v4/accounts/{manifest['account_id']}/ai/v1/chat/completions"
     model = "@cf/openai/gpt-oss-20b"
@@ -784,7 +678,7 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
                             "endpoint": endpoint,
                             "model": model,
                             "max_input_bytes": 131072,
-                            "max_output_tokens": 1024,
+                            "max_output_tokens": 2048,
                             "compatibility_digest": "3" * 64,
                             "request_digests": ["4" * 64],
                         }
@@ -801,25 +695,30 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
                 }
                 package.bind_item("judge_real", item_id, item_policy, inputs)
 
-                ledger = PackageJournalLedger(
+                admission = LiveAdmission(
+                    item_policy,
+                    journal_path,
+                    clock=clock,
                     package=package,
                     slot="judge_real",
                     item_id=item_id,
-                    approval_id=approval_id,
-                    endpoint=endpoint,
-                    model=model,
-                    clock=lambda: datetime.now(UTC),
                 )
-                judge = CloudflareJudge(
-                    endpoint=endpoint,
-                    token=token,
-                    model=model,
-                    max_output_tokens=2048,
-                    ledger=ledger,
-                    client=client,
-                )
-                client.headers.pop("X-Target-Rejected-Metric", None)
-                with package.operation("judge_real", item_id=item_id):
+                with (
+                    package.operation("judge_real", item_id=item_id),
+                    admission.dispatch(item_policy["scope"]),
+                ):
+                    mock_trans = httpx.MockTransport(mock_judge_handler) if is_test_env else None
+                    item_client = admission.sync_client(mock=mock_trans)
+                    if is_test_env:
+                        item_client.headers.pop("X-Target-Rejected-Metric", None)
+                    judge = CloudflareJudge(
+                        endpoint=endpoint,
+                        token=token,
+                        model=model,
+                        max_output_tokens=2048,
+                        ledger=InMemoryLedger(),
+                        client=item_client,
+                    )
                     cap = real_captures.get(case_id) or {
                         "case_id": case_id,
                         "run_id": f"run-{case_id}",
@@ -840,44 +739,20 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
                     print(f"Scored real item: {item_id}")
                     if idx == len(TARGET_CASES) - 1:
                         package.record_result(
-                            "judge_real", {"status": "SUCCESS", "items_count": len(TARGET_CASES)}
+                            "judge_real",
+                            {
+                                "status": "SUCCESS",
+                                "items_count": len(TARGET_CASES),
+                                "results": {
+                                    k: v for k, v in judged_results.items() if isinstance(v, dict)
+                                },
+                            },
                         )
     else:
-        print("judge_real slot already COMPLETED in journal. Evaluating items to collect scores...")
-        for case_id in TARGET_CASES:
-            item_info = manifest_items.get(case_id) or manifest_items.get(
-                case_id.replace("pdf-v3-", "")
-            )
-            if not item_info:
-                continue
-            item_id = item_info["item_id"]
-            judge = CloudflareJudge(
-                endpoint=endpoint,
-                token=token,
-                model=model,
-                max_output_tokens=2048,
-                ledger=InMemoryLedger(),
-                client=client,
-            )
-            client.headers.pop("X-Target-Rejected-Metric", None)
-            cap = real_captures.get(case_id) or {
-                "case_id": case_id,
-                "run_id": f"run-{case_id}",
-                "attempt": 1,
-                "attempt_id": f"run-{case_id}:{case_id}:1",
-                "trace_id": f"trace-{case_id}",
-                "question": f"Question for {case_id}",
-                "answer": f"Answer for {case_id}",
-                "reference_answer": f"Ref for {case_id}",
-                "generation_evidence": [{"alias": "E1", "content": "Evidence"}],
-                "evidence_status": "exact",
-                "data_classification": "public",
-                "egress_approved": True,
-            }
-            res = score_capture(cap, judge, measure=True)
-            judged_results[case_id] = res
-            judged_results[item_id] = res
-            print(f"Scored real item: {item_id}")
+        print("judge_real slot already COMPLETED in journal. Reading durable results...")
+        durable = package.slot_result("judge_real") or {}
+        if durable.get("results"):
+            judged_results.update(durable["results"])
 
     # Execute judge_synthetic slot
     synth_slot_status = snap["slots"]["judge_synthetic"]["status"]
@@ -927,7 +802,7 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
                             "endpoint": endpoint,
                             "model": model,
                             "max_input_bytes": 131072,
-                            "max_output_tokens": 1024,
+                            "max_output_tokens": 2048,
                             "compatibility_digest": "3" * 64,
                             "request_digests": ["4" * 64],
                         }
@@ -944,26 +819,32 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
                 }
                 package.bind_item("judge_synthetic", item_id, item_policy, inputs)
 
-                ledger = PackageJournalLedger(
+                admission = LiveAdmission(
+                    item_policy,
+                    journal_path,
+                    clock=clock,
                     package=package,
                     slot="judge_synthetic",
                     item_id=item_id,
-                    approval_id=approval_id,
-                    endpoint=endpoint,
-                    model=model,
-                    clock=lambda: datetime.now(UTC),
                 )
-                judge = CloudflareJudge(
-                    endpoint=endpoint,
-                    token=token,
-                    model=model,
-                    max_output_tokens=2048,
-                    ledger=ledger,
-                    client=client,
-                )
-                if is_test_env:
-                    client.headers["X-Target-Rejected-Metric"] = spec["target_rejected_metric"]
-                with package.operation("judge_synthetic", item_id=item_id):
+                with (
+                    package.operation("judge_synthetic", item_id=item_id),
+                    admission.dispatch(item_policy["scope"]),
+                ):
+                    mock_trans = httpx.MockTransport(mock_judge_handler) if is_test_env else None
+                    item_client = admission.sync_client(mock=mock_trans)
+                    if is_test_env:
+                        item_client.headers["X-Target-Rejected-Metric"] = spec[
+                            "target_rejected_metric"
+                        ]
+                    judge = CloudflareJudge(
+                        endpoint=endpoint,
+                        token=token,
+                        model=model,
+                        max_output_tokens=2048,
+                        ledger=InMemoryLedger(),
+                        client=item_client,
+                    )
                     parent_case_id = spec["parent_case_id"]
                     ctrl_case_id = f"{parent_case_id}-{variant_id}"
                     full_ctrl_id = f"{parent_case_id}-ctrl-{variant_id}"
@@ -998,72 +879,25 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
                     print(f"Scored synthetic item: {item_id}")
                     if idx == len(synth_list) - 1:
                         package.record_result(
-                            "judge_synthetic", {"status": "SUCCESS", "items_count": len(synth_list)}
+                            "judge_synthetic",
+                            {
+                                "status": "SUCCESS",
+                                "items_count": len(synth_list),
+                                "results": {
+                                    k: v for k, v in judged_results.items() if isinstance(v, dict)
+                                },
+                            },
                         )
     else:
-        print(
-            "judge_synthetic slot already COMPLETED in journal. "
-            "Evaluating items to collect scores..."
-        )
-        for variant_id, spec in synth_list:
-            ctrl_item_id = f"control-{variant_id}"
-            item_info = (
-                manifest_items.get(ctrl_item_id)
-                or manifest_items.get(variant_id)
-                or manifest_items.get(f"{spec['parent_case_id']}-ctrl-{variant_id}")
-            )
-            if not item_info:
-                continue
-            item_id = item_info["item_id"]
-            parent_case_id = spec["parent_case_id"]
-            ctrl_case_id = f"{parent_case_id}-{variant_id}"
-            full_ctrl_id = f"{parent_case_id}-ctrl-{variant_id}"
-            judge = CloudflareJudge(
-                endpoint=endpoint,
-                token=token,
-                model=model,
-                max_output_tokens=2048,
-                ledger=InMemoryLedger(),
-                client=client,
-            )
-            if is_test_env:
-                client.headers["X-Target-Rejected-Metric"] = spec["target_rejected_metric"]
-            cap = (
-                synthetic_captures.get(full_ctrl_id)
-                or synthetic_captures.get(ctrl_case_id)
-                or {
-                    "case_id": ctrl_case_id,
-                    "run_id": f"run-{ctrl_case_id}",
-                    "attempt": 1,
-                    "attempt_id": f"run-{ctrl_case_id}:{ctrl_case_id}:1",
-                    "trace_id": f"trace-{ctrl_case_id}",
-                    "question": f"Question for {ctrl_case_id}",
-                    "answer": spec["answer"],
-                    "reference_answer": f"Ref for {parent_case_id}",
-                    "generation_evidence": [{"alias": "E1", "content": "Evidence"}],
-                    "evidence_status": "exact",
-                    "data_classification": "synthetic",
-                    "egress_approved": True,
-                    "validation_origin": {
-                        "variant_id": variant_id,
-                        "parent_case_id": parent_case_id,
-                        "target_rejected_metric": spec["target_rejected_metric"],
-                    },
-                }
-            )
-            res = score_capture(cap, judge, measure=True)
-            judged_results[ctrl_case_id] = res
-            judged_results[f"{parent_case_id}-{variant_id}"] = res
-            judged_results[item_id] = res
-            judged_results[variant_id] = res
-            print(f"Scored synthetic item: {item_id}")
+        print("judge_synthetic slot already COMPLETED in journal. Reading durable results...")
+        durable = package.slot_result("judge_synthetic") or {}
+        if durable.get("results"):
+            judged_results.update(durable["results"])
 
     # Persist intermediate judged results
     (output_dir / "intermediate-judged-results.json").write_text(
         json.dumps(judged_results, indent=2, ensure_ascii=False), encoding="utf-8"
     )
-
-    client.close()
 
     # -------------------------------------------------------------
     # 5. Acceptance Finalization
