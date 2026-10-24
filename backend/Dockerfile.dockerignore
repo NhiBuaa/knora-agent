@@ -1,0 +1,51 @@
+# Default ignore everything
+**
+
+# Re-include Dockerfile and dockerignore
+!backend/
+!backend/Dockerfile
+!backend/Dockerfile.dockerignore
+
+# Re-include backend sources for pip install
+!backend/pyproject.toml
+!backend/alembic.ini
+!backend/migrations/
+!backend/migrations/**
+!backend/src/
+!backend/src/**
+
+# Re-include 16 required sibling force-include files and their parent directories
+!evals/
+!evals/datasets/
+!evals/datasets/milestone_3.py
+!evals/datasets/milestone_3.jsonl
+!evals/datasets/milestone_3.manifest.json
+!evals/corpora/
+!evals/corpora/milestone_3/
+!evals/corpora/milestone_3/manifest.json
+!evals/corpora/milestone_3/refund-policy.txt
+!evals/corpora/milestone_3/shipping-policy.txt
+!evals/corpora/milestone_3/account-security.txt
+!evals/corpora/milestone_3/billing-policy.txt
+!evals/runners/
+!evals/runners/milestone_3.py
+!evals/runners/milestone_3_comparison.py
+!evals/runners/m3_claim_authority.py
+!evals/runners/evaluation_ownership.py
+!evals/runners/ragas_review.py
+!evals/runners/evaluation.py
+!evals/scorers/
+!evals/scorers/deepeval_cloudflare.py
+!docs/
+!docs/design/
+!docs/design/m3-improvement-claim-rule-v1.policy.json
+
+# Explicit defense against secrets and untracked files
+**/.env
+**/.env.*
+**/*.pyc
+**/__pycache__
+**/.git
+**/node_modules
+**/*.log
+**/*.xml

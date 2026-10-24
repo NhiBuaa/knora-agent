@@ -17,9 +17,85 @@ ROOT = Path(__file__).resolve().parents[3]
 POWERSHELL = shutil.which("pwsh") or shutil.which("powershell")
 
 
+def create_synthetic_frontend(base_dir: Path, **overrides) -> Path:
+    fe = base_dir / "frontend"
+    fe.mkdir(parents=True, exist_ok=True)
+    pkg = overrides.get("pkg_json", {"name": "frontend", "version": "0.0.0"})
+    if pkg is not None:
+        (fe / "package.json").write_text(json.dumps(pkg) if isinstance(pkg, dict) else pkg)
+
+    pw_test = fe / "node_modules/@playwright/test"
+    pw_test.mkdir(parents=True, exist_ok=True)
+    pw_test_pkg = overrides.get(
+        "pw_test_pkg",
+        {
+            "name": "@playwright/test",
+            "version": "1.48.0",
+            "bin": {"playwright": "cli.js"},
+            "exports": {"./cli": "./cli.js", "./package.json": "./package.json"},
+        },
+    )
+    if pw_test_pkg is not None:
+        (pw_test / "package.json").write_text(
+            json.dumps(pw_test_pkg) if isinstance(pw_test_pkg, dict) else pw_test_pkg
+        )
+
+    cli_content = overrides.get("cli_content", "#!/usr/bin/env node\nconsole.log('pw-cli');\n")
+    if cli_content is not None:
+        (pw_test / "cli.js").write_text(cli_content)
+
+    pw = fe / "node_modules/playwright"
+    pw.mkdir(parents=True, exist_ok=True)
+    pw_pkg = overrides.get(
+        "pw_pkg",
+        {
+            "name": "playwright",
+            "version": "1.48.0",
+            "exports": {"./package.json": "./package.json"},
+        },
+    )
+    if pw_pkg is not None:
+        (pw / "package.json").write_text(json.dumps(pw_pkg) if isinstance(pw_pkg, dict) else pw_pkg)
+
+    pwc = fe / "node_modules/playwright-core"
+    pwc.mkdir(parents=True, exist_ok=True)
+    pwc_pkg = overrides.get(
+        "pwc_pkg",
+        {
+            "name": "playwright-core",
+            "version": "1.48.0",
+            "exports": {"./package.json": "./package.json"},
+        },
+    )
+    if pwc_pkg is not None:
+        (pwc / "package.json").write_text(
+            json.dumps(pwc_pkg) if isinstance(pwc_pkg, dict) else pwc_pkg
+        )
+
+    lock = overrides.get(
+        "lock_json",
+        {
+            "name": "frontend",
+            "version": "0.0.0",
+            "lockfileVersion": 3,
+            "packages": {
+                "": {"name": "frontend", "version": "0.0.0"},
+                "node_modules/@playwright/test": {"version": "1.48.0"},
+                "node_modules/playwright": {"version": "1.48.0"},
+                "node_modules/playwright-core": {"version": "1.48.0"},
+            },
+        },
+    )
+    if lock is not None:
+        (fe / "package-lock.json").write_text(json.dumps(lock) if isinstance(lock, dict) else lock)
+    return fe
+
+
 @pytest.fixture
 def disposable_runner(tmp_path: Path):
     """Real launcher/OS reservation; replace only Docker, HTTP and realm mutation."""
+    create_synthetic_frontend(tmp_path)
+
     scripts = tmp_path / "scripts"
     scripts.mkdir()
     shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
@@ -392,6 +468,17 @@ def test_ordinary_preparation_has_no_resource_reset(disposable_runner) -> None:
 def test_disposable_project_refuses_retained_resources_before_start(
     tmp_path: Path, resource: str
 ) -> None:
+    create_synthetic_frontend(tmp_path)
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    fixtures = tmp_path / "test/fixtures/keycloak"
+    fixtures.mkdir(parents=True, exist_ok=True)
+    shutil.copy(ROOT / "test/fixtures/keycloak/figma-realm.json", fixtures)
+    (scripts / "configure-keycloak-auth-flow.ps1").write_text(
+        "param($Mode,$BaseUrl,$Project,$AdminUsername,$AdminPassword)\n"
+    )
+
     project = "knora-figma-e2e-agent-guard"
     graph = compose_graph("figma")
     graph["name"] = project
@@ -424,7 +511,7 @@ function docker {
     environment.update(TEST_GRAPH=str(graph_path), TEST_RESOURCE=resource)
     result = subprocess.run(
         [POWERSHELL, "-NoProfile", "-Command", command],
-        cwd=ROOT,
+        cwd=tmp_path,
         env=environment,
         capture_output=True,
         text=True,
@@ -542,3 +629,255 @@ def test_figma_launcher_uses_explicit_service_list() -> None:
         "figma-minio-init",
         "figma-api",
     ]
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_check_frontend_only_valid(tmp_path: Path) -> None:
+    create_synthetic_frontend(tmp_path)
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    proc = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(scripts / "prepare-figma-e2e.ps1"),
+            "-CheckFrontendOnly",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "FIGMA_FRONTEND_OK" in proc.stdout
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+@pytest.mark.parametrize(
+    ("override", "expected_code"),
+    [
+        ({"lock_json": None}, "FIGMA_FRONTEND_UNAVAILABLE"),
+        ({"lock_json": "{invalid json}"}, "FIGMA_FRONTEND_METADATA_INVALID"),
+        (
+            {
+                "pw_test_pkg": {
+                    "name": "@playwright/test",
+                    "version": "1.47.0",
+                    "bin": {"playwright": "cli.js"},
+                    "exports": {"./cli": "./cli.js", "./package.json": "./package.json"},
+                }
+            },
+            "FIGMA_FRONTEND_LOCK_MISMATCH",
+        ),
+        (
+            {
+                "lock_json": {
+                    "name": "frontend",
+                    "version": "0.0.0",
+                    "lockfileVersion": 3,
+                    "packages": {
+                        "": {"name": "frontend", "version": "0.0.0"},
+                        "node_modules/@playwright/test": {
+                            "version": "1.48.0",
+                            "dependencies": {"some-subdep": "^1.0.0"},
+                        },
+                        "node_modules/some-subdep": {"version": "1.0.0"},
+                        "node_modules/playwright": {"version": "1.48.0"},
+                        "node_modules/playwright-core": {"version": "1.48.0"},
+                    },
+                }
+            },
+            "FIGMA_FRONTEND_LOCK_MISMATCH",
+        ),
+    ],
+)
+def test_check_frontend_only_failure_matrix(
+    tmp_path: Path, override: dict, expected_code: str
+) -> None:
+    fe = create_synthetic_frontend(tmp_path, **override)
+    if "some-subdep" in str(override):
+        sub = fe / "node_modules/some-subdep"
+        sub.mkdir(parents=True, exist_ok=True)
+        (sub / "package.json").write_text(json.dumps({"name": "some-subdep", "version": "2.0.0"}))
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    proc = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(scripts / "prepare-figma-e2e.ps1"),
+            "-CheckFrontendOnly",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert expected_code in proc.stderr
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_check_frontend_only_cli_outside_package(tmp_path: Path) -> None:
+    fe = create_synthetic_frontend(tmp_path)
+    outside = tmp_path / "frontend/node_modules/outside-cli.js"
+    outside.write_text("console.log(1);")
+    (fe / "node_modules/@playwright/test/cli.js").unlink()
+    pw_test_pkg = {
+        "name": "@playwright/test",
+        "version": "1.48.0",
+        "bin": {"playwright": "../../outside-cli.js"},
+    }
+    (fe / "node_modules/@playwright/test/package.json").write_text(json.dumps(pw_test_pkg))
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    proc = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(scripts / "prepare-figma-e2e.ps1"),
+            "-CheckFrontendOnly",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert "FIGMA_FRONTEND_OWNERSHIP_REJECTED" in proc.stderr
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_check_frontend_only_path_with_spaces(tmp_path: Path) -> None:
+    spaced = tmp_path / "path with spaces"
+    spaced.mkdir()
+    create_synthetic_frontend(spaced)
+    scripts = spaced / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    proc = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(scripts / "prepare-figma-e2e.ps1"),
+            "-CheckFrontendOnly",
+        ],
+        cwd=spaced,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "FIGMA_FRONTEND_OK" in proc.stdout
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_check_frontend_only_rejects_external_junction(tmp_path: Path) -> None:
+    sibling = tmp_path / "frontend-sibling"
+    sibling.mkdir()
+    fe = create_synthetic_frontend(tmp_path)
+    shutil.rmtree(fe / "node_modules")
+    nm = fe / "node_modules"
+    try:
+        nm.symlink_to(sibling, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        subprocess.run(
+            [
+                POWERSHELL,
+                "-NoProfile",
+                "-Command",
+                f'New-Item -ItemType Junction -Path "{nm}" -Target "{sibling}"',
+            ],
+            capture_output=True,
+        )
+    if not nm.is_dir():
+        pytest.skip("Junction creation unsupported")
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    proc = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(scripts / "prepare-figma-e2e.ps1"),
+            "-CheckFrontendOnly",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert "FIGMA_FRONTEND_OWNERSHIP_REJECTED" in proc.stderr
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_check_frontend_only_does_not_invoke_docker(tmp_path: Path) -> None:
+    create_synthetic_frontend(tmp_path)
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    harness = tmp_path / "test-docker.ps1"
+    harness.write_text(
+        r"""
+$ErrorActionPreference = 'Stop'
+function docker { throw 'DOCKER_INVOKED' }
+& ./scripts/prepare-figma-e2e.ps1 -CheckFrontendOnly
+"""
+    )
+    proc = subprocess.run(
+        [POWERSHELL, "-NoProfile", "-File", str(harness)],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "FIGMA_FRONTEND_OK" in proc.stdout
+    assert "DOCKER_INVOKED" not in (proc.stdout + proc.stderr)
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_check_configuration_only_does_not_require_frontend_dependencies(tmp_path: Path) -> None:
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    fixtures = tmp_path / "test/fixtures/keycloak"
+    fixtures.mkdir(parents=True)
+    shutil.copy(ROOT / "test/fixtures/keycloak/figma-realm.json", fixtures)
+    project = "knora-figma-e2e"
+    graph = compose_graph("figma")
+    graph["name"] = project
+    (tmp_path / "graph.json").write_text(json.dumps(graph))
+    harness = tmp_path / "test-config.ps1"
+    harness.write_text(
+        r"""
+$ErrorActionPreference = 'Stop'
+function docker {
+    $global:LASTEXITCODE = 0
+    if ($args -contains 'config') {
+        Get-Content -Raw $env:TEST_GRAPH
+    }
+}
+& ./scripts/prepare-figma-e2e.ps1 -CheckConfigurationOnly
+"""
+    )
+    clean_env = {
+        k: v
+        for k, v in os.environ.items()
+        if not re.match(
+            r"^(COMPOSE_|FIGMA_E2E_|M5_E2E_|KEYCLOAK_|KNORA_|DOCKER_|SESSION_SECRET$)", k
+        )
+    }
+    clean_env["TEST_GRAPH"] = str(tmp_path / "graph.json")
+    proc = subprocess.run(
+        [POWERSHELL, "-NoProfile", "-File", str(harness)],
+        cwd=tmp_path,
+        env=clean_env,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "FIGMA_CONFIG_OK" in proc.stdout

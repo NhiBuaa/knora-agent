@@ -6,10 +6,9 @@ Before changing the repository, read:
 - [Domain documentation guide](docs/agents/domain.md) for domain-document routing.
 - [GitHub issue tracker guide](docs/agents/issue-tracker.md) before reading or publishing work items.
 - [Architecture Standard](docs/standards/architecture.md) for normative system boundaries and safety rules.
-- [Milestone 1 Module Seams](docs/design/milestone-1-module-seams.md) for approved interfaces and
-  legacy directory ownership.
-- [Milestone 2 Module Seams](docs/design/milestone-2-module-seams.md) for production-ingestion
-  interfaces and target directory ownership.
+- If modifying module boundaries, directory ownership, or ingestion interfaces, read
+  [Milestone 1 Module Seams](docs/design/milestone-1-module-seams.md) and
+  [Milestone 2 Module Seams](docs/design/milestone-2-module-seams.md).
 
 Completed product slices are [Milestone 1 — Cited RAG](docs/specs/done/milestone-1-cited-rag.md),
 [Milestone 2 — Production-shaped ingestion](docs/specs/done/milestone-2-production-ingestion.md),
@@ -76,24 +75,16 @@ The sole container for every future non-primary Git worktree is
 - Before removing a worktree, verify it is clean and obtain an explicit disposition for its branch;
   never delete or prune a branch merely because its worktree is being removed.
 
-## Frontend formatting
+## Code formatting and generation
 
-- For every change to maintained files under `frontend/`, run `npm --prefix frontend run format`
-  before completing the change, then run `npm --prefix frontend run format:check`.
-- Do not hand-compress JSX, TypeScript, or object literals to save lines. Keep markup, props,
-  chained expressions, and nested braces readable under the checked-in Prettier configuration.
-- Do not edit `frontend/generated/knora-openapi.ts` manually. Regenerate it with the repository
-  exporter and verify it with `python scripts/export_openapi.py --check`.
-- Formatting runs inside component jobs in the unified `CI` workflow. `CI required` is
-  required for every update to `main`; do not bypass a failing or missing result.
-
-## Python and shared formatting
-
-- Before completing Python changes, run `python -m ruff format .`, then
-  `python -m ruff format --check .` and `python -m ruff check .`.
-- For maintained shared files selected by `frontend/package.json`, run
-  `npm --prefix frontend run format:shared`, then `npm --prefix frontend run format:shared:check`.
-- See [the CI runbook](docs/runbooks/ci.md) for Java formatting and generated/evidence exclusions.
+- For maintained files, run the formatter and then its check before completing changes:
+  - Frontend: `npm --prefix frontend run format` then `npm --prefix frontend run format:check`.
+  - Python: `python -m ruff format .` then `python -m ruff format --check .` and `python -m ruff check .`.
+  - Shared files: `npm --prefix frontend run format:shared` then `npm --prefix frontend run format:shared:check`.
+  - Detailed scopes, exclusions, and Java Spotless commands are in [Formatting scope](docs/runbooks/ci.md#formatting-scope).
+- Do not hand-compress JSX, TypeScript, or object literals to save lines. Keep code readable under the checked-in Prettier configuration.
+- Do not edit `frontend/generated/knora-openapi.ts` manually; regenerate with the repository exporter and verify with `python scripts/export_openapi.py --check`.
+- Formatting runs inside component jobs in the unified `CI` workflow. `CI required` is mandatory for every update to `main`; do not bypass a failing or missing result.
 
 ## Verification
 

@@ -27,8 +27,26 @@ git rev-parse HEAD
 docker version --format '{{.Server.Version}}'
 node --version
 npm --version
-Test-Path frontend/node_modules/@playwright/test/cli.js
+./scripts/prepare-figma-e2e.ps1 -CheckFrontendOnly
 ```
+
+### Frontend dependency containment pre-check (`-CheckFrontendOnly`)
+
+Before running Playwright directly or starting browser verification, run `-CheckFrontendOnly` to verify that frontend dependencies and the Playwright CLI are physically contained inside the owned worktree and match the lockfile:
+
+```powershell
+./scripts/prepare-figma-e2e.ps1 -CheckFrontendOnly
+```
+
+Result codes:
+- `FIGMA_FRONTEND_OK`: All required packages (`@playwright/test`, `playwright`, `playwright-core`) are physically contained inside `frontend/node_modules` of this worktree, the CLI belongs to `@playwright/test`, and installed versions match the lockfile nodes.
+- `FIGMA_FRONTEND_UNAVAILABLE`: Node executable is missing, or `package.json`, `package-lock.json`, or required package installations are missing.
+- `FIGMA_FRONTEND_OWNERSHIP_REJECTED`: `node_modules`, resolved packages, or the CLI path escape the owned frontend directory (e.g. symlinks/junctions pointing to sibling worktrees or outside directories).
+- `FIGMA_FRONTEND_LOCK_MISMATCH`: Installed versions or dependency relationships do not agree with the lockfile nodes.
+- `FIGMA_FRONTEND_METADATA_INVALID`: Package metadata or lockfile JSON is malformed.
+
+> [!NOTE]
+> `-CheckFrontendOnly` is a pre-check for harness execution; it does not protect raw `npm` commands executed outside the harness and does not prove runtime browser readiness. It is mutually exclusive with `-CheckConfigurationOnly` and `-Run`.
 
 Missing prerequisites are blockers: report them; installation, model downloads and
 credential/provider setup require separate authorization. Reusing already installed,

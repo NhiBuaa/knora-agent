@@ -14,6 +14,7 @@ from runtime_evidence import create_evidence, validate_release  # noqa: E402
 
 SHA = "a" * 40
 WORKFLOW_SHA = "b" * 40
+POWERSHELL = shutil.which("pwsh") or shutil.which("powershell") or "pwsh"
 
 
 @pytest.mark.parametrize("profile", ["application", "otp"])
@@ -25,7 +26,9 @@ def test_runtime_prepare_failure_keeps_diagnostic_and_rollback(
     scripts.mkdir()
     shutil.copy(root / "scripts/run-runtime-verification.ps1", scripts)
     (scripts / "prepare-figma-e2e.ps1").write_text(
-        """'KEYCLOAK_ROLLBACK_SNAPSHOT=owned-snapshot.json'
+        """param([switch]$CheckFrontendOnly)
+if ($CheckFrontendOnly) { return }
+'KEYCLOAK_ROLLBACK_SNAPSHOT=owned-snapshot.json'
 & python -c "import sys; print('COMPOSE_START_DIAGNOSTIC', file=sys.stderr); sys.exit(1)"
 throw 'FIGMA_START_FAILED'
 """,
@@ -47,7 +50,7 @@ function global:docker { $global:LASTEXITCODE = 0 }
     )
     result = subprocess.run(
         [
-            shutil.which("pwsh") or "pwsh",
+            POWERSHELL,
             "-NoProfile",
             "-File",
             str(harness),
@@ -64,6 +67,57 @@ function global:docker { $global:LASTEXITCODE = 0 }
     assert "COMPOSE_START_DIAGNOSTIC" in output
     assert "ROLLBACK=Rollback/owned-snapshot.json" in output
     assert not (tmp_path / f".verification/runtime/{profile}/evidence.json").exists()
+
+
+def test_runtime_verification_aborts_before_cleanup_when_frontend_check_fails(
+    tmp_path: Path,
+) -> None:
+    root = Path(__file__).resolve().parents[3]
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    shutil.copy(root / "scripts/run-runtime-verification.ps1", scripts)
+    (scripts / "prepare-figma-e2e.ps1").write_text(
+        """param([switch]$CheckFrontendOnly)
+if ($CheckFrontendOnly) {
+    throw 'FIGMA_FRONTEND_LOCK_MISMATCH: simulated mismatch'
+}
+throw 'UNEXPECTED_NORMAL_PREPARE'
+""",
+        encoding="utf-8",
+    )
+    calls_log = tmp_path / "docker_calls.log"
+    harness = tmp_path / "harness.ps1"
+    harness.write_text(
+        f"""param($Script)
+function global:git {{ $global:LASTEXITCODE = 0; 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' }}
+function global:docker {{
+    $global:LASTEXITCODE = 0
+    Add-Content -LiteralPath '{calls_log.as_posix()}' -Value ($args -join ' ')
+}}
+& $Script -SubjectSha ('a' * 40) -WorkflowSha ('b' * 40) -Profile 'application' -RunId 'test'
+""",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(harness),
+            str(scripts / "run-runtime-verification.ps1"),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    output = result.stdout + result.stderr
+    assert result.returncode != 0
+    assert "FIGMA_FRONTEND_LOCK_MISMATCH" in output
+    assert "UNEXPECTED_NORMAL_PREPARE" not in output
+    if calls_log.exists():
+        calls = calls_log.read_text(encoding="utf-8").splitlines()
+        for call in calls:
+            assert "down" not in call
 
 
 @pytest.mark.parametrize(
@@ -93,7 +147,7 @@ Assert-StorageCases $Report @('first','second')
     )
     result = subprocess.run(
         [
-            shutil.which("pwsh") or "pwsh",
+            POWERSHELL,
             "-NoProfile",
             "-File",
             str(harness),
@@ -179,7 +233,7 @@ if ($ReadyAfter -eq 0 -or -not $global:restored -or $global:probeCalls -lt 3) {
     )
     result = subprocess.run(
         [
-            shutil.which("pwsh") or "pwsh",
+            POWERSHELL,
             "-NoProfile",
             "-File",
             str(harness),
@@ -228,7 +282,7 @@ if ($result.Count -ne 0) { throw 'stdout returned as data' }
     )
     result = subprocess.run(
         [
-            shutil.which("pwsh") or "pwsh",
+            POWERSHELL,
             "-NoProfile",
             "-File",
             str(harness),
@@ -274,7 +328,7 @@ if ($report -isnot [string] -or $report -ne (Join-Path $Output 'identity.xml')) 
     )
     result = subprocess.run(
         [
-            shutil.which("pwsh") or "pwsh",
+            POWERSHELL,
             "-NoProfile",
             "-File",
             str(harness),
