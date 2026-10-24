@@ -25,6 +25,7 @@ class RetrievalConfiguration:
     lexical_policy_id: str | None = None
     fusion_policy_id: str | None = None
     sdm_policy_id: str | None = None
+    reranking_policy_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.strategy not in {"bm25-only"} and self.min_similarity is None:
@@ -147,6 +148,29 @@ class RetrievalConfiguration:
             sdm_policy_id=sdm_policy_id,
         )
         return replace(base, id="retrieval-hybrid-sdm-top8-v3")
+
+    @classmethod
+    def hybrid_rerank_top8_v3(
+        cls,
+        *,
+        min_similarity: float = 0.65,
+        lexical_policy_id: str = "bm25-word-frozen47-population-v1",
+        fusion_policy_id: str = "dbsf-v1",
+        sdm_policy_id: str = "sdm-metzler-croft-2005-v1",
+        reranking_policy_id: str = "reranking-cloudflare-bge-base-v1",
+    ) -> "RetrievalConfiguration":
+        """Hybrid Top8 with SDM reranking and cross-encoder evidence selection."""
+        base = cls.hybrid_sdm_top8_v3(
+            min_similarity=min_similarity,
+            lexical_policy_id=lexical_policy_id,
+            fusion_policy_id=fusion_policy_id,
+            sdm_policy_id=sdm_policy_id,
+        )
+        return replace(
+            base,
+            id="retrieval-hybrid-rerank-top8-v3",
+            reranking_policy_id=reranking_policy_id,
+        )
 
     def parity_semantics(self) -> dict[str, object]:
         """Project strategy semantics for vector/hybrid parity review, excluding identity."""
@@ -294,6 +318,9 @@ class RetrievalCandidate:
     sdm_score: float | None = None
     sdm_rank: int | None = None
     sdm_contribution: dict[str, object] | None = None
+    rerank_score: float | None = None
+    rerank_rank: int | None = None
+    rerank_contribution: dict[str, object] | None = None
 
 
 @dataclass(frozen=True, slots=True)
