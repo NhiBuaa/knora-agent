@@ -177,7 +177,7 @@ class AnswerQuestion:
                         selection=selection,
                         decision="REFUSAL",
                         answer=None,
-                        refusal_reason="INSUFFICIENT_EVIDENCE",
+                        refusal_reason="CLARIFICATION_REQUIRED",
                         generation_status="not_called",
                         embedding=None,
                         retrieval_latency_ms=retrieval_latency_ms,
@@ -192,7 +192,7 @@ class AnswerQuestion:
                     decision="REFUSAL",
                     answer=None,
                     citations=(),
-                    refusal_reason="INSUFFICIENT_EVIDENCE",
+                    refusal_reason="CLARIFICATION_REQUIRED",
                     trace_id=trace_id,
                 )
 
@@ -634,6 +634,7 @@ class AnswerQuestion:
                 available_evidence_ids=tuple(alias_to_candidate),
                 required_subquestions=active_subquestions,
                 alias_to_candidate=alias_to_candidate,
+                is_v3=is_v3_retrieval,
             )
         except KnoraError:
             trace_ended = self._clock()

@@ -247,12 +247,54 @@ _STOPWORDS = {
 } | _SECTION_WORDS
 
 
+def _find_uncited_sentences(answer: str) -> list[str]:
+    matches = list(MARKER_PATTERN.finditer(answer))
+    if not matches:
+        raw_sents = re.split(r"(?:[.!?]\s+|\n+)", answer)
+        return [s.strip() for s in raw_sents if s.strip()]
+
+    uncited: list[str] = []
+    prev_end = 0
+
+    for m in matches:
+        start = m.start()
+        between = answer[prev_end:start]
+        between_clean = re.sub(r"^[\s.;:,-]+", "", between)
+        between_to_split = re.sub(r"[\s.;:,-]+$", "", between_clean)
+
+        if between_to_split:
+            parts = [
+                p.strip() for p in re.split(r"(?:[.!?]\s+|\n+)", between_to_split) if p.strip()
+            ]
+            if len(parts) > 1:
+                uncited.extend(parts[:-1])
+
+        prev_end = m.end()
+
+    trailing = answer[prev_end:]
+    trailing_clean = re.sub(r"^[\s.;:,-]+", "", trailing)
+    if trailing_clean:
+        trailing_parts = [
+            p.strip() for p in re.split(r"(?:[.!?]\s+|\n+)", trailing_clean) if p.strip()
+        ]
+        uncited.extend(trailing_parts)
+
+    return uncited
+
+
 def _validate_citation_alignment(
     answer: str,
     alias_to_candidate: Mapping[str, Any],
     *,
     is_multi_group: bool = False,
 ) -> None:
+    # 0. Check uncited factual sentences in body
+    for sent in _find_uncited_sentences(answer):
+        norm_s = unicodedata.normalize("NFKC", sent).casefold()
+        subst = [w for w in re.findall(r"\w+", norm_s) if w not in _STOPWORDS and not w.isdigit()]
+        if len(subst) >= 2:
+            _invalid()
+
     matches = list(MARKER_PATTERN.finditer(answer))
     if not matches:
         return
@@ -268,7 +310,7 @@ def _validate_citation_alignment(
         # Strip trailing punctuation so citation placed after period (e.g. "Sentence. [[E1]]")
         # properly maps the preceding sentence to the marker
         text_to_search = re.sub(r"[\s.;:,-]+$", "", text_before)
-        boundary_matches = list(re.finditer(r"[;\n]|\.\s+", text_to_search))
+        boundary_matches = list(re.finditer(r"\n|(?<=[.!?])\s+", text_to_search))
         if boundary_matches:
             seg_start_rel = boundary_matches[-1].end()
             seg_text = text_to_search[seg_start_rel:].strip()
@@ -369,14 +411,22 @@ def _validate_citation_alignment(
             if not any(w in cand_words for w in seg_substantive):
                 _invalid()
 
-        # 6. Multi-group substantive facts check:
-        # must have at least 2 substantive words or a valid 2-gram
+        # 6. Substantive facts check:
+        cand_words = set(re.findall(r"\w+", cand_full)) - _STOPWORDS
+        cand_words = {w for w in cand_words if len(w) >= 2 and not w.isdigit()}
+        seg_words = [
+            w for w in re.findall(r"\w+", norm_seg) if w not in _STOPWORDS and not w.isdigit()
+        ]
+        non_unit_seg = [w for w in seg_words if w not in _UNIT_WORDS]
+
+        # If claim contains substantive non-unit terms (e.g. "phí vận chuyển", "sao hỏa"),
+        # they must be grounded
+        if non_unit_seg:
+            matched_non_unit = [w for w in non_unit_seg if w in cand_words]
+            if not matched_non_unit:
+                _invalid()
+
         if is_multi_group and not seg_numbers:
-            cand_words = set(re.findall(r"\w+", cand_content)) - _STOPWORDS
-            cand_words = {w for w in cand_words if len(w) >= 2 and not w.isdigit()}
-            seg_words = [
-                w for w in re.findall(r"\w+", norm_seg) if w not in _STOPWORDS and not w.isdigit()
-            ]
             matched_words = [w for w in seg_words if w in cand_words]
             has_2gram = False
             for i in range(len(seg_words) - 1):
@@ -394,6 +444,7 @@ def validate_generation(
     available_evidence_ids: tuple[str, ...],
     required_subquestions: Sequence[Any] | None = None,
     alias_to_candidate: Mapping[str, Any] | None = None,
+    is_v3: bool = True,
 ) -> ValidatedGeneration:
     if result.decision == "REFUSAL":
         if (
@@ -424,8 +475,8 @@ def validate_generation(
     if result.cited_evidence_ids != markers:
         _invalid()
 
-    if alias_to_candidate and required_subquestions:
-        is_multi = len(required_subquestions) > 1
+    if alias_to_candidate and (required_subquestions is not None or is_v3):
+        is_multi = bool(required_subquestions and len(required_subquestions) > 1)
         _validate_citation_alignment(result.answer, alias_to_candidate, is_multi_group=is_multi)
 
     if required_subquestions and len(required_subquestions) > 1:

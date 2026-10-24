@@ -201,3 +201,65 @@ async def verify_missing_sources(
         overall_status=overall,
         verification_digest=verification_digest,
     )
+
+
+@dataclass(frozen=True, slots=True)
+class CanonicalScopeReadResult:
+    """Outcome of reading canonical scope directly from PostgreSQL."""
+
+    outcome: str  # FOUND, VERIFIED_ABSENT, UNVERIFIED, AMBIGUOUS
+    recovered_chunks: tuple[RetrievalCandidate, ...] = ()
+    facts: tuple[str, ...] = ()
+    anchors: tuple[str, ...] = ()
+    reason: str = ""
+
+
+def read_canonical_source_scope(
+    store: Any,
+    workspace_id: str,
+    target_item: str,
+    snapshot: Any,
+    *,
+    cursor: int = 0,
+    limits: int = 1024,
+    authorized_sources: Sequence[str] | None = None,
+    complete_catalog: Sequence[str] | None = None,
+    is_partial: bool = False,
+) -> CanonicalScopeReadResult:
+    """Read canonical source scope directly from PG structure/chunks (F13)."""
+    if is_partial:
+        return CanonicalScopeReadResult(
+            outcome="UNVERIFIED",
+            reason="partial scope cannot verify absence",
+        )
+
+    if authorized_sources and len(authorized_sources) > 1:
+        return CanonicalScopeReadResult(
+            outcome="AMBIGUOUS",
+            reason="multiple authorized sources possible",
+        )
+
+    if complete_catalog is not None:
+        cat_lower = [c.casefold() for c in complete_catalog]
+        if target_item.casefold() not in cat_lower:
+            return CanonicalScopeReadResult(
+                outcome="VERIFIED_ABSENT",
+                reason=f"{target_item} is absent from complete catalog",
+            )
+
+    if store is not None and hasattr(store, "read_canonical_chunks_for_scope"):
+        matching = store.read_canonical_chunks_for_scope(
+            workspace_id, target_item, snapshot, cursor=cursor, limit=limits
+        )
+        if matching:
+            return CanonicalScopeReadResult(
+                outcome="FOUND",
+                recovered_chunks=tuple(matching),
+                facts=tuple(c.content for c in matching),
+                anchors=tuple(c.chunk_id for c in matching),
+            )
+
+    return CanonicalScopeReadResult(
+        outcome="UNVERIFIED",
+        reason="canonical scope unverified",
+    )
