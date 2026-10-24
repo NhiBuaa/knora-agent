@@ -1706,28 +1706,63 @@ def test_docker_build_probe_enforces_exact_context_exclusion(tmp_path: Path) -> 
     (ctx / "backend/Dockerfile.dockerignore").write_text(dockerignore_content, encoding="utf-8")
     (ctx / ".dockerignore").write_text("!**\n")
 
-    allowed_samples = [
-        ctx / "backend/pyproject.toml",
-        ctx / "backend/alembic.ini",
-        ctx / "backend/src/knora/main.py",
-        ctx / "backend/migrations/env.py",
-        ctx / "docs/design/m3-improvement-claim-rule-v1.policy.json",
-        ctx / "evals/datasets/milestone_3.jsonl",
-    ]
-    for p in allowed_samples:
-        p.parent.mkdir(parents=True, exist_ok=True)
-        p.write_text(f"dummy payload for {p.name}\n")
+    # 1. Independent expected payload files (248 files)
+    src_files = subprocess.check_output(
+        ["git", "ls-files", "-z", "--", "backend/src"], cwd=ROOT, text=True
+    ).split("\0")
+    src_files = sorted([f.replace("\\", "/") for f in src_files if f])
 
+    mig_files = subprocess.check_output(
+        ["git", "ls-files", "-z", "--", "backend/migrations"], cwd=ROOT, text=True
+    ).split("\0")
+    mig_files = sorted([f.replace("\\", "/") for f in mig_files if f])
+
+    with open(ROOT / "backend/pyproject.toml", "rb") as f:
+        pyproject = tomllib.load(f)
+    force_include = (
+        pyproject.get("tool", {})
+        .get("hatch", {})
+        .get("build", {})
+        .get("targets", {})
+        .get("wheel", {})
+        .get("force-include", {})
+    )
+    res_files = sorted([src.replace("../", "").replace("\\", "/") for src in force_include])
+
+    payload_list = (
+        ["backend/pyproject.toml", "backend/alembic.ini"] + mig_files + src_files + res_files
+    )
+    assert len(payload_list) == 248, f"Expected exactly 248 payload files, got {len(payload_list)}"
+
+    expected_payloads: dict[str, bytes] = {}
+    for rel in payload_list:
+        p = ctx / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        content = f"DETERMINISTIC_PAYLOAD_FOR_{rel}\n".encode()
+        p.write_bytes(content)
+        expected_payloads[rel] = content
+
+    expected_allowlist = set(
+        payload_list + ["backend/Dockerfile", "backend/Dockerfile.dockerignore"]
+    )
+    assert len(expected_allowlist) == 250, (
+        f"Expected 250 total allowlist files, got {len(expected_allowlist)}"
+    )
+
+    # 2. Sentinels outside allowlist
     sentinels = [
         ctx / "backend/src/client-private-key.pem",
         ctx / "backend/src/private_credentials.py",
         ctx / "backend/migrations/credentials.json",
         ctx / ".env",
+        ctx / "backend/.env",
         ctx / "docs/private-note.txt",
         ctx / "evals/private-note.txt",
         ctx / "node_modules/private.txt",
         ctx / ".git/config",
         ctx / "backend/unexpected_new_file.txt",
+        ctx / "backend/src/extra.log",
+        ctx / "backend/migrations/test.xml",
     ]
     for s in sentinels:
         s.parent.mkdir(parents=True, exist_ok=True)
@@ -1747,15 +1782,80 @@ def test_docker_build_probe_enforces_exact_context_exclusion(tmp_path: Path) -> 
     assert res.returncode == 0, f"Docker probe build failed: {res.stderr}\n{res.stdout}"
 
     exported = {
+        p.relative_to(out / "context").as_posix(): p.read_bytes()
+        for p in (out / "context").rglob("*")
+        if p.is_file()
+    }
+
+    assert set(exported.keys()) == expected_allowlist, (
+        "Exported set mismatch: "
+        f"missing={expected_allowlist - set(exported.keys())}, "
+        f"extra={set(exported.keys()) - expected_allowlist}"
+    )
+
+    for rel, exp_bytes in expected_payloads.items():
+        assert exported[rel] == exp_bytes, f"Byte mismatch for {rel}"
+
+    for s in sentinels:
+        rel = s.relative_to(ctx).as_posix()
+        assert rel not in exported, f"Sentinel file {rel} was leaked into build context!"
+
+
+def test_docker_build_probe_negative_control_catches_directory_negation_leak(
+    tmp_path: Path,
+) -> None:
+    if shutil.which("docker") is None:
+        pytest.skip("Docker CLI not available")
+    check = subprocess.run(["docker", "version"], capture_output=True, text=True)
+    if check.returncode != 0:
+        pytest.skip("Docker daemon unavailable")
+
+    ctx = tmp_path / "neg_ctx"
+    out = tmp_path / "neg_out"
+    ctx.mkdir()
+    out.mkdir()
+
+    # Flawed dockerignore with directory negations (like older designs)
+    flawed_dockerignore = (
+        "**\n"
+        "!backend/src/**\n"
+        "!backend/migrations/**\n"
+        "!backend/pyproject.toml\n"
+        "!backend/alembic.ini\n"
+        "!backend/Dockerfile\n"
+        "!backend/Dockerfile.dockerignore\n"
+    )
+    (ctx / "backend").mkdir(parents=True)
+    (ctx / "backend/Dockerfile").write_text("FROM scratch\nCOPY . /context/\n")
+    (ctx / "backend/Dockerfile.dockerignore").write_text(flawed_dockerignore, encoding="utf-8")
+    (ctx / ".dockerignore").write_text("!**\n")
+
+    # Add a valid source file and a sentinel inside the directory
+    (ctx / "backend/src/knora").mkdir(parents=True, exist_ok=True)
+    (ctx / "backend/src/knora/main.py").write_text("print('hello')\n")
+    sentinel = ctx / "backend/src/knora/leaked_secret.key"
+    sentinel.write_text("SUPER_SECRET_KEY\n")
+
+    cmd = [
+        "docker",
+        "buildx",
+        "build",
+        "--file",
+        str(ctx / "backend/Dockerfile"),
+        "--output",
+        f"type=local,dest={out}",
+        str(ctx),
+    ]
+    res = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    assert res.returncode == 0, f"Negative probe build failed: {res.stderr}\n{res.stdout}"
+
+    exported = {
         p.relative_to(out / "context").as_posix()
         for p in (out / "context").rglob("*")
         if p.is_file()
     }
 
-    for p in allowed_samples:
-        rel = p.relative_to(ctx).as_posix()
-        assert rel in exported, f"Allowed file {rel} was not exported to context"
-
-    for s in sentinels:
-        rel = s.relative_to(ctx).as_posix()
-        assert rel not in exported, f"Sentinel file {rel} was leaked into build context!"
+    # Proves the directory negation allows the sentinel to leak into context!
+    assert "backend/src/knora/leaked_secret.key" in exported, (
+        "Negative control expectation failed: flawed dockerignore should leak directory sentinels"
+    )
