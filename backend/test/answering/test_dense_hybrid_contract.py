@@ -743,3 +743,69 @@ def test_hybrid_preserves_candidates_up_to_100_beyond_top_8() -> None:
     assert cfg.candidate_k == 100
     assert cfg.vector_candidate_k == 200
     assert cfg.fts_candidate_k == 200
+
+
+class VectorCase:
+    def __init__(self, qdrant_index, snapshot):
+        self.qdrant_index = qdrant_index
+        self.snapshot = snapshot
+
+    def verify_server_cosine_float32_readback(self):
+        valid_pt_id = lexical_point_id("gen-1", "chunk-1")
+        response = {
+            "points": [
+                {
+                    "id": valid_pt_id,
+                    "score": 0.95,
+                    "payload": {
+                        "workspace_id": self.snapshot.workspace_id,
+                        "generation_id": "gen-1",
+                        "chunk_id": "chunk-1",
+                        "profile_digest": self.snapshot.profile_digest,
+                    },
+                }
+            ]
+        }
+        return self.qdrant_index.parse_response(self.snapshot, response)
+
+    def verify_corrupted_readback(
+        self,
+        *,
+        remove_payload_digest: bool = False,
+        forge_payload_digest: bool = False,
+    ):
+        valid_pt_id = lexical_point_id("gen-1", "chunk-1")
+        payload = {
+            "workspace_id": self.snapshot.workspace_id,
+            "generation_id": "gen-1",
+            "chunk_id": "chunk-1",
+            "profile_digest": self.snapshot.profile_digest,
+        }
+        if remove_payload_digest:
+            del payload["profile_digest"]
+        elif forge_payload_digest:
+            payload["profile_digest"] = "f" * 64
+
+        response = {
+            "points": [
+                {
+                    "id": valid_pt_id,
+                    "score": 0.95,
+                    "payload": payload,
+                }
+            ]
+        }
+        return self.qdrant_index.parse_response(self.snapshot, response)
+
+
+@pytest.fixture
+def vector_case(qdrant_index, authorized_snapshot):
+    return VectorCase(qdrant_index, authorized_snapshot)
+
+
+def test_readback_uses_pg_expected_not_remote_digest(vector_case: VectorCase) -> None:
+    assert vector_case.verify_server_cosine_float32_readback() is not None
+    with pytest.raises(ProjectionResponseError):
+        vector_case.verify_corrupted_readback(remove_payload_digest=True)
+    with pytest.raises(ProjectionResponseError):
+        vector_case.verify_corrupted_readback(forge_payload_digest=True)
