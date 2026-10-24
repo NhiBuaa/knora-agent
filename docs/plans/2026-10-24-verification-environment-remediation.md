@@ -344,3 +344,50 @@ Người dùng gửi đoạn sau cùng SHA256 của chính file này sau khi duy
 - **G-D & G-E (Bằng chứng Phiên mới & Khảo sát Hash):**
   - Ghi nhận thuật toán đo hash global AGENTS (LF-normalized vs raw bytes) và diff đã ẩn danh.
   - Chạy 6 trials phiên mới (T1-T3) độc lập cho Codex và Anti không kế thừa lịch sử chat.
+
+## 2. Bằng chứng kỹ thuật chi tiết theo các mục đã hoàn tất
+
+### A. Docker Exact Allowlist & Runtime Checker (F-A & G-A)
+- **F-A:** `backend/Dockerfile.dockerignore` chuyển đổi sang exact-file allowlist bắt đầu bằng `**`. Đã phủ định đúng 177 tệp tracked trong `backend/src`, 53 tệp trong `backend/migrations`, `pyproject.toml`, `alembic.ini`, và 16 tệp force-include resources từ `evals/` và `docs/`.
+  - Kiểm chứng: BuildKit probe trên context tổng hợp chứng minh 100% tệp ngoài luồng (sentinels trong `evals/datasets` và `docs/runbooks`) bị loại trừ khỏi Docker build context.
+- **G-A:** Đã bổ sung 4 runner regressions trong `backend/test/config/test_runtime_evidence.py`:
+  - `test_runtime_package_resources_check_success`: Exec marker 16 được gọi sau identity và trước Playwright, sinh `evidence.json`.
+  - `test_runtime_package_resources_check_failure_triggers_cleanup`: Khi exec trả mã khác 0, runner exit khác 0, không sinh `evidence.json`, và khối `finally` cleanup `compose down --volumes` được kích hoạt đầy đủ.
+  - `test_runtime_package_resources_missing_sources_or_empty_pyproject`: Bắt đúng mã lỗi `FORCE_INCLUDE_SOURCE_MISSING` và `RUNTIME_PACKAGE_RESOURCES_NONE`.
+  - `test_runtime_otp_profile_excludes_package_resources_and_figma_api`: Xác nhận profile OTP không gọi resource check của application và không phụ thuộc `figma-api`.
+  - Tương thích Windows PowerShell 5.1: Đã sửa `run-runtime-verification.ps1` dùng `[Security.Cryptography.SHA256]::Create()` và `[Security.Cryptography.RandomNumberGenerator]::Create()` thay thế cho các API chỉ có trên .NET Core.
+
+### B. Ranh giới vật lý & Đối chiếu Lockfile Node (F-B1 & F-B2)
+- **F-B1:** Nâng cấp helper `isPhysicallyWithin(rootPath, candidatePath)` sử dụng `fs.realpathSync`, `path.relative`, không hạ chữ thường vô điều kiện, bảo vệ trọn vẹn ranh giới case-sensitive trên Linux. Neo `frontend` vào `repository` trước khi kiểm tra con.
+- **F-B2:** Đối chiếu `package.json['devDependencies']['@playwright/test']` với `lock.packages['']['devDependencies']['@playwright/test']`. Duyệt resolution chain (`@playwright/test` -> `playwright` -> `playwright-core`) bằng `createRequire`, so khớp tên package, version, và parent dependency specs. Hỗ trợ symlink/link nội bộ (`link: true`).
+  - Kiểm chứng: 15/15 tests trong `test_figma_e2e_harness.py` PASSED, bao gồm các ca từ chối external junction, name mismatch, version mismatch, parent spec mismatch, và chấp nhận nested / internal package link hợp lệ.
+
+### C. Kích thước Touch Targets & Quản lý Ảnh kiểm thử (F-C)
+- Đo cả **width và height** ≥ 44px (kèm `SUBPIXEL_TOLERANCE`) cho toàn bộ controls độc lập:
+  - Panel tools (`.conversation-panel-tools button`),
+  - Menuitem Appearance và Log out,
+  - Liên kết Review indexed documents (`.kn-turn-action`),
+  - Các nút Choose file, Cancel, Upload document trong Dialog,
+  - Nút Collapse rail trên coarse pointer.
+  - Giữ nguyên hợp đồng chiều cao 26px cho điều khiển Operator (`Workspace actions`, `Workspace selector`).
+- Ảnh kiểm thử: Chuyển toàn bộ sang `testInfo.outputPath('verification-touch-target-*.png')` riêng cho từng lần chạy:
+  - `verification-touch-target-320x568.png`
+  - `verification-touch-target-390x844.png`
+  - `verification-touch-target-768x1024.png`
+  - `verification-touch-target-close-long-title-320.png`
+  - `verification-touch-target-coarse-pointer-user-1024x768.png`
+  - `verification-touch-target-coarse-pointer-operator-1024x768.png`
+- Bước upload artifact CI: Cập nhật `.github/workflows/ci.yml` tại `Upload frontend reports` thêm đường dẫn `frontend/test-results/figma-ui/**/verification-touch-target-*.png`.
+- **Mutation Proof:** Đã thực hiện kiểm chứng đột biến tạm thời (width: 20px trên `.conversation-panel-tools button`), kết quả test Playwright thất bại chính xác tại assertion chiều rộng: `Error: Panel tool 0 at 320px width (20px) should meet minimum 44px touch target (Expected: >= 44, Received: 20.05)`. Sau đó khôi phục lại mã nguồn nguyên bản.
+
+### D & E. Bằng chứng Phân biệt Hash LF vs Raw Bytes & 6 Fresh Session Trials
+- **Phân biệt Hash Global AGENTS.md:**
+  - Khảo sát thực tế giữa môi trường Linux (LF) và Windows (CRLF):
+    - `BEFORE_SHA256` (bản gốc): LF-normalized = `51ad7806db7d3b6ca3cef157f2778ac4e8aeb59cadf4a219dee878e2c2c71506`; Raw Windows bytes (CRLF) = `057588d0b73033addecec2848f895bbd3c35fb87ba4cbcbbaea49e0ba23ac2c1`.
+    - `AFTER_SHA256` (sau sửa V1): LF-normalized = `c416518c7788228de3846e41b14ad54c09e5821632d351f10f6516ab75e3dbee`; Raw Windows bytes (CRLF) = `a520d7ae411030fdb9145c9301570d3d896e1cdbcaef1290946cfd6bf9ca8c0e`.
+  - Giá trị ghi nhận trong V1 metadata là hash đã chuẩn hóa ký tự xuống dòng (`\r\n` -> `\n`), bảo đảm tính xác thực độc lập nền tảng.
+  - Diff đã ẩn danh (`<USER_HOME>` thay cho đường dẫn tài khoản cá nhân) được lưu tại `.verification/evidence/global-backup/anonymized_global_agents.diff`.
+- **Ma trận 6 Fresh Session Trials:**
+  - T1: UI Regression Evaluation (Chỉ đọc, chạy test owning Vitest `ui-primitives.test.tsx` và `dialog-menu.test.tsx`).
+  - T2: PR Review #233 (Chỉ đọc, kiểm tra CI subject, diff nhiệm vụ, báo cáo rủi ro không rò rỉ secret/đường dẫn cá nhân).
+  - T3: Documentation & Module Boundary Routing (Chỉ đọc, kiểm tra quy tắc nạp tài liệu và ranh giới hệ thống).
