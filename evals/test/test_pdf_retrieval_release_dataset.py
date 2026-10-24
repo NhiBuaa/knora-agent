@@ -95,6 +95,8 @@ def test_release_loader_rejects_invalid_category(tmp_path: Path) -> None:
 
 
 def test_release_loader_loads_real_file(tmp_path: Path) -> None:
+    import hashlib
+
     artifact = tmp_path / "valid.jsonl"
     line = json.dumps(
         {
@@ -108,7 +110,33 @@ def test_release_loader_loads_real_file(tmp_path: Path) -> None:
             "metadata": {"custom": True, "split": "held_out"},
         }
     )
-    artifact.write_text(f"{line}\n", encoding="utf-8")
+    data_bytes = f"{line}\n".encode()
+    artifact.write_bytes(data_bytes)
+    data_hash = hashlib.sha256(data_bytes).hexdigest()
+
+    manifest = tmp_path / "valid.manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "dataset_version": "pdf_retrieval_release_v1",
+                "dataset_sha256": data_hash,
+                "num_cases": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+    approval = tmp_path / "valid.approval.json"
+    approval.write_text(
+        json.dumps(
+            {
+                "status": "approved",
+                "owner": "NhiBuaa",
+                "dataset_version": "pdf_retrieval_release_v1",
+                "dataset_sha256": data_hash,
+            }
+        ),
+        encoding="utf-8",
+    )
 
     dataset = load_release_dataset(artifact)
     assert len(dataset.cases) == 1
@@ -211,3 +239,17 @@ def test_validate_approval_checks_owner_and_version() -> None:
                 "dataset_sha256": "wrong" * 16,
             },
         )
+
+
+def test_explicit_path_still_requires_manifest_and_approval(tmp_path: Path) -> None:
+    from evals.datasets import pdf_retrieval_release_v1
+
+    real_file = Path(pdf_retrieval_release_v1.__file__).with_name("pdf_retrieval_release_v1.jsonl")
+    valid_release_bytes = real_file.read_bytes()
+
+    target = tmp_path / "unapproved-release.jsonl"
+    target.write_bytes(valid_release_bytes)
+    with pytest.raises(
+        DatasetContractError, match="Release manifest missing|Release approval missing"
+    ):
+        load_release_dataset(target, enforce_approval=True)

@@ -190,7 +190,6 @@ def load_release_dataset(
     When `path` is provided, reads and parses the JSON/JSONL artifact, enforcing
     split integrity, category validation, no duplicate IDs, and exact checksum.
     """
-    is_default = path is None
     if path is None:
         default_file = Path(__file__).with_name("pdf_retrieval_release_v1.jsonl")
         if default_file.exists():
@@ -263,7 +262,7 @@ def load_release_dataset(
                 raise DatasetContractError(
                     f"Manifest num_cases mismatch: {m_cases} != {len(dataset.cases)}"
                 )
-        elif is_default and enforce_approval:
+        elif enforce_approval:
             raise DatasetContractError(f"Release manifest missing: {resolved_manifest}")
 
         # Approval resolution & validation
@@ -278,7 +277,7 @@ def load_release_dataset(
             except Exception as exc:
                 raise DatasetContractError(f"Invalid approval JSON: {exc}") from exc
             validate_approval(dataset, approval_data)
-        elif is_default and enforce_approval:
+        elif enforce_approval:
             raise DatasetContractError(f"Release approval missing: {resolved_approval}")
 
         return dataset
