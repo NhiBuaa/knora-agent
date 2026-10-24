@@ -235,19 +235,16 @@ pytest backend/test/evaluation evals/test/test_deepeval_capture.py evals/test/te
 
 ## Evaluation Tools Acceptance Live Dispatch & Final Verification Checkpoint — 24 October 2026
 
-- Branch:
-eat/evaluation-tools-acceptance
-- Plan: docs/plans/evaluation-tools-acceptance.md (approved at commit 51f11e721ba9fe95a155f40da010136b068a5cfd).
-- Concrete Live Approval Packet: docs/development/issue-158-concrete-live-approval-packet.md (commit 1bbb515a).
-- Runtime tested-code SHA:
-d197db6c9540562e848972b212f7188b8565a58
+- Branch: `feat/evaluation-tools-acceptance`
+- Plan: `docs/plans/evaluation-tools-acceptance.md` (approved at commit `51f11e721ba9fe95a155f40da010136b068a5cfd`).
+- Concrete Live Approval Packet: `docs/development/issue-158-concrete-live-approval-packet.md` (commit `1bbb515a`).
+- Runtime tested-code SHA: `8d197db6c9540562e848972b212f7188b8565a58`
 - CI Required Run: [Run 39969260108](https://github.com/NhiBuaa/knora-agent/actions/runs/39969260108) (100% SUCCESS, 6/6 jobs passed).
 
-### Live Execution Outcomes (Task 7)
+### Live Execution Outcomes (Task 7 — Diagnostic Pilot v2 Historical Record)
 
 1. **Live Admission Journal**:
-   -
-eports/issue-158-acceptance/package_1792764691.sqlite
+   - `reports/issue-158-acceptance/package_1792764691.sqlite`
    - Manifest V2, aggregate 139 cap, 2 startups, 8 windows x 60m, 7-day deadline.
    - Total attempts: **85 attempts** (well below approved 121 limit).
    - Total runtime stack startups: **0 startups** (0 local docker stack starts).
@@ -255,23 +252,39 @@ eports/issue-158-acceptance/package_1792764691.sqlite
    - Package status: stopped == false, window status COMPLETED.
 
 2. **Slot Execution Results**:
-   -
-agas_vi_draft: 1 attempt (SUCCESS, generated Vietnamese multi-hop draft question with 2 hops).
-   - judge_real: 51 attempts (6 real captures scored across correctness, answer_relevancy, faithfulness).
-   - judge_synthetic: 33 attempts (4 controls, 100% rejected < 0.5):
-     - pdf-v3-004-ctrl-wrong-fact: correctness = 0.00 (< 0.5) -> REJECTED.
-     - pdf-v3-005-ctrl-off-topic: nswer_relevancy = 0.00 (< 0.5) -> REJECTED.
-     - pdf-v3-014-ctrl-unsupported:
-aithfulness = 0.00 (< 0.5) -> REJECTED.
-     - pdf-v3-012-ctrl-missing-exception: correctness = 0.30 (< 0.5) -> REJECTED.
-   -
-efusal_deterministic: 0 attempts (deterministic checks on 2 refusal cases pdf-v3-053 and pdf-v3-002).
-   - corpus_prepare & qa_gold_v1_answer: 0 attempts (SKIPPED via saved branch).
+   - `ragas_vi_draft`: 1 attempt (SUCCESS, generated Vietnamese multi-hop draft question with 2 hops).
+   - `judge_real`: 51 attempts (6 real captures scored across correctness, answer_relevancy, faithfulness).
+   - `judge_synthetic`: 33 attempts (4 controls, 100% rejected < 0.5):
+     - `pdf-v3-004-ctrl-wrong-fact`: correctness = 0.00 (< 0.5) -> REJECTED.
+     - `pdf-v3-005-ctrl-off-topic`: answer_relevancy = 0.00 (< 0.5) -> REJECTED.
+     - `pdf-v3-014-ctrl-unsupported`: faithfulness = 0.00 (< 0.5) -> REJECTED.
+     - `pdf-v3-012-ctrl-missing-exception`: correctness = 0.30 (< 0.5) -> REJECTED.
+   - `refusal_deterministic`: 0 attempts (deterministic checks on 2 refusal cases `pdf-v3-053` and `pdf-v3-002`).
+   - `corpus_prepare` & `qa_gold_v1_answer`: 0 attempts (SKIPPED via saved branch).
    - **Langfuse Cloud Pilot**: **BLOCKED / OFF** (0 POSTs, 0 DELETEs, 0 GETs, 0 scores) due to missing credentials.
 
-### Quality Acceptance Dossier & Closeout (Task 8)
+### Quality Acceptance Dossier & Closeout (Task 8 — Historical Record)
 
-- **Comprehensive Acceptance Dossier**: docs/development/issue-158-evaluation-acceptance-dossier.md covering all 4 dimensions (§6).
-- **Human Review Packet with Live Comparison**: docs/development/issue-158-human-review-packet.md updated with 12 items comparison matrix.
+- **Comprehensive Acceptance Dossier**: `docs/development/issue-158-evaluation-acceptance-dossier.md` covering all 4 dimensions (§6).
+- **Human Review Packet with Live Comparison**: `docs/development/issue-158-human-review-packet.md` updated with 12 items comparison matrix.
 - **Pull Request**: [#231](https://github.com/NhiBuaa/knora-agent/pull/231) updated with full implementation and live verification report.
 - **Authority Constraints**: PR submitted for Owner quality acceptance review. Agent does not merge PR #231 or close Issue #158.
+
+---
+
+## Audit Đợt 2 & Đính Chính Kế Hoạch V2 (Task T0 Checkpoint — 24 October 2026)
+
+- **Authority**: §8 kế hoạch `docs/plans/evaluation-tools-acceptance.md` (commit `b659bf9b05aa7968a12e2df5c8088008e3ebca4a`).
+- **Phạm vi kiểm toán**: 5 bản SQLite journals V2 và các tập tin `.stops` liên quan tại `reports/issue-158-acceptance/`.
+- **Kết quả kiểm toán đối chiếu (Reconciliation)**:
+  - `package_1792762959.sqlite` (SHA256: `7c220bb8...`): 1 package attempt, 0 requests (`stopped=0`).
+  - `package_1792763126.sqlite` (SHA256: `f9fdd0f3...`): 52 requests đều có `body_digest = sha256({})` (`stopped=1`).
+  - `package_1792763574.sqlite` (SHA256: `11ddd88f...`): 87 requests (52 cached + 35 noncached `{}`) (`stopped=1`).
+  - `package_1792763879.sqlite` (SHA256: `430d91a9...`): 86 requests (52 cached + 34 noncached `{}`) (`stopped=1`).
+  - `package_1792764691.sqlite` (SHA256: `651fb8f9...`): 85 requests (52 cached + 33 noncached `{}`) (`stopped=0`).
+  - `acceptance-run-summary.json` (SHA256: `da31c7df...`): Lưu trữ kết quả của lần chạy cuối.
+- **Kết luận Audit (R1, R2)**:
+  - 154 reservations không cache không lưu trữ wire response bodies thực tế; `PackageSlotLedger` đã tự tăng counters và ghi `COMPLETED` trước khi gửi HTTP.
+  - Số lượng HTTP attempts thực tế và chi phí của đợt chạy V2 là **CHƯA ĐƯỢC CHỨNG MINH (UNKNOWN)**; con số 85 attempts và $0 chỉ có tính chẩn đoán lịch sử.
+  - Điểm số và lý do giám định cũ đã bộc lộ trong quá trình điều tra; đợt human review mới sẽ ghi nhận công khai điều này.
+  - Toàn bộ 5 bản journal được bảo toàn chỉ đọc làm bằng chứng lịch sử. Đợt nghiệm thu mới sẽ thực hiện theo Manifest V3 (T1–T9).

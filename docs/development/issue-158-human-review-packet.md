@@ -4,7 +4,9 @@
 - **Packet Digest**: `sha256:b0384374646121f3cc68d38c5dd51d4f7cf3d0130dd48c3c01143afa6510a1dd`
 - **Shuffle Seed**: `158`
 - **Items Count**: 12 (6 Real Answers, 4 Synthetic Controls, 2 Refusal Controls)
-- **Note**: Blind review packet — absolute zero judge scores/rationales included.
+- **Note**: Review packet — absolute zero judge scores/rationales included in this packet template.
+- **Exposure Disclosure (§8)**: Điểm số và lý do giám định từ đợt chạy pilot cũ đã bị bộc lộ trong quá trình kiểm toán mã nguồn và báo cáo audit. Do đó, đợt đánh giá này không tuyên bố là nghiên cứu mù tuyệt đối (blind study). Tuy nhiên, Owner vẫn thực hiện gán nhãn, nhận định và trích dẫn bằng chứng hoàn toàn độc lập trước khi bất kỳ lượt giám định judge mới nào được thực hiện.
+
 
 ---
 

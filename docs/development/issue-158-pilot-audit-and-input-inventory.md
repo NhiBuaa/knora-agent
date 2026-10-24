@@ -53,3 +53,32 @@ Kiểm kê độc lập 6 ca câu trả lời và 2 ca từ chối (controls) tr
    - Mối liên hệ ngữ cảnh hội thoại giữa `pdf-v3-004` và follow-up `pdf-v3-032` (cùng `conversation_id = fd1b6ef7-34e9-4087-8699-8e8d4999ecc1`) được bảo toàn trọn vẹn.
    - Do đó, hoàn toàn có thể triển khai adapter derive capture offline theo nhánh **Saved Branch**, tiết kiệm 100% chi phí Q&A live calls.
 2. **Fallback Live Branch**: Chỉ kích hoạt khi và chỉ khi Owner phê duyệt một gói phong bì live (exact-SHA/envelope) mới tại Task 6.
+
+---
+
+## 4. Audit Đợt 2 (V2 Acceptance Journals & Artifacts Audit)
+
+Thực hiện kiểm tra đối chiếu chỉ đọc (SQLite `mode=ro` và `PRAGMA query_only=ON`) toàn bộ 5 bản nhật ký và tập tin liên quan tại thư mục lưu trữ `reports/issue-158-acceptance/`.
+
+### 4.1. Bảng đối chiếu 5 bản SQLite Journal V2 và Artifacts
+
+| Tên tập tin | Kích thước (bytes) | SHA-256 Checksum | Ghi nhận Package | Ghi nhận Requests / Invariant | Ghi nhận `.stops` |
+|---|---|---|---|---|---|
+| `package_1792762959.sqlite` | 49,152 | `7c220bb8a484acc392bb22cb0a85941dec77847007888f741e9ca08e2b8a4dfe` | attempts: 1, startups: 0, stopped: 0 | 0 requests (`COUNT(requests) != package.attempts`) | `stop_requests: []` (`95827829...`) |
+| `package_1792763126.sqlite` | 94,208 | `f9fdd0f3ee1581dc355aada4519827a3f1e47dabd55bec1eb10265c24d23a655` | attempts: 52, startups: 0, stopped: 1 | 52 requests, 52 noncached (`body_digest = sha256({})`) | `stop_requests: ['issue-158-...']` (`ae2fbb25...`) |
+| `package_1792763574.sqlite` | 126,976 | `11ddd88f4e06a43f1347fa48a1b5983e4ffb81d21318536779666923af0b1bda` | attempts: 87, startups: 0, stopped: 1 | 87 requests (52 cached + 35 noncached `{}`) | `stop_requests: ['issue-158-...']` (`ae2fbb25...`) |
+| `package_1792763879.sqlite` | 126,976 | `430d91a93ab6282a3e639f86186de7b443c7b23c75eab3aa0a974a2cc5b006ab` | attempts: 86, startups: 0, stopped: 1 | 86 requests (52 cached + 34 noncached `{}`) | `stop_requests: ['issue-158-...']` (`ae2fbb25...`) |
+| `package_1792764691.sqlite` | 135,168 | `651fb8f923a5daf412a657dc4e412dfa06748abbf41cd445c38ae60efc2df278` | attempts: 85, startups: 0, stopped: 0 | 85 requests (52 cached + 33 noncached `{}`) | `stop_requests: []` (`95827829...`) |
+| `acceptance-run-summary.json` | 22,967 | `da31c7df4c525991740580dc734468498a229a92070c3b5fad63a875871ae114` | - | Chứa báo cáo tổng hợp của đợt chạy V2 cũ | - |
+
+### 4.2. Phát hiện Kiểm toán và Đính chính Sự thật (Audit Findings & Reality Correction)
+
+1. **Phân tích 154 Noncached Reservations**:
+   - Tổng cộng qua 4 journal có request (`...3126`, `...3574`, `...3879`, `...4691`) ghi nhận 154 lượt reservation không phải cache (52 + 35 + 34 + 33 = 154).
+   - **Tất cả 154 bản ghi** này đều chèn `body_digest = 44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a` (SHA-256 của chuỗi rỗng `{}`), và không có dữ liệu wire response bodies thực tế được lưu lại trong bảng requests.
+   - Nguyên nhân: `PackageSlotLedger.reserve()` trong `scripts/run_acceptance_live.py` đã tự ý cập nhật các bộ đếm trong SQLite và ghi nhận trạng thái `COMPLETED` trước khi gửi HTTP mà không truyền payload thực qua `LiveAdmission.sync_client`.
+2. **Số lượng HTTP Attempts thực tế và Chi phí**:
+   - Do thiếu bằng chứng wire response xác thực và các lần chạy trước bị timeout/dừng (stopped=1) dẫn đến khởi tạo journal mới rồi sao chép kết quả cũ dưới dạng `{"cached": true}`, số lượng HTTP attempts thực tế gửi ra ngoài và chi phí thực tế là **CHƯA ĐƯỢC CHỨNG MINH (UNKNOWN)**.
+   - Các tuyên bố trước đây về "85 attempts", "USD 0", và "100% PASS" chỉ là kết quả thử nghiệm chưa hoàn thiện của V2, không được dùng làm bằng chứng tuân thủ hay cơ sở nghiệm thu cho #158.
+3. **Lộ điểm Giám khảo & Tính chất Đợt Review mới**:
+   - Điểm số và lý do giám khảo cũ đã bị bộc lộ trong quá trình điều tra mã nguồn và kiểm toán nhật ký. Do đó, đợt human review sắp tới sẽ ghi nhận rõ ràng điều này; Owner sẽ đánh giá và gán nhãn độc lập trước khi kích hoạt bất kỳ lượt judge mới nào, không coi đây là một nghiên cứu mù tuyệt đối (blind study).

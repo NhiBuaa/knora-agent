@@ -18,6 +18,18 @@ Hồ sơ này ghi nhận toàn bộ kết quả triển khai, kiểm chứng ngo
 
 ---
 
+## 1.1. Đính Chính Kiểm Toán & Giới Hạn Lịch Sử (Audit Correction Addendum — §8)
+
+> [!WARNING]
+> **ĐÍNH CHÍNH QUAN TRỌNG VỀ DỮ LIỆU ĐỢT CHẠY V2 CŨ**:
+> 1. **Số liệu 85 attempts / USD 0 / 100% PASS**: Các số liệu này từ đợt chạy V2 cũ chỉ mang tính chất thử nghiệm chẩn đoán (diagnostic-only). Quá trình kiểm toán chỉ đọc đối chiếu 5 bản journal V2 (`reports/issue-158-acceptance/`) cho thấy `PackageSlotLedger` đã tự cập nhật bộ đếm SQLite và ghi nhận trạng thái `COMPLETED` trước khi gửi HTTP với `body_digest = sha256({})`, đồng thời sao chép các request cũ dưới dạng `{"cached": true}` sau khi bị dừng (stopped=1). Tổng cộng 154 reservations không cache không có wire response bodies được lưu lại. Số lượng HTTP attempts và chi phí thực tế là **CHƯA ĐƯỢC CHỨNG MINH (UNKNOWN)**.
+> 2. **Trạng thái Giám định N/A (REV-02 và REV-07)**: Hai ca `pdf-v3-032.correctness` và `pdf-v3-045.faithfulness` bị chuyển sang `not_applicable` trong đợt chạy cũ xuất phát từ việc `CloudflareJudge` bị cắt ngắn phản hồi (`JUDGE_RESPONSE_TRUNCATED`, trần token 1024 quá hẹp) và thiếu trích xuất generation evidence chuẩn. Theo §8, toàn bộ 10 ca judged bắt buộc phải có đầy đủ 3 metrics scored hữu hạn; lỗi hoặc thiếu hụt không được coi là PASS.
+> 3. **Lộ Điểm Giám Khảo & Quy Trình Review Mới**: Do điểm và lý do giám định cũ đã bị bộc lộ trong báo cáo audit, đợt human review mới không thể tuyên bố là nghiên cứu mù tuyệt đối (blind study). Owner sẽ đánh giá và gán nhãn độc lập 12 mục trước khi bất kỳ lượt judge mới nào được thực thi.
+> 4. **Giữ Nguyên Dữ Liệu Lịch Sử**: Toàn bộ 5 bản journal và tệp `.stops` V2 cũ được lưu trữ nguyên vẹn để phục vụ điều tra, không chỉnh sửa hồi tố. Đợt nghiệm thu chính thức cho #158 sẽ thực hiện theo Manifest V3 độc lập sau khi khắc phục triệt để các phát hiện kiểm toán R1–R11.
+
+
+---
+
 ## 2. Bảng Nghiệm Thu Theo 4 Khía Cạnh Bắt Buộc (§6)
 
 | Khía cạnh | Điều kiện / Bằng chứng bắt buộc | Kết quả | Ghi chú & Bằng chứng kỹ thuật |
