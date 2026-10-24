@@ -5109,13 +5109,8 @@ test.describe("source fixtures", () => {
   test("independent controls meet minimum 44px touch targets at 320, 390, 768px and coarse pointer without overlapping", async ({
     page,
     browser,
-  }) => {
+  }, testInfo) => {
     test.slow();
-    const evidenceDir = path.resolve(
-      __dirname,
-      "../../../.verification/figma/q1/evidence/touch-targets-2026-10-24",
-    );
-    fs.mkdirSync(evidenceDir, { recursive: true });
 
     const viewports = [
       { width: 320, height: 568 },
@@ -5143,7 +5138,7 @@ test.describe("source fixtures", () => {
         const btn = panelBtns.nth(i);
         await expect(btn).toBeVisible();
         const box = await btn.boundingBox();
-        expectTouchHeight(box, `Panel tool ${i} height at ${vp.width}px`);
+        expectTouchTarget(box, `Panel tool ${i} at ${vp.width}px`);
         boxes.push(box!);
       }
       for (let i = 0; i < boxes.length; i++) {
@@ -5173,12 +5168,12 @@ test.describe("source fixtures", () => {
       await expect(themeItem).toBeVisible();
       await waitForAnimationsSettled(page);
       const themeBox = await themeItem.boundingBox();
-      expectTouchHeight(themeBox, `Theme menuitem height at ${vp.width}px`);
+      expectTouchTarget(themeBox, `Theme menuitem at ${vp.width}px`);
 
       const logoutItem = page.getByRole("menuitem", { name: "Log out" });
       await expect(logoutItem).toBeVisible();
       const logoutBox = await logoutItem.boundingBox();
-      expectTouchHeight(logoutBox, `Logout menuitem height at ${vp.width}px`);
+      expectTouchTarget(logoutBox, `Logout menuitem at ${vp.width}px`);
 
       await themeItem.click();
       const appearanceDialog = page.getByRole("dialog", {
@@ -5200,7 +5195,7 @@ test.describe("source fixtures", () => {
       });
       await expect(reviewLink).toBeVisible();
       const linkBox = await reviewLink.boundingBox();
-      expectTouchHeight(linkBox, `Review link height at ${vp.width}px`);
+      expectTouchTarget(linkBox, `Review link at ${vp.width}px`);
 
       // 4. Upload document dialog controls: Choose file, Cancel, Upload
       await page.unrouteAll();
@@ -5219,7 +5214,7 @@ test.describe("source fixtures", () => {
       });
       await expect(chooseBtn).toBeVisible();
       const chooseBox = await chooseBtn.boundingBox();
-      expectTouchHeight(chooseBox, `Choose file height at ${vp.width}px`);
+      expectTouchTarget(chooseBox, `Choose file at ${vp.width}px`);
 
       const cancelBtn = dialog.getByRole("button", {
         name: "Cancel",
@@ -5227,17 +5222,14 @@ test.describe("source fixtures", () => {
       });
       await expect(cancelBtn).toBeVisible();
       const cancelBox = await cancelBtn.boundingBox();
-      expectTouchHeight(cancelBox, `Cancel button height at ${vp.width}px`);
+      expectTouchTarget(cancelBox, `Cancel button at ${vp.width}px`);
 
       const submitUploadBtn = dialog.getByRole("button", {
         name: /upload document/i,
       });
       await expect(submitUploadBtn).toBeVisible();
       const submitBox = await submitUploadBtn.boundingBox();
-      expectTouchHeight(
-        submitBox,
-        `Upload document button height at ${vp.width}px`,
-      );
+      expectTouchTarget(submitBox, `Upload document button at ${vp.width}px`);
 
       const actionsOverlap =
         cancelBox!.x < submitBox!.x + submitBox!.width &&
@@ -5346,6 +5338,13 @@ test.describe("source fixtures", () => {
           pageOverflows,
           "Page should not horizontally overflow with long dialog title",
         ).toBe(false);
+        await page.screenshot({
+          path: testInfo.outputPath(
+            "verification-touch-target-close-long-title-320.png",
+          ),
+          animations: "disabled",
+          mask: [page.getByRole("textbox")],
+        });
       }
 
       await archiveCloseBtn.click();
@@ -5371,9 +5370,8 @@ test.describe("source fixtures", () => {
       expectTouchTarget(closeEvBox, `Close evidence in sheet at ${vp.width}px`);
 
       await page.screenshot({
-        path: path.join(
-          evidenceDir,
-          `touch-targets-${vp.width}x${vp.height}.png`,
+        path: testInfo.outputPath(
+          `verification-touch-target-${vp.width}x${vp.height}.png`,
         ),
         animations: "disabled",
         mask: [
@@ -5425,10 +5423,7 @@ test.describe("source fixtures", () => {
       });
       await expect(collapseTouch).toBeVisible();
       const collapseBox = await collapseTouch.boundingBox();
-      expectTouchHeight(
-        collapseBox,
-        "Collapse rail height on coarse pointer device",
-      );
+      expectTouchTarget(collapseBox, "Collapse rail on coarse pointer device");
 
       const wsActionsTouch = touchPage.getByRole("button", {
         name: "Workspace actions",
@@ -5442,7 +5437,9 @@ test.describe("source fixtures", () => {
       );
 
       await touchPage.screenshot({
-        path: path.join(evidenceDir, "coarse-pointer-user-1024x768.png"),
+        path: testInfo.outputPath(
+          "verification-touch-target-coarse-pointer-user-1024x768.png",
+        ),
         animations: "disabled",
         mask: [touchPage.getByRole("textbox")],
       });
@@ -5480,7 +5477,9 @@ test.describe("source fixtures", () => {
       ).toBe(26);
 
       await touchPage.screenshot({
-        path: path.join(evidenceDir, "coarse-pointer-operator-1024x768.png"),
+        path: testInfo.outputPath(
+          "verification-touch-target-coarse-pointer-operator-1024x768.png",
+        ),
         animations: "disabled",
         mask: [touchPage.getByRole("textbox")],
       });
