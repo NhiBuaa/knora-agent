@@ -424,3 +424,86 @@ def test_reader_fails_closed_when_profiles_mismatched() -> None:
     with pytest.raises(KnoraError) as exc:
         store.read_active_generations("workspace-1", profile_a.id)
     assert exc.value.code == "LEXICAL_RETRIEVAL_UNAVAILABLE"
+
+
+class CorpusTransitionHarness:
+    def __init__(self, store, session, ctx):
+        self.store = store
+        self.session = session
+        self.ctx = ctx
+        self.base_snapshot = ctx["profile_a"].digest()
+
+    def prepare_two_document_transition(self):
+        snapshot_b = CorpusStatisticsSnapshot.build(
+            population_id="corpus-dynamic-v1",
+            documents=[
+                (DOC_1, [(CHUNK_1_HASH, 4)]),
+                (DOC_2, [(CHUNK_2_HASH, 6)]),
+            ],
+        )
+        self.profile_b = snapshot_b.profile
+        self.snapshot_id = self.profile_b.digest()
+        self.all_member_ids = ("doc-1", "doc-2")
+
+        self.gen1_b = LexicalGeneration(
+            generation_id="gen-1-b",
+            workspace_id="workspace-1",
+            document_id="doc-1",
+            document_version_id="ver-1",
+            chunk_set_id="cs-1",
+            lexical_profile=self.profile_b,
+            revision=2,
+            chunks=(LexicalChunk("c-1", 0, CHUNK_1_HASH),),
+        )
+        self.gen2_b = LexicalGeneration(
+            generation_id="gen-2-b",
+            workspace_id="workspace-1",
+            document_id="doc-2",
+            document_version_id="ver-2",
+            chunk_set_id="cs-2",
+            lexical_profile=self.profile_b,
+            revision=2,
+            chunks=(LexicalChunk("c-2", 0, CHUNK_2_HASH),),
+        )
+        self.receipt1 = StageReceipt("gen-1-b", 1, self.gen1_b.content_digest())
+        self.receipt2 = StageReceipt("gen-2-b", 1, self.gen2_b.content_digest())
+
+        self.store.stage_corpus_transition([self.gen1_b, self.gen2_b])
+        return self
+
+    def finish_first_child(self, prepared) -> None:
+        pass
+
+    def active_snapshot(self) -> str:
+        try:
+            active_b = self.store.read_active_generations("workspace-1", self.profile_b.id)
+            if {g.lexical_profile.digest() for g in active_b} == {self.snapshot_id}:
+                return self.snapshot_id
+        except Exception:
+            pass
+        active_a = self.store.read_active_generations("workspace-1", self.ctx["profile_a"].id)
+        return active_a[0].lexical_profile.digest()
+
+    def finish_last_child(self, prepared) -> None:
+        self.store.commit_corpus_transition(
+            [(self.gen1_b, self.receipt1), (self.gen2_b, self.receipt2)]
+        )
+
+    def active_member_ids(self) -> tuple[str, ...]:
+        active = self.store.read_active_generations("workspace-1", self.profile_b.id)
+        return tuple(sorted(g.document_id for g in active))
+
+
+@pytest.fixture
+def corpus_case():
+    store, session, ctx = build_harness()
+    return CorpusTransitionHarness(store, session, ctx)
+
+
+def test_corpus_switch_requires_every_member_receipt(corpus_case: CorpusTransitionHarness) -> None:
+    prepared = corpus_case.prepare_two_document_transition()
+    corpus_case.finish_first_child(prepared)
+    assert corpus_case.active_snapshot() == prepared.base_snapshot
+    corpus_case.finish_last_child(prepared)
+    assert corpus_case.active_snapshot() == prepared.snapshot_id
+    assert corpus_case.active_member_ids() == prepared.all_member_ids
