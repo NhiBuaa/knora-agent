@@ -131,3 +131,55 @@ def test_preparation_denies_handler_using_a_different_provider_client(tmp_path):
             provider_client=client,
             runtime=None,
         )
+
+
+def test_plan_v2_supports_one_to_six_sources_and_caps_provider_calls():
+    from knora.evaluation.corpus_preparation import CorpusSourcePin
+
+    plan = plan_fixture()
+    extra_pins = tuple(
+        CorpusSourcePin(
+            source_id=f"source-{n}",
+            job_id=f"job-{n}",
+            document_id=f"document-{n}",
+            document_version_id=f"version-{n}",
+            source_key=f"evaluation/pdf-set/source-{n}",
+            raw_sha256="c" * 64 if n == 3 else "b" * 64,
+            byte_size=100,
+            object_key=f"object-{n}",
+            original_source_object_id=f"original-{n}",
+            snapshot_id=f"snapshot-{n}",
+            snapshot_sha256="d" * 64,
+            snapshot_configuration_sha256="c" * 64,
+            expected_revision=0,
+            expected_current_version_id=None,
+            expected_active_set_id=None,
+        )
+        for n in (3, 4, 5, 6)
+    )
+
+    # V2 accepts 1 to 6 sources
+    v2_single = replace(plan, plan_version=2, sources=plan.sources[:1], max_provider_calls=1)
+    assert v2_single.plan_version == 2
+    assert v2_single.payload()["plan_version"] == 2
+    assert len(v2_single.sources) == 1
+
+    v2_three = replace(
+        plan, plan_version=2, sources=(*plan.sources, extra_pins[0]), max_provider_calls=3
+    )
+    assert len(v2_three.sources) == 3
+
+    # V2 rejects 0 sources or > 6 sources or max_provider_calls > 6
+    with pytest.raises(ValueError, match="CORPUS_PLAN_INVALID"):
+        replace(plan, plan_version=2, sources=(), max_provider_calls=1)
+
+    with pytest.raises(ValueError, match="CORPUS_PLAN_INVALID"):
+        replace(plan, plan_version=2, sources=plan.sources, max_provider_calls=7)
+
+    # V1 rejects 1 or 3 sources
+    with pytest.raises(ValueError, match="CORPUS_PLAN_INVALID"):
+        replace(plan, plan_version=1, sources=plan.sources[:1])
+
+    # Unsupported plan_version
+    with pytest.raises(ValueError, match="CORPUS_PLAN_INVALID"):
+        replace(plan, plan_version=3)

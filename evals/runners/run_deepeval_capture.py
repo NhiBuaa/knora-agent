@@ -34,10 +34,11 @@ def run_capture(
     preflight: dict | None = None,
     token: str | None = None,
     ledger_path: Path | None = None,
+    capture_format: str = "m3-native-v1",
 ) -> dict:
     if output.exists():
         raise FileExistsError(output)
-    captures = derive_captures(source, cases, run_id=run_id)
+    captures = derive_captures(source, cases, run_id=run_id, capture_format=capture_format)
     if case_ids:
         if len(case_ids) != len(set(case_ids)) or set(case_ids) - {
             item["case_id"] for item in captures
@@ -96,21 +97,31 @@ def main() -> int:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--case-id", action="append", default=[])
     parser.add_argument("--preflight", type=Path)
+    parser.add_argument(
+        "--capture-format", choices=["m3-native-v1", "pdf-gold-v1"], default="m3-native-v1"
+    )
     args = parser.parse_args()
     try:
         raw_report = args.report.read_bytes()
         source = json.loads(raw_report)
-        run_id = "sha256:" + hashlib.sha256(raw_report).hexdigest()
-        identity = load_milestone_3_dataset_manifest(args.dataset_manifest, args.dataset)
-        if source.get("provenance", {}).get("dataset_digest") != identity.checksum:
-            raise JudgeError("DATASET_PROVENANCE_MISMATCH")
-        dataset = load_milestone_3_dataset(args.dataset)
+        run_id = source.get("run_id") or ("sha256:" + hashlib.sha256(raw_report).hexdigest())
+        if args.capture_format == "pdf-gold-v1":
+            from evals.datasets.pdf_retrieval_v3_v1 import load_dataset as load_pdf_dataset
+
+            pdf_dataset = load_pdf_dataset(args.dataset_manifest, args.dataset)
+            cases = pdf_dataset.cases
+        else:
+            identity = load_milestone_3_dataset_manifest(args.dataset_manifest, args.dataset)
+            if source.get("provenance", {}).get("dataset_digest") != identity.checksum:
+                raise JudgeError("DATASET_PROVENANCE_MISMATCH")
+            dataset = load_milestone_3_dataset(args.dataset)
+            cases = dataset.cases
         preflight = (
             json.loads(args.preflight.read_text(encoding="utf-8")) if args.preflight else None
         )
         run_capture(
             source,
-            dataset.cases,
+            cases,
             run_id=run_id,
             output=args.output,
             case_ids=tuple(args.case_id),
@@ -120,6 +131,7 @@ def main() -> int:
             / "reports"
             / ".deepeval-ledgers"
             / f"{run_id.removeprefix('sha256:')}.sqlite3",
+            capture_format=args.capture_format,
         )
     except (JudgeError, FileExistsError, OSError, ValueError, TypeError, KeyError) as error:
         print(type(error).__name__ if not isinstance(error, JudgeError) else str(error))

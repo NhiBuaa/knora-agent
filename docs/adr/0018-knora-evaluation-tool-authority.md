@@ -108,3 +108,28 @@ judge scoring, the owner records independent correctness/relevancy/faithfulness 
 the saved captures. The later comparison retains disagreements and missing evidence. Agreement on
 two pilot answers is neither judge calibration nor benchmark-wide quality acceptance. Implementation,
 offline tests, exact-SHA CI, actual PostgreSQL/provider execution and owner acceptance remain distinct.
+
+
+## Addendum: Evaluation Tools Acceptance Envelope (Issue #158)
+
+The owner approved the evaluation tools acceptance plan (`docs/plans/evaluation-tools-acceptance.md`)
+for Issue #158. This acceptance round establishes a versioned execution package (`manifest_version: 2`)
+with a finite, immutable envelope distinct from the legacy Issue #192 pilot:
+
+1. **Scope and Data Authority**: Restricted to public/synthetic Gold sources under #153 (at most 6 PDF sources),
+   6 selected baseline B continuation clean captures (ANSWER) and 2 saved REFUSAL controls, along with 4
+   deterministic synthetic controls (wrong-fact, off-topic, unsupported, missing-exception) having fixed
+   `validation_origin` descriptors. Legacy pilot journals remain read-only historical diagnostic records;
+   they do not grant retroactive inference authority.
+2. **Finite Inference Envelope**:
+   - Total upper bound of **139 HTTP inference attempts** under Cloudflare Workers Free (paid budget USD 0).
+   - Fixed slots: `corpus_prepare` (6), `qa_gold_v1_answer` (12), `ragas_vi_draft` (1), `judge_real` (72),
+     `judge_synthetic` (48), and `refusal_deterministic` (0).
+   - Saved branch: clean saved captures allow skipping fallback corpus and Q&A slots (`skipped_slots`) without
+     transferring spared quota to other operations.
+3. **Execution Windows and Clocks**:
+   - At most **2 local runtime stack startups** and at most **8 execution windows** (up to 60 minutes each).
+   - Hard package deadline of **7 days** from the atomically anchored first dispatch.
+4. **Langfuse Pilot Authority**: A dedicated export seam allowing at most 3 traces and 3 observations
+   (1 canary + 2 selected captures, 0 scores) with strict metadata allowlisting, opaque project-scoped IDs,
+   immediate readback verification, and bounded batch deletion.

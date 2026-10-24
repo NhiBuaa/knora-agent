@@ -90,31 +90,53 @@ def capture_saved_cases(runs, run, principal, case_ids: tuple[str, ...]) -> list
         ):
             reason = "CAPTURE_ANSWER_UNAVAILABLE"
         else:
-            evidence = observation.get("generation_evidence", [])
-            if (
-                not isinstance(evidence, (list, tuple))
-                or any(
-                    not isinstance(item, (list, tuple))
-                    or len(item) != 2
-                    or any(not isinstance(value, str) or not value for value in item)
-                    for item in evidence
-                )
-                or len({item[0] for item in evidence}) != len(evidence)
-            ):
+            raw_evidence = observation.get("generation_evidence", [])
+            if not isinstance(raw_evidence, (list, tuple)):
                 reason = "CAPTURE_EVIDENCE_INVALID"
             else:
-                status = "READY"
-                capture = {
-                    "run_id": run["run_id"],
-                    "case_id": case_id,
-                    "attempt": 1,
-                    "trace_id": observation["trace_id"],
-                    "question": case["question"],
-                    "answer": observation["public_answer"],
-                    "reference_answer": case["reference_answer"],
-                    "generation_evidence": [{"alias": a, "content": c} for a, c in evidence],
-                    "evidence_status": "exact" if evidence else "unavailable",
-                }
+                evidence_pairs = []
+                invalid = False
+                for item in raw_evidence:
+                    if isinstance(item, dict):
+                        alias, item_content = item.get("alias"), item.get("content")
+                    elif isinstance(item, (list, tuple)) and len(item) == 2:
+                        alias, item_content = item[0], item[1]
+                    else:
+                        invalid = True
+                        break
+                    if (
+                        not isinstance(alias, str)
+                        or not alias
+                        or not isinstance(item_content, str)
+                        or not item_content
+                    ):
+                        invalid = True
+                        break
+                    evidence_pairs.append((alias, item_content))
+                if invalid or len({p[0] for p in evidence_pairs}) != len(evidence_pairs):
+                    reason = "CAPTURE_EVIDENCE_INVALID"
+                else:
+                    status = "READY"
+                    attempt = observation.get("attempt", 1)
+                    capture = {
+                        "run_id": run["run_id"],
+                        "case_id": case_id,
+                        "attempt": attempt,
+                        "trace_id": observation["trace_id"],
+                        "question": case["question"],
+                        "answer": observation["public_answer"],
+                        "reference_answer": case["reference_answer"],
+                        "generation_evidence": [
+                            {"alias": a, "content": c} for a, c in evidence_pairs
+                        ],
+                        "evidence_status": "exact" if evidence_pairs else "unavailable",
+                    }
+                    if "attempt_id" in observation:
+                        capture["attempt_id"] = observation["attempt_id"]
+                    elif "attempt" in observation:
+                        capture["attempt_id"] = f"{run['run_id']}:{case_id}:{attempt}"
+                    if "validation_origin" in observation:
+                        capture["validation_origin"] = observation["validation_origin"]
         result.append({"case_id": case_id, "status": status, "reason": reason, "capture": capture})
     return result
 
@@ -339,6 +361,11 @@ class EvaluationScoringService:
             any(
                 result.get(key) != capture[key]
                 for key in ("run_id", "case_id", "trace_id", "attempt")
+            )
+            or (
+                "attempt_id" in capture
+                and result.get("attempt_id") is not None
+                and result.get("attempt_id") != capture["attempt_id"]
             )
             or result.get("model") != profile.model
             or result.get("tool") != "deepeval-4.2.8"

@@ -204,3 +204,376 @@ def test_preview_cli_publishes_immutable_local_report(tmp_path, monkeypatch) -> 
     )
     assert main() == 2
     assert output.read_bytes() == first
+
+
+def test_preview_preserves_native_attempt_and_attempt_id() -> None:
+    report = _report()
+    report["observations"][0]["attempt"] = 2
+    report["observations"][0]["attempt_id"] = "saved-run:case-1:2"
+    preview = preview_report(json.dumps(report).encode(), project_key=b"project-secret-1234567890")
+    span = preview["resourceSpans"][0]["scopeSpans"][0]["spans"][0]
+    attrs = {item["key"]: item["value"] for item in span["attributes"]}
+    assert attrs["langfuse.trace.metadata.attempt_number"] == {"doubleValue": 2.0}
+    assert "trace_ids" in preview
+    assert len(preview["trace_ids"]) == 1
+
+
+def test_receipt_manager_enforces_exclusive_creation_and_no_clobber(tmp_path) -> None:
+    from evals.runners.langfuse_bridge import ReceiptManager
+
+    receipt_file = tmp_path / "test_receipt.json"
+    data = ReceiptManager.reserve(
+        receipt_file,
+        approval_id="app-1",
+        project_key_fingerprint="fp12345",
+        payload_sha256="a" * 64,
+        trace_ids=["t1"],
+        observation_ids=["o1"],
+        imported_at="2026-10-23T00:00:00Z",
+    )
+    assert data["status"] == "RESERVED"
+
+    # Exclusive creation prevents second reservation
+    with pytest.raises(BridgeError, match="RECEIPT_ALREADY_EXISTS"):
+        ReceiptManager.reserve(
+            receipt_file,
+            approval_id="app-2",
+            project_key_fingerprint="fp12345",
+            payload_sha256="b" * 64,
+            trace_ids=["t2"],
+            observation_ids=["o2"],
+            imported_at="2026-10-23T00:00:00Z",
+        )
+
+    # Update succeeds atomically
+    updated = ReceiptManager.update(receipt_file, status="POSTED", http_status=200)
+    assert updated["status"] == "POSTED"
+    assert updated["http_status"] == 200
+    assert ReceiptManager.read(receipt_file)["status"] == "POSTED"
+
+
+def test_delete_traces_exact_ids_and_bounded_cap() -> None:
+    from evals.runners.langfuse_bridge import delete_traces
+
+    # Over cap (>3) rejected before network
+    with pytest.raises(BridgeError, match="DELETE_CAP_EXCEEDED"):
+        delete_traces(None, ["t1", "t2", "t3", "t4"])
+
+    # Invalid IDs rejected
+    with pytest.raises(BridgeError, match="DELETE_IDS_INVALID"):
+        delete_traces(None, [])
+
+    # Successful delete call
+    requests = []
+
+    def endpoint(request):
+        requests.append(request)
+        return httpx.Response(200, json={"status": "ok"})
+
+    with httpx.Client(
+        base_url="https://jp.cloud.langfuse.com", transport=httpx.MockTransport(endpoint)
+    ) as client:
+        res = delete_traces(client, ["trace-1", "trace-2"])
+        assert res["status"] == "delete_accepted"
+        assert len(requests) == 1
+        assert requests[0].method == "DELETE"
+        assert requests[0].url == "https://jp.cloud.langfuse.com/api/public/traces"
+        sent_body = json.loads(requests[0].content)
+        assert sent_body == {"traceIds": ["trace-1", "trace-2"]}
+
+
+def test_verify_deleted_polls_until_gone_or_fails() -> None:
+    from evals.runners.langfuse_bridge import verify_deleted
+
+    # Case 1: Trace disappears on second poll
+    call_count = {"trace": 0}
+
+    def mock_server(request):
+        if request.url.path == "/api/public/traces/t1":
+            call_count["trace"] += 1
+            if call_count["trace"] == 1:
+                return httpx.Response(200, json={"id": "t1"})
+            return httpx.Response(404, json={"message": "not found"})
+        if request.url.path == "/api/public/observations":
+            return httpx.Response(200, json=[])
+        return httpx.Response(404)
+
+    with httpx.Client(
+        base_url="https://jp.cloud.langfuse.com", transport=httpx.MockTransport(mock_server)
+    ) as client:
+        assert verify_deleted(client, ["t1"], max_polls=3) is True
+
+    # Case 2: Trace persists past max_polls -> raises
+    with (
+        httpx.Client(
+            base_url="https://jp.cloud.langfuse.com",
+            transport=httpx.MockTransport(
+                lambda r: httpx.Response(
+                    200, json={"id": "persist"} if "/traces/" in str(r.url) else []
+                )
+            ),
+        ) as client,
+        pytest.raises(BridgeError, match="DELETION_NOT_VERIFIED_persist"),
+    ):
+        verify_deleted(client, ["persist"], max_polls=2)
+
+
+def test_pilot_cycle_enforces_canary_then_real_and_full_lifecycle(tmp_path) -> None:
+    from evals.runners.langfuse_bridge import run_langfuse_pilot
+
+    canary_report = _report()
+    real_report = {
+        "observations": [
+            {**_report()["observations"][0], "case_id": "real-1", "trace_id": "r-trace-1"},
+            {**_report()["observations"][0], "case_id": "real-2", "trace_id": "r-trace-2"},
+        ]
+    }
+    raw_canary = json.dumps(canary_report).encode()
+    raw_real = json.dumps(real_report).encode()
+
+    deleted_traces = set()
+    requests_log = []
+
+    def mock_langfuse_api(request):
+        requests_log.append((request.method, str(request.url)))
+        path = request.url.path
+        if request.method == "POST" and "otel/v1/traces" in path:
+            return httpx.Response(200, json={})
+        if request.method == "DELETE" and path == "/api/public/traces":
+            body = json.loads(request.content)
+            for tid in body.get("traceIds", []):
+                deleted_traces.add(tid)
+            return httpx.Response(200, json={"status": "ok"})
+        if request.method == "GET" and path.startswith("/api/public/traces/"):
+            tid = path.split("/")[-1]
+            if tid in deleted_traces:
+                return httpx.Response(404, json={"message": "deleted"})
+            return httpx.Response(200, json={"id": tid})
+        if request.method == "GET" and path == "/api/public/observations":
+            tid = request.url.params.get("traceId")
+            if tid in deleted_traces:
+                return httpx.Response(200, json=[])
+            return httpx.Response(200, json=[{"id": f"obs-{tid}"}])
+        if request.method == "GET" and path == "/api/public/scores":
+            return httpx.Response(200, json=[])
+        return httpx.Response(404)
+
+    moment = datetime(2026, 10, 24, tzinfo=UTC)
+    with httpx.Client(
+        base_url="https://jp.cloud.langfuse.com",
+        transport=httpx.MockTransport(mock_langfuse_api),
+    ) as client:
+        canary_sha = preview_report(
+            raw_canary, project_key=b"project-secret-1234567890", imported_at=moment
+        )["payload_sha256"]
+        real_sha = preview_report(
+            raw_real, project_key=b"project-secret-1234567890", imported_at=moment
+        )["payload_sha256"]
+        result = run_langfuse_pilot(
+            raw_canary,
+            raw_real,
+            project_key=b"project-secret-1234567890",
+            public_key="pk-test",
+            secret_key="sk-test",
+            httpx_client=client,
+            receipt_dir=tmp_path / "receipts",
+            approval_id="pilot-test-app",
+            imported_at=moment,
+            canary_payload_sha256=canary_sha,
+            real_payload_sha256=real_sha,
+        )
+        assert result["status"] == "COMPLETED"
+        assert len(result["real_trace_ids"]) == 2
+
+    # Verify requests count
+    posts = [r for r in requests_log if r[0] == "POST"]
+    deletes = [r for r in requests_log if r[0] == "DELETE"]
+    assert len(posts) == 2  # exactly 2 POSTs
+    assert len(deletes) == 2  # exactly 2 DELETEs
+
+
+def test_pilot_requires_both_digests_before_first_post(tmp_path) -> None:
+    from evals.runners.langfuse_bridge import run_langfuse_pilot
+
+    moment = datetime(2026, 10, 24, tzinfo=UTC)
+    canary_report = _report()
+    real_report = {
+        "observations": [
+            {**_report()["observations"][0], "case_id": "real-1", "trace_id": "r-trace-1"},
+        ]
+    }
+    raw_canary = json.dumps(canary_report).encode()
+    raw_real = json.dumps(real_report).encode()
+    canary_sha = preview_report(
+        raw_canary, project_key=b"project-secret-1234567890", imported_at=moment
+    )["payload_sha256"]
+
+    requests_made = []
+
+    def mock_api(req):
+        requests_made.append(req)
+        return httpx.Response(200, json={})
+
+    with httpx.Client(transport=httpx.MockTransport(mock_api)) as client:
+        # 1. Missing real digest -> rejected before ANY network call
+        with pytest.raises(BridgeError, match="PAYLOAD_DIGESTS_REQUIRED"):
+            run_langfuse_pilot(
+                raw_canary,
+                raw_real,
+                project_key=b"project-secret-1234567890",
+                public_key="pk",
+                secret_key="sk",
+                httpx_client=client,
+                receipt_dir=tmp_path / "r1",
+                approval_id="a1",
+                imported_at=moment,
+                canary_payload_sha256=canary_sha,
+                real_payload_sha256=None,
+            )
+        assert len(requests_made) == 0
+
+        # 2. Mismatched real digest -> rejected before ANY network call
+        with pytest.raises(BridgeError, match="REAL_SHA_MISMATCH"):
+            run_langfuse_pilot(
+                raw_canary,
+                raw_real,
+                project_key=b"project-secret-1234567890",
+                public_key="pk",
+                secret_key="sk",
+                httpx_client=client,
+                receipt_dir=tmp_path / "r2",
+                approval_id="a2",
+                imported_at=moment,
+                canary_payload_sha256=canary_sha,
+                real_payload_sha256="wrong-real-sha",
+            )
+        assert len(requests_made) == 0
+
+
+def test_pilot_cleans_up_on_error_after_post(tmp_path) -> None:
+    from evals.runners.langfuse_bridge import run_langfuse_pilot
+
+    moment = datetime(2026, 10, 24, tzinfo=UTC)
+    raw_canary = _raw_report()
+    raw_real = _raw_report()
+    canary_sha = preview_report(
+        raw_canary, project_key=b"project-secret-1234567890", imported_at=moment
+    )["payload_sha256"]
+    real_sha = preview_report(
+        raw_real, project_key=b"project-secret-1234567890", imported_at=moment
+    )["payload_sha256"]
+
+    deleted_called = []
+
+    def failing_readback_api(request):
+        if request.method == "POST" and "otel/v1/traces" in request.url.path:
+            return httpx.Response(200, json={})
+        if request.method == "GET" and request.url.path.startswith("/api/public/traces/"):
+            # Trigger readback failure (empty trace)
+            return httpx.Response(404, json={"message": "not found"})
+        if request.method == "DELETE" and request.url.path == "/api/public/traces":
+            deleted_called.append(json.loads(request.content))
+            return httpx.Response(200, json={"status": "ok"})
+        if request.method == "GET" and request.url.path == "/api/public/observations":
+            return httpx.Response(200, json=[])
+        if request.method == "GET" and request.url.path == "/api/public/scores":
+            return httpx.Response(200, json=[])
+        return httpx.Response(404)
+
+    with (
+        httpx.Client(
+            base_url="https://jp.cloud.langfuse.com",
+            transport=httpx.MockTransport(failing_readback_api),
+        ) as client,
+        pytest.raises(BridgeError, match="CANARY_READBACK_EMPTY"),
+    ):
+        run_langfuse_pilot(
+            raw_canary,
+            raw_real,
+            project_key=b"project-secret-1234567890",
+            public_key="pk",
+            secret_key="sk",
+            httpx_client=client,
+            receipt_dir=tmp_path / "r_err",
+            approval_id="a_err",
+            imported_at=moment,
+            canary_payload_sha256=canary_sha,
+            real_payload_sha256=real_sha,
+        )
+
+    # Cleanup was called!
+    assert len(deleted_called) == 1
+
+
+def test_observations_and_scores_pagination() -> None:
+    from evals.runners.langfuse_bridge import readback_observations, readback_scores
+
+    pages_called = []
+
+    def paginated_api(request):
+        pages_called.append(str(request.url))
+        p = int(request.url.params.get("page", 1))
+        if "/observations" in request.url.path:
+            if p == 1:
+                return httpx.Response(
+                    200,
+                    json={
+                        "data": [{"id": "obs-1"}, {"id": "obs-2"}],
+                        "meta": {"page": 1, "totalPages": 2},
+                    },
+                )
+            return httpx.Response(
+                200, json={"data": [{"id": "obs-3"}], "meta": {"page": 2, "totalPages": 2}}
+            )
+        if "/scores" in request.url.path:
+            return httpx.Response(200, json={"data": [], "meta": {"page": 1, "totalPages": 1}})
+        return httpx.Response(404)
+
+    with httpx.Client(
+        base_url="https://jp.cloud.langfuse.com", transport=httpx.MockTransport(paginated_api)
+    ) as client:
+        obs = readback_observations(client, "t1")
+        assert len(obs) == 3
+        assert [o["id"] for o in obs] == ["obs-1", "obs-2", "obs-3"]
+
+        scores = readback_scores(client, "t1")
+        assert scores == []
+
+
+def test_reconcile_receipt_deletes_pending_traces(tmp_path) -> None:
+    from evals.runners.langfuse_bridge import ReceiptManager, reconcile_receipt
+
+    receipt_file = tmp_path / "pending_receipt.json"
+    ReceiptManager.reserve(
+        receipt_file,
+        approval_id="app-1",
+        project_key_fingerprint="fp1",
+        payload_sha256="sha1",
+        trace_ids=["t1"],
+        observation_ids=["o1"],
+        imported_at="2026-10-24T00:00:00Z",
+    )
+    ReceiptManager.update(receipt_file, status="POSTED")
+
+    deletes = []
+
+    def mock_reconcile(req):
+        if req.method == "GET" and req.url.path == "/api/public/traces/t1":
+            if not deletes:
+                return httpx.Response(200, json={"id": "t1"})
+            return httpx.Response(404)
+        if req.method == "DELETE":
+            deletes.append(req)
+            return httpx.Response(200, json={"status": "ok"})
+        if req.method == "GET" and req.url.path == "/api/public/observations":
+            return httpx.Response(200, json=[])
+        if req.method == "GET" and req.url.path == "/api/public/scores":
+            return httpx.Response(200, json=[])
+        return httpx.Response(404)
+
+    with httpx.Client(
+        base_url="https://jp.cloud.langfuse.com", transport=httpx.MockTransport(mock_reconcile)
+    ) as client:
+        res = reconcile_receipt(receipt_file, client)
+        assert res["status"] == "RECONCILED_DELETED"
+        assert len(deletes) == 1
