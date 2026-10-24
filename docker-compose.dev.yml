@@ -283,7 +283,8 @@ services:
       - figma
   figma-api:
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
     environment:
       KNORA_DATABASE_URL: postgresql+psycopg://knora:figma-test-database@figma-postgres:5432/knora
       KNORA_KEYCLOAK_ISSUER: http://127.0.0.1:8380/realms/knora-dev
