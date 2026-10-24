@@ -168,3 +168,53 @@ async def test_empty_search_without_catalog_returns_unverified_per_q6() -> None:
     assert result.overall_status == "unverified"
     assert result.outcomes[0].status == "unverified"
     assert "Q6" in result.outcomes[0].reason
+
+
+def test_r6_f13_read_canonical_source_scope_outcomes() -> None:
+    from knora.answering.source_verification import read_canonical_source_scope
+
+    # Case 1: Partial scope always returns UNVERIFIED
+    partial_scope = read_canonical_source_scope(
+        store=None,
+        workspace_id="ws-1",
+        target_item="Chương 5",
+        snapshot=None,
+        is_partial=True,
+    )
+    assert partial_scope.outcome == "UNVERIFIED"
+
+    # Case 2: Ambiguous when multiple authorized sources are possible
+    two_authorized_possible_sources = read_canonical_source_scope(
+        store=None,
+        workspace_id="ws-1",
+        target_item="Chương 5",
+        snapshot=None,
+        authorized_sources=["source_a.pdf", "source_b.pdf"],
+    )
+    assert two_authorized_possible_sources.outcome == "AMBIGUOUS"
+
+    # Case 3: Complete catalog without Chapter 5 returns VERIFIED_ABSENT
+    complete_scope_without_chapter5 = read_canonical_source_scope(
+        store=None,
+        workspace_id="ws-1",
+        target_item="Chương 5",
+        snapshot=None,
+        complete_catalog=["Chương 1", "Chương 2", "Chương 3", "Chương 4"],
+    )
+    assert complete_scope_without_chapter5.outcome == "VERIFIED_ABSENT"
+
+    # Case 4: Top-K empty but PG has Chapter 5 returns FOUND
+    class _FakePgScopeStore:
+        def read_canonical_chunks_for_scope(
+            self, workspace_id, target_item, snapshot, cursor=0, limit=1024
+        ):
+            return [_make_cand("ch5_chunk", "Chương 5 quy định chính sách bảo hành 12 tháng.")]
+
+    topk_empty_but_pg_has_chapter5 = read_canonical_source_scope(
+        store=_FakePgScopeStore(),
+        workspace_id="ws-1",
+        target_item="Chương 5",
+        snapshot=None,
+    )
+    assert topk_empty_but_pg_has_chapter5.outcome == "FOUND"
+    assert len(topk_empty_but_pg_has_chapter5.recovered_chunks) == 1

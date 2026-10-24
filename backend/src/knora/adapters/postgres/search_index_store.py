@@ -51,9 +51,7 @@ class PostgresSearchIndexStore:
     def read_corpus_statistics_in_transaction(
         self, session: Session, workspace_id: str, lexical_policy_id: str
     ) -> CorpusStatistics:
-        workspace = session.scalar(
-            select(WorkspaceTable).where(WorkspaceTable.id == workspace_id).with_for_update()
-        )
+        workspace = session.scalar(select(WorkspaceTable).where(WorkspaceTable.id == workspace_id))
         if workspace is None or workspace.archived:
             raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
 
@@ -71,9 +69,15 @@ class PostgresSearchIndexStore:
             if g.lexical_profile.statistics_digest != stats_digest:
                 raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
 
-        # F08: Do not use global cache keyed on (workspace_id, stats_digest),
-        # because stats_digest is tied to profile definition and does not change
-        # when corpus membership/documents change. Read/compute directly from active PG snapshot.
+        membership_items = [
+            f"{g.chunk_set_id}:{getattr(g, 'document_version_id', '')}" for g in generations
+        ]
+        membership_digest = hashlib.sha256("".join(membership_items).encode("utf-8")).hexdigest()
+        cache_key = (workspace_id, lexical_policy_id, membership_digest)
+
+        if cache_key in _CORPUS_STATS_CACHE:
+            return _CORPUS_STATS_CACHE[cache_key]
+
         chunks: list[ChunkTable] = []
         for g in generations:
             chunks.extend(
@@ -92,13 +96,20 @@ class PostgresSearchIndexStore:
             for tok in tokens:
                 freqs[tok] = freqs.get(tok, 0) + 1
 
-        return CorpusStatistics(
+        computed_digest = hashlib.sha256(
+            f"{stats_digest}:{membership_digest}:{total_tokens}".encode()
+        ).hexdigest()
+
+        stats = CorpusStatistics(
             total_tokens=max(1, total_tokens),
             total_chunks=len(chunks),
             unigram_frequencies=freqs,
             average_chunk_length=total_tokens / len(chunks) if chunks else 0.0,
-            statistics_digest=stats_digest,
+            statistics_digest=computed_digest,
+            snapshot_id=f"snap-{membership_digest[:16]}",
         )
+        _CORPUS_STATS_CACHE[cache_key] = stats
+        return stats
 
     def read_active_generations(
         self, workspace_id: str, lexical_policy_id: str

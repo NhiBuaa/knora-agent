@@ -1248,7 +1248,8 @@ async def test_query_scheduling_refuses_when_more_than_4_required_groups() -> No
     )
 
     assert res.decision == "REFUSAL"
-    assert res.refusal_reason == "INSUFFICIENT_EVIDENCE"
+    assert res.refusal_reason == "CLARIFICATION_REQUIRED"
+    assert res.requests_clarification is True
     assert generator.generate.call_count == 0
 
 

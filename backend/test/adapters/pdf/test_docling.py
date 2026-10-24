@@ -646,3 +646,112 @@ def test_docling_extractor_repeated_sections_have_distinct_offsets() -> None:
     # Each block slice must exactly equal block text
     for b in blocks:
         assert page.text[b.start_offset : b.end_offset] == b.text
+
+
+def test_r6_f24_extraction_over_memory_not_swallowed() -> None:
+    from dataclasses import replace
+
+    extractor = DoclingTextExtractor()
+    config = DoclingExtractionConfiguration.cloudflare_native_v1()
+    # Memory budget set to 10 bytes so current process RSS will definitely exceed it
+    low_mem_config = replace(config, extractor_memory_bytes=10)
+    pdf_bytes = _create_test_pdf("Sample text for budget test")
+
+    succeeded = True
+    try:
+        extractor.extract(BytesIO(pdf_bytes), low_mem_config)
+    except PdfExtractionError as exc:
+        succeeded = False
+        assert exc.code == "PDF_RESOURCE_LIMIT_EXCEEDED"
+        assert exc.reason in ("EXTRACTOR_MEMORY", "RAW_FILE_SIZE")
+
+    assert succeeded is False
+
+
+def test_r6_f03_canonical_native_table_cells_without_pipes() -> None:
+    # Native table with tab/column spacing instead of markdown pipes
+    native_table_text = "Metric\tQ1\tQ2\nRevenue\t100\t120\nProfit\t20\t30"
+    pdf_bytes = _create_test_pdf(native_table_text)
+    extractor = DoclingTextExtractor()
+    config = DoclingExtractionConfiguration.cloudflare_native_v1()
+
+    result = extractor.extract(BytesIO(pdf_bytes), config)
+    assert result.structure is not None
+    page = result.structure.pages[0]
+    assert len(page.tables) >= 1
+    canonical_native_table = page.tables[0]
+    assert canonical_native_table.num_rows == 3
+    assert canonical_native_table.num_columns == 3
+
+    source_reviewed_cells = (
+        ("Metric", True, 0, 0),
+        ("Q1", True, 0, 1),
+        ("Q2", True, 0, 2),
+        ("Revenue", False, 1, 0),
+        ("100", False, 1, 1),
+        ("120", False, 1, 2),
+        ("Profit", False, 2, 0),
+        ("20", False, 2, 1),
+        ("30", False, 2, 2),
+    )
+    extracted_cells = tuple(
+        (c.text, c.is_header, c.row_index, c.column_index) for c in canonical_native_table.cells
+    )
+    assert extracted_cells == source_reviewed_cells
+
+
+def _dummy_long_running_child() -> None:
+    import time
+
+    while True:
+        time.sleep(0.1)
+
+
+def test_r6_f24_owned_child_tree_after_timeout() -> None:
+    import multiprocessing
+
+    import psutil
+
+    from knora.adapters.pdf._pypdf_process import _stop
+
+    ctx = multiprocessing.get_context("spawn")
+    proc = ctx.Process(target=_dummy_long_running_child, daemon=True)
+    proc.start()
+    pid = proc.pid
+    assert pid is not None
+
+    # Verify process is running
+    assert psutil.pid_exists(pid)
+
+    # Stop process and clean tree
+    _stop(proc)
+
+    # Check owned child tree after stop
+    owned_child_tree_after_timeout = tuple(c for c in psutil.process_iter() if c.pid == pid)
+    assert owned_child_tree_after_timeout == ()
+
+
+def test_r6_structure_serialization_and_chunk_bounds() -> None:
+    import json
+
+    from knora.ingestion.pdf_structure import (
+        canonical_document_from_dict,
+        canonical_document_to_dict,
+    )
+
+    text = "First section header\n\nBody of the document with sufficient content."
+    pdf_bytes = _create_test_pdf(text)
+    extractor = DoclingTextExtractor()
+    config = DoclingExtractionConfiguration.cloudflare_native_v1()
+
+    result = extractor.extract(BytesIO(pdf_bytes), config)
+    extracted_structure = result.structure
+    assert extracted_structure is not None
+
+    # PG serialize and reload round-trip
+    serialized = json.dumps(canonical_document_to_dict(extracted_structure))
+    pg_reloaded_structure = canonical_document_from_dict(json.loads(serialized))
+    assert pg_reloaded_structure == extracted_structure
+
+    # Chunking token and page bounds
+    assert all(c.page_start == c.page_end and c.token_count <= 650 for c in result.chunks)
