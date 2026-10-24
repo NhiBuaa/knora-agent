@@ -1,5 +1,9 @@
 # Evaluation tools acceptance implementation plan
 
+> **Tiếp nối sau review PR #231, 2026-10-24:** đọc [bản sửa đổi v2 ở §8](#8-bản-sửa-đổi-v2-sau-review-pr-231).
+> §1–§7 giữ bản v1 lịch sử; §8 hiện là **DRAFT / CHỜ OWNER DUYỆT**, chưa là quyền triển khai/live.
+> Sau khi được duyệt, §8 ưu tiên tại các điểm nêu rõ thay thế; không tự gia hạn approval cũ.
+
 > **For Anti:** thực hiện lần lượt bằng Skill `executing-plans` nếu Skill thực sự có trong phiên;
 > đọc nguồn trước khi dùng. Không cài Skill hoặc tạo runner, workflow, dataset store hay state store
 > mới. Kế hoạch này tiếp nối #158 sau Workbench #192 / PR #202.
@@ -677,3 +681,392 @@ không chứng minh runtime và không là bản đồ cho worktree mới. Khôn
 Nghiên cứu/soạn plan không chạy lại model, không startup stack, không sửa DB hoặc Langfuse:
 **0 live inference, 0 jobs/activations, 0 runtime startups, 0 cloud writes trong lượt này**.
 Các kết quả runtime lịch sử được nêu ở Task 1 là đối tượng audit, không là hoạt động mới của lượt soạn.
+
+## 8. Bản sửa đổi v2 sau review PR #231
+
+### 8.1 Đối tượng, phiên bản và phạm vi duyệt một lần
+
+**Trạng thái: DRAFT / CHỜ OWNER DUYỆT toàn bộ §8.** Ngày: 2026-10-24 (Asia/Saigon).
+Yêu cầu hiện tại là nghiên cứu/thiết kế/kế hoạch bàn giao, chưa phải bắt đầu sửa code hoặc chạy live.
+V1 đã duyệt tại `51f11e721ba9fe95a155f40da010136b068a5cfd`; không sửa hồi tố approval đó.
+
+- Đích tiếp tục: `<WORKTREE_ROOT>/feat-evaluation-tools-acceptance`, nhánh
+  `feat/evaluation-tools-acceptance`, [PR #231](https://github.com/NhiBuaa/knora-agent/pull/231)
+  vào `main`; HEAD được review `10c0e2f9868b8187b85c18b4a84997a6aad2d0c2`, sạch khi soạn.
+- PR base/merge-base đã đọc: `ada17099050030fe527227fce0f2956539a2892f`. Remote main được
+  kiểm tra ở review đã tới `20e6b2ef4dea6fb92e86817df1e8acf826466855` (PR #229); PR BEHIND.
+  Anti phải đọc lại main hiện hành, không coi các SHA này là base của code tương lai.
+- Review nguồn: `<USER_HOME>/AppData/Local/Temp/evaluation-tools-pr231-review-3bd4aaaabd114a928dad230098f58630/evaluation-tools-pr231-code-review.md`.
+  Kèm `probes.json`, mock script, log/XML đã làm sạch và CI subject receipts cùng thư mục.
+  Giữ nguyên chúng; nếu thiếu thì tái hiện offline vào output riêng, không dựng lại kết quả lịch sử.
+- V2 đề xuất **một đợt kiểm chứng mới sau sửa**, không gọi bù/rerun pilot lỗi để lấy điểm đẹp.
+  Toàn bộ pilot mới đã review cùng pilot cũ được giữ để điều tra; không dùng chúng xác nhận tuân thủ,
+  human independence hoặc quality acceptance của đợt mới. Không khẳng định số HTTP/cost chưa chứng minh.
+- Khi Owner duyệt §8, Anti pin file digest, full commit SHA chứa đúng bản đã duyệt và tham chiếu
+  lời duyệt trong chat vào #158/PR #231. Không bịa URL; diff đổi ý nghĩa sau duyệt cần duyệt phần đổi.
+
+**Duyệt §8 là duyệt đồng thời các lựa chọn sau, chưa duyệt live:**
+
+1. Sửa trên PR #231; commit/push vào đúng nhánh và cập nhật #158/PR bằng bằng chứng đã loại secrets.
+   Tự làm regression, sửa lỗi kỹ thuật trong phạm vi và đợi CI; không xin duyệt từng file/test/commit.
+2. Tiếp tục dùng `LivePackage`/`LiveAdmission` và SQLite journal hiện có; hợp đồng an toàn mới dùng
+   `manifest_version=3` trong chính cơ chế đó. Không thêm runner, framework, workflow hoặc state store.
+   Journal V2 đã chạy chỉ đọc để audit; không nâng cấp/sửa counters hoặc cho runner nghiệm thu mới resume.
+3. Cho phép tích hợp main hiện hành bằng **merge commit vào nhánh PR**, sau snapshot SHA/status và
+   đọc diff phụ thuộc. Không rebase/force-push. Giải quyết xung đột kỹ thuật theo §8; nếu main thay
+   authority, Gold, architecture, provider/model hoặc phạm vi an toàn thì báo đúng delta cần quyết định.
+4. Cho phép môi trường Python **riêng worktree** để kiểm thử, cài đúng optional extras đã pin từ
+   `backend/pyproject.toml`; không nâng dependency, không sửa env dùng chung. Không tự cài host tools,
+   mở Docker Desktop hoặc sửa quyền. Thiếu interpreter/tool/quyền thì tiếp tục phần độc lập và báo blocker.
+5. Đợt human review mới có khai báo **điểm judge cũ đã lộ**. Owner vẫn chấm trước mọi judge mới;
+   không gọi đây là blind study hoặc bằng chứng calibration độc lập toàn benchmark.
+6. Langfuse live + xóa xác minh là tiêu chí đóng #158; giữ OFF là hành vi an toàn nhưng chưa nghiệm thu
+   tích hợp. Không tự bỏ hạng mục hoặc thay bằng mock PASS. #153/#181 giữ đúng trách nhiệm ban đầu.
+
+### 8.2 Nghiên cứu, lựa chọn và phạm vi ảnh hưởng
+
+**Chọn sửa tại ranh giới đã có:** runner → trusted host/profile → `LiveAdmission.sync_client`
+→ transport kiểm soát bytes/response chain → journal. Xóa `PackageSlotLedger` và đường HTTP tự cấp
+quyền của runner. Chỉ bổ sung nhận diện từng mục/continuation vào journal hiện tại khi cần cưỡng chế
+10 × 12 và kiểm chứng resume. Giữ SDK pins, scorer method, Gold và thresholds.
+
+Không chọn vá thêm lớp ledger của script: cách đó tiếp tục nhân đôi admission/timeout/provenance.
+Không chọn viết hệ thống evaluation mới: không giải quyết quyền, vượt phạm vi. Chi phí của phương án
+chọn là sửa schema/validation/replay trong module admission và kiểm tra tương thích V1/V2; không có
+migration trên journal lịch sử. ADR 0018 chỉ ghi quyết định sau khi §8 được duyệt và code phản ánh nó.
+
+CodeGraph đã dùng đúng worktree đích cho `LivePackage.bind_slot`, `LiveAdmission._expected_request`,
+`next_capture_request`, `project_generation_evidence`. Kết quả chỉ ra runner có 15 call sites tới
+binding; replay builder đã có đường response-dependent không I/O; projection chuẩn đang được
+PDF runtime/V3 runner dùng. Vì vậy tái sử dụng các seam này, không tự suy aliases hoặc viết replay mới.
+Đây là việc dùng thực tế trong phiên review/thiết kế này; không suy đoán lịch sử phiên trước.
+
+Nguồn chính thức đã đối chiếu qua Context7 và web ngày soạn:
+
+- [Cloudflare pricing](https://developers.cloudflare.com/workers-ai/platform/pricing/): free allocation
+  cũng tồn tại trên Paid. Do đó HTTP 200 hoặc thấy số 10,000 không chứng minh Workers Free hay quota còn.
+  Dùng actual account plan + usage mới; Paid/unknown dừng, không bật AI Gateway credits hay fallback.
+- [Langfuse Public API](https://langfuse.com/docs/api-and-data-platform/features/public-api): kiểm tra
+  `/api/public/projects` bằng cùng credentials/region; observations v2 và scores v3 có hợp đồng phân trang
+  riêng. Đối chiếu actual SDK 4.17.0 bằng mock, không gọi theo API của SDK phiên bản khác.
+- [Langfuse deletion](https://langfuse.com/docs/administration/data-deletion): xóa trace bao gồm observations/
+  scores nhưng bất đồng bộ, thường khoảng 15 phút. Cần polling hữu hạn, không coi DELETE accepted là sạch.
+  Đây là logical API deletion; không chứng minh vendor backup đã xóa vật lý.
+- Mã SDK đúng tag4.17.0 tại commit `f6b704032006a3193d038e1ad9f08c18a66f84e0`:
+  [REST retry defaults](https://github.com/langfuse/langfuse-python/blob/f6b704032006a3193d038e1ad9f08c18a66f84e0/langfuse/api/core/http_client.py),
+  [OTLP riêng](https://github.com/langfuse/langfuse-python/blob/f6b704032006a3193d038e1ad9f08c18a66f84e0/langfuse/_client/span_processor.py),
+  [observations](https://github.com/langfuse/langfuse-python/blob/f6b704032006a3193d038e1ad9f08c18a66f84e0/langfuse/api/observations/raw_client.py),
+  [scores v3](https://github.com/langfuse/langfuse-python/blob/f6b704032006a3193d038e1ad9f08c18a66f84e0/langfuse/api/scores_v3/raw_client.py).
+  REST có retry mặc định, còn OTLP dùng exporter riêng; chỉ inject `httpx_client` vào SDK không
+  đủ kiểm soát mọi POST. Vì vậy wire-level tests và kiểm inventory lúc shutdown là gate bắt buộc.
+
+**Chỗ cần sửa/kiểm tra callers, fixtures và cấu hình:**
+
+| Chủ sở hữu hiện hữu | Thay đổi dự kiến |
+| --- | --- |
+| `scripts/run_acceptance_live.py` | CLI nhập artifact đã duyệt; không self-approve, SQL counters, fixed journal cache hoặc raw live client |
+| `backend/src/knora/evaluation/live_admission.py` | Version 3, exact items, atomic counters, first-dispatch clock, proof refresh và checkpoint an toàn |
+| `backend/src/knora/evaluation/pdf_runtime.py`, `provider_request.py` | Trusted host/profiles, nhận đúng item/approval; giữ transport injection/timeout/ownership |
+| `evals/scorers/deepeval_cloudflare.py`, `evals/runners/run_deepeval_capture.py` | Replay đúng từng capture; giữ native identity; fail required-metric errors tại acceptance path |
+| `evals/runners/evaluation_review_packet.py`, `evals/runners/pdf_retrieval_v3.py`, `evals/runners/milestone_3.py` | Reuse exact projection; đọc actual generation aliases/context; không thêm projection suy diễn |
+| `backend/src/knora/evaluation/corpus_preparation.py`, `backend/src/knora/adapters/postgres/corpus_preparation.py` | Plan 1..6 và activation khớp tập sources; fencing/transaction/provenance |
+| `evals/runners/ragas_review.py`, `evals/runners/langfuse_bridge.py` | Ragas đúng chunks #153; cloud preview/approval/receipt/reconcile/delete |
+| `backend/test/evaluation/`, `evals/test/`, actual Postgres partition | Regression runner-to-egress, concurrency/crash, SDK/mock API, activation cardinality |
+| ADR 0018, `docs/evaluation.md`, bốn hồ sơ #158 hiện hữu + input-audit + concrete packet | Addendum/correction có lịch sử; current state không ghi PASS giả; không tạo sổ tiến độ mới |
+
+Không sửa frontend/generated OpenAPI trừ khi contract thực sự đổi. Backend-only không cần browser;
+nếu phát sinh UI change thực sự thì áp dụng Feature Map và browser verification đúng quyền.
+
+### 8.3 Hợp đồng cần thực hiện trước khi live
+
+#### A. Một manifest được duyệt, một journal, nhận diện từng mục
+
+- Manifest v3 được chuẩn bị offline rồi Owner duyệt trong concrete packet; runner chỉ nhận đường dẫn
+  file, kiểm hash/build/input/account/ownership, không tự viết `approved_by`, quota hoặc proof digests.
+  Từ chối field không hiểu, missing pin, case 019 thay 045, expired/revoked approval, dirty code drift.
+- Giữ hard maxima §4: 139 inference = 6 corpus + 12 Q&A + 1 Ragas + 72 real + 48 synthetic;
+  8 windows × 60 phút, 2 stack startups, 7 ngày từ first dispatch. **Concrete caps có thể thấp hơn**:
+  saved route ≤121, corpus/Q&A=0; startup=0 nếu không stack. Không đòi luôn bằng hard maxima,
+  không tự nâng gói 121/0/2 thành 139/2/8, không chuyển phần dư giữa slots/items.
+- Khởi tạo mới bằng exclusive/no-clobber. Package ID gắn canonical journal path, manifest digest và
+  journal identity đã duyệt; mỗi invocation output riêng nhưng cùng journal. `.stops` và hashes/receipts
+  theo cơ chế hiện hữu. File thiếu/copied/rollback/stop/counter mismatch → dừng; không tạo thay thế.
+- Danh sách items hữu hạn trong manifest: sáu real `004,005,012,014,032,045`; bốn controls §3.2;
+  hai saved refusals `053,002`. Mỗi judged item cap≤12 riêng; refusal cap=0. Q&A tối đa một
+  embedding và một generation/case; corpus tối đa 6 exact embedding requests; Ragas cap=1.
+- Mỗi judged item bind exact input digest và native `(run_id, case_id, attempt_id, attempt,
+  trace_id, workspace_id)` cùng dataset/selection/corpus/derivation/configuration digests.
+  Synthetic có `validation_item_id`, parent capture digest/native identity và transformation digest;
+  không bịa runtime trace/attempt mới cho biến thể. Các trường cần future output được pin bằng
+  quan hệ nguồn → exact response đã lưu, không bằng hash placeholder hoặc caller tự khai.
+- Mở rộng schema **trong journal hiện hữu** để lưu từng item, proof/checkpoint append-only và join
+  requests/responses → item → slot → package. V3 cho approval/counter theo item; không nhân bản
+  first_capture vào các item khác. Kiểm invariant trong cùng transaction/snapshot:
+
+  `package.attempts == COUNT(requests) == SUM(slots.attempts) == SUM(approvals.attempts)`.
+
+  Thêm `item.attempts == COUNT(requests WHERE item_id=...)`, giới hạn từng item và ordinal duy nhất.
+  Tất cả tăng trong **cùng BEGIN IMMEDIATE**; requests có actual wire-body digest và trạng thái PENDING.
+  Không coi invariants đếm là bằng chứng HTTP thành công; có thể đã reserve nhưng chưa gửi khi crash.
+- Chỉ actual validated response mới kết thúc thành COMPLETED và lưu response digest/body/usage đã
+  phân loại phù hợp. Error/timeout/crash giữ outcome failed/unknown tương ứng, không decrement counters.
+  Requests cache/replay đọc lại không phải HTTP attempts; không chèn `{"cached":true}` vào requests.
+- V1 giữ các test/hợp đồng liên quan; V2 lịch sử không rewrite. Runner nghiệm thu #158 mới chỉ nhận
+  v3. Không âm thầm bật phiên bản mới cho #192 hoặc package của phiên khác.
+
+#### B. Gate tại dispatch, clock và checkpoint
+
+- Live client bắt buộc do `LiveAdmission` tạo, concurrency=1; mô hình/URL/body/bytes/token caps/schema/
+  expected next request kiểm trước egress. Giữ §4.1: 8192 chat bytes, 4096 embedding bytes,
+  ≤2048 judge/Ragas output tokens, Q&A cap đã pin, ≤30s timeout, retries/redirects OFF.
+  Một HTTP attempt là một reservation thực, kể cả error; không dùng SDK retry ngầm.
+- Dùng UTC clock thực + elapsed monotonic trong invocation; anchor first inference dispatch ghi nguyên
+  tử một lần trước egress. Crash sau anchor vẫn không reset. Start-by cụ thể được duyệt trước first
+  dispatch; window/cleanup còn lại và revocation kiểm cả trước mỗi lượt. Clock rollback gây dừng.
+- Proof Free/quota/account có nguồn API/dashboard thật, observed_at≤5 phút và same account. Chỉ
+  kiểm một lượt cần chạy kế tiếp với upper bound theo model/input/output caps, trừ traffic dùng chung
+  và độ trễ quan sát; không yêu cầu reserve quota cho toàn 139. Không biết upper bound hoặc usage
+  thực → checkpoint trước reservation. Thiếu Free proof không được thay bằng chữ `Free` trong JSON.
+- Proof mới khi hết tuổi/qua reset ngày được ghi append-only trong **cùng journal**, pin nguồn/digest/
+  observation time/account; xác minh theo validator hiện hữu. Nó chỉ làm mới bằng chứng hiện tại,
+  không đổi approval gốc, deadline, identity, input/model/cap hoặc xóa attempts/stop.
+- Checkpoint chỉ tại ranh giới không có PENDING/unknown và mọi response trước đã lưu/validate. Lưu
+  item/next ordinal/response-chain digest; đóng owned workers/stack và window. Resume replay offline
+  responses đã xác minh bằng `next_capture_request`, không gửi lại prefix. Next request phải khớp
+  continuation digest và pin build; không khớp thì stop. Completed item không chạy lại.
+- Đề xuất trạng thái item `BOUND → RUNNING → CHECKPOINTED → RUNNING → COMPLETED`; chỉ thiếu quota,
+  proof mới hoặc window sắp hết **trước** request mới được checkpoint. Semantic/provider/schema error,
+  truncation, cap hit, unknown write, revocation hoặc identity drift → STOPPED, không resume live.
+  Không dùng normal-exit của context manager để đánh dấu batch COMPLETED khi còn item chưa xong.
+- Mọi code path gửi request phải dùng cùng gate. Test trực tiếp runner entrypoint, không chỉ module
+  admission. Không public helper cho script chỉnh counters; giữ trusted host ownership hiện hữu.
+- CLI dự kiến cho **script hiện hữu**, cần implement/test ở T3: bắt buộc `--manifest`, `--journal`,
+  `--output`; `--mode preflight|execute|resume|reconcile`. `preflight` không initialize journal,
+  không POST/inference/startup; `execute` chỉ khởi tạo một journal mới được duyệt, từ chối file đã có;
+  `resume` chỉ mở đúng journal có checkpoint hợp lệ, không create/reset. `reconcile` chỉ xử lý owned
+  Langfuse receipt theo §8.3D, không inference hay POST. Human labels và export approval là file
+  pin riêng khi stage yêu cầu, không mặc định owner/auto-approve. Ghi machine-readable outcome +
+  nonzero exit khi BLOCKED/FAILED; không gọi các lệnh dự kiến này trước T3/T7 xác minh actual CLI.
+
+#### C. Capture, review và điều kiện chất lượng
+
+- Dùng `project_generation_evidence` và PDF native adapters; trace read theo exact workspace/trace,
+  không latest/question/timestamp lookup. Giữ native run/attempt, không report hash thay run ID;
+  không hardcode 1/2. Giữ selected-but-not-cited chunks, actual aliases, full content thực gửi generation.
+- Thiếu context/alias/correlated raw response → UNAVAILABLE, không suy citation/rank thành exact.
+  Audit cả sáu trước chọn route. Nếu không đủ cả sáu, dùng fallback **toàn bộ sáu** theo §3.1,
+  không trộn old/new theo điểm; 032 phải cùng conversation/context và parent 004 đúng thứ tự.
+- Fallback chỉ ≤6 PDFs #153 đã pin, scoped riêng, không Gold/baseline/history mutation. Nếu input cần
+  nhiều hơn 6 corpus embedding requests hoặc vượt bytes thì BLOCKED trước gọi, không split thêm.
+  Nếu actual response REFUSAL/error thì giữ nguyên và chặn chất lượng, không gọi lại kiếm ANSWER.
+- Gói người review pin exact captures/order/digest/rubric, 12 mục + phụ lục Ragas. Review trước mọi
+  judge mới; nhập nguyên nhãn/reasons/anchors/reviewer/time, reject thiếu/chỉnh nhãn tự động.
+  Scores/rationales mới nằm trong output riêng cho tới khi labels được freeze; ghi exposure cũ,
+  không xóa điểm lịch sử để tuyên bố blind. Không đòi người dùng đồng ý với judge.
+- Cả 10 judged items bắt buộc **correctness, answer_relevancy, faithfulness** có status=scored,
+  finite score [0,1]; 032 có Gold reference, 045 cần exact context. Error/truncated/missing không
+  chuyển N/A. Acceptance finalizer phải fail; metric error dừng lượt judge tiếp, không gọi bù.
+- Bốn controls phải <0.5 ở metric pin tại §3.2; một control được chấp nhận thì dừng nghiệm thu,
+  không sửa mẫu/label/threshold/model hay rerun. Báo đủ scores/nhãn/bất đồng cho sáu câu thật;
+  không áp một tỷ lệ PASS mới hoặc suy calibration toàn benchmark. Hai refusals chấm deterministic,
+  giữ `002 expected ANSWER → REFUSAL` là false refusal, không judge/Q&A lại.
+- Ragas chỉ đúng chunks #153 của gói, source hash + page/span/quote locators; một request ≤2 VI drafts,
+  không M1 thay thế. Pin actual serialized request trước live; giữ malformed/rejected/partial outputs
+  và lý do, không repair call/retry, không nhập Gold hoặc chạy Q&A cho drafts. EN test offline.
+
+#### D. Langfuse lifecycle hữu hạn, có đường cleanup khi lỗi
+
+- Trước POST đầu tiên, validator yêu cầu concrete export approval + **cả hai exact wire payload digests**,
+  canary/real IDs, project/credential fingerprint (không key), JP/Hobby/owner/quota proof, start/deadline
+  và inventory. Thiếu digest thứ hai cũng chặn canary. Không dùng digest vừa tính làm reviewed digest.
+- Dùng actual SDK 4.17.0/MockTransport kiểm typed APIs; GET project bằng cùng auth/region.
+  Không auto instrumentation/background telemetry/retry; POST/DELETE qua controlled client với timeout
+  và accounting chung. Vẫn tối đa 2 POST, 2 exact-ID batch DELETE, 120 GET, 3 traces/3 observations/
+  0 scores; concurrency=1, ≤10 GET/phút, polls cách≥30s, tối đa20 phút/batch và60 phút/pilot (§4.3).
+  Chọn polling180s; không cần đọc observations/scores khi trace vẫn còn, nhưng round xác nhận sạch
+  phải đầy đủ. Kiểm delayed-deletion15phút bằng fake clock để chứng minh happy path fit cả120GET/60phút;
+  vendor chậm hơn vẫn có thể BLOCKED, không xem15phút là SLA. Không nâng SDK để có endpoint này.
+- SDK pin có `api.observations.get_many` và `api.scores_v3.get_many_v3`; dùng actual cursor schema,
+  scores limit≤100/page. Với OTLP, tái sử dụng serializer/`export_report` explicit, không tạo mặc định
+  background exporter. Preview/allowlist cả resource attrs, span names, events, links và scope;
+  shutdown/flush không được phát sinh POST ngoài hai payloads đã duyệt hoặc gửi muộn sau DELETE.
+- Receipt append/no-clobber theo cơ chế file hiện có, không thêm DB. Reserve cả ownership/budgets/
+  exact IDs trước write; chuyển `RESERVED → POST_PENDING → POST_ACKNOWLEDGED|POST_UNKNOWN →
+  DELETE_PENDING → DELETE_ACKNOWLEDGED|DELETE_UNKNOWN → VERIFIED_DELETED` bằng events bền vững.
+  RESERVED chỉ được dùng nếu chứng minh chưa từng write; pending/unknown không POST/DELETE lại.
+- Trước POST phải reserve đủ quyền/thời gian cleanup. Mọi nhánh lỗi sau POST, kể cả readback mismatch,
+  unexpected score, receipt-write failure hoặc interruption, đi vào owned cleanup trong finally và
+  watchdog hiện hữu. Không chuyển real khi canary chưa verify deleted. Crash restart chỉ reconcile
+  bằng GET exact owned IDs từ reservation; nếu chưa có DELETE reservation thì được gửi **một** DELETE
+  đã duyệt; nếu DELETE pending/unknown thì chỉ GET, không retry. Không cần hỏi lại cleanup đã cấp quyền.
+- Receipt lỗi/mất/counter không xác minh → không export tiếp. Giữ reservation và error evidence;
+  cleanup chỉ theo exact owned IDs đã pin, không tìm rồi xóa toàn project. Nếu không chứng minh còn
+  write budget hoặc đã hết cleanup deadline thì BLOCKED cleanup; không tự nâng quyền/cap/deadline.
+- Readback trước delete so actual trace + observation IDs/counts/provenance/allowlisted metadata,
+  input/output không lộ nội dung, scores=0. Response sai shape/auth/partial pagination là lỗi.
+- Verify deletion phải hết mọi trang observations v2 **và scores v3**, fixed time bounds và exact
+  trace filter; thiếu cursor/meta, cursor loop, mismatched trace, total count mâu thuẫn đều fail closed.
+  Trace404 chỉ có nghĩa trace không tìm thấy sau auth same-project đã chứng minh; list404/401/403/
+  timeout không phải empty. Một valid complete round phải thấy trace absent, observations=[],scores=[];
+  đọc lại sau ≥30s lần thứ hai trước VERIFIED_DELETED, vẫn trong GET/time caps.
+- Mỗi project/auth/pagination request cũng tính GET budget. Tới cap hoặc không còn đủ thời gian thì
+  dừng bằng chứng UNKNOWN/BLOCKED, export OFF. Không hứa cleanup thành công nếu vendor chậm quá cap.
+  Langfuse unavailable không làm biến đổi Knora answers/security, nhưng #158 acceptance chưa đủ.
+
+### 8.4 Thứ tự triển khai và các bước tự kiểm chứng
+
+Mỗi task: đọc callers → thêm regression thất bại trên code cũ (RED) → sửa nhỏ nhất → chạy lại (GREEN)
+→ đọc diff + ghi command/exit/counts/subject vào hồ sơ hiện hữu. Không giảm assertion/skip để lấy PASS.
+Các task có thể chia nhiều commit, không cần Owner duyệt từng commit.
+
+| Bước | Việc cụ thể / file owner | Điều kiện xong và điểm lỗi bắt buộc |
+| --- | --- | --- |
+| T0 — Sự thật và audit | `issue-158-pilot-audit-and-input-inventory.md`, dossier, verification, human packet | Hash RO tất cả journals 2959/3126/3574/3879/4691 + `.stops` và related artifacts; reconcile cả round. Giữ 154 noncached reservations là reservations, HTTP actual/cost UNKNOWN nếu thiếu evidence; sửa current claims85/$0/PASS bằng correction addendum dẫn lịch sử, không sửa artifact gốc |
+| T1 — Inputs/provenance | PDF adapters/projection, review packet, CLI scorer | Tests native attempt≠1 và run≠report hash; 045 selected3/cited1 vẫn full3; thiếu alias/context reject; mismatched workspace/trace/parent/synthetic variant reject. Chọn saved/fallback trước binding, lưu audit lý do |
+| T2 — Journal v3 | `live_admission.py` + owning tests | Typed manifest/item bindings, lower caps, atomic first-dispatch, four counters + item cap/proof/checkpoint. Multiprocess13th/140th request, two workers/case swap, crash boundaries, copied/reset journal và expired/revoked clock fail trước transport |
+| T3 — Runner/host | `run_acceptance_live.py`, host/profile/provider_request, scorer/replay | Xóa ledger/SQL/cached fake attempts/frozen clock/self approval/raw clients. End-to-end mock entrypoint: max32 vs9999 tokens không tới handler; timeout không COMPLETED; no responses không PASS; resumed response prefix không thêm calls; thiếu human labels không judge |
+| T4 — Corpus | service/store + Postgres tests | Plan v1 vẫn exact2; v2 exact set1..6, reject0/7/duplicate/foreign source. Activation 1,2,3,6 đều đúng; mid-batch FK/fencing failure rollback toàn bộ, không partial active pointer/Gold/FAILED mutation |
+| T5 — Ragas/quality/reporting | Ragas runner, scorer, human packet, dossier | Actual #153 chunk/locators pinned, no M1 fallback; max1/no repair. Three required metrics, error≠N/A, control not rejected blocks finalizer, human digest mismatch blocks. Reports tách reservation/HTTP/response/uncertain và applicability |
+| T6 — Langfuse | bridge + `test_langfuse_bridge.py` | Thiếu digest/project/auth/second payload chặn POST; failure tại từng checkpoint sau POST vẫn cleanup; pending replay0writes; paginated scores/obs, bad-shape/404list/401/403/GETcap/timeouts không VERIFIED; canary delete trước real |
+| T7 — Integration/review/CI | same branch PR #231, docs/ADR | Đọc current main, merge commit theo quyền §8.1; regression và local actual SDK checks, independent review0blocking, exact-final-SHA CI required + related workflows đủ. Không reuse CI39969260108 cho SHA10c0 hoặc code mới |
+| T8 — Concrete packet | `issue-158-concrete-live-approval-packet.md` bằng revision có lịch sử | Exact build/inputs/route/caps/resources/ownership/journal/deadline/cleanup + Free/quota proof method, Langfuse payloads theo §8.5. Owner duyệt gói mới trước first side effect; không tái dùng lời duyệt SHA962d8077 |
+| T9 — Execute/review/closeout | existing runner/journal/packet/dossier/#158/PR231 | Làm §8.5, giữ mọi failure; runtime evidence mới, Owner labels, all metrics/controls + Langfuse deletion verified. Trình Owner nghiệm thu, không merge/deploy/close issue |
+
+**Traceability đủ 11 findings:** R1→T2/T3; R2→T0/T2/T3; R3→T2/T3/T8; R4→T1;
+R5→T2/T3; R6→T0/T3/T5/T9; R7→T6/T8; R8/R9→T6/T9; R10→T4; R11→T1/T5.
+
+T3 thêm test file `backend/test/evaluation/test_acceptance_live_runner.py` (test của script hiện hữu,
+không phải runner/harness mới). Focused suite bên dưới đã bao phủ thư mục đó. Offline fixtures chặn
+unmocked external egress, kể cả SDK telemetry/default transport; không chỉ dựa vào opt-out env.
+
+Regression phải có assertions cụ thể tại handler/mock: rejected pre-egress ⇒ `wire_calls==0`;
+13th call cùng item ⇒ attempts vẫn12 và không HTTP thứ13; timeout ⇒ response không được bịa và
+không có subsequent request; replay N responses ⇒ HTTP chỉ cho next ordinal, không thêm N attempts.
+Fault injection trước reserve/commit/send/response-persist/checkpoint và restart từ process khác;
+assert cả bốn counters + item sums, not just aggregate. Không cần 139 HTTP thật để kiểm cap.
+
+**Môi trường và commands (chạy từ đúng `<WORKTREE>`; thay token bằng đường dẫn đã kiểm tra):**
+
+```powershell
+git rev-parse --show-toplevel
+git branch --show-current
+git status --short
+git worktree list --porcelain
+codegraph status --json '<WORKTREE>'
+$env:PYTHONPATH = '<WORKTREE>;<WORKTREE>/backend/src'
+$env:PYTHONDONTWRITEBYTECODE = '1'
+$env:DEEPEVAL_TELEMETRY_OPT_OUT = 'YES'
+$env:RAGAS_DO_NOT_TRACK = 'true'
+$env:LANGFUSE_TRACING_ENABLED = 'false'
+& '<PYTHON_ENV>/Scripts/python.exe' -m pip check
+& '<PYTHON_ENV>/Scripts/python.exe' -B -m pytest backend/test/evaluation evals/test/test_deepeval_capture.py evals/test/test_pdf_retrieval_v3.py evals/test/test_ragas_review.py evals/test/test_evaluation_review_packet.py evals/test/test_langfuse_bridge.py backend/test/adapters/http/test_http_evaluation_scoring.py -q -p no:cacheprovider -p no:deepeval --basetemp '<OUTPUT>/pytest' --junitxml '<OUTPUT>/suite.xml'
+& '<PYTHON_ENV>/Scripts/python.exe' -m ruff format .
+& '<PYTHON_ENV>/Scripts/python.exe' -m ruff format --check .
+& '<PYTHON_ENV>/Scripts/python.exe' -m ruff check .
+& '<PYTHON_ENV>/Scripts/python.exe' scripts/export_openapi.py --check
+git diff --check
+```
+
+Giữ nguyên opt-outs/discovery flags đã kiểm trong CI; thêm actual pinned SDK import/version/API
+MockTransport checks. Nếu env thiếu extras, sau duyệt §8 chỉ cài vào env worktree mới đã xác minh
+ownership, dùng `python -m pip install -e './backend[dev,evaluation-deepeval,evaluation-ragas,evaluation-langfuse]'`;
+ghi resolved versions/`pip check`, không sửa shared venv. Proxy/DB secrets không in log.
+
+Đây là focused suite, không cố định count485. Review trước có483PASS/3FAIL do env thiếu Langfuse,
+không phải local fully verified. Chọn thêm production Postgres partition theo CI/runbook sau tích hợp
+PR #229; không trỏ destructive fixtures vào retained DB hay coi DSN là quyền reset. Dùng CI-owned
+disposable DB cho relational checks; nếu muốn local Postgres, cần explicit resource/reset scope trong
+gói duyệt, counts riêng và không tự tiêu startup live. SQLite PASS không thay Postgres verification.
+Chỉ sửa Markdown plan không cần chạy lại suite ở lượt soạn này; kiểm UTF-8/link/diff phù hợp.
+
+### 8.5 Luồng bàn giao chạy tới nghiệm thu, hạn chế số lần hỏi
+
+**Sau Owner duyệt §8, Anti tự chạy T0–T7.** Được commit/push/cập nhật PR #231/#158, chờ CI và
+sửa lỗi kỹ thuật trong scope; không dừng xin duyệt tại các gate nhỏ. Khi gặp thiếu env/credential/
+ownership/quota, gom thành một blocker packet gồm lỗi thật, exact missing input, counts, phương án
+đã làm độc lập; không hỏi lại quyền đã cấp và không tự suy quyền còn thiếu.
+
+**Một gói duyệt live cụ thể (T8):**
+
+1. Code review hết P1/P2 liên quan, exact SHA sạch và CI required đúng subject; manifest v3 có
+   full reviewed-build pins gồm runner, admission, native projection, scorers/replay, bridge/serializer/
+   cleanup, config/schema/launcher. Thay runtime file dù test green cũng invalidates live pin.
+2. Pin branch saved/fallback, sáu case/controls/refusals, Gold/corpus/selection inputs, model/bytes/
+   tokens, request builders, source permission, manifest/journal/output identity, actual lower caps,
+   start-by và windows/startup plan. Pin existing exact captures nếu saved; nếu fallback, pin
+   nguồn→job/run/response derivation và binding rule cho outputs chưa tồn tại, không bịa digest.
+3. Xác minh credential names/account/project và ownership riêng trước dispatch, không đưa values lên
+   chat/Issue/PR. Gom yêu cầu cấu hình Cloudflare/Langfuse, evidence source Free/quota, quyền disposable
+   runtime+DB reset/cleanup trong gói này. Không dùng retainedL1/knora-dev bằng approval lịch sử.
+4. Langfuse preview dùng hai saved native captures hợp lệ được chọn/pin sau T1; Owner duyệt exact
+   canary+real bytes và digests trong cùng gói nếu có sẵn. Nếu chỉ có fallback outputs chưa tồn tại,
+   **không thể** coi future bytes đã được duyệt: gói chỉ cho inference/Ragas và binding constraints;
+   actual metadata preview/digests sẽ gộp trong lần Owner chấm human packet bên dưới. Không thêm lần
+   hỏi riêng cho từng POST. Trước khi được duyệt exact bytes, export OFF và chưa canary.
+
+**Sau duyệt gói live:** Anti dùng entrypoint đã sửa với manifest/journal explicit; không công bố lệnh
+CLI chưa tồn tại là đã kiểm thử. T7 phải ghi actual `--help`, exact commands/exit codes vào verification
+và packet, gồm chế độ preflight/resume/reconcile; thiếu command được test là chưa sẵn dispatch.
+
+- Làm offline preflight zero-inference, kiểm fresh Free/quota≤5 phút và ownership. Saved route skip
+  corpus/Q&A bằng provenance reference, không fake attempts. Fallback route owned launcher + prepare
+  ≤6PDF + đúng6QA (004 trước032), kiểm trace/contexts; snapshot jobs/attempts/chunks/vectors/provenance/
+  active pointers và Gold/FAILED/history, cleanup owned resources trước chờ human review.
+- Gọi Ragas tối đa1 đúng chunks đã pin; xuất12 mục + phụ lục drafts và exposure declaration.
+  **Checkpoint chờ Owner review một gói**, chưa judge. Gộp phần duyệt metadata bytes phát sinh (nếu
+  fallback) vào đây. Input/rubric thay đổi sau labels làm labels invalid, không tự chuyển sang packet mới.
+- Owner gửi labels/reasons/reviewer-time; Anti validate/freeze digest, giữ bất đồng/unavailable;
+  tự tiếp tục judge mới đúng từng item/response chain dưới fresh admission. Không tự chấm thay Owner.
+  Có error/control fail thì dừng judge/final acceptance, vẫn làm owned cleanup đã được phép.
+- Langfuse chỉ sau cả payloads được duyệt, đủ Free/project/auth/quota và cleanup budget: canary
+  POST/readback/delete/verify → real POST/readback/delete/verify; lỗi không export tiếp. Có thể làm
+  phần Langfuse độc lập khi inference đang checkpoint nếu mọi gate và cùng deadline còn hợp lệ.
+- Hết quota thì checkpoint trước lượt kế, không hỏi tăng budget. Trong7ngày/8windows còn hiệu lực,
+  lấy proof mới và resume tự động theo §8.3B khi quota phục hồi; không chạy polling vô hạn hoặc hứa
+  sẽ tự thức dậy nếu không có phiên đang thực thi. Hết hạn/cap/unknown-stop thì báo BLOCKED với
+  exact next step cần Owner duyệt mới; không mở package khác hay reset để chạy tiếp.
+- Nếu cần sửa code sau live, checkpoint dữ liệu, cleanup và invalidate build authority; có CI/review
+  mới không tự cho phép tái chạy model. Trình đúng delta approval, không lấy nhãn/điểm cũ chứng minh
+  build mới. Bằng chứng code chạy live và docs closeout có thể khác SHA: ghi riêng live subject SHA,
+  final PR SHA và reviewed-build pins; không giả runtime trên SHA chưa thực thi.
+
+**Ba lần Owner tham gia có chủ đích sau duyệt plan:** (1) duyệt exact live package;
+(2) review12 mục+Ragas, kèm metadata bytes nếu phát sinh; (3) nghiệm thu cuối. Không thể gộp
+chấm nhãn chưa có hay duyệt future SHA bằng cách cho agent tự ký. Không phát sinh gate hỏi nhỏ
+giữa chúng nếu không đổi scope/authority hoặc gặp external blocker thực sự.
+
+### 8.6 Điều kiện bàn giao cuối và đóng phạm vi
+
+- [ ] R1–R11 có mapping commit + RED/GREEN regression + reviewer disposition; không kết luận hết lỗi
+      chỉ vì run cũ green. Independent review dùng workflow/công cụ thực sự được phép, không tự cấp
+      approval hoặc tự coi lời self-review là đủ. Thiếu reviewer thì ghi chờ review.
+- [ ] `Implemented`: đúng seams, version3/items/capture/context/Ragas/cleanup, không thêm hệ thống.
+- [ ] `Local Verified`: actual SDK extras/env, commands/exit/counts/skip rõ; Postgres evidence đúng
+      ownership/fixture scope. Không báo suite PASS khi có dependency failures.
+- [ ] `CI Verified`: required CI trên final PR SHA, run/attempt/job URLs và checkout subject; main
+      integration xong trước live pin. Security Shadow/CI cũ không thay gate hiện tại.
+- [ ] `Runtime Verified`: một concrete package, một journal, actual requests/responses/pending/errors,
+      per-item/batch/package caps, windows/startups và cleanup. Reconcile reservations vs confirmed
+      dispatched/acknowledged/unknown; retained raw hashes không đổi. CostUSD0 cần current Free proof,
+      không suy từ local setting. Không làm đẹp counters hoặc che các lượt thất bại.
+- [ ] `AI quality`: human labels freeze trước judge mới; 30/30 required metrics scored, 4/4 controls
+      reject ở metric pin; sáu real scores/labels/agreements/disagreements đầy đủ, hai refusal outcomes
+      giữ đúng. Ragas source-grounded drafts được Owner accept/reject+reason, không tự thành Gold.
+- [ ] Đối chiếu người–judge ghi per-metric denominator, số đồng thuận/bất đồng theo rubric đã pin,
+      không đổi labels/ngưỡng để tăng tỷ lệ. Owner xem toàn bộ disagreement và quyết định nghiệm thu
+      tích hợp trên tập đại diện; `0.5` chỉ là scorer pilot boundary, không là quality gate của #153.
+- [ ] Langfuse exact canary/real metadata visible, correlation đúng,0scores, delete verified bằng
+      authenticated/paginated API và receipts; export OFF sau pilot. BLOCKED/OFF không đủ đóng #158.
+- [ ] Dossier/verification/human packet chỉ rõ correction lịch sử và evidence mới; #158/PR231 giữ
+      progress/next action, không tự `Closes #158`. Giữ lịch sử deterministic COMPLETED /
+      SEMANTIC_PENDING / expected ANSWER→REFUSAL; không chuyển thành quality PASS.
+- [ ] Bốn mặt hướng dẫn/task/tuân thủ/hiệu quả có tool records: skill nguồn thực sự dùng; đúng kết quả
+      nhiệm vụ; authority/counter/provenance bằng chứng; calls/startups/time thực. Không tuyên bố baseline
+      cải thiện hoặc tiết kiệm calls từ journal cache/reset sai. Không tự chấm bốn mặt thay reviewer.
+
+**Điểm dừng cuối của Anti:** PR #231 reviewable với exact-final-SHA CI, dossier đầy đủ để Owner
+nghiệm thu #158. Owner mới quyết định accept/merge/close; không tự merge/deploy/đóng #153/#181.
+Nếu bất kỳ gate thiếu, bàn giao blocker có evidence và hành động cụ thể; không cố tạo PASS.
+
+**Bằng chứng lượt soạn v2:** chỉ nghiên cứu/đọc code và sửa kế hoạch; 0 inference calls,
+0 corpus jobs/activations,0 runtime startups,0 cloud writes. Không thực thi T0–T9 ở lượt này.
