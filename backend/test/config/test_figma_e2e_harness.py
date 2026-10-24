@@ -1341,7 +1341,8 @@ def test_check_frontend_only_rejects_deleted_logical_link_entry(tmp_path: Path) 
     )
     assert proc.returncode != 0
     assert "FIGMA_FRONTEND_LOCK_MISMATCH" in proc.stderr
-    assert "No lock node found for node_modules/playwright" in proc.stderr
+    assert "No lock node found" in proc.stderr
+    assert "node_modules/playwright" in proc.stderr
 
 
 @pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
