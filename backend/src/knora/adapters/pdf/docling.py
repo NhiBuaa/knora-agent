@@ -214,12 +214,32 @@ class DoclingTextExtractor:
 
                         if ocr_texts:
                             combined = f"{native_text}\n\n" + "\n\n".join(ocr_texts)
+                            ocr_combined = "\n\n".join(ocr_texts)
                         else:
                             combined = native_text
+                            ocr_combined = ""
 
-                        blocks = self._parse_page_blocks(
-                            page_idx, combined, SourceOrigin.NATIVE_TEXT
+                        native_blocks = self._parse_page_blocks(
+                            page_idx,
+                            native_text,
+                            SourceOrigin.NATIVE_TEXT,
+                            base_offset=0,
+                            start_block_idx=1,
+                            full_text=combined,
                         )
+                        ocr_blocks: list[CanonicalBlock] = []
+                        if ocr_combined:
+                            ocr_base_offset = len(native_text) + 2
+                            ocr_blocks = self._parse_page_blocks(
+                                page_idx,
+                                ocr_combined,
+                                SourceOrigin.OCR,
+                                confidence=None,
+                                base_offset=ocr_base_offset,
+                                start_block_idx=len(native_blocks) + 1,
+                                full_text=combined,
+                            )
+                        blocks = native_blocks + ocr_blocks
                         tables = self._extract_tables_from_blocks(page_idx, blocks)
                         is_complete = all_ocr_success and bool(ocr_texts)
                         canonical_pages.append(
@@ -463,17 +483,22 @@ class DoclingTextExtractor:
         page_text: str,
         source_origin: SourceOrigin,
         confidence: float | None = None,
+        base_offset: int = 0,
+        start_block_idx: int = 1,
+        full_text: str | None = None,
     ) -> list[CanonicalBlock]:
         raw_sections = [s.strip() for s in re.split(r"(?:\r?\n){2,}", page_text) if s.strip()]
         if not raw_sections:
             return []
 
+        search_corpus = full_text if full_text is not None else page_text
         blocks: list[CanonicalBlock] = []
         heading_stack: list[str] = []
-        current_search_idx = 0
+        current_search_idx = base_offset
 
-        for idx, section in enumerate(raw_sections, start=1):
-            start = page_text.find(section, current_search_idx)
+        for idx_offset, section in enumerate(raw_sections):
+            block_idx = start_block_idx + idx_offset
+            start = search_corpus.find(section, current_search_idx)
             if start == -1:
                 start = current_search_idx
             end = start + len(section)
@@ -503,7 +528,7 @@ class DoclingTextExtractor:
 
             blocks.append(
                 CanonicalBlock(
-                    block_id=f"p{page_number}_b{idx}",
+                    block_id=f"p{page_number}_b{block_idx}",
                     page_number=page_number,
                     block_type=block_type,
                     start_offset=start,
