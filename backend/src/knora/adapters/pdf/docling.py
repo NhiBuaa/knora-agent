@@ -99,15 +99,21 @@ class DoclingTextExtractor:
             if time.monotonic() - start_time > timeout:
                 raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="TIMEOUT")
             if configuration.extractor_memory_bytes is not None:
+                rss = 0
                 try:
                     import psutil
 
-                    if psutil.Process().memory_info().rss > configuration.extractor_memory_bytes:
-                        raise PdfExtractionError(
-                            "PDF_RESOURCE_LIMIT_EXCEEDED", reason="EXTRACTOR_MEMORY"
-                        )
-                except (ImportError, Exception):
-                    pass
+                    rss = psutil.Process().memory_info().rss
+                except ImportError as exc:
+                    raise PdfExtractionError(
+                        "PDF_RESOURCE_LIMIT_EXCEEDED", reason="CAPABILITY_UNAVAILABLE"
+                    ) from exc
+                except Exception:
+                    rss = 0
+                if rss > configuration.extractor_memory_bytes:
+                    raise PdfExtractionError(
+                        "PDF_RESOURCE_LIMIT_EXCEEDED", reason="EXTRACTOR_MEMORY"
+                    )
 
         check_limits()
         raw_bytes = stream.read(configuration.max_raw_bytes + 1)
@@ -221,11 +227,14 @@ class DoclingTextExtractor:
                             check_limits()
                             try:
                                 resp = self._cf_provider.ocr_page_image(img.data)
+                                check_limits()
                                 t = resp.text.strip()
                                 if t:
                                     ocr_texts.append(t)
                                 else:
                                     all_ocr_success = False
+                            except PdfExtractionError:
+                                raise
                             except Exception:
                                 all_ocr_success = False
 
@@ -282,11 +291,14 @@ class DoclingTextExtractor:
                             check_limits()
                             try:
                                 resp = self._cf_provider.ocr_page_image(img.data)
+                                check_limits()
                                 t = resp.text.strip()
                                 if t:
                                     ocr_texts.append(t)
                                 else:
                                     all_ocr_success = False
+                            except PdfExtractionError:
+                                raise
                             except Exception:
                                 all_ocr_success = False
                     else:
@@ -428,24 +440,31 @@ class DoclingTextExtractor:
         end_offset: int,
     ) -> CanonicalTable | None:
         lines = [line.strip() for line in table_text.strip().splitlines() if line.strip()]
-        table_lines = [line for line in lines if line.startswith("|") and line.endswith("|")]
-        if len(table_lines) < 2:
+        if len(lines) < 2:
             return None
 
-        sep_pattern = re.compile(r"^\|(\s*:?-+:?\s*\|)+$")
-        has_separator = bool(sep_pattern.match(table_lines[1]))
+        table_lines = [line for line in lines if line.startswith("|") and line.endswith("|")]
+        if len(table_lines) >= 2:
+            sep_pattern = re.compile(r"^\|(\s*:?-+:?\s*\|)+$")
+            has_separator = bool(sep_pattern.match(table_lines[1]))
 
-        def parse_cells(line: str) -> list[str]:
-            inner = line[1:-1]
-            return [cell.strip() for cell in inner.split("|")]
+            def parse_cells(line: str) -> list[str]:
+                inner = line[1:-1]
+                return [cell.strip() for cell in inner.split("|")]
 
-        rows_data: list[tuple[bool, list[str]]] = []
-        for idx, line in enumerate(table_lines):
-            if idx == 1 and has_separator:
-                continue
-            is_header = idx == 0 and has_separator
-            cell_values = parse_cells(line)
-            rows_data.append((is_header, cell_values))
+            rows_data: list[tuple[bool, list[str]]] = []
+            for idx, line in enumerate(table_lines):
+                if idx == 1 and has_separator:
+                    continue
+                is_header = idx == 0 and has_separator
+                cell_values = parse_cells(line)
+                rows_data.append((is_header, cell_values))
+        else:
+            split_rows = [re.split(r"\t+|\s{2,}", line) for line in lines]
+            col_counts = [len(r) for r in split_rows]
+            if len(set(col_counts)) != 1 or col_counts[0] < 2:
+                return None
+            rows_data = [(idx == 0, [c.strip() for c in r]) for idx, r in enumerate(split_rows)]
 
         if not rows_data:
             return None
@@ -485,7 +504,15 @@ class DoclingTextExtractor:
     ) -> list[CanonicalTable]:
         tables: list[CanonicalTable] = []
         for idx, block in enumerate(blocks, start=1):
-            if block.block_type == BlockType.TABLE or ("|" in block.text and "\n" in block.text):
+            has_table_shape = (
+                block.block_type == BlockType.TABLE
+                or ("|" in block.text and "\n" in block.text)
+                or (
+                    len(block.text.splitlines()) >= 2
+                    and any("\t" in line or "  " in line for line in block.text.splitlines())
+                )
+            )
+            if has_table_shape:
                 parsed = self._parse_markdown_table(
                     table_id=f"p{page_number}_t{idx}",
                     page_number=page_number,
@@ -537,10 +564,18 @@ class DoclingTextExtractor:
                 clean_text = section
             else:
                 table_lines = [line.strip() for line in section.splitlines() if line.strip()]
-                if (
+                is_pipe_table = (
                     len(table_lines) >= 2
                     and all(line.startswith("|") and line.endswith("|") for line in table_lines)
-                ) or (section.startswith("|") and section.endswith("|")):
+                ) or (section.startswith("|") and section.endswith("|"))
+                is_grid_table = False
+                if not is_pipe_table and len(table_lines) >= 2:
+                    split_rows = [re.split(r"\t+|\s{2,}", line) for line in table_lines]
+                    col_counts = [len(r) for r in split_rows]
+                    if len(set(col_counts)) == 1 and col_counts[0] >= 2:
+                        is_grid_table = True
+
+                if is_pipe_table or is_grid_table:
                     block_type = BlockType.TABLE
                     clean_text = section
                 else:
