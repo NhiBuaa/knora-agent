@@ -252,13 +252,17 @@ def test_disposable_reservation_rejects_concurrent_launcher(
     second = None
     try:
         deadline = time.monotonic() + 15
+        events_content: list[str] = []
         while time.monotonic() < deadline:
-            if (directory / "events").exists() and (
-                directory / "events"
-            ).read_text().splitlines() == before_release:
-                break
+            try:
+                if (directory / "events").exists():
+                    events_content = (directory / "events").read_text().splitlines()
+                    if events_content == before_release:
+                        break
+            except (PermissionError, OSError):
+                pass
             time.sleep(0.05)
-        assert (directory / "events").read_text().splitlines() == before_release
+        assert events_content == before_release
         second = start("wait-start")
         try:
             output, error = second.communicate(timeout=10)
@@ -267,7 +271,13 @@ def test_disposable_reservation_rejects_concurrent_launcher(
         assert second.returncode != 0
         assert "FIGMA_PROJECT_RESERVED" in error
         assert "FIGMA_PREPARED" not in output
-        assert (directory / "events").read_text().splitlines() == before_release
+        for _ in range(20):
+            try:
+                events_content = (directory / "events").read_text().splitlines()
+                break
+            except (PermissionError, OSError):
+                time.sleep(0.05)
+        assert events_content == before_release
     finally:
         (directory / "release").touch()
         first.communicate(timeout=15)
@@ -942,6 +952,465 @@ def test_check_frontend_only_accepts_valid_internal_package_link(tmp_path: Path)
     )
     assert proc.returncode == 0, proc.stderr
     assert "FIGMA_FRONTEND_OK" in proc.stdout
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_check_frontend_only_rejects_link_to_wrong_target_with_same_name_and_version(
+    tmp_path: Path,
+) -> None:
+    fe = create_synthetic_frontend(tmp_path)
+    shutil.rmtree(fe / "node_modules/playwright")
+    pkg_actual = fe / "packages/actual"
+    pkg_actual.mkdir(parents=True, exist_ok=True)
+    (pkg_actual / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "playwright",
+                "version": "1.63.0",
+                "dependencies": {"playwright-core": "1.63.0"},
+                "exports": {"./package.json": "./package.json"},
+            }
+        )
+    )
+    pkg_other = fe / "packages/other"
+    pkg_other.mkdir(parents=True, exist_ok=True)
+    (pkg_other / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "playwright",
+                "version": "1.63.0",
+                "dependencies": {"playwright-core": "1.63.0"},
+                "exports": {"./package.json": "./package.json"},
+            }
+        )
+    )
+    link = fe / "node_modules/playwright"
+    try:
+        link.symlink_to(pkg_actual, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        subprocess.run(
+            [
+                POWERSHELL,
+                "-NoProfile",
+                "-Command",
+                f'New-Item -ItemType Junction -Path "{link}" -Target "{pkg_actual}"',
+            ],
+            capture_output=True,
+        )
+
+    lock = {
+        "name": "frontend",
+        "version": "0.0.0",
+        "lockfileVersion": 3,
+        "packages": {
+            "": {
+                "name": "frontend",
+                "version": "0.0.0",
+                "devDependencies": {"@playwright/test": "^1.63.0"},
+            },
+            "node_modules/@playwright/test": {
+                "version": "1.63.0",
+                "dependencies": {"playwright": "1.63.0"},
+            },
+            "node_modules/playwright": {"resolved": "packages/other", "link": True},
+            "packages/actual": {
+                "name": "playwright",
+                "version": "1.63.0",
+                "dependencies": {"playwright-core": "1.63.0"},
+            },
+            "packages/other": {
+                "name": "playwright",
+                "version": "1.63.0",
+                "dependencies": {"playwright-core": "1.63.0"},
+            },
+            "node_modules/playwright-core": {"version": "1.63.0"},
+        },
+    }
+    (fe / "package-lock.json").write_text(json.dumps(lock))
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    proc = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(scripts / "prepare-figma-e2e.ps1"),
+            "-CheckFrontendOnly",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert "FIGMA_FRONTEND_LOCK_MISMATCH" in proc.stderr
+    assert "does not match selected physical package" in proc.stderr
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_check_frontend_only_rejects_link_to_missing_target(tmp_path: Path) -> None:
+    fe = create_synthetic_frontend(tmp_path)
+    shutil.rmtree(fe / "node_modules/playwright")
+    pkg_actual = fe / "packages/actual"
+    pkg_actual.mkdir(parents=True, exist_ok=True)
+    (pkg_actual / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "playwright",
+                "version": "1.63.0",
+                "dependencies": {"playwright-core": "1.63.0"},
+                "exports": {"./package.json": "./package.json"},
+            }
+        )
+    )
+    link = fe / "node_modules/playwright"
+    try:
+        link.symlink_to(pkg_actual, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        subprocess.run(
+            [
+                POWERSHELL,
+                "-NoProfile",
+                "-Command",
+                f'New-Item -ItemType Junction -Path "{link}" -Target "{pkg_actual}"',
+            ],
+            capture_output=True,
+        )
+
+    lock = {
+        "name": "frontend",
+        "version": "0.0.0",
+        "lockfileVersion": 3,
+        "packages": {
+            "": {
+                "name": "frontend",
+                "version": "0.0.0",
+                "devDependencies": {"@playwright/test": "^1.63.0"},
+            },
+            "node_modules/@playwright/test": {
+                "version": "1.63.0",
+                "dependencies": {"playwright": "1.63.0"},
+            },
+            "node_modules/playwright": {"resolved": "packages/missing", "link": True},
+            "packages/actual": {
+                "name": "playwright",
+                "version": "1.63.0",
+                "dependencies": {"playwright-core": "1.63.0"},
+            },
+            "node_modules/playwright-core": {"version": "1.63.0"},
+        },
+    }
+    (fe / "package-lock.json").write_text(json.dumps(lock))
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    proc = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(scripts / "prepare-figma-e2e.ps1"),
+            "-CheckFrontendOnly",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert "FIGMA_FRONTEND_LOCK_MISMATCH" in proc.stderr
+    assert "Link target does not exist" in proc.stderr
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_check_frontend_only_rejects_link_to_outside_target(tmp_path: Path) -> None:
+    fe = create_synthetic_frontend(tmp_path)
+    shutil.rmtree(fe / "node_modules/playwright")
+    pkg_actual = fe / "packages/actual"
+    pkg_actual.mkdir(parents=True, exist_ok=True)
+    (pkg_actual / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "playwright",
+                "version": "1.63.0",
+                "dependencies": {"playwright-core": "1.63.0"},
+                "exports": {"./package.json": "./package.json"},
+            }
+        )
+    )
+    link = fe / "node_modules/playwright"
+    try:
+        link.symlink_to(pkg_actual, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        subprocess.run(
+            [
+                POWERSHELL,
+                "-NoProfile",
+                "-Command",
+                f'New-Item -ItemType Junction -Path "{link}" -Target "{pkg_actual}"',
+            ],
+            capture_output=True,
+        )
+
+    lock = {
+        "name": "frontend",
+        "version": "0.0.0",
+        "lockfileVersion": 3,
+        "packages": {
+            "": {
+                "name": "frontend",
+                "version": "0.0.0",
+                "devDependencies": {"@playwright/test": "^1.63.0"},
+            },
+            "node_modules/@playwright/test": {
+                "version": "1.63.0",
+                "dependencies": {"playwright": "1.63.0"},
+            },
+            "node_modules/playwright": {"resolved": "../outside", "link": True},
+            "packages/actual": {
+                "name": "playwright",
+                "version": "1.63.0",
+                "dependencies": {"playwright-core": "1.63.0"},
+            },
+            "node_modules/playwright-core": {"version": "1.63.0"},
+        },
+    }
+    (fe / "package-lock.json").write_text(json.dumps(lock))
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    proc = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(scripts / "prepare-figma-e2e.ps1"),
+            "-CheckFrontendOnly",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert "FIGMA_FRONTEND_OWNERSHIP_REJECTED" in proc.stderr
+    assert "Link target is outside frontend" in proc.stderr
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_check_frontend_only_rejects_link_cycle(tmp_path: Path) -> None:
+    fe = create_synthetic_frontend(tmp_path)
+    shutil.rmtree(fe / "node_modules/playwright")
+    pkg_actual = fe / "packages/actual"
+    pkg_actual.mkdir(parents=True, exist_ok=True)
+    (pkg_actual / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "playwright",
+                "version": "1.63.0",
+                "dependencies": {"playwright-core": "1.63.0"},
+                "exports": {"./package.json": "./package.json"},
+            }
+        )
+    )
+    link = fe / "node_modules/playwright"
+    try:
+        link.symlink_to(pkg_actual, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        subprocess.run(
+            [
+                POWERSHELL,
+                "-NoProfile",
+                "-Command",
+                f'New-Item -ItemType Junction -Path "{link}" -Target "{pkg_actual}"',
+            ],
+            capture_output=True,
+        )
+
+    lock = {
+        "name": "frontend",
+        "version": "0.0.0",
+        "lockfileVersion": 3,
+        "packages": {
+            "": {
+                "name": "frontend",
+                "version": "0.0.0",
+                "devDependencies": {"@playwright/test": "^1.63.0"},
+            },
+            "node_modules/@playwright/test": {
+                "version": "1.63.0",
+                "dependencies": {"playwright": "1.63.0"},
+            },
+            "node_modules/playwright": {"resolved": "packages/cycle-b", "link": True},
+            "packages/cycle-b": {"resolved": "node_modules/playwright", "link": True},
+            "packages/actual": {
+                "name": "playwright",
+                "version": "1.63.0",
+                "dependencies": {"playwright-core": "1.63.0"},
+            },
+            "node_modules/playwright-core": {"version": "1.63.0"},
+        },
+    }
+    (fe / "package-lock.json").write_text(json.dumps(lock))
+    (fe / "packages/cycle-b").mkdir(parents=True, exist_ok=True)
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    proc = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(scripts / "prepare-figma-e2e.ps1"),
+            "-CheckFrontendOnly",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert "FIGMA_FRONTEND_LOCK_MISMATCH" in proc.stderr
+    assert "Lock link cycle detected" in proc.stderr
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_check_frontend_only_rejects_deleted_logical_link_entry(tmp_path: Path) -> None:
+    fe = create_synthetic_frontend(tmp_path)
+    shutil.rmtree(fe / "node_modules/playwright")
+    pkg_actual = fe / "packages/actual"
+    pkg_actual.mkdir(parents=True, exist_ok=True)
+    (pkg_actual / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "playwright",
+                "version": "1.63.0",
+                "dependencies": {"playwright-core": "1.63.0"},
+                "exports": {"./package.json": "./package.json"},
+            }
+        )
+    )
+    link = fe / "node_modules/playwright"
+    try:
+        link.symlink_to(pkg_actual, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        subprocess.run(
+            [
+                POWERSHELL,
+                "-NoProfile",
+                "-Command",
+                f'New-Item -ItemType Junction -Path "{link}" -Target "{pkg_actual}"',
+            ],
+            capture_output=True,
+        )
+
+    lock = {
+        "name": "frontend",
+        "version": "0.0.0",
+        "lockfileVersion": 3,
+        "packages": {
+            "": {
+                "name": "frontend",
+                "version": "0.0.0",
+                "devDependencies": {"@playwright/test": "^1.63.0"},
+            },
+            "node_modules/@playwright/test": {
+                "version": "1.63.0",
+                "dependencies": {"playwright": "1.63.0"},
+            },
+            "packages/actual": {
+                "name": "playwright",
+                "version": "1.63.0",
+                "dependencies": {"playwright-core": "1.63.0"},
+            },
+            "node_modules/playwright-core": {"version": "1.63.0"},
+        },
+    }
+    (fe / "package-lock.json").write_text(json.dumps(lock))
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    proc = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(scripts / "prepare-figma-e2e.ps1"),
+            "-CheckFrontendOnly",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert "FIGMA_FRONTEND_LOCK_MISMATCH" in proc.stderr
+    assert "No lock node found for node_modules/playwright" in proc.stderr
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_check_frontend_only_rejects_broken_link_candidate(tmp_path: Path) -> None:
+    fe = create_synthetic_frontend(tmp_path)
+    shutil.rmtree(fe / "node_modules/playwright")
+    missing_target = fe / "packages/does-not-exist"
+    link = fe / "node_modules/playwright"
+    try:
+        link.symlink_to(missing_target, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        subprocess.run(
+            [
+                POWERSHELL,
+                "-NoProfile",
+                "-Command",
+                f'New-Item -ItemType Junction -Path "{link}" -Target "{missing_target}"',
+            ],
+            capture_output=True,
+        )
+
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    proc = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(scripts / "prepare-figma-e2e.ps1"),
+            "-CheckFrontendOnly",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert (
+        "FIGMA_FRONTEND_LOCK_MISMATCH" in proc.stderr or "FIGMA_FRONTEND_UNAVAILABLE" in proc.stderr
+    )
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_check_frontend_only_rejects_case_sensitive_sibling_on_linux(tmp_path: Path) -> None:
+    if os.name == "nt":
+        pytest.skip("Linux case sensitivity check skipped on Windows")
+    fe = create_synthetic_frontend(tmp_path)
+    alt_fe = tmp_path / "FRONTEND"
+    alt_fe.mkdir()
+    (alt_fe / "node_modules").mkdir()
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    shutil.rmtree(fe / "node_modules")
+    (fe / "node_modules").symlink_to(alt_fe / "node_modules", target_is_directory=True)
+    proc = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(scripts / "prepare-figma-e2e.ps1"),
+            "-CheckFrontendOnly",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert "FIGMA_FRONTEND_OWNERSHIP_REJECTED" in proc.stderr
 
 
 @pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")

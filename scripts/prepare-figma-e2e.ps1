@@ -44,8 +44,33 @@ function isExact(spec) {
   return /^[0-9]+\.[0-9]+\.[0-9]+.*$/.test(spec);
 }
 
-function resolveLockNode(lockPackages, startKey, canonicalFrontend) {
-  let currentKey = startKey;
+function findLogicalPackage(parentReq, packageName, selectedPackageDir, canonicalFrontend) {
+  const searchDirs = parentReq.resolve.paths(packageName) || [];
+  for (const sDir of searchDirs) {
+    const candidateDir = path.join(sDir, packageName);
+    let st;
+    try {
+      st = fs.lstatSync(candidateDir);
+    } catch {
+      continue;
+    }
+    let candidateReal;
+    try {
+      candidateReal = fs.realpathSync(candidateDir);
+    } catch {
+      return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'Broken link at logical candidate: ' + candidateDir };
+    }
+    if (candidateReal !== selectedPackageDir) {
+      return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'Candidate ' + candidateDir + ' realpath mismatch' };
+    }
+    const relKey = path.relative(canonicalFrontend, candidateDir).replace(/\\/g, '/');
+    return { ok: true, dir: candidateDir, relKey };
+  }
+  return { ok: false, code: 'FIGMA_FRONTEND_UNAVAILABLE', msg: 'No logical candidate found for ' + packageName };
+}
+
+function resolveLockNode(lockPackages, startKey, canonicalFrontend, expectedPhysicalDir) {
+  let currentKey = path.normalize(startKey).replace(/\\/g, '/');
   const visited = new Set();
   while (true) {
     if (visited.has(currentKey)) {
@@ -60,13 +85,38 @@ function resolveLockNode(lockPackages, startKey, canonicalFrontend) {
       if (!node.resolved || typeof node.resolved !== 'string') {
         return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'Link node missing resolved target: ' + currentKey };
       }
-      const targetRel = node.resolved.replace(/\\/g, '/');
-      const targetAbs = path.resolve(canonicalFrontend, targetRel);
-      if (!isPhysicallyWithin(canonicalFrontend, targetAbs)) {
-        return { ok: false, code: 'FIGMA_FRONTEND_OWNERSHIP_REJECTED', msg: 'Link target is outside frontend: ' + targetRel };
+      const rawResolved = node.resolved.replace(/\\/g, '/');
+      const targetAbs = path.resolve(canonicalFrontend, rawResolved);
+      const relToRoot = path.relative(canonicalFrontend, targetAbs);
+      if (path.isAbsolute(relToRoot) || relToRoot === '..' || relToRoot.startsWith('..' + path.sep)) {
+        return { ok: false, code: 'FIGMA_FRONTEND_OWNERSHIP_REJECTED', msg: 'Link target is outside frontend: ' + rawResolved };
       }
-      currentKey = targetRel;
+      if (!fs.existsSync(targetAbs)) {
+        return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'Link target does not exist: ' + rawResolved };
+      }
+      if (!isPhysicallyWithin(canonicalFrontend, targetAbs)) {
+        return { ok: false, code: 'FIGMA_FRONTEND_OWNERSHIP_REJECTED', msg: 'Link target is outside frontend: ' + rawResolved };
+      }
+      const nextKey = path.relative(canonicalFrontend, targetAbs).replace(/\\/g, '/');
+      currentKey = nextKey;
       continue;
+    }
+    const terminalAbs = path.resolve(canonicalFrontend, currentKey);
+    const relTerminal = path.relative(canonicalFrontend, terminalAbs);
+    if (path.isAbsolute(relTerminal) || relTerminal === '..' || relTerminal.startsWith('..' + path.sep)) {
+      return { ok: false, code: 'FIGMA_FRONTEND_OWNERSHIP_REJECTED', msg: 'Terminal target is outside frontend: ' + currentKey };
+    }
+    if (!fs.existsSync(terminalAbs)) {
+      return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'Terminal target does not exist: ' + currentKey };
+    }
+    let canonicalTerminal;
+    try {
+      canonicalTerminal = fs.realpathSync(terminalAbs);
+    } catch {
+      return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'Terminal target cannot be resolved: ' + currentKey };
+    }
+    if (canonicalTerminal !== expectedPhysicalDir) {
+      return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'Lock terminal target (' + canonicalTerminal + ') does not match selected physical package (' + expectedPhysicalDir + ')' };
     }
     return { ok: true, node, key: currentKey };
   }
@@ -158,8 +208,11 @@ function validateFrontend(frontendDir, repoDir) {
     return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: '@playwright/test installed package name mismatch: ' + pwTestPkg.name };
   }
 
-  const pwTestRelKey = path.relative(canonicalFrontend, pwTestDir).replace(/\\/g, '/');
-  const pwTestLockRes = resolveLockNode(lockPackages, pwTestRelKey, canonicalFrontend);
+  const pwTestLogicalRes = findLogicalPackage(rootReq, '@playwright/test', pwTestDir, canonicalFrontend);
+  if (!pwTestLogicalRes.ok) {
+    return pwTestLogicalRes;
+  }
+  const pwTestLockRes = resolveLockNode(lockPackages, pwTestLogicalRes.relKey, canonicalFrontend, pwTestDir);
   if (!pwTestLockRes.ok) {
     return pwTestLockRes;
   }
@@ -232,8 +285,11 @@ function validateFrontend(frontendDir, repoDir) {
     return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'playwright installed package name mismatch: ' + pwPkg.name };
   }
 
-  const pwRelKey = path.relative(canonicalFrontend, pwDir).replace(/\\/g, '/');
-  const pwLockRes = resolveLockNode(lockPackages, pwRelKey, canonicalFrontend);
+  const pwLogicalRes = findLogicalPackage(pwTestReq, 'playwright', pwDir, canonicalFrontend);
+  if (!pwLogicalRes.ok) {
+    return pwLogicalRes;
+  }
+  const pwLockRes = resolveLockNode(lockPackages, pwLogicalRes.relKey, canonicalFrontend, pwDir);
   if (!pwLockRes.ok) {
     return pwLockRes;
   }
@@ -284,8 +340,11 @@ function validateFrontend(frontendDir, repoDir) {
     return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'playwright-core installed package name mismatch: ' + pwCorePkg.name };
   }
 
-  const pwCoreRelKey = path.relative(canonicalFrontend, pwCoreDir).replace(/\\/g, '/');
-  const pwCoreLockRes = resolveLockNode(lockPackages, pwCoreRelKey, canonicalFrontend);
+  const pwCoreLogicalRes = findLogicalPackage(pwReq, 'playwright-core', pwCoreDir, canonicalFrontend);
+  if (!pwCoreLogicalRes.ok) {
+    return pwCoreLogicalRes;
+  }
+  const pwCoreLockRes = resolveLockNode(lockPackages, pwCoreLogicalRes.relKey, canonicalFrontend, pwCoreDir);
   if (!pwCoreLockRes.ok) {
     return pwCoreLockRes;
   }
