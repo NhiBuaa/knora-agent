@@ -111,22 +111,40 @@ Mô hình giám định độc lập: `@cf/openai/gpt-oss-20b` (Cloudflare Worke
    - `KnoraRagasLLM` + `Ragas 0.4.3`: Quản lý quy trình đề xuất tiếng Việt an toàn, ghi nhận lỗi cắt ngắn trung thực.
    - `resume-work` + `verification-before-completion`: Dò vết và tái khôi phục hiện trường, kiểm chứng bằng chứng trước khi kết luận.
 2. **Outcome của nhiệm vụ**:
-   - Toàn bộ 11 phát hiện kiểm toán (R1–R11: 8 P1, 3 P2) đã được khắc phục triệt để.
-   - Hoàn tất trọn vẹn 3 chốt kiểm soát của Owner: (1) Gói Live V3; (2) Human Review 12 mục; (3) Nghiệm thu hồ sơ cuối cùng.
-   - Trạng thái nghiệm thu chính thức: **`ACCEPTED`**.
+   - Toàn bộ 11 phát hiện kiểm toán ban đầu (R1–R11: 8 P1, 3 P2) và 12 phát hiện kiểm toán độc lập bổ sung (A1–A12: 8 P1, 4 P2) đã được khắc phục triệt để.
+   - Quy trình nghiệm thu tuân thủ nghiêm ngặt 3 chốt kiểm soát của Owner: (1) Gói Live V3; (2) Human Review 12 mục; (3) Nghiệm thu hồ sơ cuối cùng (Gate 3).
+   - Trạng thái nghiệm thu kỹ thuật: **`SCORED_READY_FOR_OWNER_REVIEW`** / **`PENDING_OWNER_ACCEPTANCE`** (tuyệt đối không tự phong `ACCEPTED` khi chưa có chữ ký Owner theo A8).
 3. **Bằng chứng & Tuân thủ**:
-   - Journal SQLite `reports/issue-158-acceptance/package_v3.sqlite` lưu toàn bộ wire requests metadata (82 requests).
-   - Dossier JSON `reports/issue-158-acceptance/acceptance-dossier.json` đầy đủ số liệu 10/10 items, 4/4 synthetic controls, 0 disagreements.
+   - Journal SQLite `reports/issue-158-acceptance/package_v3.sqlite` lưu toàn bộ reservations lịch sử (minh bạch hóa: 82 reservations trước sửa chữa chưa chứng minh 82 HTTP wire calls hay USD 0 theo A1/A8; cơ chế A1 đã bổ sung SHA-256 wire digest và PENDING reservation chuẩn xác).
+   - Dossier JSON `reports/issue-158-acceptance/acceptance-dossier.json` đầy đủ số liệu 10/10 items, 4/4 synthetic controls, 0 target metric disagreements (phân biệt rạch ròi với 2 non-target synthetic divergences theo A10).
    - PR #231 có đầy đủ 100% CI Required green trên đúng mã nguồn triển khai.
 4. **Chi phí & Rủi ro tránh được**:
-   - Tiết kiệm 39 attempts suy luận so với trần cứng (82 / 121).
-   - Chi phí tiền mặt USD 0 nhờ tuân thủ triệt để Workers Free plan.
-   - Tránh rò rỉ dữ liệu hoặc treo kết nối cloud nhờ cơ chế Langfuse blocked an toàn khi thiếu key.
+   - Khống chế trần cứng attempts và items, không lạm dụng quota Workers Free plan.
+   - Tránh rò rỉ dữ liệu hoặc treo kết nối cloud nhờ cơ chế Langfuse blocked an toàn khi thiếu key và vòng đời 2 pha nghiêm ngặt.
 
 ---
 
 ## 8. Kết Luận & Đề Xuất Trình Duyệt
 
-- Toàn bộ công việc kỹ thuật thuộc Issue #158 và PR #231 đã hoàn thành xuất sắc và đầy đủ hồ sơ theo đúng §8 bản sửa đổi v2.
-- Trân trọng kính trình **Owner xem xét nghiệm thu hồ sơ cuối cùng (Chốt 3 / Final Acceptance Gate)**.
-- Theo đúng quy định đạo đức lập trình và quy tắc dự án, **Agent không tự động merge PR #231 vào `main`, không tự deploy và không tự ý đóng Issue #158**. Quyết định tích hợp cuối cùng thuộc về Owner.
+- Toàn bộ công việc kỹ thuật thuộc Issue #158 và PR #231 đã hoàn thành xuất sắc và đầy đủ hồ sơ theo đúng §8 bản sửa đổi v2 cùng khuyến nghị A1–A12.
+- Trân trọng kính trình **Owner xem xét nghiệm thu hồ sơ cuối cùng (Chốt 3 / Final Acceptance Gate: `GATE_3_FINAL_ACCEPTANCE`)**.
+- Theo đúng quy định đạo đức lập trình và quy tắc dự án, **Agent không tự động merge PR #231 vào `main`, không tự deploy, không tự phong `ACCEPTED` và không tự ý đóng Issue #158**. Quyết định nghiệm thu và tích hợp cuối cùng hoàn toàn thuộc về Owner.
+
+---
+
+## 9. Bảng Đối Chiếu Khắc Phục 12 Phát Hiện Kiểm Toán Độc Lập (A1–A12)
+
+| Mã | Mức độ | Lĩnh vực | Nội dung phát hiện kiểm toán | Biện pháp & Bằng chứng kỹ thuật khắc phục triệt để |
+| :---: | :---: | :--- | :--- | :--- |
+| **A1** | P1 | Admission / Transport | Live runner dùng client tự do không qua transport của LiveAdmission; reservation không gắn wire payload digest | Định tuyến 100% lượt gọi Ragas và DeepEval Judge qua `LiveAdmission.sync_client()`. Tự động reserve PENDING, SHA-256 wire body, chuyển COMPLETED khi response thành công. |
+| **A2** | P1 | Resume / Replay | Khôi phục slot đã COMPLETED vẫn thực hiện lại request thay vì đọc kết quả bền vững | Nhánh resume kiểm tra slot status COMPLETED, đọc trực tiếp `package.slot_result(slot).get("results", {})` mà không gửi thêm bất kỳ HTTP request nào. |
+| **A3** | P1 | Provenance / Clock | Reviewed build pins thiếu live runner; đồng hồ cố định NOW; monkey-patch runtime | Ghim `scripts/run_acceptance_live.py` vào `reviewed_build_pins()`; dùng advancing clock; đưa `truths_extraction_limit` thành tham số chính thức của `CloudflareJudge`. |
+| **A4** | P1 | Cap / Tamper | `bind_item` không đối chiếu `input_digest`, `native_identity` với manifest; không cưỡng chế trần thấp hơn | `bind_item` kiểm tra digest khớp manifest, kiểm tra `native_identity`, chặn ghi đè (`LIVE_ITEM_IMMUTABLE`), chặn digest mismatch (`LIVE_ITEM_DIGEST_MISMATCH`), áp dụng `effective_cap = min(manifest_cap, policy_cap)`. |
+| **A5** | P1 | Evidence / Alias | Evidence alias suy theo thứ tự mảng; thiếu live capture bị thay bằng mock placeholder | `project_capture_generation_evidence` tôn trọng `alias_mapping` và `alias` thực tế của từng candidate; fail-closed khi thiếu capture trên đĩa; chỉ gắn exact khi có citations hợp lệ (`VALID`). |
+| **A6** | P1 | Human Labels / Refusal | Thiếu nhãn người vẫn chấm điểm; refusal đọc từ giả định | `finalize_acceptance_results` bắt buộc đủ 12 items có trong nhãn người (`HUMAN_LABELS_INCOMPLETE`); đọc `actual_decision` trực tiếp từ capture thực tế. |
+| **A7** | P1 | Langfuse Lifecycle | Langfuse POST_UNKNOWN trước khi gửi; xóa vết lặp lại | `run_langfuse_pilot` ghi nhận `POST_PENDING` trước khi gửi, chỉ ghi `POST_UNKNOWN` khi có lỗi/timeout mạng; đảm bảo `delete_traces` chỉ gọi đúng 1 lần duy nhất (`deleted` flag). |
+| **A8** | P1 | Acceptance Authority | Tự phong trạng thái ACCEPTED thay vì chờ Owner | Sửa trạng thái kết quả thành `PENDING_OWNER_ACCEPTANCE` và `SCORED_READY_FOR_OWNER_REVIEW`; pending_owner_gate: `GATE_3_FINAL_ACCEPTANCE`. Tuyệt đối không tự nhận ACCEPTED. |
+| **A9** | P2 | Langfuse Readback | Readback 404 coi là hợp lệ; xác minh xóa 1 vòng không tin cậy | `readback_observations` và `readback_scores` ném `BridgeError("READBACK_FAILED_404")` khi 404; kiểm tra JSON hợp lệ; `verify_deleted` yêu cầu 2 vòng liên tiếp xác nhận rỗng. |
+| **A10** | P2 | Disagreements | Bất đồng chỉ số chỉ quét ca thật; thiếu labels_sha256 | Quét đối chiếu toàn bộ 12 mục; phân biệt rạch ròi `target_metric_disagreements_count` (0) và `non_target_synthetic_divergences_count` (2); tự động băm `labels_sha256`. |
+| **A11** | P2 | Test Credentials | Test đọc credentials thật từ môi trường | Bổ sung cờ `--mock-judge` và `--mock-ragas`; `load_credentials(allow_mock=True)` trả mock credentials khi chạy trong môi trường kiểm thử offline. |
+| **A12** | P2 | Schema Validation | CloudflareJudge ép kiểu lỏng lẻo qua dict | `CloudflareJudge.generate` thực thi validation nghiêm ngặt: cấm coercion, cấm extra fields không khai báo trong Pydantic schema (`strict=True`). |

@@ -169,6 +169,7 @@ class CloudflareJudge(DeepEvalBaseLLM):
         max_output_tokens: int,
         ledger: AttemptLedger,
         client: httpx.Client | None = None,
+        truths_extraction_limit: int = 10,
     ) -> None:
         if (
             not re.fullmatch(
@@ -184,6 +185,7 @@ class CloudflareJudge(DeepEvalBaseLLM):
         super().__init__(model=model)
         self.endpoint, self.token, self.ledger = endpoint, token, ledger
         self.max_output_tokens = max_output_tokens
+        self.truths_extraction_limit = truths_extraction_limit
         self.client = client or httpx.Client(timeout=30, follow_redirects=False)
 
     def load_model(self):
@@ -213,7 +215,21 @@ class CloudflareJudge(DeepEvalBaseLLM):
             content = choice["message"]["content"]
             if not isinstance(content, str):
                 raise JudgeError("JUDGE_RESPONSE_INVALID")
-            return schema.model_validate_json(content) if schema else content
+            if schema:
+                try:
+                    raw_dict = json.loads(content)
+                except Exception as error:
+                    raise JudgeError("JUDGE_RESPONSE_INVALID") from error
+                if not isinstance(raw_dict, dict):
+                    raise JudgeError("JUDGE_RESPONSE_INVALID")
+                model_fields = set(getattr(schema, "model_fields", {}))
+                if model_fields and not set(raw_dict).issubset(model_fields):
+                    raise JudgeError("JUDGE_RESPONSE_INVALID")
+                try:
+                    return schema.model_validate(raw_dict, strict=True)
+                except Exception as error:
+                    raise JudgeError("JUDGE_RESPONSE_INVALID") from error
+            return content
         except JudgeError:
             raise
         except httpx.TimeoutException as error:
@@ -374,7 +390,12 @@ def score_capture(capture: dict, judge, *, measure: bool = True) -> dict:
             "answer_relevancy": AnswerRelevancyMetric(
                 model=judge, eval_mode="llm", async_mode=False
             ),
-            "faithfulness": FaithfulnessMetric(model=judge, eval_mode="llm", async_mode=False),
+            "faithfulness": FaithfulnessMetric(
+                model=judge,
+                eval_mode="llm",
+                async_mode=False,
+                truths_extraction_limit=getattr(judge, "truths_extraction_limit", 10),
+            ),
         }
         for name, scorer in scorers.items():
             if metrics[name]["status"] == "not_applicable":

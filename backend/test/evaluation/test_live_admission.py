@@ -2034,6 +2034,7 @@ def test_package_v2_saved_branch_judge_binding_and_synthetic_origin(tmp_path):
 
 
 def package_manifest_v3(tmp_path):
+    from knora.evaluation.contracts import digest_json
     from knora.evaluation.live_admission import _SLOTS_V2, reviewed_build_pins
 
     build = reviewed_build_pins()
@@ -2045,14 +2046,11 @@ def package_manifest_v3(tmp_path):
                 "item_id": case_id,
                 "slot": "judge_real",
                 "cap": 12,
-                "input_digest": "a" * 64,
+                "input_digest": digest_json({"case": case_id}),
                 "native_identity": {
                     "case_id": case_id,
                     "run_id": f"run-{case_id}",
-                    "attempt_id": f"att-{case_id}",
-                    "attempt": 1,
-                    "trace_id": f"tr-{case_id}",
-                    "workspace_id": "w1",
+                    "trace_id": f"trace-{case_id}",
                 },
             }
         )

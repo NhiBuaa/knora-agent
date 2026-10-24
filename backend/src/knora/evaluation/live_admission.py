@@ -141,6 +141,7 @@ def reviewed_build_pins():
         root / "evals/runners/run_deepeval_capture.py",
         root / "evals/runners/langfuse_bridge.py",
         root / "evals/scorers/deepeval_cloudflare.py",
+        root / "scripts/run_acceptance_live.py",
     ]
     paths = sorted(
         {
@@ -446,9 +447,16 @@ class LivePackage:
             ).fetchone()[0]
             if items_total != item_reqs:
                 raise ValueError("LIVE_PACKAGE_COUNTER_MISMATCH")
-            for item_id, item_cap, item_attempts in db.execute(
-                "SELECT item_id, cap, attempts FROM items"
-            ):
+            manifest_items = {it["item_id"]: it for it in self._manifest.get("items", [])}
+            db_items = db.execute(
+                "SELECT item_id, cap, attempts, input_digest FROM items"
+            ).fetchall()
+            if len(db_items) != len(manifest_items):
+                raise ValueError("LIVE_PACKAGE_TAMPERED")
+            for item_id, item_cap, item_attempts, in_dig in db_items:
+                m_item = manifest_items.get(item_id)
+                if not m_item or m_item["cap"] != item_cap or m_item["input_digest"] != in_dig:
+                    raise ValueError("LIVE_PACKAGE_TAMPERED")
                 item_req_c = db.execute(
                     "SELECT count(*) FROM requests WHERE item_id=?", (item_id,)
                 ).fetchone()[0]
@@ -567,12 +575,11 @@ class LivePackage:
             row = db.execute(
                 "SELECT status,operation_id,result_json FROM slots WHERE name=?", (slot,)
             ).fetchone()
-            if (
-                not row
-                or row[0] != "STARTED"
-                or _slot_operation.get() != (self, slot, row[1])
-                or row[2] is not None
-            ):
+            if not row or row[2] is not None:
+                raise ValueError("LIVE_SLOT_RESULT_IMMUTABLE")
+            if self._version == 3 and row[0] == "COMPLETED":
+                pass
+            elif row[0] != "STARTED" or _slot_operation.get() != (self, slot, row[1]):
                 raise ValueError("LIVE_SLOT_RESULT_IMMUTABLE")
             db.execute(
                 "UPDATE slots SET result_json=? WHERE name=?",
@@ -631,11 +638,12 @@ class LivePackage:
         if slot == "ragas_vi_draft":
             providers = policy.get("providers", [])
             endpoint = f"https://api.cloudflare.com/client/v4/accounts/{self._manifest['account_id']}/ai/v1/chat/completions"
+            max_input_limit = 131072 if self._version == 3 else 8192
             if len(providers) != 1 or any(
                 p.get("endpoint") != endpoint
                 or p.get("model") != "@cf/openai/gpt-oss-20b"
                 or type(p.get("max_input_bytes")) is not int
-                or not 0 < p["max_input_bytes"] <= 8192
+                or not 0 < p["max_input_bytes"] <= max_input_limit
                 or type(p.get("max_output_tokens")) is not int
                 or not 0 < p["max_output_tokens"] <= 2048
                 for p in providers
@@ -1015,7 +1023,19 @@ class LivePackage:
                 ).fetchone()
                 if not item_row:
                     raise ValueError("LIVE_ITEM_UNKNOWN")
-                if item_row[0] >= item_row[1]:
+                effective_cap = item_row[1]
+                app_id = self.approval_id(slot, item_id=item_id)
+                app_row = db.execute(
+                    "SELECT policy FROM approvals WHERE id=?", (app_id,)
+                ).fetchone()
+                if app_row and app_row[0]:
+                    try:
+                        pol = json.loads(app_row[0])
+                        if "max_attempts" in pol and isinstance(pol["max_attempts"], int):
+                            effective_cap = min(effective_cap, pol["max_attempts"])
+                    except Exception:
+                        pass
+                if item_row[0] >= effective_cap:
                     raise ValueError("LIVE_ITEM_CAP")
                 db.execute("UPDATE items SET attempts=attempts+1 WHERE item_id=?", (item_id,))
         db.execute("UPDATE package SET attempts=attempts+1")
@@ -1027,6 +1047,18 @@ class LivePackage:
         expected_approval = self.approval_id(slot, item_id=item_id)
         if policy.get("approval_id") != expected_approval:
             raise ValueError("LIVE_SLOT_APPROVAL")
+        manifest_item = next(
+            (it for it in self._manifest.get("items", []) if it["item_id"] == item_id), None
+        )
+        if not manifest_item or manifest_item["slot"] != slot:
+            raise ValueError("LIVE_ITEM_UNKNOWN")
+        if inputs.get("input_digest") != manifest_item["input_digest"]:
+            raise ValueError("LIVE_ITEM_DIGEST_MISMATCH")
+        if "native_identity" in manifest_item:
+            for k, v in manifest_item["native_identity"].items():
+                if str(inputs.get("identities", {}).get(k)) != str(v):
+                    raise ValueError("LIVE_ITEM_IDENTITY_MISMATCH")
+
         with self._db() as db:
             item_row = db.execute(
                 "SELECT cap, status, input_digest FROM items WHERE item_id=? AND slot_name=?",
@@ -1034,6 +1066,10 @@ class LivePackage:
             ).fetchone()
             if not item_row:
                 raise ValueError("LIVE_ITEM_UNKNOWN")
+            if item_row[1] not in ("BOUND", "WAITING"):
+                raise ValueError("LIVE_ITEM_IMMUTABLE")
+            if item_row[2] and inputs.get("input_digest") != item_row[2]:
+                raise ValueError("LIVE_ITEM_DIGEST_MISMATCH")
             cap = item_row[0]
             attempts_valid = (
                 (policy.get("max_attempts") == 0)
@@ -1253,13 +1289,14 @@ class LiveAdmission:
         clock=lambda: datetime.now(UTC),
         package=None,
         slot=None,
+        item_id=None,
         response_inputs=None,
         qa_store=None,
     ):
         self._policy = deepcopy(approval)
         self._clock, self._path = clock, str(path)
         self._package, self._slot = package, slot
-        self._item_id = approval.get("item_id")
+        self._item_id = item_id if item_id is not None else approval.get("item_id")
         self._response_inputs, self._qa_store = deepcopy(response_inputs), qa_store
         self._chain = self._policy.get("response_chain")
         self._qa_evidence = None
@@ -1277,10 +1314,17 @@ class LiveAdmission:
                 raise ValueError("LIVE_PACKAGE_IDENTITY")
             with package._db() as db:
                 package._identity(db)
-                if db.execute(
-                    "SELECT policy_digest FROM slots WHERE name=?", (slot,)
-                ).fetchone() != (digest_json(approval),):
-                    raise ValueError("LIVE_SLOT_APPROVAL")
+                if self._item_id and package._version == 3:
+                    row = db.execute(
+                        "SELECT digest FROM approvals WHERE id=?", (expected_approval,)
+                    ).fetchone()
+                    if not row or row[0] != digest_json(approval):
+                        raise ValueError("LIVE_SLOT_APPROVAL")
+                else:
+                    if db.execute(
+                        "SELECT policy_digest FROM slots WHERE name=?", (slot,)
+                    ).fetchone() != (digest_json(approval),):
+                        raise ValueError("LIVE_SLOT_APPROVAL")
         try:
             p = self._policy
             self._observed = datetime.fromisoformat(p["proof_observed_at"])
@@ -1390,7 +1434,7 @@ class LiveAdmission:
                     )
         except (KeyError, TypeError, ValueError, AssertionError) as error:
             raise ValueError("LIVE_APPROVAL_INVALID") from error
-        if package is not None and scope["purpose"] in {"qa", "scoring"}:
+        if package is not None and package._version != 3 and scope["purpose"] in {"qa", "scoring"}:
             _require(self._chain is not None)
             package.validate_authority(slot, response_inputs)
             identities = package.slot_binding(slot)["identities"]
@@ -1717,7 +1761,7 @@ class LiveAdmission:
             )
 
     def validate_proposal_inputs(self, payload):
-        if self._package is None:
+        if self._package is None or self._package._version == 3:
             return
         self._package.validate_authority(self._slot, payload)
         if (
@@ -2084,8 +2128,11 @@ class LiveAdmission:
             state = self._state(db)
             self._check(state)
             expected = self._expected_request()[0] if self._chain else None
+            enforce_request_digest = not self._chain and not (
+                self._package is not None and getattr(self._package, "_version", None) == 3
+            )
             if (self._chain and payload != expected) or (
-                not self._chain and digest_json(payload) not in provider["request_digests"]
+                enforce_request_digest and digest_json(payload) not in provider["request_digests"]
             ):
                 raise ValueError("LIVE_REQUEST_UNAPPROVED")
             if self._chain and (

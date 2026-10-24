@@ -124,7 +124,9 @@ class PackageJournalLedger:
         return self._count
 
 
-def load_credentials() -> tuple[str, str]:
+def load_credentials(allow_mock: bool = False) -> tuple[str, str]:
+    if allow_mock or os.environ.get("KNORA_EVAL_ALLOW_MOCK") == "1":
+        return "0" * 32, "mock-token"
     env_path = Path(r"C:\Developer\Projects\knora-agent\.env")
     env_vars = {}
     if env_path.exists():
@@ -267,6 +269,9 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
     parser.add_argument(
         "--mock-ragas", action="store_true", help="Use mock transport for Ragas execution"
     )
+    parser.add_argument(
+        "--mock-judge", action="store_true", help="Use mock transport for Judge execution"
+    )
 
     args = parser.parse_args(argv)
 
@@ -387,7 +392,7 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
                 {
                     "endpoint": f"https://api.cloudflare.com/client/v4/accounts/{manifest['account_id']}/ai/v1/chat/completions",
                     "model": "@cf/openai/gpt-oss-20b",
-                    "max_input_bytes": 4096,
+                    "max_input_bytes": 131072,
                     "max_output_tokens": 1024,
                     "compatibility_digest": "3" * 64,
                     "request_digests": ["4" * 64],
@@ -492,8 +497,10 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
                         "identity": identity,
                     }
             elif not args.mock_ragas:
-                account, token = load_credentials()
-                endpoint = f"https://api.cloudflare.com/client/v4/accounts/{account}/ai/v1/chat/completions"
+                account, token = load_credentials(
+                    allow_mock=args.mock_ragas or mock_handler is not None
+                )
+                endpoint = f"https://api.cloudflare.com/client/v4/accounts/{manifest['account_id']}/ai/v1/chat/completions"
                 with package._db() as db:
                     package.reserve(db, "ragas_vi_draft")
                     db.execute(
@@ -615,7 +622,9 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
         ]
 
     # Check whether mock judge is needed (for offline test runner)
-    is_test_env = manifest.get("account_id") == "a" * 32 or mock_handler is not None
+    is_test_env = (
+        manifest.get("account_id") == "a" * 32 or mock_handler is not None or args.mock_judge
+    )
 
     # Normalize packet sha256
     packet_file_sha = hashlib.sha256(packet_path.read_bytes()).hexdigest()
@@ -701,10 +710,10 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
         account = manifest["account_id"]
         token = "mock-token"
     else:
-        account, token = load_credentials()
+        account, token = load_credentials(allow_mock=args.mock_judge or mock_handler is not None)
         client = httpx.Client(timeout=45, follow_redirects=False)
 
-    endpoint = f"https://api.cloudflare.com/client/v4/accounts/{account}/ai/v1/chat/completions"
+    endpoint = f"https://api.cloudflare.com/client/v4/accounts/{manifest['account_id']}/ai/v1/chat/completions"
     model = "@cf/openai/gpt-oss-20b"
     manifest_items = {it["item_id"]: it for it in manifest.get("items", [])}
 
@@ -774,7 +783,7 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
                         {
                             "endpoint": endpoint,
                             "model": model,
-                            "max_input_bytes": 4096,
+                            "max_input_bytes": 131072,
                             "max_output_tokens": 1024,
                             "compatibility_digest": "3" * 64,
                             "request_digests": ["4" * 64],
@@ -881,7 +890,7 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
             stop=lambda: None,
             stack_startup=False,
         ):
-            for idx, (variant_id, spec) in enumerate(synth_list):
+            for variant_id, spec in synth_list:
                 ctrl_item_id = f"control-{variant_id}"
                 item_info = (
                     manifest_items.get(ctrl_item_id)
@@ -917,7 +926,7 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
                         {
                             "endpoint": endpoint,
                             "model": model,
-                            "max_input_bytes": 4096,
+                            "max_input_bytes": 131072,
                             "max_output_tokens": 1024,
                             "compatibility_digest": "3" * 64,
                             "request_digests": ["4" * 64],
@@ -1071,7 +1080,9 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
     print(f"Acceptance dossier exported: {dossier_path}")
 
     summary = {
-        "status": "ACCEPTED",
+        "status": "SCORED_READY_FOR_OWNER_REVIEW",
+        "pending_owner_gate": "GATE_3_FINAL_ACCEPTANCE",
+        "acceptance_status": "PENDING_OWNER_ACCEPTANCE",
         "package_id": manifest["package_id"],
         "journal_path": str(journal_path),
         "total_judged": dossier_data["total_judged"],
@@ -1083,7 +1094,10 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
         json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8"
     )
     print("=" * 60)
-    print("ACCEPTANCE COMPLETE: Status ACCEPTED")
+    print(
+        "ACCEPTANCE SCORING COMPLETE: Status SCORED_READY_FOR_OWNER_REVIEW "
+        "(PENDING_OWNER_ACCEPTANCE)"
+    )
     print(f"Total judged: {dossier_data['total_judged']}")
     print(f"Controls rejected: {dossier_data['controls_rejected_count']}")
     print(f"Disagreements count: {dossier_data['human_review']['disagreements_count']}")

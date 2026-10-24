@@ -262,15 +262,20 @@ def readback_observations(
         url = f"/api/public/observations?traceId={trace_id}&page={page}&limit={limit}"
         response = client.get(url, timeout=30.0)
         if response.status_code == 404:
-            return all_obs
+            raise BridgeError("READBACK_FAILED_404")
         if response.status_code != 200:
             raise BridgeError(f"READBACK_FAILED_{response.status_code}")
-        data = response.json()
+        try:
+            data = response.json()
+        except Exception as error:
+            raise BridgeError("MALFORMED_OBSERVATION_RESPONSE") from error
         if isinstance(data, list):
             all_obs.extend(data)
             break
         elif isinstance(data, dict):
-            items = data.get("data", [])
+            items = data.get("data")
+            if not isinstance(items, list):
+                raise BridgeError("MALFORMED_OBSERVATION_RESPONSE")
             all_obs.extend(items)
             meta = data.get("meta", {})
             if "totalPages" in meta:
@@ -280,7 +285,7 @@ def readback_observations(
                 break
             page += 1
         else:
-            break
+            raise BridgeError("MALFORMED_OBSERVATION_RESPONSE")
     return all_obs
 
 
@@ -294,15 +299,20 @@ def readback_scores(
         url = f"/api/public/scores?traceId={trace_id}&page={page}&limit={limit}"
         response = client.get(url, timeout=30.0)
         if response.status_code == 404:
-            return all_scores
+            raise BridgeError("READBACK_FAILED_404")
         if response.status_code != 200:
             raise BridgeError(f"READBACK_FAILED_{response.status_code}")
-        data = response.json()
+        try:
+            data = response.json()
+        except Exception as error:
+            raise BridgeError("MALFORMED_SCORE_RESPONSE") from error
         if isinstance(data, list):
             all_scores.extend(data)
             break
         elif isinstance(data, dict):
-            items = data.get("data", [])
+            items = data.get("data")
+            if not isinstance(items, list):
+                raise BridgeError("MALFORMED_SCORE_RESPONSE")
             all_scores.extend(items)
             meta = data.get("meta", {})
             if "totalPages" in meta:
@@ -312,7 +322,7 @@ def readback_scores(
                 break
             page += 1
         else:
-            break
+            raise BridgeError("MALFORMED_SCORE_RESPONSE")
     return all_scores
 
 
@@ -351,20 +361,39 @@ def verify_deleted(
     max_polls: int = 5,
     poll_fn: callable = None,
     receipt_path: Path | None = None,
+    consecutive_empty_required: int = 2,
 ) -> bool:
-    """Verify that traces, observations, and scores are completely gone from the API."""
+    """Verify traces, observations, and scores are gone across 2 consecutive rounds."""
     for tid in trace_ids:
-        deleted = False
+        consecutive_empty = 0
         for _ in range(max_polls):
             if poll_fn:
                 poll_fn()
             trace = readback_trace(client, tid)
-            obs = readback_observations(client, tid)
-            scores = readback_scores(client, tid)
+            obs = []
+            scores = []
+            if trace is None:
+                try:
+                    obs = readback_observations(client, tid)
+                except BridgeError as e:
+                    if "404" in str(e):
+                        obs = []
+                    else:
+                        raise
+                try:
+                    scores = readback_scores(client, tid)
+                except BridgeError as e:
+                    if "404" in str(e):
+                        scores = []
+                    else:
+                        raise
             if trace is None and not obs and not scores:
-                deleted = True
-                break
-        if not deleted:
+                consecutive_empty += 1
+                if consecutive_empty >= consecutive_empty_required:
+                    break
+            else:
+                consecutive_empty = 0
+        if consecutive_empty < consecutive_empty_required:
             raise BridgeError(f"DELETION_NOT_VERIFIED_{tid}")
     if receipt_path is not None:
         ReceiptManager.update(
@@ -454,9 +483,13 @@ def run_langfuse_pilot(
 
     canary_tid = canary_preview["trace_ids"][0]
     canary_posted = False
+    canary_dispatched = False
+    canary_deleted = False
 
-    # Canary Lifecycle with cleanup on error (R8)
+    # Canary Lifecycle with cleanup on error (R8, A7)
     try:
+        canary_dispatched = True
+        ReceiptManager.update(canary_receipt_path, status="POST_PENDING")
         export_report(
             raw_canary_report,
             project_key=project_key,
@@ -479,13 +512,17 @@ def run_langfuse_pilot(
 
         # Delete & verify
         delete_traces(httpx_client, [canary_tid], receipt_path=canary_receipt_path)
+        canary_deleted = True
         verify_deleted(
             httpx_client, [canary_tid], poll_fn=poll_fn, receipt_path=canary_receipt_path
         )
     except Exception:
-        if canary_posted:
+        if canary_dispatched and not canary_posted:
+            ReceiptManager.update(canary_receipt_path, status="POST_UNKNOWN")
+        if canary_dispatched and not canary_deleted:
             try:
                 delete_traces(httpx_client, [canary_tid], receipt_path=canary_receipt_path)
+                canary_deleted = True
                 verify_deleted(
                     httpx_client, [canary_tid], poll_fn=poll_fn, receipt_path=canary_receipt_path
                 )
@@ -505,7 +542,11 @@ def run_langfuse_pilot(
     )
 
     real_posted = False
+    real_dispatched = False
+    real_deleted = False
     try:
+        real_dispatched = True
+        ReceiptManager.update(real_receipt_path, status="POST_PENDING")
         export_report(
             raw_real_report,
             project_key=project_key,
@@ -527,15 +568,19 @@ def run_langfuse_pilot(
 
         # Delete & verify
         delete_traces(httpx_client, real_preview["trace_ids"], receipt_path=real_receipt_path)
+        real_deleted = True
         verify_deleted(
             httpx_client, real_preview["trace_ids"], poll_fn=poll_fn, receipt_path=real_receipt_path
         )
     except Exception:
-        if real_posted:
+        if real_dispatched and not real_posted:
+            ReceiptManager.update(real_receipt_path, status="POST_UNKNOWN")
+        if real_dispatched and not real_deleted:
             try:
                 delete_traces(
                     httpx_client, real_preview["trace_ids"], receipt_path=real_receipt_path
                 )
+                real_deleted = True
                 verify_deleted(
                     httpx_client,
                     real_preview["trace_ids"],

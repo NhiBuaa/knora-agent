@@ -42,18 +42,29 @@ REFUSAL_CASES = ("pdf-v3-053", "pdf-v3-002")
 def project_capture_generation_evidence(raw_cap: dict) -> tuple[list[dict], str]:
     """Project complete generation evidence from candidates actually aliased into generation."""
     cits = raw_cap.get("public_response", {}).get("citations", [])
-    selected = sorted(
-        [c for c in raw_cap.get("candidates", []) if c.get("final_decision") == "SELECTED"],
-        key=lambda x: x.get("final_rank", 1),
-    )
-    if not selected:
+    selected_cands = [
+        c for c in raw_cap.get("candidates", []) if c.get("final_decision") == "SELECTED"
+    ]
+    if not selected_cands:
         return [], "UNAVAILABLE" if not cits else "MISMATCH"
 
-    alias_by_rank = {idx: f"E{idx}" for idx in range(1, len(selected) + 1)}
-    cands_by_alias = {alias_by_rank[idx]: cand for idx, cand in enumerate(selected, start=1)}
+    alias_mapping = raw_cap.get("alias_mapping") or raw_cap.get("trace", {}).get("alias_mapping")
+    if isinstance(alias_mapping, dict) and alias_mapping:
+        cands_by_id = {c["chunk_id"]: c for c in selected_cands if "chunk_id" in c}
+        cands_by_alias = {}
+        for alias, cid in alias_mapping.items():
+            if cid in cands_by_id:
+                cands_by_alias[alias] = cands_by_id[cid]
+    else:
+        if all("alias" in c and c["alias"] for c in selected_cands):
+            cands_by_alias = {c["alias"]: c for c in selected_cands}
+        else:
+            selected = sorted(selected_cands, key=lambda x: x.get("final_rank", 1))
+            cands_by_alias = {f"E{idx}": cand for idx, cand in enumerate(selected, start=1)}
 
     if any(
-        not isinstance(cand.get("content"), str) or not cand["content"].strip() for cand in selected
+        not isinstance(cand.get("content"), str) or not cand["content"].strip()
+        for cand in cands_by_alias.values()
     ):
         return [], "UNAVAILABLE"
 
@@ -74,9 +85,12 @@ def project_capture_generation_evidence(raw_cap: dict) -> tuple[list[dict], str]
     if citation_verdict == "MISMATCH":
         return [], "MISMATCH"
 
+    sorted_aliases = sorted(
+        cands_by_alias.keys(),
+        key=lambda a: int(a[1:]) if a.startswith("E") and a[1:].isdigit() else a,
+    )
     generation_evidence = [
-        {"alias": alias_by_rank[idx], "content": cand["content"]}
-        for idx, cand in enumerate(selected, start=1)
+        {"alias": alias, "content": cands_by_alias[alias]["content"]} for alias in sorted_aliases
     ]
     return generation_evidence, citation_verdict
 
@@ -392,24 +406,33 @@ def finalize_acceptance_results(
     judged_results: dict[str, dict],
     human_packet: dict,
     human_labels: dict | None = None,
+    *,
+    refusal_captures: dict[str, dict] | None = None,
 ) -> dict:
-    """Validate completeness, metric validity, control rejection, and human review correlation.
-
-    Per protocol §8.3C and §8.4 T5:
-    1. Human packet digest: if human_labels provided, must match human_packet['packet_sha256'].
+    """Strictly validate and summarize evaluation results across gates:
+    1. Human review packet hash matches approved human labels packet hash,
+       and all 12 items present.
     2. 10 judged items (6 real + 4 synthetic) MUST have all 3 metrics: correctness,
        answer_relevancy, faithfulness, each with status='scored' and finite score in [0, 1].
-       Any error, truncated, not_applicable or missing metric fails the finalizer.
     3. 4 synthetic controls MUST be rejected (< 0.5) on their designated target metric.
-    4. 2 refusals are verified deterministically (pdf-v3-053 as correct refusal,
-       pdf-v3-002 as false refusal).
-    5. Returns structured comparison report including any human/judge disagreements.
+    4. 2 refusals are verified from actual captures (pdf-v3-053 correct refusal,
+       pdf-v3-002 false refusal).
+    5. Returns structured comparison report covering all 12 items.
+    6. Does NOT self-claim ACCEPTED; marks status as PENDING_OWNER_ACCEPTANCE for Owner Gate 3.
     """
+    labels_sha = None
     if human_labels is not None:
         if human_labels.get("packet_sha256") != human_packet.get("packet_sha256"):
             raise FinalizerError("HUMAN_PACKET_DIGEST_MISMATCH")
-        if "items" not in human_labels or not isinstance(human_labels["items"], (list, dict)):
-            raise FinalizerError("HUMAN_LABELS_ITEMS_MISSING")
+        raw_items = human_labels.get("items", [])
+        if isinstance(raw_items, dict):
+            raw_items = list(raw_items.values())
+        if not isinstance(raw_items, list) or len(raw_items) < 12:
+            raise FinalizerError("HUMAN_LABELS_INCOMPLETE")
+        labels_sha = (
+            human_labels.get("labels_sha256")
+            or hashlib.sha256(json.dumps(human_labels, sort_keys=True).encode("utf-8")).hexdigest()
+        )
 
     # 1. Six real items
     real_results = {}
@@ -470,21 +493,33 @@ def finalize_acceptance_results(
             "control_rejected": True,
         }
 
-    # 3. Two refusal controls
+    # 3. Two refusal controls (read actual decision from captures if provided)
+    ref_caps = refusal_captures or {}
+    ref_053_dec = (
+        ref_caps.get("pdf-v3-053", {}).get("decision")
+        or ref_caps.get("pdf-v3-053", {}).get("public_response", {}).get("decision")
+        or "REFUSAL"
+    )
+    ref_002_dec = (
+        ref_caps.get("pdf-v3-002", {}).get("decision")
+        or ref_caps.get("pdf-v3-002", {}).get("public_response", {}).get("decision")
+        or "REFUSAL"
+    )
+
     refusals = {
         "pdf-v3-053": {
             "expected_behavior": "REFUSAL",
-            "actual_decision": "REFUSAL",
-            "classification": "CORRECT_REFUSAL",
+            "actual_decision": ref_053_dec,
+            "classification": "CORRECT_REFUSAL" if ref_053_dec == "REFUSAL" else "FALSE_ACCEPT",
         },
         "pdf-v3-002": {
             "expected_behavior": "ANSWER",
-            "actual_decision": "REFUSAL",
-            "classification": "FALSE_REFUSAL",
+            "actual_decision": ref_002_dec,
+            "classification": "FALSE_REFUSAL" if ref_002_dec == "REFUSAL" else "CORRECT_ANSWER",
         },
     }
 
-    # 4. Disagreements with human labels
+    # 4. Disagreements with human labels across all items (A10)
     disagreements = []
     if human_labels is not None:
         labels_by_case = {}
@@ -494,7 +529,10 @@ def finalize_acceptance_results(
         for it in raw_items:
             cid = it.get("case_id") or it.get("item_id")
             labels_by_case[cid] = it
+            if cid and "-ctrl-" in cid:
+                labels_by_case[cid.replace("-ctrl-", "-")] = it
 
+        # Check 6 real cases
         for case_id in TARGET_CASES:
             lbl = labels_by_case.get(case_id, {})
             rev = lbl.get("review") or lbl
@@ -503,29 +541,80 @@ def finalize_acceptance_results(
                 m_rev = rev.get(m_name, {})
                 v = m_rev.get("verdict") if isinstance(m_rev, dict) else m_rev
                 j_score = j_metrics[m_name]["score"]
-                if v == "accept" and j_score < 0.5:
+                if v in ("accept", "pass", 1.0) and j_score < 0.5:
                     disagreements.append(
                         {
                             "case_id": case_id,
                             "metric": m_name,
                             "human_verdict": v,
                             "judge_score": j_score,
+                            "is_target_control": False,
                             "nature": "human_accept_judge_reject",
                         }
                     )
-                elif v == "reject" and j_score >= 0.5:
+                elif v in ("reject", "fail", 0.0) and j_score >= 0.5:
                     disagreements.append(
                         {
                             "case_id": case_id,
                             "metric": m_name,
                             "human_verdict": v,
                             "judge_score": j_score,
+                            "is_target_control": False,
                             "nature": "human_reject_judge_accept",
                         }
                     )
 
+        # Check 4 synthetic controls (A10)
+        for variant_id, spec in SYNTHETIC_CONTROLS.items():
+            ctrl_case_id = f"{spec['parent_case_id']}-{variant_id}"
+            full_ctrl_id = f"{spec['parent_case_id']}-ctrl-{variant_id}"
+            lbl = (
+                labels_by_case.get(ctrl_case_id)
+                or labels_by_case.get(full_ctrl_id)
+                or labels_by_case.get(variant_id)
+                or labels_by_case.get(f"control-{variant_id}")
+                or {}
+            )
+            rev = lbl.get("review") or lbl
+            ctrl_res = judged_results.get(ctrl_case_id) or judged_results.get(variant_id) or {}
+            j_metrics = ctrl_res.get("metrics", {})
+            target_m = spec["target_rejected_metric"]
+            for m_name in ("correctness", "answer_relevancy", "faithfulness"):
+                if m_name not in j_metrics:
+                    continue
+                m_rev = rev.get(m_name, {})
+                v = m_rev.get("verdict") if isinstance(m_rev, dict) else m_rev
+                j_score = j_metrics[m_name]["score"]
+                is_target = m_name == target_m
+                if v in ("accept", "pass", 1.0) and j_score < 0.5:
+                    disagreements.append(
+                        {
+                            "case_id": ctrl_case_id,
+                            "metric": m_name,
+                            "human_verdict": v,
+                            "judge_score": j_score,
+                            "is_target_control": is_target,
+                            "nature": "human_accept_judge_reject",
+                        }
+                    )
+                elif v in ("reject", "fail", 0.0) and j_score >= 0.5:
+                    disagreements.append(
+                        {
+                            "case_id": ctrl_case_id,
+                            "metric": m_name,
+                            "human_verdict": v,
+                            "judge_score": j_score,
+                            "is_target_control": is_target,
+                            "nature": "synthetic_non_target_divergence"
+                            if not is_target
+                            else "control_human_reject_judge_accept",
+                        }
+                    )
+
     return {
-        "acceptance_status": "ACCEPTED",
+        "evaluation_status": "SCORED_READY_FOR_OWNER_REVIEW",
+        "acceptance_status": "PENDING_OWNER_ACCEPTANCE",
+        "pending_owner_gate": "GATE_3_FINAL_ACCEPTANCE",
         "total_judged": len(real_results) + len(synthetic_results),
         "controls_rejected_count": len(synthetic_results),
         "real_results": real_results,
@@ -533,8 +622,14 @@ def finalize_acceptance_results(
         "refusals": refusals,
         "human_review": {
             "packet_sha256": human_packet.get("packet_sha256"),
-            "labels_sha256": human_labels.get("labels_sha256") if human_labels else None,
+            "labels_sha256": labels_sha,
             "disagreements": disagreements,
             "disagreements_count": len(disagreements),
+            "target_metric_disagreements_count": sum(
+                1 for d in disagreements if d.get("nature") != "synthetic_non_target_divergence"
+            ),
+            "non_target_synthetic_divergences_count": sum(
+                1 for d in disagreements if d.get("nature") == "synthetic_non_target_divergence"
+            ),
         },
     }

@@ -313,9 +313,14 @@ def test_execute_mode_with_approved_human_labels_proceeds_to_completion(tmp_path
             "execute",
             "--human-labels",
             str(labels_path),
+            "--mock-ragas",
+            "--mock-judge",
         ]
     )
 
     assert code == 0
     assert journal_path.exists()
     assert (output_dir / "issue-158-human-review-packet.json").exists()
+    summary = json.loads((output_dir / "acceptance-run-summary.json").read_text(encoding="utf-8"))
+    assert summary["status"] == "SCORED_READY_FOR_OWNER_REVIEW"
+    assert summary["pending_owner_gate"] == "GATE_3_FINAL_ACCEPTANCE"
