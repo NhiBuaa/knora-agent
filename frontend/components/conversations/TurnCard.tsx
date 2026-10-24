@@ -24,10 +24,12 @@ export function processingLabel(stage: string | null) {
 
 type CopyState = "idle" | "copying" | "copied" | "error";
 
-function CopyIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
+function CopyIcon({ className = "size-4 shrink-0" }: { className?: string }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -35,6 +37,7 @@ function CopyIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
+      style={{ width: "16px", height: "16px", flexShrink: 0, display: "block" }}
       aria-hidden="true"
     >
       <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
@@ -43,10 +46,12 @@ function CopyIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
   );
 }
 
-function CheckIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
+function CheckIcon({ className = "size-4 shrink-0" }: { className?: string }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -54,6 +59,7 @@ function CheckIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
+      style={{ width: "16px", height: "16px", flexShrink: 0, display: "block" }}
       aria-hidden="true"
     >
       <polyline points="20 6 9 17 4 12" />
@@ -61,10 +67,12 @@ function CheckIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
   );
 }
 
-function AlertIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
+function AlertIcon({ className = "size-4 shrink-0" }: { className?: string }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -72,6 +80,7 @@ function AlertIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
+      style={{ width: "16px", height: "16px", flexShrink: 0, display: "block" }}
       aria-hidden="true"
     >
       <circle cx="12" cy="12" r="10" />
@@ -112,11 +121,11 @@ function CopyButton({ label, state, vietnamese, onClick }: CopyButtonProps) {
       className="m-0 inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-surface text-text-muted transition-colors hover:border-action hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-action disabled:opacity-50"
     >
       {state === "copied" ? (
-        <CheckIcon className="h-3.5 w-3.5 text-action" />
+        <CheckIcon className="size-4 shrink-0 text-action" />
       ) : state === "error" ? (
-        <AlertIcon className="h-3.5 w-3.5 text-signature" />
+        <AlertIcon className="size-4 shrink-0 text-signature" />
       ) : (
-        <CopyIcon className="h-3.5 w-3.5" />
+        <CopyIcon className="size-4 shrink-0" />
       )}
       <span className="sr-only">{statusText}</span>
     </button>
