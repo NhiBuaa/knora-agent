@@ -194,6 +194,10 @@ def load_release_dataset(
         default_file = Path(__file__).with_name("pdf_retrieval_release_v1.jsonl")
         if default_file.exists():
             path = default_file
+        elif enforce_approval:
+            raise DatasetContractError(
+                f"Release dataset not found at canonical location: {default_file}"
+            )
 
     if path is not None:
         target = Path(path)
@@ -281,6 +285,12 @@ def load_release_dataset(
             raise DatasetContractError(f"Release approval missing: {resolved_approval}")
 
         return dataset
+
+    if enforce_approval:
+        raise DatasetContractError(
+            "Release evaluation requires an approved dataset artifact and manifest; "
+            "development sample fallback cannot be admitted for release."
+        )
 
     cases = _SAMPLE_RELEASE_CASES
     raw_payload = json.dumps(

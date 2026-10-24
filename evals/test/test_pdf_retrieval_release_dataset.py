@@ -253,3 +253,20 @@ def test_explicit_path_still_requires_manifest_and_approval(tmp_path: Path) -> N
         DatasetContractError, match="Release manifest missing|Release approval missing"
     ):
         load_release_dataset(target, enforce_approval=True)
+
+
+def test_missing_canonical_dataset_rejects_sample_fallback_when_approval_enforced(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    from evals.datasets import pdf_retrieval_release_v1
+
+    # Point __file__ to a dir where default jsonl does not exist
+    dummy_file = tmp_path / "datasets" / "fake_loader.py"
+    dummy_file.parent.mkdir(parents=True, exist_ok=True)
+    dummy_file.write_text("# fake", encoding="utf-8")
+    monkeypatch.setattr(pdf_retrieval_release_v1, "__file__", str(dummy_file))
+
+    with pytest.raises(
+        DatasetContractError, match="Release dataset not found at canonical location"
+    ):
+        load_release_dataset(enforce_approval=True)
