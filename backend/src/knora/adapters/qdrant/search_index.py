@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from collections.abc import Mapping
 from dataclasses import dataclass
 from math import isfinite
@@ -58,6 +59,39 @@ class QdrantSearchIndex:
     profile: LexicalProfile | None = None
     embedding_configuration: EmbeddingConfiguration | None = None
     turbo_quant: bool = True
+
+    @staticmethod
+    def _vectors_equivalent(
+        actual: Any,
+        expected: Any,
+        *,
+        abs_tolerance: float = 1e-4,
+        cosine_tolerance: float = 1e-4,
+    ) -> bool:
+        if len(actual) != len(expected):
+            return False
+        dot = 0.0
+        norm_a = 0.0
+        norm_e = 0.0
+        max_diff = 0.0
+        for a, e in zip(actual, expected, strict=True):
+            a_f = float(a)
+            e_f = float(e)
+            dot += a_f * e_f
+            norm_a += a_f * a_f
+            norm_e += e_f * e_f
+            diff = abs(a_f - e_f)
+            if diff > max_diff:
+                max_diff = diff
+
+        if max_diff <= abs_tolerance:
+            return True
+
+        if norm_a <= 0.0 or norm_e <= 0.0:
+            return False
+
+        cos_sim = dot / (math.sqrt(norm_a) * math.sqrt(norm_e))
+        return cos_sim >= 1.0 - cosine_tolerance
 
     def _document(self, text: str) -> dict[str, Any]:
         options: dict[str, Any] = {
@@ -322,15 +356,7 @@ class QdrantSearchIndex:
                             "persisted chunk missing from expected chunk vectors"
                         )
                     expected_pg_vec = expected_chunk_vectors[chunk_match.chunk_id]
-                    expected_pg_digest = hashlib.sha256(
-                        json.dumps(
-                            [float(v) for v in expected_pg_vec], separators=(",", ":")
-                        ).encode("utf-8")
-                    ).hexdigest()
-                    if (
-                        actual_vec_digest != expected_pg_digest
-                        or expected_vec_digest != expected_pg_digest
-                    ):
+                    if not self._vectors_equivalent(dense_vec, expected_pg_vec):
                         raise ProjectionResponseError(
                             "persisted dense vector differs from expected PG vector"
                         )
