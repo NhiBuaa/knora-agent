@@ -656,6 +656,14 @@ def test_stage_generation_with_dense_vectors(wire, generation) -> None:
         {
             "size": 768,
             "distance": "Cosine",
+            "datatype": "uint8",
+            "on_disk": True,
+            "hnsw_config": {"m": 16, "ef_construct": 100},
+            "quantization_config": {"turbo": {"bits": "bits4", "always_ram": True}},
+        },
+        {
+            "size": 768,
+            "distance": "Cosine",
             "datatype": "float32",
             "on_disk": False,
             "hnsw_config": {"m": 16, "ef_construct": 100},

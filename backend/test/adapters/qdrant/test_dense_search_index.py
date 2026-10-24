@@ -504,3 +504,71 @@ def test_parse_stage_response_rejects_vector_differing_from_expected_pg_vector(
         dense_index.parse_stage_response(
             sample_generation, points, expected_chunk_vectors={"chunk-1": pg_vec}
         )
+
+
+def test_parse_stage_response_accepts_normalized_float32_server_equivalent_vector(
+    dense_index: QdrantSearchIndex, sample_generation: LexicalGeneration
+) -> None:
+    pg_vec = tuple(0.01 * i for i in range(768))
+    # Slight float32 tolerance difference
+    readback_vec = tuple(v + 1e-6 for v in pg_vec)
+    readback_digest = hashlib.sha256(
+        json.dumps([float(v) for v in readback_vec], separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+    points = [
+        {
+            "id": lexical_point_id(sample_generation.generation_id, "chunk-1"),
+            "vector": {"dense": list(readback_vec)},
+            "payload": {
+                "workspace_id": "ws-tenant-1",
+                "generation_id": "gen-test-1",
+                "chunk_id": "chunk-1",
+                "profile_id": sample_generation.lexical_profile.id,
+                "profile_digest": sample_generation.lexical_profile.digest(),
+                "content_checksum": sample_generation.chunks[0].content_checksum,
+                "content_digest": sample_generation.content_digest(),
+                "embedding_configuration_id": dense_index.embedding_configuration.id,
+                "vector_digest": readback_digest,
+            },
+        }
+    ]
+
+    receipt = dense_index.parse_stage_response(
+        sample_generation, points, expected_chunk_vectors={"chunk-1": pg_vec}
+    )
+    assert receipt.generation_id == sample_generation.generation_id
+    assert receipt.point_count == 1
+
+
+def test_parse_stage_response_rejects_swapped_or_corrupt_vector(
+    dense_index: QdrantSearchIndex, sample_generation: LexicalGeneration
+) -> None:
+    pg_vec = tuple(0.01 * i for i in range(768))
+    swapped_vec = tuple(reversed(pg_vec))
+    swapped_digest = hashlib.sha256(
+        json.dumps([float(v) for v in swapped_vec], separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+    points = [
+        {
+            "id": lexical_point_id(sample_generation.generation_id, "chunk-1"),
+            "vector": {"dense": list(swapped_vec)},
+            "payload": {
+                "workspace_id": "ws-tenant-1",
+                "generation_id": "gen-test-1",
+                "chunk_id": "chunk-1",
+                "profile_id": sample_generation.lexical_profile.id,
+                "profile_digest": sample_generation.lexical_profile.digest(),
+                "content_checksum": sample_generation.chunks[0].content_checksum,
+                "content_digest": sample_generation.content_digest(),
+                "embedding_configuration_id": dense_index.embedding_configuration.id,
+                "vector_digest": swapped_digest,
+            },
+        }
+    ]
+
+    with pytest.raises(ProjectionResponseError, match="differs from expected PG vector"):
+        dense_index.parse_stage_response(
+            sample_generation, points, expected_chunk_vectors={"chunk-1": pg_vec}
+        )
