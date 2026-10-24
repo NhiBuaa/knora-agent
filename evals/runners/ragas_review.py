@@ -167,6 +167,65 @@ def load_approved_chunks(
     return chunks, identity
 
 
+def load_approved_pdf_chunks(
+    chunks_json_path: Path, *, approved_source_keys: tuple[str, ...]
+) -> tuple[list[dict], dict]:
+    """Export approved PDF Gold chunks from #153 preserving source identity and locators."""
+    if not approved_source_keys or len(set(approved_source_keys)) != len(approved_source_keys):
+        raise RagasDraftError("SOURCE_NOT_APPROVED")
+    raw = json.loads(chunks_json_path.read_text(encoding="utf-8"))
+    raw_chunks = raw.get("chunks", []) if isinstance(raw, dict) else raw
+    selected = [c for c in raw_chunks if c.get("source_key") in approved_source_keys]
+    found_keys = {c.get("source_key") for c in selected}
+    if found_keys != set(approved_source_keys):
+        raise RagasDraftError("SOURCE_NOT_APPROVED")
+
+    export_chunks = []
+    for c in selected:
+        source_key = c["source_key"]
+        chunk_id = c["chunk_id"]
+        content_text = c["content"]
+        content_checksum = c.get(
+            "content_checksum", hashlib.sha256(content_text.encode("utf-8")).hexdigest()
+        )
+        chunk_ref = f"{source_key}#{chunk_id}"
+        page_start = c.get("page_start", 1)
+        start_offset = c.get("start_offset", 0)
+        end_offset = c.get("end_offset", len(content_text))
+        locator = f"{source_key}:p{page_start}:{start_offset}-{end_offset}"
+        export_chunks.append(
+            {
+                "source_key": source_key,
+                "chunk_ref": chunk_ref,
+                "content": content_text,
+                "content_sha256": content_checksum,
+                "locator": locator,
+            }
+        )
+
+    chunking_config_id = (
+        raw_chunks[0].get("chunking_configuration_id", "layout-v2-preserved")
+        if raw_chunks
+        else "layout-v2-preserved"
+    )
+    identity = {
+        "manifest_sha256": "sha256:" + hashlib.sha256(chunks_json_path.read_bytes()).hexdigest(),
+        "corpus_version": raw.get("baseline", "pdf-gold-v1")
+        if isinstance(raw, dict)
+        else "pdf-gold-v1",
+        "workspace_id": raw.get("workspace_id", "") if isinstance(raw, dict) else "",
+        "chunking_configuration_id": chunking_config_id,
+        "embedding_configuration_id": (
+            raw.get("embedding_configuration_id", "embedding-cloudflare-qwen3-06b-v1")
+            if isinstance(raw, dict)
+            else "embedding-cloudflare-qwen3-06b-v1"
+        ),
+        "approved_source_keys": list(approved_source_keys),
+        "source_export_sha256": _source_export_sha256(export_chunks),
+    }
+    return export_chunks, identity
+
+
 def build_review_packet(
     candidates: list[dict],
     chunks: list[dict],

@@ -104,7 +104,7 @@ def main() -> int:
     try:
         raw_report = args.report.read_bytes()
         source = json.loads(raw_report)
-        run_id = "sha256:" + hashlib.sha256(raw_report).hexdigest()
+        run_id = source.get("run_id") or ("sha256:" + hashlib.sha256(raw_report).hexdigest())
         if args.capture_format == "pdf-gold-v1":
             from evals.datasets.pdf_retrieval_v3_v1 import load_dataset as load_pdf_dataset
 

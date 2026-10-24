@@ -10,6 +10,7 @@ from evals.runners.ragas_review import (
     build_review_packet,
     generate_review_packet,
     load_approved_chunks,
+    load_approved_pdf_chunks,
     noise_sensitivity_readiness,
     write_review_packet,
 )
@@ -320,3 +321,24 @@ def test_local_cli_builds_pending_packet_without_provider(tmp_path, monkeypatch)
         "declared_model": "mock-model",
         "declared_prompt_version": "ragas-review-v1",
     }
+
+
+def test_approved_pdf_chunks_export_from_153() -> None:
+    chunks_path = (
+        Path(__file__).resolve().parents[1]
+        / "reports/pdf_retrieval_v3_v1/binding-layout-v2-runtime/chunks.json"
+    )
+    chunks, identity = load_approved_pdf_chunks(
+        chunks_path, approved_source_keys=("academic-phonlp", "hierarchy-03")
+    )
+    assert len(chunks) == 13 + 2  # 13 phonlp + 2 hierarchy-03
+    assert identity["approved_source_keys"] == ["academic-phonlp", "hierarchy-03"]
+    assert all(":p" in c["locator"] for c in chunks)
+    assert all(c["chunk_ref"].startswith(c["source_key"] + "#") for c in chunks)
+    assert all(
+        c["content_sha256"] == hashlib.sha256(c["content"].encode("utf-8")).hexdigest()
+        for c in chunks
+    )
+
+    with pytest.raises(RagasDraftError, match="SOURCE_NOT_APPROVED"):
+        load_approved_pdf_chunks(chunks_path, approved_source_keys=("missing-source",))

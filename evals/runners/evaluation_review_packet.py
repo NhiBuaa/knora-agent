@@ -38,6 +38,48 @@ TARGET_CASES = (
 REFUSAL_CASES = ("pdf-v3-053", "pdf-v3-002")
 
 
+def project_capture_generation_evidence(raw_cap: dict) -> tuple[list[dict], str]:
+    """Project complete generation evidence from candidates actually aliased into generation."""
+    cits = raw_cap.get("public_response", {}).get("citations", [])
+    selected = sorted(
+        [c for c in raw_cap.get("candidates", []) if c.get("final_decision") == "SELECTED"],
+        key=lambda x: x.get("final_rank", 1),
+    )
+    if not selected:
+        return [], "UNAVAILABLE" if not cits else "MISMATCH"
+
+    alias_by_rank = {idx: f"E{idx}" for idx in range(1, len(selected) + 1)}
+    cands_by_alias = {alias_by_rank[idx]: cand for idx, cand in enumerate(selected, start=1)}
+
+    if any(
+        not isinstance(cand.get("content"), str) or not cand["content"].strip() for cand in selected
+    ):
+        return [], "UNAVAILABLE"
+
+    citation_verdict = "VALID" if cits else "UNAVAILABLE"
+    for cit in cits:
+        ev_id = cit.get("evidence_id")
+        if ev_id not in cands_by_alias:
+            citation_verdict = "MISMATCH"
+            break
+        cand = cands_by_alias[ev_id]
+        expected_sha = cit.get("content_checksum")
+        if expected_sha:
+            actual_sha = hashlib.sha256(cand["content"].encode("utf-8")).hexdigest()
+            if actual_sha != expected_sha:
+                citation_verdict = "MISMATCH"
+                break
+
+    if citation_verdict == "MISMATCH":
+        return [], "MISMATCH"
+
+    generation_evidence = [
+        {"alias": alias_by_rank[idx], "content": cand["content"]}
+        for idx, cand in enumerate(selected, start=1)
+    ]
+    return generation_evidence, citation_verdict
+
+
 def build_acceptance_review_packet(
     captures_dir: Path,
     pdf_dataset,
@@ -57,30 +99,9 @@ def build_acceptance_review_packet(
         raw_cap = json.loads(cap_file.read_text(encoding="utf-8"))
         case = cases_by_id[case_id]
         cits = raw_cap.get("public_response", {}).get("citations", [])
-        cands = {c["chunk_id"]: c for c in raw_cap.get("candidates", [])}
 
-        # Project generation evidence
-        generation_evidence = []
-        for cit in cits:
-            checksum = cit.get("content_checksum")
-            matching = [cand for cand in cands.values() if cand.get("content_checksum") == checksum]
-            if matching and "content" in matching[0]:
-                generation_evidence.append(
-                    {
-                        "alias": cit.get("evidence_id", "E1"),
-                        "content": matching[0]["content"],
-                    }
-                )
-
-        # If not populated from citations, fall back to selected candidates
-        if not generation_evidence:
-            selected = sorted(
-                [c for c in raw_cap.get("candidates", []) if c.get("final_decision") == "SELECTED"],
-                key=lambda x: x.get("final_rank", 1),
-            )
-            for idx, cand in enumerate(selected, start=1):
-                if "content" in cand:
-                    generation_evidence.append({"alias": f"E{idx}", "content": cand["content"]})
+        # Project generation evidence preserving all selected candidates
+        generation_evidence, citation_verdict = project_capture_generation_evidence(raw_cap)
 
         # Anchors
         anchors = []
@@ -97,15 +118,19 @@ def build_acceptance_review_packet(
                         }
                     )
 
+        attempt = raw_cap.get("attempt", 1)
+        attempt_id = raw_cap.get("attempt_id") or f"{raw_cap['run_id']}:{case_id}:{attempt}"
+        trace_id = raw_cap.get("trace_id") or raw_cap.get("public_response", {}).get("trace_id")
+
         item = {
             "item_kind": "real_answer",
             "case_id": case_id,
             "parent_case_id": None,
             "validation_variant_id": None,
             "run_id": raw_cap["run_id"],
-            "attempt": raw_cap.get("attempt", 1),
-            "attempt_id": raw_cap.get("attempt_id", f"{raw_cap['run_id']}:{case_id}:1"),
-            "trace_id": raw_cap["trace_id"],
+            "attempt": attempt,
+            "attempt_id": attempt_id,
+            "trace_id": trace_id,
             "question": case.question,
             "answer": raw_cap["public_response"]["answer"],
             "decision": "ANSWER",
@@ -115,7 +140,7 @@ def build_acceptance_review_packet(
             "generation_evidence": generation_evidence,
             "source_anchors": anchors,
             "knora_citations": cits,
-            "citation_verdict": "VALID" if cits else "UNAVAILABLE",
+            "citation_verdict": citation_verdict,
             "validation_origin": None,
         }
         item["input_sha256"] = _scoring_input_sha256(item)

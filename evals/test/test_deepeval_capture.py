@@ -602,3 +602,33 @@ def test_environment_telemetry_and_dotenv_disabled() -> None:
     assert os.environ.get("DEEPEVAL_DISABLE_LEGACY_KEYFILE") == "1"
     assert os.environ.get("DEEPEVAL_TELEMETRY_OPT_OUT") == "1"
     assert os.environ.get("DEEPEVAL_UPDATE_WARNING_OPT_IN") == "0"
+
+
+def test_derive_captures_preserves_native_attempt_and_workspace() -> None:
+    case = SimpleNamespace(
+        id="case-1",
+        question="What is the refund window?",
+        answer_expectations=SimpleNamespace(reference_answer="30 days."),
+    )
+    source = {
+        "run_id": "native-run-99",
+        "observations": [
+            {
+                "case_id": "case-1",
+                "status": "observed",
+                "attempt": 2,
+                "attempt_id": "native-run-99:case-1:2",
+                "workspace_id": "ws-123",
+                "trace_id": "trace-1",
+                "decision": "ANSWER",
+                "public_answer": "Thirty days.",
+                "generation_evidence_status": "exact",
+                "generation_evidence": [{"alias": "E1", "content": "Refunds: 30 days."}],
+            }
+        ],
+    }
+    captures = derive_captures(source, [case], run_id="native-run-99")
+    assert captures[0]["attempt"] == 2
+    assert captures[0]["attempt_id"] == "native-run-99:case-1:2"
+    assert captures[0]["workspace_id"] == "ws-123"
+    assert captures[0]["run_id"] == "native-run-99"

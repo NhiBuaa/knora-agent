@@ -13,7 +13,11 @@ from pathlib import Path
 
 import httpx
 from evals.datasets.pdf_retrieval_v3_v1 import load_dataset as load_pdf_dataset
-from evals.runners.evaluation_review_packet import REFUSAL_CASES, TARGET_CASES
+from evals.runners.evaluation_review_packet import (
+    REFUSAL_CASES,
+    TARGET_CASES,
+    project_capture_generation_evidence,
+)
 from evals.runners.ragas_review import (
     DraftInput,
     KnoraRagasLLM,
@@ -186,37 +190,25 @@ def run_acceptance() -> dict:
         cap_file = captures_dir / f"case-{case_id}-attempt-1.json"
         raw_cap = json.loads(cap_file.read_text(encoding="utf-8"))
         case = cases_by_id[case_id]
-        cits = raw_cap.get("public_response", {}).get("citations", [])
-        cands = {c["chunk_id"]: c for c in raw_cap.get("candidates", [])}
 
-        generation_evidence = []
-        for cit in cits:
-            checksum = cit.get("content_checksum")
-            matching = [cand for cand in cands.values() if cand.get("content_checksum") == checksum]
-            if matching and "content" in matching[0]:
-                generation_evidence.append(
-                    {"alias": cit.get("evidence_id", "E1"), "content": matching[0]["content"]}
-                )
-        if not generation_evidence:
-            selected = sorted(
-                [c for c in raw_cap.get("candidates", []) if c.get("final_decision") == "SELECTED"],
-                key=lambda x: x.get("final_rank", 1),
-            )
-            for idx, cand in enumerate(selected, start=1):
-                if "content" in cand:
-                    generation_evidence.append({"alias": f"E{idx}", "content": cand["content"]})
+        generation_evidence, citation_verdict = project_capture_generation_evidence(raw_cap)
+        attempt = raw_cap.get("attempt", 1)
+        attempt_id = raw_cap.get("attempt_id") or f"{raw_cap['run_id']}:{case_id}:{attempt}"
+        trace_id = raw_cap.get("trace_id") or raw_cap.get("public_response", {}).get("trace_id")
 
         cap = {
             "run_id": raw_cap["run_id"],
             "case_id": case_id,
-            "attempt": 2,
-            "attempt_id": f"{raw_cap['run_id']}:{case_id}:2",
-            "trace_id": raw_cap.get("public_response", {}).get("trace_id", raw_cap.get("trace_id")),
+            "attempt": attempt,
+            "attempt_id": attempt_id,
+            "trace_id": trace_id,
             "question": case.question,
             "answer": raw_cap.get("public_response", {}).get("answer", ""),
             "reference_answer": case.reference_answer,
             "generation_evidence": generation_evidence,
-            "evidence_status": "exact" if generation_evidence else "unavailable",
+            "evidence_status": (
+                "exact" if generation_evidence and citation_verdict != "MISMATCH" else "unavailable"
+            ),
             "data_classification": "public",
             "egress_approved": True,
         }

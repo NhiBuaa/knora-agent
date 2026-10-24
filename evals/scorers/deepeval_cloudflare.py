@@ -502,6 +502,8 @@ def derive_captures(
         }
         if "validation_origin" in item:
             cap["validation_origin"] = item["validation_origin"]
+        if "workspace_id" in item:
+            cap["workspace_id"] = item["workspace_id"]
         captures.append(cap)
     return captures
 
