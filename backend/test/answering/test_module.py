@@ -1,12 +1,14 @@
 import asyncio
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
+from unittest.mock import Mock
 
 import httpx
 import pytest
 
 from knora.answering.interface import ConversationContext, QuestionCommand
 from knora.answering.module import AnswerQuestion
+from knora.answering.query_planning import QueryPlan, Subquestion
 from knora.answering.stores import QuestionTraceRecord, RetrievalCandidate, RetrievalConfiguration
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
@@ -38,7 +40,7 @@ class EmptyStore:
 class QueryEmbeddingProvider:
     def embed(self, texts, configuration):
         return EmbeddingBatch(
-            vectors=(tuple([0.0] * configuration.dimensions),),
+            vectors=tuple(tuple([0.0] * configuration.dimensions) for _ in texts),
             provider=configuration.provider,
             model=configuration.model,
             provider_request_id="embedding-request-1",
@@ -778,3 +780,551 @@ async def test_prior_answer_cannot_bypass_fresh_evidence_refusal_for_a_follow_up
     assert embedding.calls == [[context.retrieval_query]]
     assert store.traces[0].question == question
     assert store.traces[0].conversation_turn_id == "turn-current"
+
+
+@pytest.mark.asyncio
+async def test_multi_query_variants_are_executed_and_merged_in_v3() -> None:
+    """F18: Verify all query plan variants are searched and merged via cross-query pooling."""
+    from unittest.mock import Mock
+
+    from knora.answering.sequential_dependence import CorpusStatistics
+    from knora.answering.stores import (
+        BranchObservation,
+        LexicalGeneration,
+        RetrievalCandidate,
+        RetrievalResult,
+    )
+
+    searched_queries = []
+
+    c1 = RetrievalCandidate(
+        document_id="doc-1",
+        document_version_id="ver-1",
+        source_key="policy",
+        source_name="policy.pdf",
+        chunk_set_id="cset-1",
+        embedding_set_id=None,
+        embedding_configuration_id="embedding-local-m1-v2",
+        chunk_id="chunk-1",
+        chunk_ordinal=0,
+        heading_path=("Section 1",),
+        start_line=1,
+        end_line=5,
+        content="Evidence content",
+        content_checksum="chk-1",
+        token_count=10,
+        cosine_distance=None,
+        similarity=None,
+        fusion_score=0.5,
+        index_generation_id="gen-1",
+    )
+
+    snapshot = LexicalGeneration(
+        workspace_id="workspace-a",
+        document_id="doc-1",
+        document_version_id="ver-1",
+        chunk_set_id="cset-1",
+        index_generation_id="gen-1",
+        lexical_policy_id="bm25-word-frozen47-population-v1",
+        statistics_digest="a" * 64,
+    )
+    obs = (
+        BranchObservation(
+            branch="fused",
+            status="ELIGIBLE",
+            chunk_id="chunk-1",
+            branch_rank=1,
+            raw_score=0.5,
+            score_kind="dbsf",
+            index_generation_id="gen-1",
+        ),
+    )
+    v3_result = RetrievalResult(
+        candidates=(c1,),
+        branch_observations=obs,
+        chunk_set_ids=("cset-1",),
+        lexical_generations=(snapshot,),
+    )
+
+    class SpyStore(EmptyStore):
+        def require_lexical_corpus(self, workspace_id, lexical_policy_id=None):
+            pass
+
+        def revalidate_lexical_snapshot(self, *args, **kwargs):
+            pass
+
+        def read_corpus_statistics(self, workspace_id, policy_id):
+            return CorpusStatistics(
+                total_tokens=1000,
+                total_chunks=10,
+                unigram_frequencies={"evidence": 5, "content": 5},
+                statistics_digest="a" * 64,
+            )
+
+        def retrieve_candidates(self, **kwargs):
+            searched_queries.append(kwargs["query_text"])
+            return v3_result
+
+    store = SpyStore()
+    mock_gen = Mock()
+    mock_gen.generate = Mock(
+        side_effect=lambda **kwargs: asyncio.sleep(
+            0,
+            result=GenerationResult(
+                decision="ANSWER",
+                answer="Evidence content [[E1]].",
+                cited_evidence_ids=("E1",),
+                refusal_reason=None,
+            ),
+        )
+    )
+
+    service = AnswerQuestion(
+        embedding_provider=QueryEmbeddingProvider(),
+        generation_provider=mock_gen,
+        store=store,
+        embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+        retrieval_configuration=RetrievalConfiguration.hybrid_rerank_top8_v3(),
+    )
+
+    # Typo query generates variants
+    question = "chuong2 quy dinh thoi han bao hanh san pham"
+    result = await service.execute(
+        QuestionCommand(workspace_id="workspace-a", question=question),
+        WorkspacePrincipal(workspace_id="workspace-a", key_id="test-a"),
+    )
+
+    assert result is not None
+    assert len(searched_queries) >= 2
+    assert question in searched_queries
+    assert any("chương 2" in q for q in searched_queries)
+
+
+@pytest.mark.asyncio
+async def test_single_intent_missing_evidence_triggers_recovery() -> None:
+    """F13: Single-intent queries without required evidence trigger recovery pass."""
+    from knora.answering.stores import (
+        BranchObservation,
+        LexicalGeneration,
+        RetrievalCandidate,
+        RetrievalResult,
+    )
+
+    recovery_called = False
+
+    c_unrelated = RetrievalCandidate(
+        document_id="doc-1",
+        document_version_id="ver-1",
+        source_key="policy",
+        source_name="policy.pdf",
+        chunk_set_id="cset-1",
+        embedding_set_id=None,
+        embedding_configuration_id=None,
+        chunk_id="chunk-unrelated",
+        chunk_ordinal=0,
+        heading_path=("Chương 1",),
+        start_line=1,
+        end_line=5,
+        content="Nội dung điều khoản chung về nhân sự",
+        content_checksum="chk-unrelated",
+        token_count=10,
+        cosine_distance=None,
+        similarity=None,
+        bm25_score=5.0,
+        bm25_rank=1,
+        index_generation_id="gen-1",
+    )
+
+    snapshot = LexicalGeneration(
+        workspace_id="workspace-a",
+        document_id="doc-1",
+        document_version_id="ver-1",
+        chunk_set_id="cset-1",
+        index_generation_id="gen-1",
+        lexical_policy_id="bm25-word-frozen47-population-v1",
+        statistics_digest="a" * 64,
+    )
+    obs = (
+        BranchObservation(
+            branch="bm25",
+            status="ELIGIBLE",
+            chunk_id="chunk-unrelated",
+            branch_rank=1,
+            raw_score=5.0,
+            score_kind="bm25",
+            index_generation_id="gen-1",
+            lexical_policy_id="bm25-word-frozen47-population-v1",
+        ),
+    )
+    initial_result = RetrievalResult(
+        candidates=(c_unrelated,),
+        branch_observations=obs,
+        chunk_set_ids=("cset-1",),
+        lexical_generations=(snapshot,),
+    )
+
+    class RecoveryAwareStore(EmptyStore):
+        def require_lexical_corpus(self, workspace_id, lexical_policy_id=None):
+            pass
+
+        def revalidate_lexical_snapshot(self, *args, **kwargs):
+            pass
+
+        def retrieve_candidates(self, **kwargs):
+            nonlocal recovery_called
+            query = kwargs.get("query_text", "")
+            # Recovery lookup searches for missing section anchor 'Mục 3.1'
+            if "Mục 3.1" in query:
+                recovery_called = True
+            return initial_result
+
+    store = RecoveryAwareStore()
+    bm25_v3_config = replace(
+        RetrievalConfiguration.bm25_top8_v1(),
+        id="retrieval-bm25-top8-v3",
+    )
+    service = AnswerQuestion(
+        embedding_provider=QueryEmbeddingProvider(),
+        generation_provider=GeneratorThatMustNotRun(),
+        store=store,
+        embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+        retrieval_configuration=bm25_v3_config,
+    )
+
+    # Query with section anchor 'Mục 3.1' but initial candidate only contains Chapter 1
+    question = "Quy định tại Mục 3.1"
+    result = await service.execute(
+        QuestionCommand(workspace_id="workspace-a", question=question),
+        WorkspacePrincipal(workspace_id="workspace-a", key_id="test-a"),
+    )
+
+    assert result.decision == "REFUSAL"
+    assert recovery_called is True
+
+
+class MultiQueryAnswerCase:
+    def __init__(self) -> None:
+        self.reranker_calls = 0
+        self.generator_calls = 0
+        self.verifier_calls = 0
+        self.valid_answer_traces = ()
+        self._second_has_foreign = False
+
+    def second_result_has_foreign_generation(self) -> None:
+        self._second_has_foreign = True
+
+    async def execute_multi_query(self) -> None:
+        from knora.answering.query_planning import QueryPlan, Subquestion
+        from knora.answering.stores import (
+            BranchObservation,
+            LexicalGeneration,
+            RetrievalCandidate,
+            RetrievalConfiguration,
+            RetrievalResult,
+        )
+
+        c1 = RetrievalCandidate(
+            document_id="doc-1",
+            document_version_id="ver-1",
+            source_key="policy",
+            source_name="policy.pdf",
+            chunk_set_id="cset-1",
+            embedding_set_id=None,
+            embedding_configuration_id=None,
+            chunk_id="chunk-1",
+            chunk_ordinal=0,
+            heading_path=(),
+            start_line=1,
+            end_line=5,
+            content="Content 1",
+            content_checksum="chk-1",
+            token_count=5,
+            cosine_distance=None,
+            similarity=None,
+            bm25_score=5.0,
+            bm25_rank=1,
+            index_generation_id="gen-1",
+        )
+        gen1 = LexicalGeneration(
+            workspace_id="ws-1",
+            document_id="doc-1",
+            document_version_id="ver-1",
+            chunk_set_id="cset-1",
+            index_generation_id="gen-1",
+            lexical_policy_id="bm25-word-frozen47-population-v1",
+            statistics_digest="a" * 64,
+        )
+        res1 = RetrievalResult(
+            candidates=(c1,),
+            branch_observations=(
+                BranchObservation(
+                    branch="bm25",
+                    status="ELIGIBLE",
+                    chunk_id="chunk-1",
+                    branch_rank=1,
+                    raw_score=5.0,
+                    score_kind="bm25",
+                    index_generation_id="gen-1",
+                    lexical_policy_id="bm25-word-frozen47-population-v1",
+                ),
+            ),
+            chunk_set_ids=("cset-1",),
+            lexical_generations=(gen1,),
+        )
+
+        foreign_gen = "gen-foreign" if self._second_has_foreign else "gen-1"
+        c2 = RetrievalCandidate(
+            document_id="doc-1",
+            document_version_id="ver-1",
+            source_key="policy",
+            source_name="policy.pdf",
+            chunk_set_id="cset-1",
+            embedding_set_id=None,
+            embedding_configuration_id=None,
+            chunk_id="chunk-2",
+            chunk_ordinal=1,
+            heading_path=(),
+            start_line=6,
+            end_line=10,
+            content="Content 2",
+            content_checksum="chk-2",
+            token_count=5,
+            cosine_distance=None,
+            similarity=None,
+            bm25_score=4.0,
+            bm25_rank=1,
+            index_generation_id=foreign_gen,
+        )
+        gen2 = LexicalGeneration(
+            workspace_id="ws-1",
+            document_id="doc-1",
+            document_version_id="ver-1",
+            chunk_set_id="cset-1",
+            index_generation_id=foreign_gen,
+            lexical_policy_id="bm25-word-frozen47-population-v1",
+            statistics_digest="a" * 64 if not self._second_has_foreign else "b" * 64,
+        )
+        res2 = RetrievalResult(
+            candidates=(c2,),
+            branch_observations=(
+                BranchObservation(
+                    branch="bm25",
+                    status="ELIGIBLE",
+                    chunk_id="chunk-2",
+                    branch_rank=1,
+                    raw_score=4.0,
+                    score_kind="bm25",
+                    index_generation_id=foreign_gen,
+                    lexical_policy_id="bm25-word-frozen47-population-v1",
+                ),
+            ),
+            chunk_set_ids=("cset-1",),
+            lexical_generations=(gen2,),
+        )
+
+        query_call_count = 0
+
+        class SpyStore(EmptyStore):
+            def require_lexical_corpus(self, workspace_id, lexical_policy_id=None):
+                pass
+
+            def revalidate_lexical_snapshot(self, *args, **kwargs):
+                pass
+
+            def retrieve_candidates(self, **kwargs):
+                nonlocal query_call_count
+                query_call_count += 1
+                if query_call_count == 1:
+                    return res1
+                return res2
+
+        class SpyReranker:
+            def __init__(self, outer):
+                self.outer = outer
+
+            def rerank(self, question, candidates):
+                self.outer.reranker_calls += 1
+                return None
+
+        class SpyGenerator:
+            def __init__(self, outer):
+                self.outer = outer
+
+            async def generate(self, **kwargs):
+                self.outer.generator_calls += 1
+                return None
+
+        class SpyPlanner:
+            def plan(self, query):
+                return QueryPlan(
+                    query_id="q-test-1",
+                    original_query=query,
+                    is_fast_path=False,
+                    subquestions=(
+                        Subquestion("sq1", "query part 1", ()),
+                        Subquestion("sq2", "query part 2", ()),
+                    ),
+                    variants=(),
+                    protected_spans=(),
+                )
+
+        bm25_config = replace(
+            RetrievalConfiguration.bm25_top8_v1(),
+            id="retrieval-bm25-top8-v3",
+            reranking_policy_id="rerank-bge-v1",
+        )
+
+        service = AnswerQuestion(
+            embedding_provider=QueryEmbeddingProvider(),
+            generation_provider=SpyGenerator(self),
+            reranking_provider=SpyReranker(self),
+            store=SpyStore(),
+            embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+            retrieval_configuration=bm25_config,
+            query_planner=SpyPlanner(),
+        )
+
+        await service.execute(
+            QuestionCommand(workspace_id="ws-1", question="query part 1 and query part 2"),
+            WorkspacePrincipal(workspace_id="ws-1", key_id="key-1"),
+        )
+
+
+@pytest.fixture
+def answer_case():
+    return MultiQueryAnswerCase()
+
+
+@pytest.mark.asyncio
+async def test_secondary_query_mismatch_stops_before_any_provider(
+    answer_case: MultiQueryAnswerCase,
+) -> None:
+    answer_case.second_result_has_foreign_generation()
+    with pytest.raises(KnoraError):
+        await answer_case.execute_multi_query()
+    assert answer_case.reranker_calls == 0
+    assert answer_case.generator_calls == 0
+    assert answer_case.verifier_calls == 0
+    assert answer_case.valid_answer_traces == ()
+
+
+@pytest.mark.asyncio
+async def test_query_scheduling_refuses_when_more_than_4_required_groups() -> None:
+    """F18/R3-N04: Questions decomposing into > 4 required groups refuse for clarification."""
+
+    class PlannerWith5Groups:
+        def plan(self, query):
+            return QueryPlan(
+                query_id="q-5groups",
+                original_query=query,
+                is_fast_path=False,
+                subquestions=tuple(
+                    Subquestion(f"sq_{i}", f"subquestion {i}", required=True) for i in range(1, 6)
+                ),
+                variants=(),
+                protected_spans=(),
+            )
+
+    store = Mock()
+    store.persist_trace.return_value = "trace-5groups"
+
+    generator = Mock()
+    embedding_provider = Mock()
+    embedding_config = EmbeddingConfiguration.milestone_one_local()
+    retrieval_config = RetrievalConfiguration.hybrid_rerank_top8_v3()
+
+    service = AnswerQuestion(
+        store=store,
+        generation_provider=generator,
+        embedding_provider=embedding_provider,
+        embedding_configuration=embedding_config,
+        retrieval_configuration=retrieval_config,
+        query_planner=PlannerWith5Groups(),
+    )
+
+    res = await service.execute(
+        QuestionCommand(workspace_id="ws-1", question="complex multi-part question"),
+        WorkspacePrincipal(workspace_id="ws-1", key_id="key-1"),
+    )
+
+    assert res.decision == "REFUSAL"
+    assert res.refusal_reason == "INSUFFICIENT_EVIDENCE"
+    assert generator.generate.call_count == 0
+
+
+@pytest.mark.asyncio
+async def test_vector_cardinality_and_finiteness_enforcement() -> None:
+    """R3-N04: Embedding provider returning non-finite values or wrong count fails closed."""
+
+    class PlannerWith2Groups:
+        def plan(self, query):
+            return QueryPlan(
+                query_id="q-2groups",
+                original_query=query,
+                is_fast_path=False,
+                subquestions=(
+                    Subquestion("sq_1", "part 1", required=True),
+                    Subquestion("sq_2", "part 2", required=True),
+                ),
+                variants=(),
+                protected_spans=(),
+            )
+
+    store = Mock()
+    generator = Mock()
+    embedding_config = EmbeddingConfiguration(
+        id="cf-bge",
+        dimensions=4,
+        distance_metric="cosine",
+        provider="cloudflare",
+        model="@cf/baai/bge-base-en-v1.5",
+    )
+    retrieval_config = RetrievalConfiguration.hybrid_rerank_top8_v3()
+
+    # Case 1: Count mismatch (returns 1 vector instead of N)
+    bad_count_provider = Mock()
+    bad_count_provider.embed_queries.return_value = EmbeddingBatch(
+        provider="cloudflare",
+        model="@cf/baai/bge-base-en-v1.5",
+        vectors=((0.1, 0.2, 0.3, 0.4),),  # 1 vector for 3 queries
+    )
+    service_bad_count = AnswerQuestion(
+        store=store,
+        generation_provider=generator,
+        embedding_provider=bad_count_provider,
+        embedding_configuration=embedding_config,
+        retrieval_configuration=retrieval_config,
+        query_planner=PlannerWith2Groups(),
+    )
+    with pytest.raises(KnoraError) as exc_info:
+        await service_bad_count.execute(
+            QuestionCommand(workspace_id="ws-1", question="part 1 and part 2"),
+            WorkspacePrincipal(workspace_id="ws-1", key_id="key-1"),
+        )
+    assert exc_info.value.code == "EMBEDDING_DIMENSION_MISMATCH"
+
+    # Case 2: Non-finite vector value (NaN/Inf)
+    nan_provider = Mock()
+    nan_provider.embed_queries.return_value = EmbeddingBatch(
+        provider="cloudflare",
+        model="@cf/baai/bge-base-en-v1.5",
+        vectors=(
+            (0.1, 0.2, float("nan"), 0.4),
+            (0.1, 0.2, 0.3, 0.4),
+            (0.1, 0.2, 0.3, 0.4),
+        ),
+    )
+    service_nan = AnswerQuestion(
+        store=store,
+        generation_provider=generator,
+        embedding_provider=nan_provider,
+        embedding_configuration=embedding_config,
+        retrieval_configuration=retrieval_config,
+        query_planner=PlannerWith2Groups(),
+    )
+    with pytest.raises(KnoraError) as exc_info:
+        await service_nan.execute(
+            QuestionCommand(workspace_id="ws-1", question="part 1 and part 2"),
+            WorkspacePrincipal(workspace_id="ws-1", key_id="key-1"),
+        )
+    assert exc_info.value.code == "EMBEDDING_DIMENSION_MISMATCH"

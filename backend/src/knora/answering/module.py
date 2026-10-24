@@ -1,5 +1,5 @@
 import asyncio
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Sequence
 from dataclasses import asdict
 from math import isfinite
 from time import get_clock_info, perf_counter
@@ -20,6 +20,7 @@ from knora.answering.lexical import (
     validate_dense_result,
     validate_hybrid_result,
 )
+from knora.answering.query_planning import QueryPlanner
 from knora.answering.reranking import combine_reranking_scores
 from knora.answering.reranking_configuration import (
     RerankingConfigurationResolver,
@@ -35,6 +36,7 @@ from knora.answering.stores import (
     AnsweringStore,
     LexicalGeneration,
     QuestionTraceRecord,
+    RetrievalCandidate,
     RetrievalConfiguration,
     RetrievalResult,
 )
@@ -58,6 +60,7 @@ class AnswerQuestion:
         retrieval_configuration_resolver: RetrievalConfigurationResolver | None = None,
         reranking_provider: RerankingProvider | None = None,
         reranking_configuration_resolver: RerankingConfigurationResolver | None = None,
+        query_planner: QueryPlanner | None = None,
         clock: Callable[[], float] | None = None,
         clock_resolution_ms: float | None = None,
         admission_store: WorkspaceAdmissionStore | None = None,
@@ -72,6 +75,7 @@ class AnswerQuestion:
         self._retrieval_configuration_resolver = retrieval_configuration_resolver
         self._reranking_provider = reranking_provider
         self._reranking_configuration_resolver = reranking_configuration_resolver
+        self._query_planner = query_planner or QueryPlanner()
         self._clock = clock or perf_counter
         self._clock_resolution_ms = (
             get_clock_info("perf_counter").resolution * 1000
@@ -140,6 +144,14 @@ class AnswerQuestion:
                 workspace_id=command.workspace_id
             )
 
+        is_v3_retrieval = bool(retrieval_configuration.id) and retrieval_configuration.id.endswith(
+            "-v3"
+        )
+        query_plan = self._query_planner.plan(command.question) if is_v3_retrieval else None
+        query_plan_observation = query_plan.to_observation() if query_plan is not None else None
+
+        active_subquestions = query_plan.subquestions if query_plan is not None else None
+
         lexical = retrieval_configuration.strategy == "bm25-only"
         dense_or_hybrid_v3 = retrieval_configuration.strategy in {
             "dense-only",
@@ -148,6 +160,58 @@ class AnswerQuestion:
             retrieval_configuration.strategy == "dense-only"
             or retrieval_configuration.fusion_policy_id == "dbsf-v1"
         )
+
+        if query_plan is not None and not query_plan.is_fast_path:
+            required_groups = [
+                sq
+                for sq in query_plan.subquestions
+                if (sq.required if isinstance(sq.required, bool) else True)
+            ]
+            if len(required_groups) > 4:
+                selection_ended = self._clock()
+                retrieval_latency_ms = (selection_ended - started) * 1000.0
+                selection = select_evidence((), retrieval_configuration)
+                trace_id = self._store.persist_trace(
+                    self._trace(
+                        command=command,
+                        selection=selection,
+                        decision="REFUSAL",
+                        answer=None,
+                        refusal_reason="INSUFFICIENT_EVIDENCE",
+                        generation_status="not_called",
+                        embedding=None,
+                        retrieval_latency_ms=retrieval_latency_ms,
+                        started=started,
+                        ended_at=selection_ended,
+                        retrieval_configuration=retrieval_configuration,
+                        query_plan_observation=query_plan_observation,
+                    )
+                )
+                return QuestionResult(
+                    workspace_id=command.workspace_id,
+                    decision="REFUSAL",
+                    answer=None,
+                    citations=(),
+                    refusal_reason="INSUFFICIENT_EVIDENCE",
+                    trace_id=trace_id,
+                )
+
+            unique_queries = []
+            for sq in required_groups:
+                if sq.text not in unique_queries:
+                    unique_queries.append(sq.text)
+
+            if retrieval_query not in unique_queries and len(unique_queries) < 8:
+                unique_queries.append(retrieval_query)
+
+            for v in query_plan.variants:
+                if len(unique_queries) >= 8:
+                    break
+                if v.query not in unique_queries:
+                    unique_queries.append(v.query)
+        else:
+            unique_queries = [retrieval_query]
+
         query_batch = None
         if lexical:
             self._store.require_lexical_corpus(
@@ -165,14 +229,16 @@ class AnswerQuestion:
             )
             query_batch = await asyncio.to_thread(
                 embed_fn,
-                [retrieval_query],
+                unique_queries,
                 self._embedding_configuration,
             )
-            if len(query_batch.vectors) != 1 or any(
+            if len(query_batch.vectors) != len(unique_queries) or any(
                 len(vector) != self._embedding_configuration.dimensions
+                or not all(isfinite(x) for x in vector)
                 for vector in query_batch.vectors
             ):
                 raise KnoraError("EMBEDDING_DIMENSION_MISMATCH")
+            query_vectors = list(query_batch.vectors)
             if (
                 query_batch.provider != self._embedding_configuration.provider
                 or query_batch.model != self._embedding_configuration.model
@@ -190,14 +256,16 @@ class AnswerQuestion:
             )
             query_batch = await asyncio.to_thread(
                 embed_fn,
-                [retrieval_query],
+                unique_queries,
                 self._embedding_configuration,
             )
-            if len(query_batch.vectors) != 1 or any(
+            if len(query_batch.vectors) != len(unique_queries) or any(
                 len(vector) != self._embedding_configuration.dimensions
+                or not all(isfinite(x) for x in vector)
                 for vector in query_batch.vectors
             ):
                 raise KnoraError("EMBEDDING_DIMENSION_MISMATCH")
+            query_vectors = list(query_batch.vectors)
             if (
                 query_batch.provider != self._embedding_configuration.provider
                 or query_batch.model != self._embedding_configuration.model
@@ -205,39 +273,79 @@ class AnswerQuestion:
                 raise KnoraError("EMBEDDING_CONFIGURATION_MISMATCH")
             embedding_ended = self._clock()
         retrieval_started = embedding_ended
-        retrieval = self._store.retrieve_candidates(
-            workspace_id=command.workspace_id,
-            query_text=retrieval_query,
-            query_vector=query_batch.vectors[0] if query_batch is not None else None,
-            embedding_configuration=None if lexical else self._embedding_configuration,
-            retrieval_configuration=retrieval_configuration,
-        )
+
+        query_results: dict[str, Sequence[RetrievalCandidate]] = {}
+        first_retrieval = None
+        all_retrievals = []
+        for idx, q_text in enumerate(unique_queries):
+            q_vec = query_vectors[idx] if query_batch is not None else None
+            retrieval = self._store.retrieve_candidates(
+                workspace_id=command.workspace_id,
+                query_text=q_text,
+                query_vector=q_vec,
+                embedding_configuration=None if lexical else self._embedding_configuration,
+                retrieval_configuration=retrieval_configuration,
+            )
+            all_retrievals.append(retrieval)
+            if first_retrieval is None:
+                first_retrieval = retrieval
+            if isinstance(retrieval, RetrievalResult):
+                query_results[q_text] = retrieval.candidates
+            else:
+                query_results[q_text] = tuple(retrieval)
+
         lexical_generations = ()
-        if lexical:
-            validate_bm25_result(
-                retrieval, workspace_id=command.workspace_id, configuration=retrieval_configuration
+        for ret in all_retrievals:
+            if ret is not None:
+                if lexical:
+                    validate_bm25_result(
+                        ret,
+                        workspace_id=command.workspace_id,
+                        configuration=retrieval_configuration,
+                    )
+                elif retrieval_configuration.strategy == "dense-only":
+                    validate_dense_result(
+                        ret,
+                        workspace_id=command.workspace_id,
+                        configuration=retrieval_configuration,
+                    )
+                elif (
+                    retrieval_configuration.strategy == "hybrid"
+                    and retrieval_configuration.fusion_policy_id == "dbsf-v1"
+                ):
+                    validate_hybrid_result(
+                        ret,
+                        workspace_id=command.workspace_id,
+                        configuration=retrieval_configuration,
+                    )
+                if hasattr(ret, "lexical_generations") and ret.lexical_generations:
+                    if lexical_generations and ret.lexical_generations != lexical_generations:
+                        raise KnoraError("RETRIEVAL_SNAPSHOT_MISMATCH")
+                    if not lexical_generations:
+                        lexical_generations = ret.lexical_generations
+
+        if len(unique_queries) > 1:
+            from knora.answering.query_results import merge_cross_query_candidates
+
+            subq_map = {}
+            if query_plan is not None:
+                for sq in query_plan.subquestions:
+                    subq_map[sq.text] = sq.id
+
+            merged_pool = merge_cross_query_candidates(
+                query_results, subquestion_mapping=subq_map, max_total_candidates=100
             )
-            lexical_generations = retrieval.lexical_generations
-        elif retrieval_configuration.strategy == "dense-only":
-            validate_dense_result(
-                retrieval, workspace_id=command.workspace_id, configuration=retrieval_configuration
-            )
-            lexical_generations = retrieval.lexical_generations
-        elif (
-            retrieval_configuration.strategy == "hybrid"
-            and retrieval_configuration.fusion_policy_id == "dbsf-v1"
-        ):
-            validate_hybrid_result(
-                retrieval, workspace_id=command.workspace_id, configuration=retrieval_configuration
-            )
-            lexical_generations = retrieval.lexical_generations
-        if isinstance(retrieval, RetrievalResult):
-            candidates = retrieval.candidates
-            branch_observations = tuple(item.as_mapping() for item in retrieval.branch_observations)
-            retrieval_embedding_set_ids = retrieval.embedding_set_ids
-            retrieval_chunk_set_ids = retrieval.chunk_set_ids
+            candidates = merged_pool.candidates
         else:
-            candidates = tuple(retrieval)
+            candidates = query_results[unique_queries[0]]
+
+        if isinstance(first_retrieval, RetrievalResult):
+            branch_observations = tuple(
+                item.as_mapping() for item in first_retrieval.branch_observations
+            )
+            retrieval_embedding_set_ids = first_retrieval.embedding_set_ids
+            retrieval_chunk_set_ids = first_retrieval.chunk_set_ids
+        else:
             branch_observations = ()
             retrieval_embedding_set_ids = ()
             retrieval_chunk_set_ids = ()
@@ -392,7 +500,59 @@ class AnswerQuestion:
                 )
                 else None
             ),
+            subquestions=active_subquestions,
         )
+        verification_observation: dict[str, object] | None = None
+        needs_recovery = query_plan is not None and (
+            (
+                selection.support_assessment is not None
+                and not selection.support_assessment.all_required_supported
+            )
+            or not selection.selected
+        )
+        if needs_recovery:
+            from knora.answering.source_verification import verify_missing_sources
+
+            missing_sqs = (
+                [
+                    sq
+                    for sq in query_plan.subquestions
+                    if sq.id in selection.support_assessment.missing_group_ids
+                ]
+                if (selection.support_assessment and selection.support_assessment.missing_group_ids)
+                else list(query_plan.subquestions)
+            )
+            verification = await verify_missing_sources(
+                missing_subquestions=missing_sqs,
+                store=self._store,
+                workspace_id=command.workspace_id,
+                retrieval_configuration=retrieval_configuration,
+                all_known_candidates=candidates,
+            )
+            verification_observation = verification.to_observation()
+            if verification.recovered_candidates:
+                from knora.answering.query_results import merge_cross_query_candidates
+
+                merged_dict = {
+                    "primary": list(candidates),
+                    "recovered": list(verification.recovered_candidates),
+                }
+                merged_pool = merge_cross_query_candidates(merged_dict, max_total_candidates=100)
+                candidates = merged_pool.candidates
+                selection = select_evidence(
+                    candidates,
+                    retrieval_configuration,
+                    reranking_configuration=(
+                        rerank_config
+                        if (
+                            retrieval_configuration.reranking_policy_id is not None
+                            and reranking_observation.get("status") == "completed"
+                        )
+                        else None
+                    ),
+                    subquestions=active_subquestions,
+                )
+
         selection_ended = self._clock()
         retrieval_latency_ms = (selection_ended - retrieval_started) * 1000
         phase_timings = self._phase_timings(
@@ -402,7 +562,10 @@ class AnswerQuestion:
             selection_ended=selection_ended,
             generation_ended=selection_ended,
         )
-        if not selection.selected:
+        if not selection.selected or (
+            selection.support_assessment is not None
+            and not selection.support_assessment.all_required_supported
+        ):
             trace_id = self._store.persist_trace(
                 self._trace(
                     command=command,
@@ -422,6 +585,13 @@ class AnswerQuestion:
                     lexical_generations=lexical_generations,
                     sdm_observation=sdm_observation,
                     reranking_observation=reranking_observation,
+                    query_plan_observation=query_plan_observation,
+                    support_observation=(
+                        selection.support_assessment.to_observation()
+                        if selection.support_assessment is not None
+                        else None
+                    ),
+                    verification_observation=verification_observation,
                     phase_timings=phase_timings,
                 )
             )
@@ -462,6 +632,8 @@ class AnswerQuestion:
             validated = validate_generation(
                 generation,
                 available_evidence_ids=tuple(alias_to_candidate),
+                required_subquestions=active_subquestions,
+                alias_to_candidate=alias_to_candidate,
             )
         except KnoraError:
             trace_ended = self._clock()
@@ -494,6 +666,13 @@ class AnswerQuestion:
                     lexical_generations=lexical_generations,
                     sdm_observation=sdm_observation,
                     reranking_observation=reranking_observation,
+                    query_plan_observation=query_plan_observation,
+                    support_observation=(
+                        selection.support_assessment.to_observation()
+                        if selection.support_assessment is not None
+                        else None
+                    ),
+                    verification_observation=verification_observation,
                     phase_timings=phase_timings,
                 )
             )
@@ -539,6 +718,7 @@ class AnswerQuestion:
                 lexical_generations=lexical_generations,
                 sdm_observation=sdm_observation,
                 reranking_observation=reranking_observation,
+                query_plan_observation=query_plan_observation,
                 phase_timings=phase_timings,
             )
         )
@@ -682,6 +862,9 @@ class AnswerQuestion:
         lexical_generations: tuple[LexicalGeneration, ...] = (),
         sdm_observation: dict[str, object] | None = None,
         reranking_observation: dict[str, object] | None = None,
+        query_plan_observation: dict[str, object] | None = None,
+        support_observation: dict[str, object] | None = None,
+        verification_observation: dict[str, object] | None = None,
         phase_timings: dict[str, object] | None = None,
         ended_at: float | None = None,
     ) -> QuestionTraceRecord:
@@ -699,6 +882,12 @@ class AnswerQuestion:
             },
             "timing": phase_timings or {},
         }
+        if query_plan_observation is not None:
+            provider_metadata["query_planning"] = query_plan_observation
+        if support_observation is not None:
+            provider_metadata["retrieval"]["evidence_support"] = support_observation
+        if verification_observation is not None:
+            provider_metadata["retrieval"]["source_verification"] = verification_observation
         if sdm_observation is not None and (
             retrieval_configuration is not None
             and (

@@ -142,6 +142,7 @@ def select_evidence_mmr(
     candidates: Sequence[RetrievalCandidate],
     config: RerankingConfiguration,
     overlap_policy: str = "adjacent-content-containment-v1",
+    reserved_chunk_ids: set[str] | None = None,
 ) -> EvidenceSelection:
     """Select evidence using Maximal Marginal Relevance (MMR) with budget guards."""
     if not candidates:
@@ -154,6 +155,48 @@ def select_evidence_mmr(
     remaining = list(candidates)
     selected_candidates: list[RetrievalCandidate] = []
     token_sets = {c.chunk_id: _lexical_tokens(c.content) for c in candidates}
+
+    # If reserved chunk IDs are specified (for multi-group coverage), select them first
+    if reserved_chunk_ids:
+        reserved_cands = [c for c in remaining if c.chunk_id in reserved_chunk_ids]
+        for candidate in reserved_cands:
+            remaining.remove(candidate)
+            budget_evidence: dict[str, Any] | None = None
+            if any(_is_redundant(candidate, s, overlap_policy) for s in selected_candidates):
+                outcome = "REDUNDANT_OVERLAP"
+            elif len(selected_candidates) >= config.max_evidence_chunks:
+                outcome = "CHUNK_COUNT_LIMIT"
+                budget_evidence = {
+                    "max_evidence_chunks": config.max_evidence_chunks,
+                    "max_evidence_tokens": config.max_evidence_tokens,
+                    "selected_chunk_count": len(selected_candidates),
+                    "selected_token_count": selected_tokens,
+                    "candidate_token_count": candidate.token_count,
+                    "token_total": selected_tokens + candidate.token_count,
+                }
+            elif selected_tokens + candidate.token_count > config.max_evidence_tokens:
+                outcome = "TOKEN_BUDGET_EXCEEDED"
+                budget_evidence = {
+                    "max_evidence_chunks": config.max_evidence_chunks,
+                    "max_evidence_tokens": config.max_evidence_tokens,
+                    "selected_chunk_count": len(selected_candidates),
+                    "selected_token_count": selected_tokens,
+                    "candidate_token_count": candidate.token_count,
+                    "token_total": selected_tokens + candidate.token_count,
+                }
+            else:
+                outcome = "SELECTED"
+
+            decision = CandidateDecision(
+                candidate=candidate,
+                outcome=outcome,
+                budget_evidence=budget_evidence,
+            )
+            all_decisions.append(decision)
+            if outcome == "SELECTED":
+                selected_candidates.append(candidate)
+                selected_decisions.append(decision)
+                selected_tokens += candidate.token_count
 
     mmr_lambda = config.mmr_lambda if config.mmr_enabled else 1.0
 
@@ -192,7 +235,7 @@ def select_evidence_mmr(
         candidate = remaining.pop(best_idx)
 
         # Check redundancy
-        budget_evidence: dict[str, Any] | None = None
+        budget_evidence = None
         if any(_is_redundant(candidate, s, overlap_policy) for s in selected_candidates):
             outcome = "REDUNDANT_OVERLAP"
         elif len(selected_candidates) >= config.max_evidence_chunks:
