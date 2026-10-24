@@ -358,10 +358,17 @@ def test_pilot_cycle_enforces_canary_then_real_and_full_lifecycle(tmp_path) -> N
             return httpx.Response(200, json=[])
         return httpx.Response(404)
 
+    moment = datetime(2026, 10, 24, tzinfo=UTC)
     with httpx.Client(
         base_url="https://jp.cloud.langfuse.com",
         transport=httpx.MockTransport(mock_langfuse_api),
     ) as client:
+        canary_sha = preview_report(
+            raw_canary, project_key=b"project-secret-1234567890", imported_at=moment
+        )["payload_sha256"]
+        real_sha = preview_report(
+            raw_real, project_key=b"project-secret-1234567890", imported_at=moment
+        )["payload_sha256"]
         result = run_langfuse_pilot(
             raw_canary,
             raw_real,
@@ -371,6 +378,9 @@ def test_pilot_cycle_enforces_canary_then_real_and_full_lifecycle(tmp_path) -> N
             httpx_client=client,
             receipt_dir=tmp_path / "receipts",
             approval_id="pilot-test-app",
+            imported_at=moment,
+            canary_payload_sha256=canary_sha,
+            real_payload_sha256=real_sha,
         )
         assert result["status"] == "COMPLETED"
         assert len(result["real_trace_ids"]) == 2
@@ -380,3 +390,190 @@ def test_pilot_cycle_enforces_canary_then_real_and_full_lifecycle(tmp_path) -> N
     deletes = [r for r in requests_log if r[0] == "DELETE"]
     assert len(posts) == 2  # exactly 2 POSTs
     assert len(deletes) == 2  # exactly 2 DELETEs
+
+
+def test_pilot_requires_both_digests_before_first_post(tmp_path) -> None:
+    from evals.runners.langfuse_bridge import run_langfuse_pilot
+
+    moment = datetime(2026, 10, 24, tzinfo=UTC)
+    canary_report = _report()
+    real_report = {
+        "observations": [
+            {**_report()["observations"][0], "case_id": "real-1", "trace_id": "r-trace-1"},
+        ]
+    }
+    raw_canary = json.dumps(canary_report).encode()
+    raw_real = json.dumps(real_report).encode()
+    canary_sha = preview_report(
+        raw_canary, project_key=b"project-secret-1234567890", imported_at=moment
+    )["payload_sha256"]
+
+    requests_made = []
+
+    def mock_api(req):
+        requests_made.append(req)
+        return httpx.Response(200, json={})
+
+    with httpx.Client(transport=httpx.MockTransport(mock_api)) as client:
+        # 1. Missing real digest -> rejected before ANY network call
+        with pytest.raises(BridgeError, match="PAYLOAD_DIGESTS_REQUIRED"):
+            run_langfuse_pilot(
+                raw_canary,
+                raw_real,
+                project_key=b"project-secret-1234567890",
+                public_key="pk",
+                secret_key="sk",
+                httpx_client=client,
+                receipt_dir=tmp_path / "r1",
+                approval_id="a1",
+                imported_at=moment,
+                canary_payload_sha256=canary_sha,
+                real_payload_sha256=None,
+            )
+        assert len(requests_made) == 0
+
+        # 2. Mismatched real digest -> rejected before ANY network call
+        with pytest.raises(BridgeError, match="REAL_SHA_MISMATCH"):
+            run_langfuse_pilot(
+                raw_canary,
+                raw_real,
+                project_key=b"project-secret-1234567890",
+                public_key="pk",
+                secret_key="sk",
+                httpx_client=client,
+                receipt_dir=tmp_path / "r2",
+                approval_id="a2",
+                imported_at=moment,
+                canary_payload_sha256=canary_sha,
+                real_payload_sha256="wrong-real-sha",
+            )
+        assert len(requests_made) == 0
+
+
+def test_pilot_cleans_up_on_error_after_post(tmp_path) -> None:
+    from evals.runners.langfuse_bridge import run_langfuse_pilot
+
+    moment = datetime(2026, 10, 24, tzinfo=UTC)
+    raw_canary = _raw_report()
+    raw_real = _raw_report()
+    canary_sha = preview_report(
+        raw_canary, project_key=b"project-secret-1234567890", imported_at=moment
+    )["payload_sha256"]
+    real_sha = preview_report(
+        raw_real, project_key=b"project-secret-1234567890", imported_at=moment
+    )["payload_sha256"]
+
+    deleted_called = []
+
+    def failing_readback_api(request):
+        if request.method == "POST" and "otel/v1/traces" in request.url.path:
+            return httpx.Response(200, json={})
+        if request.method == "GET" and request.url.path.startswith("/api/public/traces/"):
+            # Trigger readback failure (empty trace)
+            return httpx.Response(404, json={"message": "not found"})
+        if request.method == "DELETE" and request.url.path == "/api/public/traces":
+            deleted_called.append(json.loads(request.content))
+            return httpx.Response(200, json={"status": "ok"})
+        if request.method == "GET" and request.url.path == "/api/public/observations":
+            return httpx.Response(200, json=[])
+        if request.method == "GET" and request.url.path == "/api/public/scores":
+            return httpx.Response(200, json=[])
+        return httpx.Response(404)
+
+    with (
+        httpx.Client(
+            base_url="https://jp.cloud.langfuse.com",
+            transport=httpx.MockTransport(failing_readback_api),
+        ) as client,
+        pytest.raises(BridgeError, match="CANARY_READBACK_EMPTY"),
+    ):
+        run_langfuse_pilot(
+            raw_canary,
+            raw_real,
+            project_key=b"project-secret-1234567890",
+            public_key="pk",
+            secret_key="sk",
+            httpx_client=client,
+            receipt_dir=tmp_path / "r_err",
+            approval_id="a_err",
+            imported_at=moment,
+            canary_payload_sha256=canary_sha,
+            real_payload_sha256=real_sha,
+        )
+
+    # Cleanup was called!
+    assert len(deleted_called) == 1
+
+
+def test_observations_and_scores_pagination() -> None:
+    from evals.runners.langfuse_bridge import readback_observations, readback_scores
+
+    pages_called = []
+
+    def paginated_api(request):
+        pages_called.append(str(request.url))
+        p = int(request.url.params.get("page", 1))
+        if "/observations" in request.url.path:
+            if p == 1:
+                return httpx.Response(
+                    200,
+                    json={
+                        "data": [{"id": "obs-1"}, {"id": "obs-2"}],
+                        "meta": {"page": 1, "totalPages": 2},
+                    },
+                )
+            return httpx.Response(
+                200, json={"data": [{"id": "obs-3"}], "meta": {"page": 2, "totalPages": 2}}
+            )
+        if "/scores" in request.url.path:
+            return httpx.Response(200, json={"data": [], "meta": {"page": 1, "totalPages": 1}})
+        return httpx.Response(404)
+
+    with httpx.Client(
+        base_url="https://jp.cloud.langfuse.com", transport=httpx.MockTransport(paginated_api)
+    ) as client:
+        obs = readback_observations(client, "t1")
+        assert len(obs) == 3
+        assert [o["id"] for o in obs] == ["obs-1", "obs-2", "obs-3"]
+
+        scores = readback_scores(client, "t1")
+        assert scores == []
+
+
+def test_reconcile_receipt_deletes_pending_traces(tmp_path) -> None:
+    from evals.runners.langfuse_bridge import ReceiptManager, reconcile_receipt
+
+    receipt_file = tmp_path / "pending_receipt.json"
+    ReceiptManager.reserve(
+        receipt_file,
+        approval_id="app-1",
+        project_key_fingerprint="fp1",
+        payload_sha256="sha1",
+        trace_ids=["t1"],
+        observation_ids=["o1"],
+        imported_at="2026-10-24T00:00:00Z",
+    )
+    ReceiptManager.update(receipt_file, status="POSTED")
+
+    deletes = []
+
+    def mock_reconcile(req):
+        if req.method == "GET" and req.url.path == "/api/public/traces/t1":
+            if not deletes:
+                return httpx.Response(200, json={"id": "t1"})
+            return httpx.Response(404)
+        if req.method == "DELETE":
+            deletes.append(req)
+            return httpx.Response(200, json={"status": "ok"})
+        if req.method == "GET" and req.url.path == "/api/public/observations":
+            return httpx.Response(200, json=[])
+        if req.method == "GET" and req.url.path == "/api/public/scores":
+            return httpx.Response(200, json=[])
+        return httpx.Response(404)
+
+    with httpx.Client(
+        base_url="https://jp.cloud.langfuse.com", transport=httpx.MockTransport(mock_reconcile)
+    ) as client:
+        res = reconcile_receipt(receipt_file, client)
+        assert res["status"] == "RECONCILED_DELETED"
+        assert len(deletes) == 1

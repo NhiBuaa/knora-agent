@@ -252,32 +252,68 @@ def readback_trace(client: httpx.Client, trace_id: str) -> dict | None:
     return response.json()
 
 
-def readback_observations(client: httpx.Client, trace_id: str) -> list[dict]:
-    """Read observations associated with a trace."""
-    url = f"/api/public/observations?traceId={trace_id}"
-    response = client.get(url, timeout=30.0)
-    if response.status_code == 404:
-        return []
-    if response.status_code != 200:
-        raise BridgeError(f"READBACK_FAILED_{response.status_code}")
-    data = response.json()
-    if isinstance(data, list):
-        return data
-    if isinstance(data, dict):
-        return data.get("data", [])
-    return []
+def readback_observations(
+    client: httpx.Client, trace_id: str, *, max_pages: int = 10, limit: int = 50
+) -> list[dict]:
+    """Read observations associated with a trace across all pages."""
+    all_obs = []
+    page = 1
+    while page <= max_pages:
+        url = f"/api/public/observations?traceId={trace_id}&page={page}&limit={limit}"
+        response = client.get(url, timeout=30.0)
+        if response.status_code == 404:
+            return all_obs
+        if response.status_code != 200:
+            raise BridgeError(f"READBACK_FAILED_{response.status_code}")
+        data = response.json()
+        if isinstance(data, list):
+            all_obs.extend(data)
+            break
+        elif isinstance(data, dict):
+            items = data.get("data", [])
+            all_obs.extend(items)
+            meta = data.get("meta", {})
+            if "totalPages" in meta:
+                if page >= meta["totalPages"] or not items:
+                    break
+            elif not items or len(items) < limit:
+                break
+            page += 1
+        else:
+            break
+    return all_obs
 
 
-def readback_scores(client: httpx.Client, trace_id: str) -> list[dict]:
-    """Read scores associated with a trace; pilot requires 0 scores."""
-    url = f"/api/public/scores?traceId={trace_id}"
-    response = client.get(url, timeout=30.0)
-    if response.status_code == 404:
-        return []
-    if response.status_code != 200:
-        raise BridgeError(f"READBACK_FAILED_{response.status_code}")
-    data = response.json()
-    return data if isinstance(data, list) else data.get("data", [])
+def readback_scores(
+    client: httpx.Client, trace_id: str, *, max_pages: int = 10, limit: int = 50
+) -> list[dict]:
+    """Read scores associated with a trace across all pages; pilot requires 0 scores."""
+    all_scores = []
+    page = 1
+    while page <= max_pages:
+        url = f"/api/public/scores?traceId={trace_id}&page={page}&limit={limit}"
+        response = client.get(url, timeout=30.0)
+        if response.status_code == 404:
+            return all_scores
+        if response.status_code != 200:
+            raise BridgeError(f"READBACK_FAILED_{response.status_code}")
+        data = response.json()
+        if isinstance(data, list):
+            all_scores.extend(data)
+            break
+        elif isinstance(data, dict):
+            items = data.get("data", [])
+            all_scores.extend(items)
+            meta = data.get("meta", {})
+            if "totalPages" in meta:
+                if page >= meta["totalPages"] or not items:
+                    break
+            elif not items or len(items) < limit:
+                break
+            page += 1
+        else:
+            break
+    return all_scores
 
 
 def delete_traces(
@@ -316,7 +352,7 @@ def verify_deleted(
     poll_fn: callable = None,
     receipt_path: Path | None = None,
 ) -> bool:
-    """Verify that traces and their observations are completely gone from the API."""
+    """Verify that traces, observations, and scores are completely gone from the API."""
     for tid in trace_ids:
         deleted = False
         for _ in range(max_polls):
@@ -324,7 +360,8 @@ def verify_deleted(
                 poll_fn()
             trace = readback_trace(client, tid)
             obs = readback_observations(client, tid)
-            if trace is None and not obs:
+            scores = readback_scores(client, tid)
+            if trace is None and not obs and not scores:
                 deleted = True
                 break
         if not deleted:
@@ -334,6 +371,31 @@ def verify_deleted(
             receipt_path, deletion_verified=True, verified_at=datetime.now(UTC).isoformat()
         )
     return True
+
+
+def reconcile_receipt(receipt_path: Path, client: httpx.Client) -> dict:
+    """Reconcile a pending or interrupted receipt by checking and deleting remaining traces."""
+    data = ReceiptManager.read(receipt_path)
+    status = data.get("status")
+    trace_ids = data.get("trace_ids", [])
+    if status == "RESERVED":
+        existing = [tid for tid in trace_ids if readback_trace(client, tid) is not None]
+        if existing:
+            delete_traces(client, existing, receipt_path=receipt_path)
+            verify_deleted(client, existing, receipt_path=receipt_path)
+            return ReceiptManager.update(receipt_path, status="RECONCILED_DELETED")
+        return ReceiptManager.update(receipt_path, status="ABORTED_NO_WRITES")
+
+    if status in ("POSTED", "DELETE_PENDING"):
+        existing = [tid for tid in trace_ids if readback_trace(client, tid) is not None]
+        if existing:
+            delete_traces(client, existing, receipt_path=receipt_path)
+            verify_deleted(client, existing, receipt_path=receipt_path)
+        else:
+            verify_deleted(client, trace_ids, receipt_path=receipt_path)
+        return ReceiptManager.update(receipt_path, status="RECONCILED_DELETED")
+
+    return data
 
 
 def run_langfuse_pilot(
@@ -356,16 +418,30 @@ def run_langfuse_pilot(
     receipt_dir = Path(receipt_dir)
     receipt_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. Canary Preview & Reservation
+    # R7: Both payload digests required BEFORE first network write
+    if not canary_payload_sha256 or not real_payload_sha256:
+        raise BridgeError("PAYLOAD_DIGESTS_REQUIRED")
+
+    # Offline preview and verification of BOTH payloads before any network mutation
     canary_preview = preview_report(raw_canary_report, project_key=project_key, imported_at=moment)
     if len(canary_preview["trace_ids"]) != 1:
         raise BridgeError("CANARY_PAYLOAD_INVALID")
     canary_sha = canary_preview["payload_sha256"]
-    if canary_payload_sha256 and not hmac.compare_digest(canary_sha, canary_payload_sha256):
+    if not hmac.compare_digest(canary_sha, canary_payload_sha256):
         raise BridgeError("CANARY_SHA_MISMATCH")
 
-    canary_receipt_path = receipt_dir / "canary_receipt.json"
+    real_preview = preview_report(raw_real_report, project_key=project_key, imported_at=moment)
+    if not (1 <= len(real_preview["trace_ids"]) <= 2):
+        raise BridgeError("REAL_PAYLOAD_INVALID")
+    real_sha = real_preview["payload_sha256"]
+    if not hmac.compare_digest(real_sha, real_payload_sha256):
+        raise BridgeError("REAL_SHA_MISMATCH")
+
     key_fingerprint = hashlib.sha256(project_key).hexdigest()[:16]
+    canary_receipt_path = receipt_dir / "canary_receipt.json"
+    real_receipt_path = receipt_dir / "real_receipt.json"
+
+    # Reserve canary
     ReceiptManager.reserve(
         canary_receipt_path,
         approval_id=approval_id + ":canary",
@@ -376,42 +452,48 @@ def run_langfuse_pilot(
         imported_at=moment.isoformat(),
     )
 
-    # 2. Canary Export (POST 1)
-    export_report(
-        raw_canary_report,
-        project_key=project_key,
-        public_key=public_key,
-        secret_key=secret_key,
-        httpx_client=httpx_client,
-        imported_at=moment,
-        reviewed_payload_sha256=canary_sha,
-    )
-    ReceiptManager.update(canary_receipt_path, status="POSTED")
-
-    # 3. Canary Readback Verification (GETs)
     canary_tid = canary_preview["trace_ids"][0]
-    trace_data = readback_trace(httpx_client, canary_tid)
-    if trace_data is None:
-        raise BridgeError("CANARY_READBACK_EMPTY")
-    scores = readback_scores(httpx_client, canary_tid)
-    if scores:
-        raise BridgeError("UNEXPECTED_SCORES_FOUND")
+    canary_posted = False
 
-    # 4. Canary Delete (DELETE 1)
-    delete_traces(httpx_client, [canary_tid], receipt_path=canary_receipt_path)
+    # Canary Lifecycle with cleanup on error (R8)
+    try:
+        export_report(
+            raw_canary_report,
+            project_key=project_key,
+            public_key=public_key,
+            secret_key=secret_key,
+            httpx_client=httpx_client,
+            imported_at=moment,
+            reviewed_payload_sha256=canary_sha,
+        )
+        canary_posted = True
+        ReceiptManager.update(canary_receipt_path, status="POSTED")
 
-    # 5. Canary Verify Deleted
-    verify_deleted(httpx_client, [canary_tid], poll_fn=poll_fn, receipt_path=canary_receipt_path)
+        # Readback Verification
+        trace_data = readback_trace(httpx_client, canary_tid)
+        if trace_data is None:
+            raise BridgeError("CANARY_READBACK_EMPTY")
+        scores = readback_scores(httpx_client, canary_tid)
+        if scores:
+            raise BridgeError("UNEXPECTED_SCORES_FOUND")
 
-    # 6. Real Preview & Reservation
-    real_preview = preview_report(raw_real_report, project_key=project_key, imported_at=moment)
-    if not (1 <= len(real_preview["trace_ids"]) <= 2):
-        raise BridgeError("REAL_PAYLOAD_INVALID")
-    real_sha = real_preview["payload_sha256"]
-    if real_payload_sha256 and not hmac.compare_digest(real_sha, real_payload_sha256):
-        raise BridgeError("REAL_SHA_MISMATCH")
+        # Delete & verify
+        delete_traces(httpx_client, [canary_tid], receipt_path=canary_receipt_path)
+        verify_deleted(
+            httpx_client, [canary_tid], poll_fn=poll_fn, receipt_path=canary_receipt_path
+        )
+    except Exception:
+        if canary_posted:
+            try:
+                delete_traces(httpx_client, [canary_tid], receipt_path=canary_receipt_path)
+                verify_deleted(
+                    httpx_client, [canary_tid], poll_fn=poll_fn, receipt_path=canary_receipt_path
+                )
+            except Exception:
+                pass
+        raise
 
-    real_receipt_path = receipt_dir / "real_receipt.json"
+    # Reserve real
     ReceiptManager.reserve(
         real_receipt_path,
         approval_id=approval_id + ":real",
@@ -422,32 +504,47 @@ def run_langfuse_pilot(
         imported_at=moment.isoformat(),
     )
 
-    # 7. Real Export (POST 2)
-    export_report(
-        raw_real_report,
-        project_key=project_key,
-        public_key=public_key,
-        secret_key=secret_key,
-        httpx_client=httpx_client,
-        imported_at=moment,
-        reviewed_payload_sha256=real_sha,
-    )
-    ReceiptManager.update(real_receipt_path, status="POSTED")
+    real_posted = False
+    try:
+        export_report(
+            raw_real_report,
+            project_key=project_key,
+            public_key=public_key,
+            secret_key=secret_key,
+            httpx_client=httpx_client,
+            imported_at=moment,
+            reviewed_payload_sha256=real_sha,
+        )
+        real_posted = True
+        ReceiptManager.update(real_receipt_path, status="POSTED")
 
-    # 8. Real Readback Verification
-    for tid in real_preview["trace_ids"]:
-        if readback_trace(httpx_client, tid) is None:
-            raise BridgeError(f"REAL_READBACK_EMPTY_{tid}")
-        if readback_scores(httpx_client, tid):
-            raise BridgeError("UNEXPECTED_SCORES_FOUND")
+        # Readback Verification
+        for tid in real_preview["trace_ids"]:
+            if readback_trace(httpx_client, tid) is None:
+                raise BridgeError(f"REAL_READBACK_EMPTY_{tid}")
+            if readback_scores(httpx_client, tid):
+                raise BridgeError("UNEXPECTED_SCORES_FOUND")
 
-    # 9. Real Delete (DELETE 2)
-    delete_traces(httpx_client, real_preview["trace_ids"], receipt_path=real_receipt_path)
-
-    # 10. Real Verify Deleted
-    verify_deleted(
-        httpx_client, real_preview["trace_ids"], poll_fn=poll_fn, receipt_path=real_receipt_path
-    )
+        # Delete & verify
+        delete_traces(httpx_client, real_preview["trace_ids"], receipt_path=real_receipt_path)
+        verify_deleted(
+            httpx_client, real_preview["trace_ids"], poll_fn=poll_fn, receipt_path=real_receipt_path
+        )
+    except Exception:
+        if real_posted:
+            try:
+                delete_traces(
+                    httpx_client, real_preview["trace_ids"], receipt_path=real_receipt_path
+                )
+                verify_deleted(
+                    httpx_client,
+                    real_preview["trace_ids"],
+                    poll_fn=poll_fn,
+                    receipt_path=real_receipt_path,
+                )
+            except Exception:
+                pass
+        raise
 
     return {
         "status": "COMPLETED",
