@@ -98,11 +98,28 @@ class DoclingTextExtractor:
                 raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="CANCELLED")
             if time.monotonic() - start_time > timeout:
                 raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="TIMEOUT")
+            if configuration.extractor_memory_bytes is not None:
+                try:
+                    import psutil
+
+                    if psutil.Process().memory_info().rss > configuration.extractor_memory_bytes:
+                        raise PdfExtractionError(
+                            "PDF_RESOURCE_LIMIT_EXCEEDED", reason="EXTRACTOR_MEMORY"
+                        )
+                except (ImportError, Exception):
+                    pass
 
         check_limits()
         raw_bytes = stream.read(configuration.max_raw_bytes + 1)
         if len(raw_bytes) > configuration.max_raw_bytes:
             raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="RAW_FILE_SIZE")
+        if (
+            configuration.extractor_memory_bytes is not None
+            and len(raw_bytes) > configuration.extractor_memory_bytes
+        ):
+            raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="EXTRACTOR_MEMORY")
+
+        check_limits()
 
         raw_source_hash = hashlib.sha256(raw_bytes).hexdigest()
 
@@ -337,7 +354,9 @@ class DoclingTextExtractor:
                     retryable=True,
                 )
 
+            check_limits()
             conversion = self._cf_provider.convert_to_markdown(raw_bytes)
+            check_limits()
             if conversion.format == "error":
                 raise PdfExtractionError(
                     "PDF_EXTRACTOR_UNAVAILABLE",
@@ -377,6 +396,7 @@ class DoclingTextExtractor:
         validate_canonical_document(canonical_doc)
 
         chunks = chunk_canonical_document(canonical_doc, configuration)
+        check_limits()
         normalized_pages = tuple(
             NormalizedPdfPage(
                 page_number=p.page_number,
@@ -487,7 +507,7 @@ class DoclingTextExtractor:
         start_block_idx: int = 1,
         full_text: str | None = None,
     ) -> list[CanonicalBlock]:
-        raw_sections = [s.strip() for s in re.split(r"(?:\r?\n){2,}", page_text) if s.strip()]
+        raw_sections = [s.strip() for s in re.split(r"(?:\r?\n\s*){2,}", page_text) if s.strip()]
         if not raw_sections:
             return []
 
