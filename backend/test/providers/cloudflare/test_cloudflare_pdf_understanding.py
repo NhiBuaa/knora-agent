@@ -214,3 +214,51 @@ def test_tomarkdown_handles_per_file_error_result() -> None:
         assert exc_info.value.code == "PDF_EXTRACTOR_UNAVAILABLE"
         assert "CLOUDFLARE_CONVERSION_FAILED" in exc_info.value.reason
         assert exc_info.value.retryable is True
+
+
+def test_ocr_page_image_confidence_handling() -> None:
+    def endpoint_with_confidence(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "success": True,
+                "result": {"response": "Detected text from scan", "confidence": 0.88},
+            },
+            headers={"cf-ray": "ray_ocr_123"},
+        )
+
+    def endpoint_without_confidence(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "success": True,
+                "result": {"response": "Detected text from scan"},
+            },
+            headers={"cf-ray": "ray_ocr_456"},
+        )
+
+    with httpx.Client(
+        transport=httpx.MockTransport(endpoint_with_confidence), trust_env=False
+    ) as client:
+        provider = CloudflarePdfUnderstandingProvider(
+            account_id="0123456789abcdef0123456789abcdef",
+            api_token="test-only-token",
+            client=client,
+        )
+        resp = provider.ocr_page_image(b"fake-image-bytes")
+        assert resp.text == "Detected text from scan"
+        assert resp.confidence == 0.88
+        assert resp.request_id == "ray_ocr_123"
+
+    with httpx.Client(
+        transport=httpx.MockTransport(endpoint_without_confidence), trust_env=False
+    ) as client:
+        provider = CloudflarePdfUnderstandingProvider(
+            account_id="0123456789abcdef0123456789abcdef",
+            api_token="test-only-token",
+            client=client,
+        )
+        resp2 = provider.ocr_page_image(b"fake-image-bytes")
+        assert resp2.text == "Detected text from scan"
+        assert resp2.confidence is None
+        assert resp2.request_id == "ray_ocr_456"
