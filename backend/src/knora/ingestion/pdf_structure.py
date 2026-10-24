@@ -98,6 +98,10 @@ class CanonicalBlock:
     source_origin: SourceOrigin = SourceOrigin.NATIVE_TEXT
     confidence: float | None = None
 
+    @property
+    def origin(self) -> SourceOrigin:
+        return self.source_origin
+
 
 @dataclass(frozen=True, slots=True)
 class PageCompleteness:
