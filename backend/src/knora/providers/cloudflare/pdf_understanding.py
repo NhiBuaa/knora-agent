@@ -193,8 +193,14 @@ class CloudflarePdfUnderstandingProvider:
             result = payload.get("result", {})
             # Responses vary by vision model (description, response, text)
             text = result.get("response") or result.get("description") or result.get("text") or ""
+            conf = result.get("confidence")
+            if conf is not None:
+                try:
+                    conf = float(conf)
+                except (ValueError, TypeError):
+                    conf = None
             request_id = response.headers.get("cf-ray") or response.headers.get("x-request-id")
-            return CloudflareVisionOcrResponse(text=text, confidence=1.0, request_id=request_id)
+            return CloudflareVisionOcrResponse(text=text, confidence=conf, request_id=request_id)
         except httpx.HTTPStatusError as error:
             status_code = error.response.status_code
             if status_code == 429:
