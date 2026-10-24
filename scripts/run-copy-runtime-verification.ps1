@@ -9,7 +9,7 @@ $repositoryRoot = Split-Path $PSScriptRoot -Parent
 $conflicts = @()
 foreach ($item in Get-ChildItem Env:) {
     if ($item.Name -match '^(COMPOSE_PROJECT_NAME|FIGMA_E2E_|M5_E2E_|KEYCLOAK_PORT)' -and $item.Value.Trim()) {
-        $conflicts += "$($item.Name)=$($item.Value)"
+        $conflicts += $item.Name
     }
 }
 if ($conflicts.Count -gt 0) {
