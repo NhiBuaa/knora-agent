@@ -1701,11 +1701,11 @@ def test_docker_build_probe_enforces_exact_context_exclusion(tmp_path: Path) -> 
     ctx.mkdir()
     out.mkdir()
 
-    dockerignore_content = (ROOT / "backend/Dockerfile.dockerignore").read_text(encoding="utf-8")
+    dockerignore_bytes = (ROOT / "backend/Dockerfile.dockerignore").read_bytes()
     (ctx / "backend").mkdir(parents=True)
-    (ctx / "backend/Dockerfile").write_text("FROM scratch\nCOPY . /context/\n")
-    (ctx / "backend/Dockerfile.dockerignore").write_text(dockerignore_content, encoding="utf-8")
-    (ctx / ".dockerignore").write_text("!**\n")
+    (ctx / "backend/Dockerfile").write_bytes(b"FROM scratch\nCOPY . /context/\n")
+    (ctx / "backend/Dockerfile.dockerignore").write_bytes(dockerignore_bytes)
+    (ctx / ".dockerignore").write_bytes(b"!**\n")
 
     # 1. Independent expected payload files (248 files)
     src_files = subprocess.check_output(
@@ -1818,24 +1818,24 @@ def test_docker_build_probe_negative_control_catches_directory_negation_leak(
 
     # Flawed dockerignore with directory negations (like older designs)
     flawed_dockerignore = (
-        "**\n"
-        "!backend/src/**\n"
-        "!backend/migrations/**\n"
-        "!backend/pyproject.toml\n"
-        "!backend/alembic.ini\n"
-        "!backend/Dockerfile\n"
-        "!backend/Dockerfile.dockerignore\n"
+        b"**\n"
+        b"!backend/src/**\n"
+        b"!backend/migrations/**\n"
+        b"!backend/pyproject.toml\n"
+        b"!backend/alembic.ini\n"
+        b"!backend/Dockerfile\n"
+        b"!backend/Dockerfile.dockerignore\n"
     )
     (ctx / "backend").mkdir(parents=True)
-    (ctx / "backend/Dockerfile").write_text("FROM scratch\nCOPY . /context/\n")
-    (ctx / "backend/Dockerfile.dockerignore").write_text(flawed_dockerignore, encoding="utf-8")
-    (ctx / ".dockerignore").write_text("!**\n")
+    (ctx / "backend/Dockerfile").write_bytes(b"FROM scratch\nCOPY . /context/\n")
+    (ctx / "backend/Dockerfile.dockerignore").write_bytes(flawed_dockerignore)
+    (ctx / ".dockerignore").write_bytes(b"!**\n")
 
     # Add a valid source file and a sentinel inside the directory
     (ctx / "backend/src/knora").mkdir(parents=True, exist_ok=True)
-    (ctx / "backend/src/knora/main.py").write_text("print('hello')\n")
+    (ctx / "backend/src/knora/main.py").write_bytes(b"print('hello')\n")
     sentinel = ctx / "backend/src/knora/leaked_secret.key"
-    sentinel.write_text("SUPER_SECRET_KEY\n")
+    sentinel.write_bytes(b"SUPER_SECRET_KEY\n")
 
     cmd = [
         "docker",
@@ -1856,7 +1856,189 @@ def test_docker_build_probe_negative_control_catches_directory_negation_leak(
         if p.is_file()
     }
 
+    expected_allowlist = {
+        "backend/Dockerfile",
+        "backend/Dockerfile.dockerignore",
+        "backend/src/knora/main.py",
+    }
     # Proves the directory negation allows the sentinel to leak into context!
     assert "backend/src/knora/leaked_secret.key" in exported, (
         "Negative control expectation failed: flawed dockerignore should leak directory sentinels"
+    )
+    # Proves that the exact-set equality check used in positive probe rejects this flawed export!
+    assert exported != expected_allowlist, "Negative control must fail the exact-set equality check"
+    assert exported - expected_allowlist == {"backend/src/knora/leaked_secret.key"}
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_check_frontend_only_rejects_missing_fixed_cli(tmp_path: Path) -> None:
+    fe = create_synthetic_frontend(tmp_path)
+    (fe / "node_modules/@playwright/test/declared-cli.js").write_text("console.log('declared');")
+    pkg_json_path = fe / "node_modules/@playwright/test/package.json"
+    pkg_data = json.loads(pkg_json_path.read_text(encoding="utf-8"))
+    pkg_data["bin"] = {"playwright": "declared-cli.js"}
+    pkg_data.setdefault("exports", {})["./cli"] = "./declared-cli.js"
+    pkg_json_path.write_text(json.dumps(pkg_data), encoding="utf-8")
+    (fe / "node_modules/@playwright/test/cli.js").unlink()
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    proc = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(scripts / "prepare-figma-e2e.ps1"),
+            "-CheckFrontendOnly",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert "FIGMA_FRONTEND_UNAVAILABLE" in proc.stderr
+    assert "fixed runner CLI missing" in proc.stderr
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_check_frontend_only_rejects_fixed_cli_junction_outside(tmp_path: Path) -> None:
+    fe = create_synthetic_frontend(tmp_path)
+    (fe / "node_modules/@playwright/test/cli.js").unlink()
+    outside_dir = tmp_path / "outside_cli_dir"
+    outside_dir.mkdir(parents=True, exist_ok=True)
+    (outside_dir / "cli.js").write_text("console.log(1);")
+    cli_target = fe / "node_modules/@playwright/test/cli.js"
+    try:
+        cli_target.symlink_to(outside_dir / "cli.js")
+    except (OSError, NotImplementedError):
+        subprocess.run(
+            [
+                POWERSHELL,
+                "-NoProfile",
+                "-Command",
+                f'New-Item -ItemType Junction -Path "{cli_target}" -Target "{outside_dir}"',
+            ],
+            capture_output=True,
+        )
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    proc = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(scripts / "prepare-figma-e2e.ps1"),
+            "-CheckFrontendOnly",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert "FIGMA_FRONTEND_OWNERSHIP_REJECTED" in proc.stderr
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_check_frontend_only_rejects_declared_cli_mismatch_with_fixed_cli(tmp_path: Path) -> None:
+    fe = create_synthetic_frontend(tmp_path)
+    (fe / "node_modules/@playwright/test/other-cli.js").write_text("console.log('other');")
+    pkg_json_path = fe / "node_modules/@playwright/test/package.json"
+    pkg_data = json.loads(pkg_json_path.read_text(encoding="utf-8"))
+    pkg_data["bin"] = {"playwright": "other-cli.js"}
+    pkg_data.setdefault("exports", {})["./cli"] = "./other-cli.js"
+    pkg_json_path.write_text(json.dumps(pkg_data), encoding="utf-8")
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    proc = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(scripts / "prepare-figma-e2e.ps1"),
+            "-CheckFrontendOnly",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert "FIGMA_FRONTEND_LOCK_MISMATCH" in proc.stderr
+    assert "does not match declared package CLI" in proc.stderr
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_check_frontend_only_rejects_root_spec_section_mismatch(tmp_path: Path) -> None:
+    fe = create_synthetic_frontend(tmp_path)
+    lock_path = fe / "package-lock.json"
+    lock_data = json.loads(lock_path.read_text(encoding="utf-8"))
+    spec = lock_data["packages"][""]["devDependencies"].pop("@playwright/test")
+    lock_data["packages"][""].setdefault("dependencies", {})["@playwright/test"] = spec
+    lock_path.write_text(json.dumps(lock_data), encoding="utf-8")
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    proc = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(scripts / "prepare-figma-e2e.ps1"),
+            "-CheckFrontendOnly",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert "FIGMA_FRONTEND_LOCK_MISMATCH" in proc.stderr
+    assert (
+        "section devDependencies missing in root lock node" in proc.stderr
+        or "missing in root lock devDependencies" in proc.stderr
+    )
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+@pytest.mark.parametrize(
+    "bad_version",
+    ["", 163, None],
+)
+def test_check_frontend_only_rejects_invalid_version(tmp_path: Path, bad_version) -> None:
+    fe = create_synthetic_frontend(tmp_path)
+    pkg_json_path = fe / "node_modules/@playwright/test/package.json"
+    pkg_data = json.loads(pkg_json_path.read_text(encoding="utf-8"))
+    if bad_version is None:
+        pkg_data.pop("version", None)
+    else:
+        pkg_data["version"] = bad_version
+    pkg_json_path.write_text(json.dumps(pkg_data), encoding="utf-8")
+
+    lock_path = fe / "package-lock.json"
+    lock_data = json.loads(lock_path.read_text(encoding="utf-8"))
+    if bad_version is None:
+        lock_data["packages"]["node_modules/@playwright/test"].pop("version", None)
+    else:
+        lock_data["packages"]["node_modules/@playwright/test"]["version"] = bad_version
+    lock_path.write_text(json.dumps(lock_data), encoding="utf-8")
+
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    proc = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(scripts / "prepare-figma-e2e.ps1"),
+            "-CheckFrontendOnly",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert (
+        "FIGMA_FRONTEND_METADATA_INVALID" in proc.stderr
+        or "FIGMA_FRONTEND_LOCK_MISMATCH" in proc.stderr
     )

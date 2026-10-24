@@ -44,6 +44,10 @@ function isExact(spec) {
   return /^[0-9]+\.[0-9]+\.[0-9]+.*$/.test(spec);
 }
 
+function isValidVersion(v) {
+  return typeof v === 'string' && v.trim().length > 0;
+}
+
 function findLogicalPackage(parentReq, packageName, selectedPackageDir, canonicalFrontend) {
   const searchDirs = parentReq.resolve.paths(packageName) || [];
   for (const sDir of searchDirs) {
@@ -167,9 +171,16 @@ function validateFrontend(frontendDir, repoDir) {
 
   const lockPackages = lockJson.packages;
 
-  const rootSpec = (pkgJson.devDependencies && pkgJson.devDependencies['@playwright/test']) ||
-                   (pkgJson.dependencies && pkgJson.dependencies['@playwright/test']);
-  if (!rootSpec || typeof rootSpec !== 'string') {
+  let rootSection = null;
+  let rootSpec = null;
+  if (pkgJson.devDependencies && typeof pkgJson.devDependencies['@playwright/test'] === 'string') {
+    rootSection = 'devDependencies';
+    rootSpec = pkgJson.devDependencies['@playwright/test'];
+  } else if (pkgJson.dependencies && typeof pkgJson.dependencies['@playwright/test'] === 'string') {
+    rootSection = 'dependencies';
+    rootSpec = pkgJson.dependencies['@playwright/test'];
+  }
+  if (!rootSection || !rootSpec || rootSpec.trim() === '') {
     return { ok: false, code: 'FIGMA_FRONTEND_METADATA_INVALID', msg: 'Root @playwright/test spec missing in package.json' };
   }
 
@@ -178,10 +189,16 @@ function validateFrontend(frontendDir, repoDir) {
     return { ok: false, code: 'FIGMA_FRONTEND_METADATA_INVALID', msg: 'Root package missing in package-lock.json' };
   }
 
-  const lockRootSpec = (rootLock.devDependencies && rootLock.devDependencies['@playwright/test']) ||
-                       (rootLock.dependencies && rootLock.dependencies['@playwright/test']);
+  const lockSectionObj = rootLock[rootSection];
+  if (!lockSectionObj || typeof lockSectionObj !== 'object') {
+    return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'Root @playwright/test section ' + rootSection + ' missing in root lock node' };
+  }
+  const lockRootSpec = lockSectionObj['@playwright/test'];
+  if (!lockRootSpec || typeof lockRootSpec !== 'string' || lockRootSpec.trim() === '') {
+    return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'Root @playwright/test missing in root lock ' + rootSection };
+  }
   if (rootSpec !== lockRootSpec) {
-    return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'Root @playwright/test spec mismatch: package.json (' + rootSpec + ') != lock (' + lockRootSpec + ')' };
+    return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'Root @playwright/test spec mismatch in ' + rootSection + ': package.json (' + rootSpec + ') != lock (' + lockRootSpec + ')' };
   }
 
   const rootReq = createRequire(pkgJsonPath);
@@ -220,41 +237,79 @@ function validateFrontend(frontendDir, repoDir) {
   if (pwTestLockNode.name && pwTestLockNode.name !== pwTestPkg.name) {
     return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: '@playwright/test lock node name mismatch' };
   }
+  if (!isValidVersion(pwTestPkg.version)) {
+    return { ok: false, code: 'FIGMA_FRONTEND_METADATA_INVALID', msg: '@playwright/test installed package version is missing, empty, or not a string' };
+  }
+  if (!isValidVersion(pwTestLockNode.version)) {
+    return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: '@playwright/test lock node version is missing, empty, or not a string' };
+  }
   if (pwTestPkg.version !== pwTestLockNode.version) {
     return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: '@playwright/test version mismatch: installed ' + pwTestPkg.version + ' != lock ' + pwTestLockNode.version };
   }
 
-  let pwTestCliPath;
+  // 1. Package declared CLI (via exports['./cli'] or bin)
+  let declaredCliPath;
   try {
-    pwTestCliPath = rootReq.resolve('@playwright/test/cli');
+    declaredCliPath = rootReq.resolve('@playwright/test/cli');
   } catch (err) {
     const binRel = typeof pwTestPkg.bin === 'string' ? pwTestPkg.bin : (pwTestPkg.bin && pwTestPkg.bin.playwright ? pwTestPkg.bin.playwright : 'cli.js');
-    pwTestCliPath = path.resolve(pwTestDir, binRel);
+    declaredCliPath = path.resolve(pwTestDir, binRel);
   }
 
-  if (!fs.existsSync(pwTestCliPath)) {
-    return { ok: false, code: 'FIGMA_FRONTEND_UNAVAILABLE', msg: '@playwright/test CLI missing' };
+  if (!fs.existsSync(declaredCliPath)) {
+    return { ok: false, code: 'FIGMA_FRONTEND_UNAVAILABLE', msg: '@playwright/test declared CLI missing' };
   }
-  if (!isPhysicallyWithin(canonicalFrontend, pwTestCliPath)) {
+  if (!isPhysicallyWithin(canonicalFrontend, declaredCliPath)) {
     return { ok: false, code: 'FIGMA_FRONTEND_OWNERSHIP_REJECTED', msg: 'CLI is outside frontend' };
   }
-  if (!isPhysicallyWithin(pwTestDir, pwTestCliPath)) {
+  if (!isPhysicallyWithin(pwTestDir, declaredCliPath)) {
     return { ok: false, code: 'FIGMA_FRONTEND_OWNERSHIP_REJECTED', msg: 'CLI does not belong to @playwright/test package' };
   }
   try {
-    if (!fs.statSync(pwTestCliPath).isFile()) {
+    if (!fs.statSync(declaredCliPath).isFile()) {
       return { ok: false, code: 'FIGMA_FRONTEND_OWNERSHIP_REJECTED', msg: 'CLI is not a file' };
     }
   } catch {
     return { ok: false, code: 'FIGMA_FRONTEND_OWNERSHIP_REJECTED', msg: 'Cannot stat CLI file' };
   }
 
+  // 2. Fixed runner CLI path that callers invoke: node_modules/@playwright/test/cli.js
+  const fixedCliPath = path.resolve(pwTestDir, 'cli.js');
+  if (!fs.existsSync(fixedCliPath)) {
+    return { ok: false, code: 'FIGMA_FRONTEND_UNAVAILABLE', msg: '@playwright/test fixed runner CLI missing: ' + fixedCliPath };
+  }
+  if (!isPhysicallyWithin(canonicalFrontend, fixedCliPath)) {
+    return { ok: false, code: 'FIGMA_FRONTEND_OWNERSHIP_REJECTED', msg: 'Fixed runner CLI is outside frontend: ' + fixedCliPath };
+  }
+  if (!isPhysicallyWithin(pwTestDir, fixedCliPath)) {
+    return { ok: false, code: 'FIGMA_FRONTEND_OWNERSHIP_REJECTED', msg: 'Fixed runner CLI does not belong to @playwright/test package: ' + fixedCliPath };
+  }
+  try {
+    if (!fs.statSync(fixedCliPath).isFile()) {
+      return { ok: false, code: 'FIGMA_FRONTEND_OWNERSHIP_REJECTED', msg: 'Fixed runner CLI is not a file: ' + fixedCliPath };
+    }
+  } catch {
+    return { ok: false, code: 'FIGMA_FRONTEND_OWNERSHIP_REJECTED', msg: 'Cannot stat fixed runner CLI: ' + fixedCliPath };
+  }
+
+  // 3. Unify: realpath of fixed runner CLI and declared CLI must be identical
+  let realFixedCli, realDeclaredCli;
+  try {
+    realFixedCli = fs.realpathSync(fixedCliPath);
+    realDeclaredCli = fs.realpathSync(declaredCliPath);
+  } catch (err) {
+    return { ok: false, code: 'FIGMA_FRONTEND_OWNERSHIP_REJECTED', msg: 'Cannot resolve realpath of CLI: ' + err.message };
+  }
+  if (realFixedCli !== realDeclaredCli) {
+    return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'Fixed runner CLI (' + realFixedCli + ') does not match declared package CLI (' + realDeclaredCli + ')' };
+  }
+
   const pwTestDepSpec = pwTestPkg.dependencies && pwTestPkg.dependencies['playwright'];
-  if (!pwTestDepSpec || typeof pwTestDepSpec !== 'string') {
+  if (!pwTestDepSpec || typeof pwTestDepSpec !== 'string' || pwTestDepSpec.trim() === '') {
     return { ok: false, code: 'FIGMA_FRONTEND_METADATA_INVALID', msg: '@playwright/test missing dependency playwright' };
   }
   const pwTestLockDepSpec = pwTestLockNode.dependencies && pwTestLockNode.dependencies['playwright'];
-  if (!pwTestLockDepSpec || typeof pwTestLockDepSpec !== 'string') {
+  if (!pwTestLockDepSpec || typeof pwTestLockDepSpec !== 'string' || pwTestLockDepSpec.trim() === '') {
     return { ok: false, code: 'FIGMA_FRONTEND_METADATA_INVALID', msg: '@playwright/test lock node missing dependency playwright' };
   }
   if (pwTestDepSpec !== pwTestLockDepSpec) {
@@ -297,6 +352,12 @@ function validateFrontend(frontendDir, repoDir) {
   if (pwLockNode.name && pwLockNode.name !== pwPkg.name) {
     return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'playwright lock node name mismatch' };
   }
+  if (!isValidVersion(pwPkg.version)) {
+    return { ok: false, code: 'FIGMA_FRONTEND_METADATA_INVALID', msg: 'playwright installed package version is missing, empty, or not a string' };
+  }
+  if (!isValidVersion(pwLockNode.version)) {
+    return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'playwright lock node version is missing, empty, or not a string' };
+  }
   if (pwPkg.version !== pwLockNode.version) {
     return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'playwright version mismatch: installed ' + pwPkg.version + ' != lock ' + pwLockNode.version };
   }
@@ -305,11 +366,11 @@ function validateFrontend(frontendDir, repoDir) {
   }
 
   const pwDepSpec = pwPkg.dependencies && pwPkg.dependencies['playwright-core'];
-  if (!pwDepSpec || typeof pwDepSpec !== 'string') {
+  if (!pwDepSpec || typeof pwDepSpec !== 'string' || pwDepSpec.trim() === '') {
     return { ok: false, code: 'FIGMA_FRONTEND_METADATA_INVALID', msg: 'playwright missing dependency playwright-core' };
   }
   const pwLockDepSpec = pwLockNode.dependencies && pwLockNode.dependencies['playwright-core'];
-  if (!pwLockDepSpec || typeof pwLockDepSpec !== 'string') {
+  if (!pwLockDepSpec || typeof pwLockDepSpec !== 'string' || pwLockDepSpec.trim() === '') {
     return { ok: false, code: 'FIGMA_FRONTEND_METADATA_INVALID', msg: 'playwright lock node missing dependency playwright-core' };
   }
   if (pwDepSpec !== pwLockDepSpec) {
@@ -351,6 +412,12 @@ function validateFrontend(frontendDir, repoDir) {
   const pwCoreLockNode = pwCoreLockRes.node;
   if (pwCoreLockNode.name && pwCoreLockNode.name !== pwCorePkg.name) {
     return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'playwright-core lock node name mismatch' };
+  }
+  if (!isValidVersion(pwCorePkg.version)) {
+    return { ok: false, code: 'FIGMA_FRONTEND_METADATA_INVALID', msg: 'playwright-core installed package version is missing, empty, or not a string' };
+  }
+  if (!isValidVersion(pwCoreLockNode.version)) {
+    return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'playwright-core lock node version is missing, empty, or not a string' };
   }
   if (pwCorePkg.version !== pwCoreLockNode.version) {
     return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'playwright-core version mismatch: installed ' + pwCorePkg.version + ' != lock ' + pwCoreLockNode.version };
