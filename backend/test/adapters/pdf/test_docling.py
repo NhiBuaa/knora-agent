@@ -436,6 +436,30 @@ def test_mixed_page_applies_ocr_to_images_and_completes() -> None:
     assert "Header only text" in page.text
     assert "Scanned body content recovered" in page.text
     mock_provider.ocr_page_image.assert_called_once()
+    assert {block.origin.value for block in page.blocks} == {"native_text", "ocr"}
+    assert all(block.confidence is None for block in page.blocks if block.origin.value == "ocr")
+    for block in page.blocks:
+        assert page.text[block.start_offset : block.end_offset] == block.text
+
+
+def test_mixed_page_preserves_region_provenance() -> None:
+    mock_provider = MagicMock(spec=CloudflarePdfUnderstandingProvider)
+    mock_provider.ocr_page_image.return_value = CloudflareVisionOcrResponse(
+        text="OCR extracted region content.",
+        confidence=0.95,
+    )
+    pdf_bytes = _create_test_pdf_with_images("Native text paragraph here", num_images=1)
+    extractor = DoclingTextExtractor(cf_provider=mock_provider)
+    config = DoclingExtractionConfiguration.cloudflare_native_v1()
+
+    result = extractor.extract(BytesIO(pdf_bytes), config)
+    assert result.structure is not None
+    page = result.structure.pages[0]
+
+    assert {block.origin.value for block in page.blocks} == {"native_text", "ocr"}
+    assert all(block.confidence is None for block in page.blocks if block.origin.value == "ocr")
+    for block in page.blocks:
+        assert page.text[block.start_offset : block.end_offset] == block.text
 
 
 def test_tiled_scans_all_regions_ocred() -> None:
