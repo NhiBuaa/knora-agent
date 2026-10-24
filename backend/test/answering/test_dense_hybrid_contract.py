@@ -272,7 +272,7 @@ class StubGenerator:
         self.calls += 1
         return GenerationResult(
             decision="ANSWER",
-            answer="Answer based on [[E1]].",
+            answer="Sample chunk policy content [[E1]].",
             cited_evidence_ids=("E1",),
             refusal_reason=None,
             provider="stub-gen",
@@ -282,7 +282,7 @@ class StubGenerator:
 
 
 def _sample_generation(profile: LexicalProfile) -> LexicalGeneration:
-    content = "Sample chunk content 1"
+    content = "Sample chunk policy content 1"
     content_checksum = hashlib.sha256(content.encode("utf-8")).hexdigest()
     return LexicalGeneration(
         generation_id="gen-test-1",
@@ -300,7 +300,7 @@ def _sample_generation(profile: LexicalProfile) -> LexicalGeneration:
 async def test_dense_only_e2e_answer_and_trace(
     test_profile: LexicalProfile, test_embedding_config: EmbeddingConfiguration
 ) -> None:
-    content = "Sample chunk content 1"
+    content = "Sample chunk policy content 1"
     content_checksum = hashlib.sha256(content.encode("utf-8")).hexdigest()
     gen = _sample_generation(test_profile)
 
@@ -389,7 +389,7 @@ async def test_dense_only_e2e_answer_and_trace(
     )
 
     assert result.decision == "ANSWER"
-    assert result.answer == "Answer based on [[E1]]."
+    assert result.answer == "Sample chunk policy content [[E1]]."
     assert len(result.citations) == 1
     assert result.citations[0].source_key == "policy.pdf"
     assert embedding_provider.calls == 1
@@ -409,7 +409,7 @@ async def test_dense_only_e2e_answer_and_trace(
 async def test_hybrid_e2e_answer_and_trace_no_cosine_cutoff_on_dbsf(
     test_profile: LexicalProfile, test_embedding_config: EmbeddingConfiguration
 ) -> None:
-    content = "Sample chunk content 1"
+    content = "Sample chunk policy content 1"
     content_checksum = hashlib.sha256(content.encode("utf-8")).hexdigest()
     gen = _sample_generation(test_profile)
 
@@ -616,7 +616,7 @@ async def test_snapshot_fence_fails_safely_on_archive_before_generation(
                 heading_path=(),
                 start_line=1,
                 end_line=1,
-                content="Sample content",
+                content="Sample policy content",
                 content_checksum=gen.chunks[0].content_checksum,
                 token_count=5,
                 cosine_distance=0.1,
@@ -674,7 +674,7 @@ async def test_snapshot_fence_fails_safely_on_archive_before_generation(
 
     with pytest.raises(KnoraError, match="LEXICAL_RETRIEVAL_UNAVAILABLE"):
         await service.execute(
-            QuestionCommand(workspace_id="ws-1", question="Query"),
+            QuestionCommand(workspace_id="ws-1", question="Sample policy query"),
             WorkspacePrincipal(workspace_id="ws-1", key_id="key-1"),
             stage_callback=trigger_archive,
         )

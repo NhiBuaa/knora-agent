@@ -998,3 +998,209 @@ async def test_single_intent_missing_evidence_triggers_recovery() -> None:
 
     assert result.decision == "REFUSAL"
     assert recovery_called is True
+
+
+class MultiQueryAnswerCase:
+    def __init__(self) -> None:
+        self.reranker_calls = 0
+        self.generator_calls = 0
+        self.verifier_calls = 0
+        self.valid_answer_traces = ()
+        self._second_has_foreign = False
+
+    def second_result_has_foreign_generation(self) -> None:
+        self._second_has_foreign = True
+
+    async def execute_multi_query(self) -> None:
+        from knora.answering.query_planning import QueryPlan, Subquestion
+        from knora.answering.stores import (
+            BranchObservation,
+            LexicalGeneration,
+            RetrievalCandidate,
+            RetrievalConfiguration,
+            RetrievalResult,
+        )
+
+        c1 = RetrievalCandidate(
+            document_id="doc-1",
+            document_version_id="ver-1",
+            source_key="policy",
+            source_name="policy.pdf",
+            chunk_set_id="cset-1",
+            embedding_set_id=None,
+            embedding_configuration_id=None,
+            chunk_id="chunk-1",
+            chunk_ordinal=0,
+            heading_path=(),
+            start_line=1,
+            end_line=5,
+            content="Content 1",
+            content_checksum="chk-1",
+            token_count=5,
+            cosine_distance=None,
+            similarity=None,
+            bm25_score=5.0,
+            bm25_rank=1,
+            index_generation_id="gen-1",
+        )
+        gen1 = LexicalGeneration(
+            workspace_id="ws-1",
+            document_id="doc-1",
+            document_version_id="ver-1",
+            chunk_set_id="cset-1",
+            index_generation_id="gen-1",
+            lexical_policy_id="bm25-word-frozen47-population-v1",
+            statistics_digest="a" * 64,
+        )
+        res1 = RetrievalResult(
+            candidates=(c1,),
+            branch_observations=(
+                BranchObservation(
+                    branch="bm25",
+                    status="ELIGIBLE",
+                    chunk_id="chunk-1",
+                    branch_rank=1,
+                    raw_score=5.0,
+                    score_kind="bm25",
+                    index_generation_id="gen-1",
+                    lexical_policy_id="bm25-word-frozen47-population-v1",
+                ),
+            ),
+            chunk_set_ids=("cset-1",),
+            lexical_generations=(gen1,),
+        )
+
+        foreign_gen = "gen-foreign" if self._second_has_foreign else "gen-1"
+        c2 = RetrievalCandidate(
+            document_id="doc-1",
+            document_version_id="ver-1",
+            source_key="policy",
+            source_name="policy.pdf",
+            chunk_set_id="cset-1",
+            embedding_set_id=None,
+            embedding_configuration_id=None,
+            chunk_id="chunk-2",
+            chunk_ordinal=1,
+            heading_path=(),
+            start_line=6,
+            end_line=10,
+            content="Content 2",
+            content_checksum="chk-2",
+            token_count=5,
+            cosine_distance=None,
+            similarity=None,
+            bm25_score=4.0,
+            bm25_rank=1,
+            index_generation_id=foreign_gen,
+        )
+        gen2 = LexicalGeneration(
+            workspace_id="ws-1",
+            document_id="doc-1",
+            document_version_id="ver-1",
+            chunk_set_id="cset-1",
+            index_generation_id=foreign_gen,
+            lexical_policy_id="bm25-word-frozen47-population-v1",
+            statistics_digest="a" * 64 if not self._second_has_foreign else "b" * 64,
+        )
+        res2 = RetrievalResult(
+            candidates=(c2,),
+            branch_observations=(
+                BranchObservation(
+                    branch="bm25",
+                    status="ELIGIBLE",
+                    chunk_id="chunk-2",
+                    branch_rank=1,
+                    raw_score=4.0,
+                    score_kind="bm25",
+                    index_generation_id=foreign_gen,
+                    lexical_policy_id="bm25-word-frozen47-population-v1",
+                ),
+            ),
+            chunk_set_ids=("cset-1",),
+            lexical_generations=(gen2,),
+        )
+
+        query_call_count = 0
+
+        class SpyStore(EmptyStore):
+            def require_lexical_corpus(self, workspace_id, lexical_policy_id=None):
+                pass
+
+            def revalidate_lexical_snapshot(self, *args, **kwargs):
+                pass
+
+            def retrieve_candidates(self, **kwargs):
+                nonlocal query_call_count
+                query_call_count += 1
+                if query_call_count == 1:
+                    return res1
+                return res2
+
+        class SpyReranker:
+            def __init__(self, outer):
+                self.outer = outer
+
+            def rerank(self, question, candidates):
+                self.outer.reranker_calls += 1
+                return None
+
+        class SpyGenerator:
+            def __init__(self, outer):
+                self.outer = outer
+
+            async def generate(self, **kwargs):
+                self.outer.generator_calls += 1
+                return None
+
+        class SpyPlanner:
+            def plan(self, query):
+                return QueryPlan(
+                    query_id="q-test-1",
+                    original_query=query,
+                    is_fast_path=False,
+                    subquestions=(
+                        Subquestion("sq1", "query part 1", ()),
+                        Subquestion("sq2", "query part 2", ()),
+                    ),
+                    variants=(),
+                    protected_spans=(),
+                )
+
+        bm25_config = replace(
+            RetrievalConfiguration.bm25_top8_v1(),
+            id="retrieval-bm25-top8-v3",
+            reranking_policy_id="rerank-bge-v1",
+        )
+
+        service = AnswerQuestion(
+            embedding_provider=QueryEmbeddingProvider(),
+            generation_provider=SpyGenerator(self),
+            reranking_provider=SpyReranker(self),
+            store=SpyStore(),
+            embedding_configuration=EmbeddingConfiguration.milestone_one_local(),
+            retrieval_configuration=bm25_config,
+            query_planner=SpyPlanner(),
+        )
+
+        await service.execute(
+            QuestionCommand(workspace_id="ws-1", question="query part 1 and query part 2"),
+            WorkspacePrincipal(workspace_id="ws-1", key_id="key-1"),
+        )
+
+
+@pytest.fixture
+def answer_case():
+    return MultiQueryAnswerCase()
+
+
+@pytest.mark.asyncio
+async def test_secondary_query_mismatch_stops_before_any_provider(
+    answer_case: MultiQueryAnswerCase,
+) -> None:
+    answer_case.second_result_has_foreign_generation()
+    with pytest.raises(KnoraError):
+        await answer_case.execute_multi_query()
+    assert answer_case.reranker_calls == 0
+    assert answer_case.generator_calls == 0
+    assert answer_case.verifier_calls == 0
+    assert answer_case.valid_answer_traces == ()

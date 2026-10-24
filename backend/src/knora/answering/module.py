@@ -241,6 +241,7 @@ class AnswerQuestion:
 
         query_results: dict[str, Sequence[RetrievalCandidate]] = {}
         first_retrieval = None
+        all_retrievals = []
         for idx, q_text in enumerate(unique_queries):
             q_vec = query_vectors[idx] if query_batch is not None else None
             retrieval = self._store.retrieve_candidates(
@@ -250,6 +251,7 @@ class AnswerQuestion:
                 embedding_configuration=None if lexical else self._embedding_configuration,
                 retrieval_configuration=retrieval_configuration,
             )
+            all_retrievals.append(retrieval)
             if first_retrieval is None:
                 first_retrieval = retrieval
             if isinstance(retrieval, RetrievalResult):
@@ -258,31 +260,34 @@ class AnswerQuestion:
                 query_results[q_text] = tuple(retrieval)
 
         lexical_generations = ()
-        if first_retrieval is not None:
-            if lexical:
-                validate_bm25_result(
-                    first_retrieval,
-                    workspace_id=command.workspace_id,
-                    configuration=retrieval_configuration,
-                )
-                lexical_generations = first_retrieval.lexical_generations
-            elif retrieval_configuration.strategy == "dense-only":
-                validate_dense_result(
-                    first_retrieval,
-                    workspace_id=command.workspace_id,
-                    configuration=retrieval_configuration,
-                )
-                lexical_generations = first_retrieval.lexical_generations
-            elif (
-                retrieval_configuration.strategy == "hybrid"
-                and retrieval_configuration.fusion_policy_id == "dbsf-v1"
-            ):
-                validate_hybrid_result(
-                    first_retrieval,
-                    workspace_id=command.workspace_id,
-                    configuration=retrieval_configuration,
-                )
-                lexical_generations = first_retrieval.lexical_generations
+        for ret in all_retrievals:
+            if ret is not None:
+                if lexical:
+                    validate_bm25_result(
+                        ret,
+                        workspace_id=command.workspace_id,
+                        configuration=retrieval_configuration,
+                    )
+                elif retrieval_configuration.strategy == "dense-only":
+                    validate_dense_result(
+                        ret,
+                        workspace_id=command.workspace_id,
+                        configuration=retrieval_configuration,
+                    )
+                elif (
+                    retrieval_configuration.strategy == "hybrid"
+                    and retrieval_configuration.fusion_policy_id == "dbsf-v1"
+                ):
+                    validate_hybrid_result(
+                        ret,
+                        workspace_id=command.workspace_id,
+                        configuration=retrieval_configuration,
+                    )
+                if hasattr(ret, "lexical_generations") and ret.lexical_generations:
+                    if lexical_generations and ret.lexical_generations != lexical_generations:
+                        raise KnoraError("RETRIEVAL_SNAPSHOT_MISMATCH")
+                    if not lexical_generations:
+                        lexical_generations = ret.lexical_generations
 
         if len(unique_queries) > 1:
             from knora.answering.query_results import merge_cross_query_candidates
