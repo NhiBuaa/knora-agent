@@ -232,7 +232,10 @@ class QdrantSearchIndex:
         }
 
     def parse_stage_response(
-        self, generation: LexicalGeneration, points: list[dict[str, Any]]
+        self,
+        generation: LexicalGeneration,
+        points: list[dict[str, Any]],
+        expected_chunk_vectors: Mapping[str, tuple[float, ...] | list[float]] | None = None,
     ) -> StageReceipt:
         """Verify retrieved persisted points, never an upsert operation response."""
         self._validate_generation(generation)
@@ -303,15 +306,33 @@ class QdrantSearchIndex:
                     )
 
                 expected_vec_digest = payload.get("vector_digest")
-                if expected_vec_digest is not None:
-                    actual_vec_digest = hashlib.sha256(
-                        json.dumps([float(v) for v in dense_vec], separators=(",", ":")).encode(
-                            "utf-8"
-                        )
-                    ).hexdigest()
-                    if actual_vec_digest != expected_vec_digest:
+                if not expected_vec_digest or not isinstance(expected_vec_digest, str):
+                    raise ProjectionResponseError("persisted dense vector digest is missing")
+                actual_vec_digest = hashlib.sha256(
+                    json.dumps([float(v) for v in dense_vec], separators=(",", ":")).encode("utf-8")
+                ).hexdigest()
+                if actual_vec_digest != expected_vec_digest:
+                    raise ProjectionResponseError(
+                        "persisted dense vector content has been altered or corrupted"
+                    )
+
+                if expected_chunk_vectors is not None:
+                    if chunk_match.chunk_id not in expected_chunk_vectors:
                         raise ProjectionResponseError(
-                            "persisted dense vector content has been altered or corrupted"
+                            "persisted chunk missing from expected chunk vectors"
+                        )
+                    expected_pg_vec = expected_chunk_vectors[chunk_match.chunk_id]
+                    expected_pg_digest = hashlib.sha256(
+                        json.dumps(
+                            [float(v) for v in expected_pg_vec], separators=(",", ":")
+                        ).encode("utf-8")
+                    ).hexdigest()
+                    if (
+                        actual_vec_digest != expected_pg_digest
+                        or expected_vec_digest != expected_pg_digest
+                    ):
+                        raise ProjectionResponseError(
+                            "persisted dense vector differs from expected PG vector"
                         )
 
             seen.add(point_id)
