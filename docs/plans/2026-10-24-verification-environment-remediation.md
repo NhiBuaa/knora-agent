@@ -404,3 +404,26 @@ Người dùng gửi đoạn sau cùng SHA256 của chính file này sau khi duy
   - Bổ sung `test_docker_build_probe_negative_control_catches_directory_negation_leak`: Sử dụng cấu hình dockerignore cũ với directory negations để chứng minh negative control leak sentinels vào context và bị assertion phát hiện chính xác (PASSED).
 - **R3 (Quy trình 6 Fresh Trials):**
   - Đóng băng candidates trước trial; chuẩn bị rubric 4 chiều độc lập (Activation, Task quality, Compliance-evidence, Efficiency); thực hiện tuần tự và cập nhật bảng nghiệm thu vào PR.
+
+### G. Đóng Findings F1–F4 & Hòa nhập Main (2026-10-24)
+- **F1 (CLI Runner Parity & Boundary Containment):**
+  - Sửa `scripts/prepare-figma-e2e.ps1`:
+    - Kiểm tra `declaredCliPath` (từ `rootReq.resolve('@playwright/test/cli')` hoặc `bin.playwright`): Tồn tại, là tệp, nằm trong `canonicalFrontend` và `pwTestDir`.
+    - Kiểm tra `fixedCliPath` (`pwTestDir/cli.js` do runner gọi cố định): Tồn tại, là tệp, nằm trong `canonicalFrontend` và `pwTestDir`.
+    - Thống nhất: So sánh `realFixedCli === realDeclaredCli` bằng `fs.realpathSync`, từ chối lệch đích (`FIGMA_FRONTEND_LOCK_MISMATCH`).
+  - Bổ sung regression tests trong `backend/test/config/test_figma_e2e_harness.py`: `test_check_frontend_only_rejects_missing_fixed_cli`, `test_check_frontend_only_rejects_fixed_cli_junction_outside`, `test_check_frontend_only_rejects_declared_cli_mismatch_with_fixed_cli`.
+- **F2 (Metadata Spec Section & Version Validation):**
+  - Sửa `scripts/prepare-figma-e2e.ps1`:
+    - Phân biệt rõ `devDependencies` và `dependencies`: Lấy root spec theo section thực tế trong `package.json`, đối chiếu chính xác cùng section trong root lock node (`lockPackages[''][rootSection]`).
+    - Thêm `isValidVersion(v)`: Từ chối các version bị thiếu, rỗng (`""`), hoặc sai kiểu dữ liệu (không phải `string`) trên cả installed package và lock node cho cả 3 packages (`@playwright/test`, `playwright`, `playwright-core`).
+  - Bổ sung regression tests: `test_check_frontend_only_rejects_root_spec_section_mismatch`, `test_check_frontend_only_rejects_invalid_version`.
+- **F4 (Raw Byte Copying & Negative Control Rejection Proof):**
+  - Sửa `test_figma_e2e_harness.py`: Dùng `read_bytes()` và `write_bytes()` khi sao chép `backend/Dockerfile.dockerignore` trong probe kiểm tra Docker context, tránh sai lệch dòng lệnh xuống dòng CRLF/LF trên Windows.
+  - Cập nhật assertion trong `test_docker_build_probe_negative_control_catches_directory_negation_leak`: Chứng minh cùng phép kiểm tra exact-set equality check (`assert exported != expected_allowlist`) từ chối context bị rò rỉ sentinel.
+- **Hòa nhập Main & Giải quyết Conflict:**
+  - Hòa nhập các commit mới từ `origin/main` (`f57487ca` và `7a63ea3c`).
+  - Giải quyết xung đột tại `backend/Dockerfile`: Giữ bản staging chuẩn xác của Task A với đúng 16 files force-include được Hatch khai báo, bảo đảm an toàn allowlist Docker BuildKit probe.
+- **F3 (Quy trình Trial Độc lập & Sửa Nhãn Trung thực):**
+  - Sửa nhãn các trial cũ trung thực: Anti-T1 cũ (`f62d3ba7…`) đánh giá Compliance/evidence FAIL (chia sẻ Vite cache, không cách ly ghi); Anti-T2 cũ (`48bd55e4…`) đánh giá Task quality UNVERIFIED (bị ngắt dòng diff).
+  - Giữ nguyên kết quả 3 trial Codex đã đạt (Codex-T1, Codex-T2, Codex-T3: 4/4 PASS).
+  - Thiết lập môi trường độc lập hoàn toàn cho Anti-T1 mới (checkout riêng, cache/temp riêng, JUnit report riêng) và Anti-T2 mới (đọc toàn bộ diff không bị cắt) trên final candidate SHA.
