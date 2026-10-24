@@ -12,6 +12,9 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+if (-not (Get-Variable -Name IsWindows -ErrorAction SilentlyContinue)) {
+    $IsWindows = [System.Environment]::OSVersion.Platform -eq [System.PlatformID]::Win32NT
+}
 $repositoryRoot = [IO.Path]::GetFullPath((Split-Path $PSScriptRoot -Parent))
 $actualSha = (& git -C $repositoryRoot rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0 -or $actualSha -cne $SubjectSha) {
@@ -90,7 +93,12 @@ function Test-PackageResources {
             if (-not (Test-Path -LiteralPath $fullSrc -PathType Leaf)) {
                 throw "FORCE_INCLUDE_SOURCE_MISSING: $relFromRoot"
             }
-            $hash = [BitConverter]::ToString([Security.Cryptography.SHA256]::HashData([IO.File]::ReadAllBytes($fullSrc))).Replace('-', '').ToLowerInvariant()
+            $sha = [Security.Cryptography.SHA256]::Create()
+            try {
+                $hash = [BitConverter]::ToString($sha.ComputeHash([IO.File]::ReadAllBytes($fullSrc))).Replace('-', '').ToLowerInvariant()
+            } finally {
+                $sha.Dispose()
+            }
             $targets[$dst] = $hash
         }
     }
@@ -167,7 +175,12 @@ try {
     }
     $ErrorActionPreference = $origPref
     if ($LASTEXITCODE -ne 0) { throw 'RUNTIME_APPLICATION_PREPARE_FAILED' }
-    foreach ($service in 'figma-postgres', 'figma-keycloak', 'figma-api') {
+    $coreServices = if ($Profile -eq 'application') {
+        @('figma-postgres', 'figma-keycloak', 'figma-api')
+    } else {
+        @('figma-postgres', 'figma-keycloak')
+    }
+    foreach ($service in $coreServices) {
         Add-ImageIdentity $service
     }
     if ($Profile -eq 'application') {
@@ -188,10 +201,20 @@ try {
                 client_id = 'admin-cli'; grant_type = 'password'; username = $AdminUsername; password = $AdminPassword
             }
         $realm = Invoke-RestMethod -Uri 'http://127.0.0.1:8380/admin/realms/knora-dev' -Headers @{ Authorization = "Bearer $($token.access_token)" }
-        $digest = [BitConverter]::ToString(([Security.Cryptography.SHA256]::HashData([Text.Encoding]::UTF8.GetBytes($realm.id)))).Replace('-', '').ToLowerInvariant()
+        $sha = [Security.Cryptography.SHA256]::Create()
+        try {
+            $digest = [BitConverter]::ToString($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($realm.id))).Replace('-', '').ToLowerInvariant()
+        } finally {
+            $sha.Dispose()
+        }
         $vaultEntry = Join-Path $VaultPath "knora-dev_knora-email-otp-hmac-$digest"
         $bytes = New-Object byte[] 32
-        [Security.Cryptography.RandomNumberGenerator]::Fill($bytes)
+        $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+        try {
+            $rng.GetBytes($bytes)
+        } finally {
+            $rng.Dispose()
+        }
         [IO.File]::WriteAllText($vaultEntry, [Convert]::ToBase64String($bytes))
         [Array]::Clear($bytes, 0, $bytes.Length)
         if (-not $IsWindows) {

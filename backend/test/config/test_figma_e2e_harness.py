@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import tempfile
 import time
+import tomllib
 import uuid
 from pathlib import Path
 
@@ -881,3 +882,186 @@ function docker {
     )
     assert proc.returncode == 0, proc.stderr
     assert "FIGMA_CONFIG_OK" in proc.stdout
+
+
+def test_backend_services_use_root_context_and_dockerfile_contract() -> None:
+    prod = yaml.safe_load((ROOT / "docker-compose.yml").read_text(encoding="utf-8"))
+    dev = yaml.safe_load((ROOT / "docker-compose.dev.yml").read_text(encoding="utf-8"))
+    s2 = yaml.safe_load((ROOT / "docker-compose.s2.yml").read_text(encoding="utf-8"))
+
+    for doc, svc, name in [
+        (prod, "api", "prod-api"),
+        (dev, "api", "dev-api"),
+        (dev, "figma-api", "dev-figma-api"),
+        (s2, "application", "s2-application"),
+    ]:
+        build = doc["services"][svc]["build"]
+        assert build["context"] == ".", f"{name} must use root context, got {build.get('context')}"
+        assert build["dockerfile"] == "backend/Dockerfile", f"{name} must use backend/Dockerfile"
+
+    dockerfile_text = (ROOT / "backend/Dockerfile").read_text(encoding="utf-8")
+    assert "WORKDIR /app" in dockerfile_text
+    assert "COPY backend/pyproject.toml backend/alembic.ini ./" in dockerfile_text
+    assert "COPY backend/migrations ./migrations" in dockerfile_text
+    assert "COPY backend/src ./src" in dockerfile_text
+    assert (
+        'CMD ["uvicorn", "knora.main:app", "--host", "0.0.0.0", "--port", "8000"]'
+        in dockerfile_text
+    )
+
+    with open(ROOT / "backend/pyproject.toml", "rb") as f:
+        pyproject = tomllib.load(f)
+    force_include = (
+        pyproject.get("tool", {})
+        .get("hatch", {})
+        .get("build", {})
+        .get("targets", {})
+        .get("wheel", {})
+        .get("force-include", {})
+    )
+    assert len(force_include) == 16
+    for src in force_include:
+        rel = src.replace("../", "").replace("\\", "/")
+        assert rel in dockerfile_text, (
+            f"Force include source {rel} must be staged in backend/Dockerfile"
+        )
+
+
+def test_dockerignore_exact_allowlist_matches_tracked_and_resources() -> None:
+    src_files = subprocess.check_output(
+        ["git", "ls-files", "-z", "--", "backend/src"], cwd=ROOT, text=True
+    ).split("\0")
+    src_files = sorted([f.replace("\\", "/") for f in src_files if f])
+    assert len(src_files) == 177
+    for f in src_files:
+        assert f.endswith(".py"), f"Src file must be .py: {f}"
+
+    mig_files = subprocess.check_output(
+        ["git", "ls-files", "-z", "--", "backend/migrations"], cwd=ROOT, text=True
+    ).split("\0")
+    mig_files = sorted([f.replace("\\", "/") for f in mig_files if f])
+    assert len(mig_files) == 53
+    for f in mig_files:
+        assert f.endswith(".py") or f.endswith("script.py.mako"), (
+            f"Migration file must be .py or script.py.mako: {f}"
+        )
+
+    with open(ROOT / "backend/pyproject.toml", "rb") as f:
+        pyproject = tomllib.load(f)
+    force_include = (
+        pyproject.get("tool", {})
+        .get("hatch", {})
+        .get("build", {})
+        .get("targets", {})
+        .get("wheel", {})
+        .get("force-include", {})
+    )
+    res_files = sorted([src.replace("../", "").replace("\\", "/") for src in force_include])
+    assert len(res_files) == 16
+
+    expected_allowlist = set(
+        [
+            "backend/Dockerfile",
+            "backend/Dockerfile.dockerignore",
+            "backend/pyproject.toml",
+            "backend/alembic.ini",
+        ]
+        + mig_files
+        + src_files
+        + res_files
+    )
+
+    dockerignore_lines = (
+        (ROOT / "backend/Dockerfile.dockerignore").read_text(encoding="utf-8").splitlines()
+    )
+    rules = [
+        line.strip()
+        for line in dockerignore_lines
+        if line.strip() and not line.strip().startswith("#")
+    ]
+    assert rules[0] == "**", "First rule must be **"
+
+    negations = set()
+    for r in rules:
+        if r.startswith("!"):
+            entry = r[1:].replace("\\", "/")
+            assert not entry.endswith("/"), f"Directory negation is forbidden: {entry}"
+            assert "*" not in entry, f"Glob negation is forbidden in exact allowlist: {entry}"
+            negations.add(entry)
+
+    missing = expected_allowlist - negations
+    extra = negations - expected_allowlist
+    assert negations == expected_allowlist, f"Negations mismatch: missing={missing}, extra={extra}"
+
+
+def test_docker_build_probe_enforces_exact_context_exclusion(tmp_path: Path) -> None:
+    if shutil.which("docker") is None:
+        pytest.skip("Docker CLI not available")
+    check = subprocess.run(["docker", "version"], capture_output=True, text=True)
+    if check.returncode != 0:
+        pytest.skip("Docker daemon unavailable")
+
+    ctx = tmp_path / "probe_ctx"
+    out = tmp_path / "probe_out"
+    ctx.mkdir()
+    out.mkdir()
+
+    dockerignore_content = (ROOT / "backend/Dockerfile.dockerignore").read_text(encoding="utf-8")
+    (ctx / "backend").mkdir(parents=True)
+    (ctx / "backend/Dockerfile").write_text("FROM scratch\nCOPY . /context/\n")
+    (ctx / "backend/Dockerfile.dockerignore").write_text(dockerignore_content, encoding="utf-8")
+    (ctx / ".dockerignore").write_text("!**\n")
+
+    allowed_samples = [
+        ctx / "backend/pyproject.toml",
+        ctx / "backend/alembic.ini",
+        ctx / "backend/src/knora/main.py",
+        ctx / "backend/migrations/env.py",
+        ctx / "docs/design/m3-improvement-claim-rule-v1.policy.json",
+        ctx / "evals/datasets/milestone_3.jsonl",
+    ]
+    for p in allowed_samples:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(f"dummy payload for {p.name}\n")
+
+    sentinels = [
+        ctx / "backend/src/client-private-key.pem",
+        ctx / "backend/src/private_credentials.py",
+        ctx / "backend/migrations/credentials.json",
+        ctx / ".env",
+        ctx / "docs/private-note.txt",
+        ctx / "evals/private-note.txt",
+        ctx / "node_modules/private.txt",
+        ctx / ".git/config",
+        ctx / "backend/unexpected_new_file.txt",
+    ]
+    for s in sentinels:
+        s.parent.mkdir(parents=True, exist_ok=True)
+        s.write_text("SENTINEL_SECRET\n")
+
+    cmd = [
+        "docker",
+        "buildx",
+        "build",
+        "--file",
+        str(ctx / "backend/Dockerfile"),
+        "--output",
+        f"type=local,dest={out}",
+        str(ctx),
+    ]
+    res = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    assert res.returncode == 0, f"Docker probe build failed: {res.stderr}\n{res.stdout}"
+
+    exported = {
+        p.relative_to(out / "context").as_posix()
+        for p in (out / "context").rglob("*")
+        if p.is_file()
+    }
+
+    for p in allowed_samples:
+        rel = p.relative_to(ctx).as_posix()
+        assert rel in exported, f"Allowed file {rel} was not exported to context"
+
+    for s in sentinels:
+        rel = s.relative_to(ctx).as_posix()
+        assert rel not in exported, f"Sentinel file {rel} was leaked into build context!"

@@ -306,3 +306,41 @@ Theo catalog thực tế: `executing-plans`, `using-git-worktrees`, `systematic-
 Người dùng gửi đoạn sau cùng SHA256 của chính file này sau khi duyệt. Đây là mẫu phê duyệt để gửi, không phải tuyên bố đã có phê duyệt trên GitHub:
 
 > Tôi duyệt toàn bộ V1 tại `<USER_HOME>\AppData\Local\Temp\verification-environment-remediation-plan-handoff-20261024.md`, đúng SHA256 tôi gửi kèm. Hãy đọc, xác minh hash rồi tự triển khai đủ năm mục đến khi có bằng chứng nghiệm thu theo kế hoạch. Tôi cho phép các thao tác trong gói quyền §1, gồm cài dependency/Chromium đã khóa trong worktree mới, chạy CI/runtime hiện có, cập nhật global AGENTS đúng phạm vi, commit/push và tạo PR. Tự sửa và kiểm chứng các bước thường lệ; chỉ hỏi khi chạm §9, gộp mọi blocker cần tôi xử lý. Không sửa tài nguyên của phiên khác, không nới CI, không dùng provider trả phí và không tự merge. Cuối cùng báo từng mục đạt tới đâu, bằng chứng đúng SHA, giới hạn còn lại và PR có đủ điều kiện đề nghị nghiệm thu hay chưa.
+
+
+---
+
+# Phụ lục V2 — Kế hoạch xử lý kết quả review môi trường kiểm chứng (PR #233)
+
+> **Phê duyệt V2:** Được người dùng duyệt tại hội thoại ngày 2026-10-24 từ tệp bàn giao:
+> `verification-environment-review-remediation-plan-20261024.md`
+> **SHA-256 đã xác minh:** `FDC96841E9C817490B695531B0D99368052629786FD490E8E8B97028A907D7CB`
+> **Phạm vi triển khai:** Anti thực hiện sửa mã và kiểm chứng; Codex review độc lập. Tiếp tục trên PR #233, nhánh `fix/verification-environment-reliability`.
+
+## 1. Tóm tắt các nhiệm vụ bổ sung V2
+- **F-A (Docker Packaging & Exact Allowlist):**
+  - Chuyển `backend/Dockerfile.dockerignore` từ negation thư mục sang danh sách phủ định tệp chính xác (exact-file allowlist), bắt đầu bằng `**`.
+  - Liệt kê đủ 177 tệp tracked trong `backend/src`, 53 tệp trong `backend/migrations`, `pyproject.toml`, `alembic.ini`, và 16 tệp force-include resources từ `evals/` và `docs/`.
+  - Bổ sung test cấu trúc và probe Docker BuildKit thật kiểm chứng không có sentinel lọt vào context.
+- **F-B1 & F-B2 (Physical Containment & Lockfile Node Matching):**
+  - Cập nhật helper `isPhysicallyWithin(rootPath, candidatePath)` dùng `fs.realpathSync`, `path.relative`, không hạ chữ thường vô điều kiện để bảo vệ ranh giới case-sensitive trên Linux.
+  - Neo `frontend` vào `repository` trước khi kiểm tra các phụ thuộc bên trong.
+  - Đối chiếu khai báo root `@playwright/test` giữa `package.json` và `package-lock.json['']`.
+  - Duyệt chuỗi resolve (`@playwright/test` -> `playwright` -> `playwright-core`) bằng `createRequire`, so khớp tên package, version với lock node tương ứng và kiểm tra parent dependency spec.
+  - Xử lý các link nội bộ và xác nhận CLI nằm trong package `@playwright/test` được chọn.
+  - Bổ sung ma trận test synthetic cho các trường hợp: flat, nested, internal link, name mismatch, version mismatch, parent spec mismatch, external junction/symlink.
+- **F-C (Củng cố Touch Targets & Quản lý Ảnh kiểm thử):**
+  - Đo cả width và height ≥ 44px (với dung sai subpixel) cho panel tools, Appearance/Logout menuitems, review link, dialog buttons, và collapse rail button.
+  - Giữ nguyên hợp đồng chiều cao 26px cho điều khiển Operator (`Workspace actions`, `Workspace selector`).
+  - Dùng `testInfo.outputPath(...)` với tiền tố `verification-touch-target-` cho các ảnh chụp màn hình kiểm chứng theo từng lần chạy.
+  - Cập nhật `.github/workflows/ci.yml` tại step `Upload frontend reports` để upload thêm ảnh đã mask của ca C.
+  - Chạy mutation proof tạm thời kiểm chứng assertion width bắt được hồi quy.
+- **G-A (Kiểm thử hồi quy cho Runtime Runner):**
+  - Thêm tests trong `backend/test/config/test_runtime_evidence.py` xác nhận:
+    - Resource check thành công: gọi đúng thứ tự, marker `RUNTIME_PACKAGE_RESOURCES_OK=16`.
+    - Resource check thất bại (docker exec nonzero): runner exit khác 0, không tạo evidence, nhưng khối finally cleanup/rollback vẫn được gọi đầy đủ.
+    - Thiếu source resource / pyproject rỗng: throw mã lỗi tương ứng.
+    - Profile `otp`: không gọi resource checker của application.
+- **G-D & G-E (Bằng chứng Phiên mới & Khảo sát Hash):**
+  - Ghi nhận thuật toán đo hash global AGENTS (LF-normalized vs raw bytes) và diff đã ẩn danh.
+  - Chạy 6 trials phiên mới (T1-T3) độc lập cho Codex và Anti không kế thừa lịch sử chat.
