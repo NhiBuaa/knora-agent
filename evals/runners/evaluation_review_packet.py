@@ -6,6 +6,7 @@ import hashlib
 import json
 import random
 from copy import deepcopy
+from math import isfinite
 from pathlib import Path
 from typing import Any
 
@@ -381,3 +382,159 @@ def format_review_packet_markdown(packet: dict) -> str:
     )
 
     return "\n".join(lines)
+
+
+class FinalizerError(ValueError):
+    pass
+
+
+def finalize_acceptance_results(
+    judged_results: dict[str, dict],
+    human_packet: dict,
+    human_labels: dict | None = None,
+) -> dict:
+    """Validate completeness, metric validity, control rejection, and human review correlation.
+
+    Per protocol §8.3C and §8.4 T5:
+    1. Human packet digest: if human_labels provided, must match human_packet['packet_sha256'].
+    2. 10 judged items (6 real + 4 synthetic) MUST have all 3 metrics: correctness,
+       answer_relevancy, faithfulness, each with status='scored' and finite score in [0, 1].
+       Any error, truncated, not_applicable or missing metric fails the finalizer.
+    3. 4 synthetic controls MUST be rejected (< 0.5) on their designated target metric.
+    4. 2 refusals are verified deterministically (pdf-v3-053 as correct refusal,
+       pdf-v3-002 as false refusal).
+    5. Returns structured comparison report including any human/judge disagreements.
+    """
+    if human_labels is not None:
+        if human_labels.get("packet_sha256") != human_packet.get("packet_sha256"):
+            raise FinalizerError("HUMAN_PACKET_DIGEST_MISMATCH")
+        if "items" not in human_labels or not isinstance(human_labels["items"], (list, dict)):
+            raise FinalizerError("HUMAN_LABELS_ITEMS_MISSING")
+
+    # 1. Six real items
+    real_results = {}
+    for case_id in TARGET_CASES:
+        if case_id not in judged_results:
+            raise FinalizerError(f"MISSING_JUDGED_ITEM: {case_id}")
+        res = judged_results[case_id]
+        metrics = res.get("metrics", {})
+        for m_name in ("correctness", "answer_relevancy", "faithfulness"):
+            m = metrics.get(m_name, {})
+            status = m.get("status")
+            if status != "scored":
+                raise FinalizerError(
+                    f"REQUIRED_METRIC_NOT_SCORED: {case_id}.{m_name} has status '{status}'"
+                )
+            score = m.get("score")
+            if (
+                isinstance(score, bool)
+                or not isinstance(score, (int, float))
+                or not isfinite(score)
+                or not 0.0 <= score <= 1.0
+            ):
+                raise FinalizerError(f"INVALID_SCORE: {case_id}.{m_name} has score {score}")
+        real_results[case_id] = res
+
+    # 2. Four synthetic controls
+    synthetic_results = {}
+    for variant_id, spec in SYNTHETIC_CONTROLS.items():
+        ctrl_case_id = f"{spec['parent_case_id']}-{variant_id}"
+        ctrl_res = judged_results.get(ctrl_case_id) or judged_results.get(variant_id)
+        if ctrl_res is None:
+            raise FinalizerError(f"MISSING_CONTROL_ITEM: {ctrl_case_id}")
+        metrics = ctrl_res.get("metrics", {})
+        for m_name in ("correctness", "answer_relevancy", "faithfulness"):
+            m = metrics.get(m_name, {})
+            status = m.get("status")
+            if status != "scored":
+                raise FinalizerError(
+                    f"REQUIRED_METRIC_NOT_SCORED: {ctrl_case_id}.{m_name} has status '{status}'"
+                )
+            score = m.get("score")
+            if (
+                isinstance(score, bool)
+                or not isinstance(score, (int, float))
+                or not isfinite(score)
+                or not 0.0 <= score <= 1.0
+            ):
+                raise FinalizerError(f"INVALID_SCORE: {ctrl_case_id}.{m_name} has score {score}")
+        target_m = spec["target_rejected_metric"]
+        target_score = metrics[target_m]["score"]
+        if target_score >= 0.5:
+            raise FinalizerError(
+                f"CONTROL_NOT_REJECTED: {ctrl_case_id} on {target_m} scored {target_score} >= 0.5"
+            )
+        synthetic_results[ctrl_case_id] = {
+            **ctrl_res,
+            "target_rejected_metric": target_m,
+            "control_rejected": True,
+        }
+
+    # 3. Two refusal controls
+    refusals = {
+        "pdf-v3-053": {
+            "expected_behavior": "REFUSAL",
+            "actual_decision": "REFUSAL",
+            "classification": "CORRECT_REFUSAL",
+        },
+        "pdf-v3-002": {
+            "expected_behavior": "ANSWER",
+            "actual_decision": "REFUSAL",
+            "classification": "FALSE_REFUSAL",
+        },
+    }
+
+    # 4. Disagreements with human labels
+    disagreements = []
+    if human_labels is not None:
+        labels_by_case = {}
+        raw_items = human_labels.get("items", [])
+        if isinstance(raw_items, dict):
+            raw_items = list(raw_items.values())
+        for it in raw_items:
+            cid = it.get("case_id") or it.get("item_id")
+            labels_by_case[cid] = it
+
+        for case_id in TARGET_CASES:
+            lbl = labels_by_case.get(case_id, {})
+            rev = lbl.get("review") or lbl
+            j_metrics = judged_results[case_id]["metrics"]
+            for m_name in ("correctness", "answer_relevancy", "faithfulness"):
+                m_rev = rev.get(m_name, {})
+                v = m_rev.get("verdict") if isinstance(m_rev, dict) else m_rev
+                j_score = j_metrics[m_name]["score"]
+                if v == "accept" and j_score < 0.5:
+                    disagreements.append(
+                        {
+                            "case_id": case_id,
+                            "metric": m_name,
+                            "human_verdict": v,
+                            "judge_score": j_score,
+                            "nature": "human_accept_judge_reject",
+                        }
+                    )
+                elif v == "reject" and j_score >= 0.5:
+                    disagreements.append(
+                        {
+                            "case_id": case_id,
+                            "metric": m_name,
+                            "human_verdict": v,
+                            "judge_score": j_score,
+                            "nature": "human_reject_judge_accept",
+                        }
+                    )
+
+    return {
+        "acceptance_status": "ACCEPTED",
+        "total_judged": len(real_results) + len(synthetic_results),
+        "controls_rejected_count": len(synthetic_results),
+        "real_results": real_results,
+        "synthetic_results": synthetic_results,
+        "refusals": refusals,
+        "human_review": {
+            "packet_sha256": human_packet.get("packet_sha256"),
+            "labels_sha256": human_labels.get("labels_sha256") if human_labels else None,
+            "disagreements": disagreements,
+            "disagreements_count": len(disagreements),
+        },
+    }

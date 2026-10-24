@@ -1,8 +1,13 @@
 from pathlib import Path
 
+import pytest
 from evals.datasets.pdf_retrieval_v3_v1 import load_dataset
 from evals.runners.evaluation_review_packet import (
+    SYNTHETIC_CONTROLS,
+    TARGET_CASES,
+    FinalizerError,
     build_acceptance_review_packet,
+    finalize_acceptance_results,
     format_review_packet_markdown,
     project_capture_generation_evidence,
 )
@@ -133,3 +138,111 @@ def test_project_capture_generation_evidence_negative_checks() -> None:
     evidence, verdict = project_capture_generation_evidence(cap_bad_alias)
     assert evidence == []
     assert verdict == "MISMATCH"
+
+
+def _make_mock_judged_results():
+    results = {}
+    for case_id in TARGET_CASES:
+        results[case_id] = {
+            "case_id": case_id,
+            "metrics": {
+                "correctness": {"status": "scored", "score": 0.95, "rationale": "Accurate."},
+                "answer_relevancy": {"status": "scored", "score": 0.90, "rationale": "Relevant."},
+                "faithfulness": {"status": "scored", "score": 0.98, "rationale": "Faithful."},
+            },
+        }
+    for variant_id, spec in SYNTHETIC_CONTROLS.items():
+        ctrl_case_id = f"{spec['parent_case_id']}-{variant_id}"
+        target_m = spec["target_rejected_metric"]
+        metrics = {
+            "correctness": {"status": "scored", "score": 0.90, "rationale": "ok"},
+            "answer_relevancy": {"status": "scored", "score": 0.90, "rationale": "ok"},
+            "faithfulness": {"status": "scored", "score": 0.90, "rationale": "ok"},
+        }
+        metrics[target_m] = {"status": "scored", "score": 0.15, "rationale": "Rejected as planned."}
+        results[ctrl_case_id] = {
+            "case_id": ctrl_case_id,
+            "metrics": metrics,
+        }
+    return results
+
+
+def test_finalize_acceptance_results_success():
+    judged = _make_mock_judged_results()
+    packet = {"packet_sha256": "digest-123", "items": []}
+    res = finalize_acceptance_results(judged, packet)
+    assert res["acceptance_status"] == "ACCEPTED"
+    assert res["total_judged"] == 10
+    assert res["controls_rejected_count"] == 4
+    assert res["refusals"]["pdf-v3-053"]["classification"] == "CORRECT_REFUSAL"
+    assert res["refusals"]["pdf-v3-002"]["classification"] == "FALSE_REFUSAL"
+
+
+def test_finalize_acceptance_results_rejects_missing_or_unscored_metric():
+    judged = _make_mock_judged_results()
+    packet = {"packet_sha256": "digest-123", "items": []}
+
+    # Error metric
+    judged["pdf-v3-004"]["metrics"]["faithfulness"] = {
+        "status": "error",
+        "score": None,
+        "error": "Timeout",
+    }
+    with pytest.raises(
+        FinalizerError,
+        match="REQUIRED_METRIC_NOT_SCORED: pdf-v3-004.faithfulness has status 'error'",
+    ):
+        finalize_acceptance_results(judged, packet)
+
+    # not_applicable metric
+    judged["pdf-v3-004"]["metrics"]["faithfulness"] = {
+        "status": "not_applicable",
+        "score": None,
+    }
+    with pytest.raises(
+        FinalizerError,
+        match="REQUIRED_METRIC_NOT_SCORED: pdf-v3-004.faithfulness has status 'not_applicable'",
+    ):
+        finalize_acceptance_results(judged, packet)
+
+
+def test_finalize_acceptance_results_rejects_unrejected_control():
+    judged = _make_mock_judged_results()
+    packet = {"packet_sha256": "digest-123", "items": []}
+
+    # Control scored >= 0.5 on its target rejected metric
+    ctrl_id = "pdf-v3-004-wrong-fact"
+    judged[ctrl_id]["metrics"]["correctness"]["score"] = 0.75
+    with pytest.raises(FinalizerError, match="CONTROL_NOT_REJECTED"):
+        finalize_acceptance_results(judged, packet)
+
+
+def test_finalize_acceptance_results_validates_human_packet_digest_and_tracks_disagreements():
+    judged = _make_mock_judged_results()
+    packet = {"packet_sha256": "digest-correct", "items": []}
+
+    # Mismatched digest
+    bad_labels = {"packet_sha256": "digest-wrong", "items": []}
+    with pytest.raises(FinalizerError, match="HUMAN_PACKET_DIGEST_MISMATCH"):
+        finalize_acceptance_results(judged, packet, bad_labels)
+
+    # Valid labels with disagreement
+    good_labels = {
+        "packet_sha256": "digest-correct",
+        "items": [
+            {
+                "case_id": "pdf-v3-004",
+                "review": {
+                    "correctness": {"verdict": "reject"},  # Judge has 0.95 -> disagreement!
+                    "answer_relevancy": {"verdict": "accept"},
+                    "faithfulness": {"verdict": "accept"},
+                },
+            }
+        ],
+    }
+    res = finalize_acceptance_results(judged, packet, good_labels)
+    assert res["acceptance_status"] == "ACCEPTED"
+    disagreements = res["human_review"]["disagreements"]
+    assert len(disagreements) == 1
+    assert disagreements[0]["case_id"] == "pdf-v3-004"
+    assert disagreements[0]["nature"] == "human_reject_judge_accept"
