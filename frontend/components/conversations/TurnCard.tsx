@@ -22,6 +22,107 @@ export function processingLabel(stage: string | null) {
   }
 }
 
+type CopyState = "idle" | "copying" | "copied" | "error";
+
+function CopyIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function AlertIcon({ className = "h-3.5 w-3.5" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
+  );
+}
+
+interface CopyButtonProps {
+  label: string;
+  state: CopyState;
+  vietnamese: boolean;
+  onClick: () => void;
+}
+
+function CopyButton({ label, state, vietnamese, onClick }: CopyButtonProps) {
+  const statusText =
+    state === "copied"
+      ? vietnamese
+        ? "Đã sao chép"
+        : "Copied"
+      : state === "error"
+        ? vietnamese
+          ? "Không thể sao chép"
+          : "Copy failed"
+        : vietnamese
+          ? "Sao chép"
+          : "Copy";
+
+  return (
+    <button
+      type="button"
+      title={statusText}
+      aria-label={label}
+      disabled={state === "copying"}
+      onClick={onClick}
+      className="m-0 inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-surface text-text-muted transition-colors hover:border-action hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-action disabled:opacity-50"
+    >
+      {state === "copied" ? (
+        <CheckIcon className="h-3.5 w-3.5 text-action" />
+      ) : state === "error" ? (
+        <AlertIcon className="h-3.5 w-3.5 text-signature" />
+      ) : (
+        <CopyIcon className="h-3.5 w-3.5" />
+      )}
+      <span className="sr-only">{statusText}</span>
+    </button>
+  );
+}
+
 export function TurnCard({
   turn,
   workspaceId,
@@ -144,29 +245,16 @@ export function TurnCard({
         <p className="max-w-full whitespace-pre-wrap break-words rounded-2xl bg-text-primary px-3.5 py-2.5 text-sm font-medium leading-5 text-surface">
           {turn.question}
         </p>
-        <button
-          type="button"
-          aria-label={
+        <CopyButton
+          label={
             vietnamese
               ? `Sao chép câu hỏi ${turn.sequence}`
               : `Copy question ${turn.sequence}`
           }
-          disabled={questionCopyState === "copying"}
+          state={questionCopyState}
+          vietnamese={vietnamese}
           onClick={handleCopyQuestion}
-          className="m-0 flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-0.5 text-xs text-text-muted hover:border-action hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-action disabled:opacity-50"
-        >
-          {questionCopyState === "copied"
-            ? vietnamese
-              ? "Đã sao chép"
-              : "Copied"
-            : questionCopyState === "error"
-              ? vietnamese
-                ? "Không thể sao chép"
-                : "Copy failed"
-              : vietnamese
-                ? "Sao chép"
-                : "Copy"}
-        </button>
+        />
       </div>
       <article className="m-0 flex flex-col gap-2.5 rounded-none border-0 bg-transparent p-0">
         {working && !sessionExpired && (
@@ -199,29 +287,16 @@ export function TurnCard({
             />
             {copyableAnswer !== null && (
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  aria-label={
+                <CopyButton
+                  label={
                     vietnamese
                       ? `Sao chép câu trả lời ${turn.sequence}`
                       : `Copy answer ${turn.sequence}`
                   }
-                  disabled={answerCopyState === "copying"}
+                  state={answerCopyState}
+                  vietnamese={vietnamese}
                   onClick={() => handleCopyAnswer(copyableAnswer)}
-                  className="m-0 flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-0.5 text-xs text-text-muted hover:border-action hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-action disabled:opacity-50"
-                >
-                  {answerCopyState === "copied"
-                    ? vietnamese
-                      ? "Đã sao chép"
-                      : "Copied"
-                    : answerCopyState === "error"
-                      ? vietnamese
-                        ? "Không thể sao chép"
-                        : "Copy failed"
-                      : vietnamese
-                        ? "Sao chép"
-                        : "Copy"}
-                </button>
+                />
               </div>
             )}
           </>
@@ -233,29 +308,16 @@ export function TurnCard({
             </h2>
             {refusalText && (
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  aria-label={
+                <CopyButton
+                  label={
                     vietnamese
                       ? `Sao chép câu trả lời ${turn.sequence}`
                       : `Copy answer ${turn.sequence}`
                   }
-                  disabled={answerCopyState === "copying"}
+                  state={answerCopyState}
+                  vietnamese={vietnamese}
                   onClick={() => handleCopyAnswer(refusalText)}
-                  className="m-0 flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-0.5 text-xs text-text-muted hover:border-action hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-action disabled:opacity-50"
-                >
-                  {answerCopyState === "copied"
-                    ? vietnamese
-                      ? "Đã sao chép"
-                      : "Copied"
-                    : answerCopyState === "error"
-                      ? vietnamese
-                        ? "Không thể sao chép"
-                        : "Copy failed"
-                      : vietnamese
-                        ? "Sao chép"
-                        : "Copy"}
-                </button>
+                />
               </div>
             )}
             <div className="flex flex-wrap items-center gap-2">
