@@ -67,6 +67,9 @@ process.env.PLAYWRIGHT_NO_COPY_PROMPT = "1";
 export default defineConfig({
   testDir: "./tests/e2e",
   ...selection,
+  ...(process.env.FIGMA_TEST_MATCH
+    ? { testMatch: process.env.FIGMA_TEST_MATCH }
+    : {}),
   outputDir: fixtureMode
     ? "./test-results/figma-ui"
     : applicationMode
