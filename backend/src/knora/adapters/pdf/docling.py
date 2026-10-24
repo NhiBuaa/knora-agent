@@ -115,17 +115,9 @@ class DoclingTextExtractor:
                         "PDF_RESOURCE_LIMIT_EXCEEDED", reason="EXTRACTOR_MEMORY"
                     )
 
-        check_limits()
         raw_bytes = stream.read(configuration.max_raw_bytes + 1)
         if len(raw_bytes) > configuration.max_raw_bytes:
             raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="RAW_FILE_SIZE")
-        if (
-            configuration.extractor_memory_bytes is not None
-            and len(raw_bytes) > configuration.extractor_memory_bytes
-        ):
-            raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="EXTRACTOR_MEMORY")
-
-        check_limits()
 
         raw_source_hash = hashlib.sha256(raw_bytes).hexdigest()
 
