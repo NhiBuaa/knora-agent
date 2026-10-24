@@ -360,6 +360,23 @@ def score_observations_ranking(observations, ranking_dataset, *, k=10, require_e
     return macro_average_ranking(case_scores)
 
 
+def replay_phrase_boost_comparator(
+    candidates_by_case,
+    query_texts_by_case,
+    *,
+    lambda_param: float = 0.5,
+):
+    """Replay BM25 + Phrase Boost comparator on saved candidate pools."""
+    from evals.runners.phrase_boost import PhraseBoostComparator, PhraseBoostConfig
+
+    comparator = PhraseBoostComparator(PhraseBoostConfig(lambda_param=lambda_param))
+    results = {}
+    for case_id, cands in candidates_by_case.items():
+        query = query_texts_by_case.get(case_id, "")
+        results[case_id] = comparator.rerank(query, cands)
+    return results
+
+
 def build_report(
     dataset,
     observations,

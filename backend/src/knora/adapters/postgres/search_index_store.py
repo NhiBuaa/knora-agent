@@ -21,6 +21,7 @@ from knora.adapters.postgres.tables import (
     OriginalSourceObjectTable,
     WorkspaceTable,
 )
+from knora.answering.sequential_dependence import CorpusStatistics, tokenize_lexical_text
 from knora.answering.stores import LexicalGeneration as RetrievedLexicalGeneration
 from knora.domain.errors import KnoraError
 from knora.ingestion.job_processing import IngestionWork
@@ -34,10 +35,70 @@ from knora.ingestion.search_indexing import (
     StaleGenerationError,
 )
 
+_CORPUS_STATS_CACHE: dict[tuple[str, str], CorpusStatistics] = {}
+
 
 class PostgresSearchIndexStore:
     def __init__(self, session_factory: sessionmaker) -> None:
         self._sessions = session_factory
+
+    def read_corpus_statistics(self, workspace_id: str, lexical_policy_id: str) -> CorpusStatistics:
+        with self._sessions.begin() as session:
+            return self.read_corpus_statistics_in_transaction(
+                session, workspace_id, lexical_policy_id
+            )
+
+    def read_corpus_statistics_in_transaction(
+        self, session: Session, workspace_id: str, lexical_policy_id: str
+    ) -> CorpusStatistics:
+        workspace = session.scalar(
+            select(WorkspaceTable).where(WorkspaceTable.id == workspace_id).with_for_update()
+        )
+        if workspace is None or workspace.archived:
+            raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+
+        generations = self.read_active_generations_in_snapshot(
+            session, workspace_id, lexical_policy_id
+        )
+        if not generations:
+            raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+
+        profile = generations[0].lexical_profile
+        stats_digest = profile.statistics_digest
+        if not stats_digest or stats_digest == "0" * 64:
+            raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+        for g in generations:
+            if g.lexical_profile.statistics_digest != stats_digest:
+                raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+
+        # F08: Do not use global cache keyed on (workspace_id, stats_digest),
+        # because stats_digest is tied to profile definition and does not change
+        # when corpus membership/documents change. Read/compute directly from active PG snapshot.
+        chunks: list[ChunkTable] = []
+        for g in generations:
+            chunks.extend(
+                session.scalars(
+                    select(ChunkTable)
+                    .where(ChunkTable.chunk_set_id == g.chunk_set_id)
+                    .order_by(ChunkTable.ordinal)
+                ).all()
+            )
+
+        freqs: dict[str, int] = {}
+        total_tokens = 0
+        for chunk in chunks:
+            tokens = tokenize_lexical_text(chunk.content)
+            total_tokens += len(tokens)
+            for tok in tokens:
+                freqs[tok] = freqs.get(tok, 0) + 1
+
+        return CorpusStatistics(
+            total_tokens=max(1, total_tokens),
+            total_chunks=len(chunks),
+            unigram_frequencies=freqs,
+            average_chunk_length=total_tokens / len(chunks) if chunks else 0.0,
+            statistics_digest=stats_digest,
+        )
 
     def read_active_generations(
         self, workspace_id: str, lexical_policy_id: str

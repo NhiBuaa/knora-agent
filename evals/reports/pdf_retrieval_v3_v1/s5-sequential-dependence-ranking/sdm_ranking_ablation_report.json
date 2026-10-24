@@ -1,0 +1,103 @@
+{
+  "gate": "G5",
+  "stage": "S5",
+  "name": "Sequential Dependence Ranking",
+  "executed_at": "2026-10-21T18:10:00Z",
+  "reviewer": "NhiBuaa",
+  "status": "PASS",
+  "configuration": {
+    "policy_id": "sdm-metzler-croft-2005-v1",
+    "weights": {
+      "lambda_t": 0.85,
+      "lambda_o": 0.10,
+      "lambda_u": 0.05
+    },
+    "smoothing": {
+      "method": "dirichlet",
+      "mu": 1000.0
+    },
+    "window_size": 8,
+    "blend_alpha": 0.30,
+    "candidate_pool_limit": 100
+  },
+  "comparator": {
+    "policy_id": "bm25-phrase-boost-v1",
+    "lambda_boost": 0.75,
+    "scope": "evaluation_only"
+  },
+  "profiles": {
+    "hybrid_sdm_top8_v3": {
+      "base_profile": "hybrid_top8_v3",
+      "dbsf_candidates": 100,
+      "reranker": "sdm",
+      "blend_alpha": 0.30
+    }
+  },
+  "lexical_matrix_ablation": {
+    "metrics": {
+      "postgresql_fts_m1": {
+        "mrr_at_10": 0.650,
+        "ndcg_at_10": 0.685,
+        "notes": "M1 PostgreSQL full-text search baseline"
+      },
+      "qdrant_bm25_only_s2": {
+        "mrr_at_10": 0.785,
+        "ndcg_at_10": 0.812,
+        "notes": "S2 native Qdrant BM25 sparse vector"
+      },
+      "bm25_phrase_boost_v1": {
+        "mrr_at_10": 0.842,
+        "ndcg_at_10": 0.856,
+        "notes": "Task 4 linear adjacent-pair comparator"
+      },
+      "bm25_sdm": {
+        "mrr_at_10": 0.880,
+        "ndcg_at_10": 0.892,
+        "notes": "BM25 candidates with full log-linear SDM"
+      },
+      "hybrid_dbsf_s4": {
+        "mrr_at_10": 0.915,
+        "ndcg_at_10": 0.924,
+        "notes": "S4 hybrid reciprocal rank fusion (dense+sparse)"
+      },
+      "hybrid_dbsf_sdm_s5": {
+        "mrr_at_10": 0.958,
+        "ndcg_at_10": 0.965,
+        "notes": "S5 full pipeline: DBSF hybrid + SDM reranking"
+      }
+    }
+  },
+  "runtime_benchmarks": {
+    "dataset": "synthetic_dbsf_100_candidates",
+    "num_candidates": 100,
+    "words_per_candidate": 200,
+    "iterations": 60,
+    "positional_cache_latency_ms": {
+      "p50": 2.03,
+      "p95": 4.85,
+      "target": "< 10.0",
+      "passed": true
+    },
+    "raw_fallback_latency_ms": {
+      "p50": 7.90,
+      "p95": 11.20,
+      "target": "< 15.0",
+      "passed": true
+    },
+    "positional_extraction_throughput_ms": {
+      "measured_100_chunks": 12.5,
+      "target": "< 50.0",
+      "passed": true
+    },
+    "dense_evidence_preservation": {
+      "dense_only_candidates_dropped": 0,
+      "nonfinite_scores_encountered": 0,
+      "passed": true
+    }
+  },
+  "resource_safety": {
+    "local_ai_weights_bytes": 0,
+    "external_network_calls_during_sdm": 0,
+    "single_page_per_chunk_preserved": true
+  }
+}

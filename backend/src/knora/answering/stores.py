@@ -24,6 +24,7 @@ class RetrievalConfiguration:
     fts_candidate_k: int | None = None
     lexical_policy_id: str | None = None
     fusion_policy_id: str | None = None
+    sdm_policy_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.strategy not in {"bm25-only"} and self.min_similarity is None:
@@ -107,6 +108,7 @@ class RetrievalConfiguration:
         min_similarity: float = 0.65,
         lexical_policy_id: str = "bm25-word-frozen47-population-v1",
         fusion_policy_id: str = "dbsf-v1",
+        sdm_policy_id: str | None = None,
     ) -> "RetrievalConfiguration":
         """Hybrid Top8 from native DBSF fusion (Top200 dense + Top200 BM25 to Top100 candidates)."""
         if not isinstance(min_similarity, (int, float)) or isinstance(min_similarity, bool):
@@ -125,7 +127,26 @@ class RetrievalConfiguration:
             fts_candidate_k=200,
             lexical_policy_id=lexical_policy_id,
             fusion_policy_id=fusion_policy_id,
+            sdm_policy_id=sdm_policy_id,
         )
+
+    @classmethod
+    def hybrid_sdm_top8_v3(
+        cls,
+        *,
+        min_similarity: float = 0.65,
+        lexical_policy_id: str = "bm25-word-frozen47-population-v1",
+        fusion_policy_id: str = "dbsf-v1",
+        sdm_policy_id: str = "sdm-metzler-croft-2005-v1",
+    ) -> "RetrievalConfiguration":
+        """Hybrid Top8 with Sequential Dependence Model (SDM) reranking after native DBSF."""
+        base = cls.hybrid_top8_v3(
+            min_similarity=min_similarity,
+            lexical_policy_id=lexical_policy_id,
+            fusion_policy_id=fusion_policy_id,
+            sdm_policy_id=sdm_policy_id,
+        )
+        return replace(base, id="retrieval-hybrid-sdm-top8-v3")
 
     def parity_semantics(self) -> dict[str, object]:
         """Project strategy semantics for vector/hybrid parity review, excluding identity."""
@@ -270,6 +291,9 @@ class RetrievalCandidate:
     bm25_score: float | None = None
     bm25_rank: int | None = None
     index_generation_id: str | None = None
+    sdm_score: float | None = None
+    sdm_rank: int | None = None
+    sdm_contribution: dict[str, object] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -326,6 +350,7 @@ class LexicalGeneration:
     chunk_set_id: str
     index_generation_id: str
     lexical_policy_id: str
+    statistics_digest: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -405,6 +430,12 @@ class AnsweringStore(Protocol):
         embedding_configuration: EmbeddingConfiguration | None,
         retrieval_configuration: RetrievalConfiguration,
     ) -> RetrievalResult: ...
+
+    def read_corpus_statistics(
+        self,
+        workspace_id: str,
+        lexical_policy_id: str,
+    ) -> object | None: ...
 
     def persist_trace(self, trace: QuestionTraceRecord) -> str: ...
 
