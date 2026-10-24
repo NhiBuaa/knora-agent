@@ -171,15 +171,56 @@ class AnswerQuestion:
             or retrieval_configuration.fusion_policy_id == "dbsf-v1"
         )
 
-        unique_queries = [retrieval_query]
         if query_plan is not None and not query_plan.is_fast_path:
-            for v in query_plan.variants:
-                if v.query not in unique_queries:
-                    unique_queries.append(v.query)
-            for sq in query_plan.subquestions:
+            required_groups = [
+                sq
+                for sq in query_plan.subquestions
+                if (sq.required if isinstance(sq.required, bool) else True)
+            ]
+            if len(required_groups) > 4:
+                selection_ended = self._clock()
+                retrieval_latency_ms = (selection_ended - started) * 1000.0
+                selection = select_evidence((), retrieval_configuration)
+                trace_id = self._store.persist_trace(
+                    self._trace(
+                        command=command,
+                        selection=selection,
+                        decision="REFUSAL",
+                        answer=None,
+                        refusal_reason="INSUFFICIENT_EVIDENCE",
+                        generation_status="not_called",
+                        embedding=None,
+                        retrieval_latency_ms=retrieval_latency_ms,
+                        started=started,
+                        ended_at=selection_ended,
+                        retrieval_configuration=retrieval_configuration,
+                        query_plan_observation=query_plan_observation,
+                    )
+                )
+                return QuestionResult(
+                    workspace_id=command.workspace_id,
+                    decision="REFUSAL",
+                    answer=None,
+                    citations=(),
+                    refusal_reason="INSUFFICIENT_EVIDENCE",
+                    trace_id=trace_id,
+                )
+
+            unique_queries = []
+            for sq in required_groups:
                 if sq.text not in unique_queries:
                     unique_queries.append(sq.text)
-            unique_queries = unique_queries[:4]
+
+            if retrieval_query not in unique_queries and len(unique_queries) < 8:
+                unique_queries.append(retrieval_query)
+
+            for v in query_plan.variants:
+                if len(unique_queries) >= 8:
+                    break
+                if v.query not in unique_queries:
+                    unique_queries.append(v.query)
+        else:
+            unique_queries = [retrieval_query]
 
         query_batch = None
         if lexical:
@@ -201,16 +242,13 @@ class AnswerQuestion:
                 unique_queries,
                 self._embedding_configuration,
             )
-            if len(query_batch.vectors) == 1 and len(unique_queries) > 1:
-                query_vectors = list(query_batch.vectors) + [query_batch.vectors[0]] * (
-                    len(unique_queries) - 1
-                )
-            else:
-                query_vectors = list(query_batch.vectors)
-            if len(query_vectors) != len(unique_queries) or any(
-                len(vector) != self._embedding_configuration.dimensions for vector in query_vectors
+            if len(query_batch.vectors) != len(unique_queries) or any(
+                len(vector) != self._embedding_configuration.dimensions
+                or not all(isfinite(x) for x in vector)
+                for vector in query_batch.vectors
             ):
                 raise KnoraError("EMBEDDING_DIMENSION_MISMATCH")
+            query_vectors = list(query_batch.vectors)
             if (
                 query_batch.provider != self._embedding_configuration.provider
                 or query_batch.model != self._embedding_configuration.model
@@ -231,16 +269,13 @@ class AnswerQuestion:
                 unique_queries,
                 self._embedding_configuration,
             )
-            if len(query_batch.vectors) == 1 and len(unique_queries) > 1:
-                query_vectors = list(query_batch.vectors) + [query_batch.vectors[0]] * (
-                    len(unique_queries) - 1
-                )
-            else:
-                query_vectors = list(query_batch.vectors)
-            if len(query_vectors) != len(unique_queries) or any(
-                len(vector) != self._embedding_configuration.dimensions for vector in query_vectors
+            if len(query_batch.vectors) != len(unique_queries) or any(
+                len(vector) != self._embedding_configuration.dimensions
+                or not all(isfinite(x) for x in vector)
+                for vector in query_batch.vectors
             ):
                 raise KnoraError("EMBEDDING_DIMENSION_MISMATCH")
+            query_vectors = list(query_batch.vectors)
             if (
                 query_batch.provider != self._embedding_configuration.provider
                 or query_batch.model != self._embedding_configuration.model
