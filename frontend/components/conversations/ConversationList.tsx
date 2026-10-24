@@ -212,7 +212,7 @@ export function ConversationList({
             const destination = routes.conversations(workspaceId);
             if (pathname !== destination) router.push(destination);
           }}
-          className={`m-0 flex h-9 shrink-0 items-center gap-2 rounded-lg border border-action bg-action/10 px-3 text-[13px] font-semibold text-action-text ${collapsed ? "w-10 justify-center" : "w-full"}`}
+          className={`kn-new-conversation m-0 flex min-h-9 shrink-0 items-center gap-2 rounded-lg border border-action bg-action/10 px-3 text-[13px] font-semibold text-action-text max-[769px]:min-h-[44px] pointer-coarse:min-h-[44px] ${collapsed ? "w-10 max-[769px]:min-w-[44px] pointer-coarse:min-w-[44px] justify-center" : "w-full"}`}
         >
           <span aria-hidden="true">+</span>
           {!collapsed && "New conversation"}
