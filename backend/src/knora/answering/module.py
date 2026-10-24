@@ -150,6 +150,16 @@ class AnswerQuestion:
         query_plan = self._query_planner.plan(command.question) if is_v3_retrieval else None
         query_plan_observation = query_plan.to_observation() if query_plan is not None else None
 
+        has_multiple_subquestions = query_plan is not None and len(query_plan.subquestions) > 1
+        has_required_constraints = bool(
+            query_plan is not None
+            and any(
+                any(p.category in ("section", "identifier") for p in sq.protected_spans)
+                for sq in query_plan.subquestions
+            )
+        )
+        must_verify_support = has_multiple_subquestions or has_required_constraints
+
         active_subquestions = query_plan.subquestions if query_plan is not None else None
 
         lexical = retrieval_configuration.strategy == "bm25-only"
@@ -505,7 +515,8 @@ class AnswerQuestion:
         verification_observation: dict[str, object] | None = None
         needs_recovery = query_plan is not None and (
             (
-                selection.support_assessment is not None
+                must_verify_support
+                and selection.support_assessment is not None
                 and not selection.support_assessment.all_required_supported
             )
             or not selection.selected
@@ -563,7 +574,8 @@ class AnswerQuestion:
             generation_ended=selection_ended,
         )
         if not selection.selected or (
-            selection.support_assessment is not None
+            must_verify_support
+            and selection.support_assessment is not None
             and not selection.support_assessment.all_required_supported
         ):
             trace_id = self._store.persist_trace(
@@ -632,7 +644,9 @@ class AnswerQuestion:
             validated = validate_generation(
                 generation,
                 available_evidence_ids=tuple(alias_to_candidate),
-                required_subquestions=active_subquestions,
+                required_subquestions=query_plan.subquestions
+                if has_multiple_subquestions
+                else None,
                 alias_to_candidate=alias_to_candidate,
             )
         except KnoraError:

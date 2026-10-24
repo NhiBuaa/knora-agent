@@ -1,11 +1,11 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{40}$')][string]$SubjectSha,
-    [Parameter(Mandatory)][ValidateSet('application', 'otp')][string]$Profile,
+    [Parameter(Mandatory)][ValidateSet('application', 'otp', 'retrieval-v3')][string]$Profile,
     [Parameter(Mandatory)][ValidatePattern('^[0-9a-f]{40}$')][string]$WorkflowSha,
     [string]$RunId = $env:GITHUB_RUN_ID,
     [string]$RunAttempt = $env:GITHUB_RUN_ATTEMPT,
-    [string]$OutputDir = (Join-Path (Split-Path $PSScriptRoot -Parent) '.verification/runtime'),
+    [string]$OutputDir = '',
     [string]$VaultPath,
     [string]$AdminUsername = 'figma-test-admin',
     [string]$AdminPassword = 'figma-test-admin-password'
@@ -13,6 +13,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = [IO.Path]::GetFullPath((Split-Path $PSScriptRoot -Parent))
+if (-not $OutputDir) {
+    $OutputDir = Join-Path $repositoryRoot '.verification/runtime'
+}
 $actualSha = (& git -C $repositoryRoot rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0 -or $actualSha -cne $SubjectSha) {
     throw 'RUNTIME_SUBJECT_SHA_MISMATCH'
@@ -22,11 +25,13 @@ if (-not $RunAttempt) { $RunAttempt = '1' }
 $startedAt = [DateTime]::UtcNow.ToString('o')
 $profileDir = Join-Path $OutputDir $Profile
 if (Test-Path -LiteralPath $profileDir) { throw 'RUNTIME_OUTPUT_MUST_BE_FRESH' }
-$existing = @(& docker ps -a --filter 'label=com.docker.compose.project=knora-figma-e2e' --format '{{.ID}}')
-if ($LASTEXITCODE -ne 0 -or $existing.Count -gt 0) { throw 'RUNTIME_PROJECT_MUST_BE_FRESH' }
-foreach ($resource in 'volume', 'network') {
-    $existing = @(& docker $resource ls --filter 'name=knora-figma-e2e' --format '{{.Name}}')
+if ($Profile -ne 'retrieval-v3') {
+    $existing = @(& docker ps -a --filter 'label=com.docker.compose.project=knora-figma-e2e' --format '{{.ID}}')
     if ($LASTEXITCODE -ne 0 -or $existing.Count -gt 0) { throw 'RUNTIME_PROJECT_MUST_BE_FRESH' }
+    foreach ($resource in 'volume', 'network') {
+        $existing = @(& docker $resource ls --filter 'name=knora-figma-e2e' --format '{{.Name}}')
+        if ($LASTEXITCODE -ne 0 -or $existing.Count -gt 0) { throw 'RUNTIME_PROJECT_MUST_BE_FRESH' }
+    }
 }
 $null = New-Item -ItemType Directory -Path $profileDir
 $snapshots = @()
@@ -91,8 +96,11 @@ function Invoke-Evidence {
         '--workflow-sha', $WorkflowSha, '--run-id', $RunId, '--run-attempt', $RunAttempt,
         '--profile', $Profile, '--output-dir', $profileDir, '--started-at', $startedAt)
     foreach ($entry in $Reports.GetEnumerator()) { $arguments += @('--report', "$($entry.Key)=$($entry.Value)") }
-    $arguments += @('--tool', "powershell=$($PSVersionTable.PSVersion)", '--tool', "node=$((& node --version).Trim())",
-        '--tool', "python=$((& python --version).Trim())", '--tool', "maven=$((& mvn --version | Select-Object -First 1).Trim())")
+    $nodeVer = if (Get-Command node -ErrorAction SilentlyContinue) { (& node --version).Trim() } else { 'not-installed' }
+    $pyVer = if (Get-Command python -ErrorAction SilentlyContinue) { (& python --version).Trim() } else { 'not-installed' }
+    $mvnVer = if (Get-Command mvn -ErrorAction SilentlyContinue) { (& mvn --version | Select-Object -First 1).Trim() } else { 'not-installed' }
+    $arguments += @('--tool', "powershell=$($PSVersionTable.PSVersion)", '--tool', "node=$nodeVer",
+        '--tool', "python=$pyVer", '--tool', "maven=$mvnVer")
     foreach ($entry in $images.GetEnumerator()) { $arguments += @('--image', "$($entry.Key)=$($entry.Value)") }
     Invoke-Checked 'python' (@((Join-Path $repositoryRoot 'scripts/runtime_evidence.py')) + $arguments)
     $evidence = Join-Path $profileDir 'evidence.json'
@@ -101,16 +109,18 @@ function Invoke-Evidence {
 }
 
 try {
-    # Stream diagnostics and retain rollback ownership even if preparation throws.
-    & (Join-Path $PSScriptRoot 'prepare-figma-e2e.ps1') 2>&1 | ForEach-Object {
-        if ([string]$_ -like 'KEYCLOAK_ROLLBACK_SNAPSHOT=*') {
-            $snapshots += ([string]$_).Substring(27)
+    if ($Profile -ne 'retrieval-v3') {
+        # Stream diagnostics and retain rollback ownership even if preparation throws.
+        & (Join-Path $PSScriptRoot 'prepare-figma-e2e.ps1') 2>&1 | ForEach-Object {
+            if ([string]$_ -like 'KEYCLOAK_ROLLBACK_SNAPSHOT=*') {
+                $snapshots += ([string]$_).Substring(27)
+            }
+            $_ | Out-Host
         }
-        $_ | Out-Host
-    }
-    if ($LASTEXITCODE -ne 0) { throw 'RUNTIME_APPLICATION_PREPARE_FAILED' }
-    foreach ($service in 'figma-postgres', 'figma-keycloak', 'figma-api') {
-        Add-ImageIdentity $service
+        if ($LASTEXITCODE -ne 0) { throw 'RUNTIME_APPLICATION_PREPARE_FAILED' }
+        foreach ($service in 'figma-postgres', 'figma-keycloak', 'figma-api') {
+            Add-ImageIdentity $service
+        }
     }
     if ($Profile -eq 'application') {
         $reports = @{}
@@ -119,6 +129,24 @@ try {
         $reports.conversations = Invoke-Playwright 'conversations' 'playwright.figma.config.ts' 'figma-ui-interactions.spec.ts' 'owned Workspace restores from the Conversation bottom bar' 'application'
         $reports.operator = Invoke-Playwright 'operator' 'playwright.figma-operator.config.ts' 'figma-operator.spec.ts' $null 'application'
         $reports.workspace = Invoke-Playwright 'workspace' 'playwright.figma.config.ts' 'figma-ui-interactions.spec.ts' 'live account logout|owned document and workspace lifecycle' 'application'
+    } elseif ($Profile -eq 'retrieval-v3') {
+        $reports = @{}
+        $python = (Join-Path $repositoryRoot '.venv/Scripts/python.exe')
+        if (-not (Test-Path $python)) { $python = 'python' }
+        $env:PYTHONPATH = "$repositoryRoot/backend/src;$repositoryRoot"
+        function Invoke-RetrievalTest {
+            param([string]$Name, [string]$TestFile, [string]$Match)
+            $report = Join-Path $profileDir "$Name.xml"
+            $pytestArgs = @('-m', 'pytest', $TestFile, "--junitxml=$report")
+            if ($Match) { $pytestArgs += @('-k', $Match) }
+            Invoke-Checked $python $pytestArgs
+            if (-not (Test-Path -LiteralPath $report -PathType Leaf)) { throw "RUNTIME_REPORT_MISSING: $Name" }
+            return $report
+        }
+        $reports.dense_hybrid = Invoke-RetrievalTest 'dense_hybrid' 'backend/runtime_test/test_dense_hybrid_search.py' 'ann_recall or decoy'
+        $reports.reranking = Invoke-RetrievalTest 'reranking' 'backend/runtime_test/test_reranking_evidence.py' 'invariant or budget or isolation'
+        $reports.query_understanding = Invoke-RetrievalTest 'query_understanding' 'backend/runtime_test/test_query_understanding.py' ''
+        $reports.recovery = Invoke-RetrievalTest 'recovery' 'backend/runtime_test/test_retrieval_v3_recovery.py' ''
     } else {
         if (-not $VaultPath) { $VaultPath = Join-Path ([IO.Path]::GetTempPath()) "knora-runtime-vault-$([guid]::NewGuid().ToString('N'))" }
         if (Test-Path -LiteralPath $VaultPath) { throw 'OTP_VAULT_MUST_BE_FRESH' }
@@ -232,8 +260,10 @@ try {
             & (Join-Path $PSScriptRoot 'configure-keycloak-auth-flow.ps1') -Mode Rollback -BaseUrl 'http://127.0.0.1:8380' -Project 'knora-figma-e2e' -AdminUsername 'figma-test-admin' -AdminPassword 'figma-test-admin-password' -SnapshotPath $snapshot | Out-Null
         } catch { $cleanupFailed = $true }
     }
-    try { Invoke-Checked 'docker' (@('compose') + $compose + @('down', '--volumes', '--remove-orphans')) }
-    catch { $cleanupFailed = $true }
+    if ($Profile -ne 'retrieval-v3') {
+        try { Invoke-Checked 'docker' (@('compose') + $compose + @('down', '--volumes', '--remove-orphans')) }
+        catch { $cleanupFailed = $true }
+    }
     if ($ownedVault) {
         try {
             if ($IsWindows) { Remove-Item -LiteralPath $ownedVault -Recurse -Force }

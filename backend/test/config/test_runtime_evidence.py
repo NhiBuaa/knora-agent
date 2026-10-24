@@ -16,6 +16,10 @@ SHA = "a" * 40
 WORKFLOW_SHA = "b" * 40
 
 
+def _powershell() -> str:
+    return shutil.which("pwsh") or shutil.which("powershell") or "pwsh"
+
+
 @pytest.mark.parametrize("profile", ["application", "otp"])
 def test_runtime_prepare_failure_keeps_diagnostic_and_rollback(
     tmp_path: Path, profile: str
@@ -26,7 +30,9 @@ def test_runtime_prepare_failure_keeps_diagnostic_and_rollback(
     shutil.copy(root / "scripts/run-runtime-verification.ps1", scripts)
     (scripts / "prepare-figma-e2e.ps1").write_text(
         """'KEYCLOAK_ROLLBACK_SNAPSHOT=owned-snapshot.json'
-& python -c "import sys; print('COMPOSE_START_DIAGNOSTIC', file=sys.stderr); sys.exit(1)"
+try {
+    & python -c "import sys; print('COMPOSE_START_DIAGNOSTIC', file=sys.stderr); sys.exit(1)"
+} catch { Write-Host $_ }
 throw 'FIGMA_START_FAILED'
 """,
         encoding="utf-8",
@@ -47,7 +53,7 @@ function global:docker { $global:LASTEXITCODE = 0 }
     )
     result = subprocess.run(
         [
-            shutil.which("pwsh") or "pwsh",
+            _powershell(),
             "-NoProfile",
             "-File",
             str(harness),
@@ -93,7 +99,7 @@ Assert-StorageCases $Report @('first','second')
     )
     result = subprocess.run(
         [
-            shutil.which("pwsh") or "pwsh",
+            _powershell(),
             "-NoProfile",
             "-File",
             str(harness),
@@ -179,7 +185,7 @@ if ($ReadyAfter -eq 0 -or -not $global:restored -or $global:probeCalls -lt 3) {
     )
     result = subprocess.run(
         [
-            shutil.which("pwsh") or "pwsh",
+            _powershell(),
             "-NoProfile",
             "-File",
             str(harness),
@@ -228,7 +234,7 @@ if ($result.Count -ne 0) { throw 'stdout returned as data' }
     )
     result = subprocess.run(
         [
-            shutil.which("pwsh") or "pwsh",
+            _powershell(),
             "-NoProfile",
             "-File",
             str(harness),
@@ -274,7 +280,7 @@ if ($report -isnot [string] -or $report -ne (Join-Path $Output 'identity.xml')) 
     )
     result = subprocess.run(
         [
-            shutil.which("pwsh") or "pwsh",
+            _powershell(),
             "-NoProfile",
             "-File",
             str(harness),
@@ -511,3 +517,27 @@ def test_record_rejects_invalid_suite_metadata(tmp_path: Path, xml: str) -> None
             tool_identities={"python": "3.12"},
             image_identities={"keycloak": "26.3.3"},
         )
+
+
+def test_retrieval_v3_profile_evidence_lifecycle(tmp_path: Path) -> None:
+    reports = {}
+    for scenario in ("dense_hybrid", "reranking", "query_understanding", "recovery"):
+        path = tmp_path / f"{scenario}.xml"
+        _report(path)
+        reports[scenario] = path
+    output = tmp_path / "output"
+    evidence_path = create_evidence(
+        subject_sha=SHA,
+        actual_sha=SHA,
+        workflow_sha=WORKFLOW_SHA,
+        run_id="retrieval-1",
+        run_attempt="1",
+        profile="retrieval-v3",
+        reports=reports,
+        output_dir=output,
+        started_at="2026-10-22T00:00:00Z",
+        tool_identities={"python": "3.13.15"},
+        image_identities={},
+    )
+    assert evidence_path.exists()
+    validate_release(SHA, [evidence_path], ["retrieval-v3"])
