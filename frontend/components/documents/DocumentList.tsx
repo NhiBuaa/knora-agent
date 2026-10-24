@@ -364,6 +364,55 @@ export function DocumentList({
       finish(id, controller);
     }
   }
+  async function restoreArchivedDocument(documentId: string) {
+    const controller = scope.current;
+    if (!controller || !canWrite || !begin(documentId)) return;
+    setError(null);
+    try {
+      let doc = documents.find((d) => d.document_id === documentId);
+      if (!doc) {
+        const response = await browserRequest(
+          `${path}/documents/${encodeURIComponent(documentId)}`,
+          { signal: controller.signal },
+        );
+        if (response.ok) {
+          doc = (await response.json()) as DocumentResponse;
+        }
+      }
+      if (!doc) {
+        setError("Unable to find document to restore.");
+        return;
+      }
+      const response = await browserRequest(
+        `${path}/documents/${encodeURIComponent(documentId)}/unarchive`,
+        {
+          method: "POST",
+          headers: { "If-Match": String(doc.revision) },
+          signal: controller.signal,
+        },
+      );
+      if (controller.signal.aborted) return;
+      if (response.status === 409) {
+        await load(controller);
+        if (!controller.signal.aborted)
+          setError("This document changed. Reload and try again.");
+        return;
+      }
+      if (!response.ok) {
+        setError(errorMessage("restore document", response.status));
+        return;
+      }
+      setUploadState((current) =>
+        current?.document_id === documentId ? null : current,
+      );
+      await load(controller);
+    } catch {
+      if (!controller.signal.aborted)
+        setError("Unable to restore document. Reload before retrying.");
+    } finally {
+      finish(documentId, controller);
+    }
+  }
   async function requestDeletion() {
     const controller = scope.current;
     const document = deleting;
@@ -559,13 +608,45 @@ export function DocumentList({
         </div>
       </div>
       {uploadState && (
-        <p role="status" className="m-0 text-sm">
-          Upload:{" "}
-          {"status" in uploadState ? uploadState.status : uploadState.outcome}
-          {"ingestion_job_id" in uploadState
-            ? ` · job ${uploadState.ingestion_job_id}`
-            : ""}
-        </p>
+        <div role="status" className="m-0 flex flex-col gap-2">
+          {uploadState.document_archived ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-status-warning/40 bg-[color-mix(in_srgb,var(--status-warning)_10%,var(--surface))] p-3.5 text-sm text-text-primary shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <span
+                  className="inline-flex size-2 shrink-0 rounded-full bg-status-warning"
+                  aria-hidden="true"
+                />
+                <span className="font-medium">
+                  This document already exists and is archived. Restore it to
+                  use it again.
+                </span>
+              </div>
+              {canWrite && (
+                <Button
+                  variant="primary"
+                  className="h-8 px-3 text-xs"
+                  disabled={busy.includes(uploadState.document_id)}
+                  loading={busy.includes(uploadState.document_id)}
+                  onClick={() =>
+                    void restoreArchivedDocument(uploadState.document_id)
+                  }
+                >
+                  Restore document
+                </Button>
+              )}
+            </div>
+          ) : (
+            <p className="m-0 text-sm">
+              Upload:{" "}
+              {"status" in uploadState
+                ? uploadState.status
+                : uploadState.outcome}
+              {"ingestion_job_id" in uploadState
+                ? ` · job ${uploadState.ingestion_job_id}`
+                : ""}
+            </p>
+          )}
+        </div>
       )}
       {error && (
         <p role="alert" className="m-0 text-sm text-status-error">

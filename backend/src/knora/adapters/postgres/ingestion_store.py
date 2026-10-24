@@ -191,6 +191,7 @@ class PostgresIngestionStore(IngestionStore):
                     chunking_configuration_id=chunking.id,
                     embedding_configuration_id=embedding_config.id,
                     chunk_count=len(prepared.processed.chunks),
+                    document_archived=bool(document.archived),
                 )
         except IntegrityError as error:
             if "documents_workspace_id_source_key" in str(error.orig):
