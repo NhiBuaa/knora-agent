@@ -75,6 +75,7 @@ def _journal_schema(db):
         "CREATE TABLE IF NOT EXISTS requests (approval_id TEXT, sequence INTEGER, "
         "body_digest TEXT NOT NULL, endpoint TEXT NOT NULL, model TEXT NOT NULL, "
         "reserved_at TEXT NOT NULL, finished_at TEXT, status TEXT NOT NULL, "
+        "item_id TEXT, "
         "PRIMARY KEY(approval_id, sequence))"
     )
     db.execute(
@@ -204,7 +205,7 @@ class LivePackage:
             db.execute(
                 "CREATE TABLE package (manifest TEXT NOT NULL, file_identity TEXT NOT NULL, "
                 "attempts INTEGER NOT NULL DEFAULT 0, startups INTEGER NOT NULL DEFAULT 0, "
-                "stopped INTEGER NOT NULL DEFAULT 0)"
+                "stopped INTEGER NOT NULL DEFAULT 0, first_dispatch_at TEXT)"
             )
             db.execute(
                 "INSERT INTO package(manifest,file_identity) VALUES(?,?)",
@@ -220,8 +221,8 @@ class LivePackage:
                 "execution_json TEXT, result_json TEXT)"
             )
             version = manifest.get("manifest_version", 1)
-            slots_map = _SLOTS_V2 if version == 2 else _SLOTS
-            skipped = set(manifest.get("skipped_slots", [])) if version == 2 else set()
+            slots_map = _SLOTS_V2 if version in (2, 3) else _SLOTS
+            skipped = set(manifest.get("skipped_slots", [])) if version in (2, 3) else set()
             db.executemany(
                 "INSERT INTO slots(name,approval_id,cap,status) VALUES(?,?,?,?)",
                 [
@@ -239,6 +240,39 @@ class LivePackage:
                 "cleanup TEXT NOT NULL, started_at TEXT NOT NULL, deadline TEXT NOT NULL, "
                 "status TEXT NOT NULL)"
             )
+            if version == 3:
+                db.execute(
+                    "CREATE TABLE items (item_id TEXT PRIMARY KEY, package_id TEXT NOT NULL, "
+                    "slot_name TEXT NOT NULL, cap INTEGER NOT NULL, "
+                    "attempts INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'BOUND', "
+                    "input_digest TEXT)"
+                )
+                db.executemany(
+                    "INSERT INTO items(item_id,package_id,slot_name,cap,attempts,status,"
+                    "input_digest) VALUES(?,?,?,?,0,'BOUND',?)",
+                    [
+                        (
+                            it["item_id"],
+                            manifest["package_id"],
+                            it["slot"],
+                            it["cap"],
+                            it["input_digest"],
+                        )
+                        for it in manifest["items"]
+                    ],
+                )
+                db.execute(
+                    "CREATE TABLE proofs (proof_id TEXT PRIMARY KEY, package_id TEXT NOT NULL, "
+                    "observed_at TEXT NOT NULL, proof_type TEXT NOT NULL, account TEXT NOT NULL, "
+                    "proof_digest TEXT NOT NULL, details_json TEXT NOT NULL, "
+                    "created_at TEXT NOT NULL)"
+                )
+                db.execute(
+                    "CREATE TABLE checkpoints (checkpoint_id TEXT PRIMARY KEY, "
+                    "package_id TEXT NOT NULL, item_id TEXT NOT NULL, "
+                    "next_ordinal INTEGER NOT NULL, chain_digest TEXT NOT NULL, "
+                    "created_at TEXT NOT NULL, details_json TEXT NOT NULL)"
+                )
         return cls(manifest, path, clock=clock)
 
     @staticmethod
@@ -258,12 +292,12 @@ class LivePackage:
             _require(Path(path).is_absolute())
             _require(str(Path(path).resolve()) == manifest["journal_path"])
             version = manifest.get("manifest_version", 1)
-            _require(version in (1, 2) and type(version) is int)
+            _require(version in (1, 2, 3) and type(version) is int)
             if version == 1:
                 _require(manifest["max_attempts"] == 33 and type(manifest["max_attempts"]) is int)
                 _require(manifest["startup_cap"] == 3 and type(manifest["startup_cap"]) is int)
                 _require(manifest["slots"] == _SLOTS)
-            else:
+            elif version == 2:
                 _require(manifest["max_attempts"] == 139 and type(manifest["max_attempts"]) is int)
                 _require(manifest["startup_cap"] == 2 and type(manifest["startup_cap"]) is int)
                 _require(
@@ -275,6 +309,45 @@ class LivePackage:
                 _require(
                     isinstance(skipped, (list, tuple)) and all(s in _SLOTS_V2 for s in skipped)
                 )
+            else:
+                _require(
+                    isinstance(manifest.get("max_attempts"), int)
+                    and 0 < manifest["max_attempts"] <= 139
+                )
+                _require(
+                    isinstance(manifest.get("startup_cap"), int)
+                    and 0 <= manifest["startup_cap"] <= 2
+                )
+                _require(
+                    isinstance(manifest.get("window_cap", 8), int)
+                    and 0 < manifest.get("window_cap", 8) <= 8
+                )
+                _require(manifest["slots"] == _SLOTS_V2)
+                skipped = manifest.get("skipped_slots", [])
+                _require(
+                    isinstance(skipped, (list, tuple)) and all(s in _SLOTS_V2 for s in skipped)
+                )
+                items = manifest.get("items")
+                _require(isinstance(items, list) and len(items) == 12)
+                item_ids = set()
+                total_item_caps = 0
+                for item in items:
+                    _require(isinstance(item, dict))
+                    iid = item.get("item_id")
+                    slot_name = item.get("slot")
+                    cap = item.get("cap")
+                    _require(isinstance(iid, str) and iid and iid not in item_ids)
+                    item_ids.add(iid)
+                    _require(slot_name in _SLOTS_V2)
+                    _require(isinstance(cap, int) and 0 <= cap <= 12)
+                    if slot_name == "refusal_deterministic":
+                        _require(cap == 0)
+                    total_item_caps += cap
+                    _require(_HEX.fullmatch(item.get("input_digest", "")))
+                    _require(
+                        isinstance(item.get("native_identity"), dict) and item["native_identity"]
+                    )
+                _require(total_item_caps <= manifest["max_attempts"])
 
             _require(re.fullmatch(r"[a-f0-9]{40}", manifest["code_sha"]))
             _require(re.fullmatch(r"[a-f0-9]{32}", manifest["account_id"]))
@@ -344,11 +417,11 @@ class LivePackage:
             )
         ]:
             raise ValueError("LIVE_PACKAGE_IDENTITY")
-        slots_map = _SLOTS_V2 if self._version == 2 else _SLOTS
+        slots_map = _SLOTS_V2 if self._version in (2, 3) else _SLOTS
         slots = db.execute("SELECT name,approval_id,cap FROM slots").fetchall()
         if set(slots) != {(s, self.approval_id(s), c) for s, c in slots_map.items()}:
             raise ValueError("LIVE_PACKAGE_IDENTITY")
-        attempts, startups = db.execute("SELECT attempts,startups FROM package").fetchone()
+        attempts, startups = db.execute("SELECT attempts,startups FROM package").fetchone()[:2]
         counts = db.execute("SELECT count(*),count(DISTINCT approval_id) FROM requests").fetchone()
         slot_total = db.execute("SELECT sum(attempts) FROM slots").fetchone()[0]
         approval_total = db.execute("SELECT coalesce(sum(attempts),0) FROM approvals").fetchone()[0]
@@ -359,14 +432,77 @@ class LivePackage:
             and startups != db.execute("SELECT count(*) FROM startups").fetchone()[0]
         ):
             raise ValueError("LIVE_PACKAGE_COUNTER_MISMATCH")
-        foreign = db.execute(
-            "SELECT id FROM approvals WHERE id NOT IN (SELECT approval_id FROM slots)"
-        ).fetchone()
-        if foreign:
-            raise ValueError("LIVE_PACKAGE_IDENTITY")
+        if self._version == 3:
+            foreign = db.execute(
+                "SELECT id FROM approvals WHERE id NOT IN (SELECT approval_id FROM slots) "
+                "AND id NOT IN (SELECT ? || ':' || slot_name || ':' || item_id FROM items)",
+                (self._manifest["package_id"],),
+            ).fetchone()
+            if foreign:
+                raise ValueError("LIVE_PACKAGE_IDENTITY")
+            items_total = db.execute("SELECT coalesce(sum(attempts), 0) FROM items").fetchone()[0]
+            item_reqs = db.execute(
+                "SELECT count(*) FROM requests WHERE item_id IS NOT NULL"
+            ).fetchone()[0]
+            if items_total != item_reqs:
+                raise ValueError("LIVE_PACKAGE_COUNTER_MISMATCH")
+            for item_id, item_cap, item_attempts in db.execute(
+                "SELECT item_id, cap, attempts FROM items"
+            ):
+                item_req_c = db.execute(
+                    "SELECT count(*) FROM requests WHERE item_id=?", (item_id,)
+                ).fetchone()[0]
+                if item_attempts > item_cap or item_req_c != item_attempts:
+                    raise ValueError("LIVE_PACKAGE_COUNTER_MISMATCH")
+        else:
+            foreign = db.execute(
+                "SELECT id FROM approvals WHERE id NOT IN (SELECT approval_id FROM slots)"
+            ).fetchone()
+            if foreign:
+                raise ValueError("LIVE_PACKAGE_IDENTITY")
+        item_slots = set()
+        if self._version == 3:
+            item_slots = {
+                r[0] for r in db.execute("SELECT DISTINCT slot_name FROM items").fetchall()
+            }
+            # Verify each item approval in V3
+            for item_id, _item_cap, item_attempts, item_slot in db.execute(
+                "SELECT item_id, cap, attempts, slot_name FROM items"
+            ):
+                item_app_id = self.approval_id(item_slot, item_id=item_id)
+                row = db.execute(
+                    "SELECT digest, attempts, pending FROM approvals WHERE id=?", (item_app_id,)
+                ).fetchone()
+                if row is not None:
+                    req_count, last = db.execute(
+                        "SELECT count(*), max(sequence) FROM requests WHERE approval_id=?",
+                        (item_app_id,),
+                    ).fetchone()
+                    pending = db.execute(
+                        "SELECT sequence FROM requests WHERE approval_id=? AND status='PENDING'",
+                        (item_app_id,),
+                    ).fetchall()
+                    if (
+                        row[1] != item_attempts
+                        or row[1] != req_count
+                        or (last or 0) != item_attempts
+                        or row[2] != (pending[0][0] if len(pending) == 1 else None)
+                        or len(pending) > 1
+                    ):
+                        raise ValueError("LIVE_PACKAGE_COUNTER_MISMATCH")
+
         for _slot, count, cap, policy_digest, approval_id in db.execute(
             "SELECT name,attempts,cap,policy_digest,approval_id FROM slots"
         ):
+            if _slot in item_slots:
+                # In V3, slots with items aggregate attempts from items
+                slot_item_attempts = db.execute(
+                    "SELECT coalesce(sum(attempts), 0) FROM items WHERE slot_name=?", (_slot,)
+                ).fetchone()[0]
+                if count > cap or count != slot_item_attempts:
+                    raise ValueError("LIVE_PACKAGE_COUNTER_MISMATCH")
+                continue
+
             row = db.execute(
                 "SELECT digest,attempts,pending FROM approvals WHERE id=?", (approval_id,)
             ).fetchone()
@@ -394,15 +530,17 @@ class LivePackage:
             ):
                 raise ValueError("LIVE_PACKAGE_COUNTER_MISMATCH")
 
-    def approval_id(self, slot):
-        slots_map = _SLOTS_V2 if self._version == 2 else _SLOTS
+    def approval_id(self, slot, item_id=None):
+        slots_map = _SLOTS_V2 if self._version in (2, 3) else _SLOTS
         if slot not in slots_map:
             raise ValueError("LIVE_SLOT_UNKNOWN")
+        if self._version == 3 and item_id is not None:
+            return f"{self._manifest['package_id']}:{slot}:{item_id}"
         return self._manifest["package_id"] + ":" + slot
 
     def parents(self, slot):
         self.approval_id(slot)
-        parents_map = _SLOT_PARENTS_V2 if self._version == 2 else _SLOT_PARENTS
+        parents_map = _SLOT_PARENTS_V2 if self._version in (2, 3) else _SLOT_PARENTS
         return parents_map[slot]
 
     def slot_binding(self, slot):
@@ -694,7 +832,7 @@ class LivePackage:
             row = db.execute(
                 "SELECT status,execution_json,input_json FROM slots WHERE name=?", (slot,)
             ).fetchone()
-            if not row or row[0] != "BOUND" or row[1] is not None:
+            if not row or row[0] != "BOUND" or (row[1] is not None and self._version != 3):
                 raise ValueError("LIVE_EXECUTION_ALREADY_BOUND")
             expected = json.loads(row[2])["identities"]
             if any(identity.get(k) != v for k, v in expected.items()):
@@ -716,7 +854,7 @@ class LivePackage:
     @contextmanager
     def window(self, *, scope, cleanup, start, stop, stack_startup=None):
         deadline = datetime.fromisoformat(cleanup["deadline"])
-        max_duration = timedelta(minutes=60 if self._version == 2 else 15)
+        max_duration = timedelta(minutes=60 if self._version in (2, 3) else 15)
         if (
             scope != self._manifest["ownership"]
             or cleanup.get("scope") != scope
@@ -735,9 +873,11 @@ class LivePackage:
             db.execute("BEGIN IMMEDIATE")
             self._check(db)
             total_windows = db.execute("SELECT count(*) FROM startups").fetchone()[0]
-            max_windows = self._manifest.get("window_cap", 8) if self._version == 2 else 3
+            max_windows = self._manifest.get("window_cap", 8) if self._version in (2, 3) else 3
             if total_windows >= max_windows:
-                raise ValueError("LIVE_WINDOW_CAP" if self._version == 2 else "LIVE_STARTUP_CAP")
+                raise ValueError(
+                    "LIVE_WINDOW_CAP" if self._version in (2, 3) else "LIVE_STARTUP_CAP"
+                )
             count = db.execute("SELECT startups FROM package").fetchone()[0]
             if not self._clock() < deadline <= min(self._clock() + max_duration, self._deadline):
                 raise ValueError("LIVE_CLEANUP_UNPROVEN")
@@ -803,7 +943,7 @@ class LivePackage:
             db.execute("UPDATE package SET stopped=1")
 
     @contextmanager
-    def operation(self, slot):
+    def operation(self, slot, item_id=None):
         operation_id = uuid4().hex
         with self._db() as db:
             db.execute("BEGIN IMMEDIATE")
@@ -811,7 +951,7 @@ class LivePackage:
             status = db.execute(
                 "SELECT status,execution_json FROM slots WHERE name=?", (slot,)
             ).fetchone()
-            if status is None or status[0] != "BOUND":
+            if status is None or status[0] not in ("BOUND", "STARTED"):
                 raise ValueError("LIVE_SLOT_NONREPLAYABLE")
             if status[1] is None:
                 raise ValueError("LIVE_EXECUTION_REQUIRED")
@@ -819,23 +959,43 @@ class LivePackage:
                 "UPDATE slots SET status='STARTED',operation_id=? WHERE name=?",
                 (operation_id, slot),
             )
+            if self._version == 3 and item_id is not None:
+                db.execute("UPDATE items SET status='RUNNING' WHERE item_id=?", (item_id,))
         token = _slot_operation.set((self, slot, operation_id))
         try:
             yield
             with self._db() as db:
                 db.execute("BEGIN IMMEDIATE")
                 self._check(db, window=True)
-                db.execute(
-                    "UPDATE slots SET status='COMPLETED' WHERE name=? AND operation_id=?",
-                    (slot, operation_id),
-                )
+                if self._version == 3 and item_id is not None:
+                    db.execute("UPDATE items SET status='COMPLETED' WHERE item_id=?", (item_id,))
+                    remaining = db.execute(
+                        "SELECT count(*) FROM items WHERE slot_name=? AND status!='COMPLETED'",
+                        (slot,),
+                    ).fetchone()[0]
+                    if remaining == 0:
+                        db.execute(
+                            "UPDATE slots SET status='COMPLETED' WHERE name=? AND operation_id=?",
+                            (slot, operation_id),
+                        )
+                    else:
+                        db.execute(
+                            "UPDATE slots SET status='BOUND',operation_id=NULL "
+                            "WHERE name=? AND operation_id=?",
+                            (slot, operation_id),
+                        )
+                else:
+                    db.execute(
+                        "UPDATE slots SET status='COMPLETED' WHERE name=? AND operation_id=?",
+                        (slot, operation_id),
+                    )
         except BaseException:
             self.stop()
             raise
         finally:
             _slot_operation.reset(token)
 
-    def reserve(self, db, slot):
+    def reserve(self, db, slot, item_id=None):
         self._check(db, window=True)
         context = _slot_operation.get()
         row = db.execute(
@@ -843,14 +1003,170 @@ class LivePackage:
         ).fetchone()
         if not row or context != (self, slot, row[1]) or row[0] != "STARTED":
             raise ValueError("LIVE_SLOT_NONREPLAYABLE")
-        if (
-            row[2] >= row[3]
-            or db.execute("SELECT attempts FROM package").fetchone()[0]
-            >= self._manifest["max_attempts"]
-        ):
+        pkg_row = db.execute("SELECT attempts, first_dispatch_at FROM package").fetchone()
+        if row[2] >= row[3] or pkg_row[0] >= self._manifest["max_attempts"]:
             raise ValueError("LIVE_PACKAGE_CAP")
+        if self._version == 3:
+            if pkg_row[1] is None:
+                db.execute("UPDATE package SET first_dispatch_at=?", (self._clock().isoformat(),))
+            if item_id is not None:
+                item_row = db.execute(
+                    "SELECT attempts, cap FROM items WHERE item_id=?", (item_id,)
+                ).fetchone()
+                if not item_row:
+                    raise ValueError("LIVE_ITEM_UNKNOWN")
+                if item_row[0] >= item_row[1]:
+                    raise ValueError("LIVE_ITEM_CAP")
+                db.execute("UPDATE items SET attempts=attempts+1 WHERE item_id=?", (item_id,))
         db.execute("UPDATE package SET attempts=attempts+1")
         db.execute("UPDATE slots SET attempts=attempts+1 WHERE name=?", (slot,))
+
+    def bind_item(self, slot, item_id, policy, inputs):
+        if self._version != 3:
+            raise ValueError("LIVE_VERSION_UNSUPPORTED")
+        expected_approval = self.approval_id(slot, item_id=item_id)
+        if policy.get("approval_id") != expected_approval:
+            raise ValueError("LIVE_SLOT_APPROVAL")
+        with self._db() as db:
+            item_row = db.execute(
+                "SELECT cap, status, input_digest FROM items WHERE item_id=? AND slot_name=?",
+                (item_id, slot),
+            ).fetchone()
+            if not item_row:
+                raise ValueError("LIVE_ITEM_UNKNOWN")
+            cap = item_row[0]
+            attempts_valid = (
+                (policy.get("max_attempts") == 0)
+                if cap == 0
+                else (type(policy.get("max_attempts")) is int and 0 < policy["max_attempts"] <= cap)
+            )
+            if (
+                policy.get("account_id") != self._manifest["account_id"]
+                or policy.get("scope", {}).get("purpose") != "scoring"
+                or policy.get("scope", {}).get("workspace_id")
+                != self._manifest["ownership"].get("workspace_id")
+                or policy.get("approved_by") != self._manifest["approved_by"]
+                or not attempts_valid
+            ):
+                raise ValueError("LIVE_SLOT_APPROVAL")
+            observed = datetime.fromisoformat(policy["proof_observed_at"])
+            deadline = datetime.fromisoformat(policy["deadline"])
+            if (
+                not self._approved
+                <= observed
+                <= self._clock()
+                < deadline
+                <= min(observed + timedelta(minutes=5), self._deadline)
+            ):
+                raise ValueError("LIVE_APPROVAL_EXPIRED")
+            if not isinstance(inputs, dict) or not inputs:
+                raise ValueError("LIVE_SLOT_INPUT")
+            expected_keys = {
+                "input_digest",
+                "source_digest",
+                "configuration_digest",
+                "prompt_digest",
+                "schema_digest",
+                "identities",
+                "ancestry",
+                "authority",
+            }
+            extra_keys = set(inputs) - expected_keys
+            if extra_keys and not extra_keys.issubset({"saved_capture", "validation_origin"}):
+                raise ValueError("LIVE_SLOT_INPUT")
+            if (
+                not expected_keys.issubset(set(inputs))
+                or inputs["input_digest"] != policy["scope"]["input_digest"]
+                or any(
+                    not isinstance(inputs[k], str) or not _HEX.fullmatch(inputs[k])
+                    for k in (
+                        "source_digest",
+                        "configuration_digest",
+                        "prompt_digest",
+                        "schema_digest",
+                    )
+                )
+                or not isinstance(inputs["identities"], dict)
+                or not inputs["identities"]
+                or any(not isinstance(v, str) or not v for v in inputs["identities"].values())
+            ):
+                raise ValueError("LIVE_SLOT_INPUT")
+            expected_pins = slot_authority_pins(self._manifest, slot, policy, inputs["authority"])
+            if any(inputs[k] != v for k, v in expected_pins.items()):
+                raise ValueError("LIVE_SLOT_AUTHORITY")
+
+            db.execute("BEGIN IMMEDIATE")
+            self._check(db)
+            db.execute(
+                "INSERT INTO approvals(id,digest,policy) VALUES(?,?,?)",
+                (policy["approval_id"], digest_json(policy), json.dumps(policy, sort_keys=True)),
+            )
+            db.execute(
+                "UPDATE items SET status='RUNNING',input_digest=? WHERE item_id=?",
+                (inputs["input_digest"], item_id),
+            )
+            db.execute(
+                "UPDATE slots SET input_json=?,execution_json=?,status='BOUND' WHERE name=?",
+                (
+                    json.dumps(inputs, sort_keys=True),
+                    json.dumps(inputs["identities"], sort_keys=True),
+                    slot,
+                ),
+            )
+
+    def record_proof(self, *, proof_type, account, proof_digest, details, observed_at=None):
+        if self._version != 3:
+            raise ValueError("LIVE_VERSION_UNSUPPORTED")
+        proof_id = uuid4().hex
+        observed = observed_at or self._clock().isoformat()
+        now_iso = self._clock().isoformat()
+        with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            self._check(db)
+            db.execute(
+                "INSERT INTO proofs(proof_id, package_id, observed_at, proof_type, account, "
+                "proof_digest, details_json, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    proof_id,
+                    self._manifest["package_id"],
+                    observed,
+                    proof_type,
+                    account,
+                    proof_digest,
+                    json.dumps(details, sort_keys=True),
+                    now_iso,
+                ),
+            )
+        return proof_id
+
+    def record_checkpoint(self, *, item_id, next_ordinal, chain_digest, details):
+        if self._version != 3:
+            raise ValueError("LIVE_VERSION_UNSUPPORTED")
+        checkpoint_id = uuid4().hex
+        now_iso = self._clock().isoformat()
+        with self._db() as db:
+            db.execute("BEGIN IMMEDIATE")
+            self._check(db)
+            row = db.execute("SELECT status FROM items WHERE item_id=?", (item_id,)).fetchone()
+            if not row:
+                raise ValueError("LIVE_ITEM_UNKNOWN")
+            if db.execute("SELECT 1 FROM requests WHERE status='PENDING'").fetchone():
+                raise ValueError("LIVE_REQUEST_PENDING")
+            db.execute(
+                "INSERT INTO checkpoints(checkpoint_id, package_id, item_id, next_ordinal, "
+                "chain_digest, created_at, details_json) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (
+                    checkpoint_id,
+                    self._manifest["package_id"],
+                    item_id,
+                    next_ordinal,
+                    chain_digest,
+                    now_iso,
+                    json.dumps(details, sort_keys=True),
+                ),
+            )
+            db.execute("UPDATE items SET status='CHECKPOINTED' WHERE item_id=?", (item_id,))
+        return checkpoint_id
 
     def valid_until(self):
         with self._db() as db:
@@ -943,14 +1259,21 @@ class LiveAdmission:
         self._policy = deepcopy(approval)
         self._clock, self._path = clock, str(path)
         self._package, self._slot = package, slot
+        self._item_id = approval.get("item_id")
         self._response_inputs, self._qa_store = deepcopy(response_inputs), qa_store
         self._chain = self._policy.get("response_chain")
         self._qa_evidence = None
         self._execution = None
         if package is not None:
-            if str(Path(path).resolve()) != package._manifest["journal_path"] or approval.get(
-                "approval_id"
-            ) != package.approval_id(slot):
+            expected_approval = (
+                package.approval_id(slot, item_id=self._item_id)
+                if self._item_id and package._version == 3
+                else package.approval_id(slot)
+            )
+            if (
+                str(Path(path).resolve()) != package._manifest["journal_path"]
+                or approval.get("approval_id") != expected_approval
+            ):
                 raise ValueError("LIVE_PACKAGE_IDENTITY")
             with package._db() as db:
                 package._identity(db)
@@ -1774,7 +2097,7 @@ class LiveAdmission:
                     "chat/completions"
                 ) != (state["attempts"] == 1):
                     raise ValueError("LIVE_QA_SEQUENCE")
-                self._package.reserve(db, self._slot)
+                self._package.reserve(db, self._slot, item_id=self._item_id)
             sequence = state["attempts"] + 1
             db.execute(
                 "UPDATE approvals SET attempts=?,pending=? WHERE id=?",
@@ -1782,7 +2105,7 @@ class LiveAdmission:
             )
             db.execute(
                 "INSERT INTO requests(approval_id,sequence,body_digest,endpoint,model,"
-                "reserved_at,status) VALUES(?,?,?,?,?,?,?)",
+                "reserved_at,status,item_id) VALUES(?,?,?,?,?,?,?,?)",
                 (
                     self._policy["approval_id"],
                     sequence,
@@ -1791,6 +2114,7 @@ class LiveAdmission:
                     provider["model"],
                     self._clock().isoformat(),
                     "PENDING",
+                    self._item_id,
                 ),
             )
         return sequence, provider
