@@ -781,15 +781,18 @@ def test_check_frontend_only_rejects_external_junction(tmp_path: Path) -> None:
     fe = create_synthetic_frontend(tmp_path)
     shutil.rmtree(fe / "node_modules")
     nm = fe / "node_modules"
-    subprocess.run(
-        [
-            POWERSHELL,
-            "-NoProfile",
-            "-Command",
-            f'New-Item -ItemType Junction -Path "{nm}" -Target "{sibling}"',
-        ],
-        capture_output=True,
-    )
+    try:
+        nm.symlink_to(sibling, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        subprocess.run(
+            [
+                POWERSHELL,
+                "-NoProfile",
+                "-Command",
+                f'New-Item -ItemType Junction -Path "{nm}" -Target "{sibling}"',
+            ],
+            capture_output=True,
+        )
     if not nm.is_dir():
         pytest.skip("Junction creation unsupported")
     scripts = tmp_path / "scripts"
