@@ -5,20 +5,27 @@ param(
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path $PSScriptRoot -Parent
 
-# Clean any ambient variables
+# Preflight: Detect and reject conflicting ambient variables per runbook (no silent wiping)
+$conflicts = @()
 foreach ($item in Get-ChildItem Env:) {
-    if ($item.Name -match '^(COMPOSE_|FIGMA_E2E_|M5_E2E_|KEYCLOAK_|KNORA_|DOCKER_|SESSION_SECRET$)' -and $item.Value.Trim()) {
-        Remove-Item "Env:$($item.Name)" -ErrorAction SilentlyContinue
+    if ($item.Name -match '^(COMPOSE_PROJECT_NAME|FIGMA_E2E_|M5_E2E_|KEYCLOAK_PORT)' -and $item.Value.Trim()) {
+        $conflicts += "$($item.Name)=$($item.Value)"
     }
+}
+if ($conflicts.Count -gt 0) {
+    throw "AMBIENT_CONFLICT_DETECTED: Conflicting environment variables set: $($conflicts -join ', '). Clean environment before launch."
 }
 
 $suffix = if ($ProjectSuffix) { $ProjectSuffix } else { (Get-Random -Minimum 100000 -Maximum 999999).ToString() }
 $project = "knora-figma-e2e-copy-$suffix"
 
-# Distinct per-run evidence directory to prevent overwriting across invocations
+# Distinct per-run evidence directory: reject collisions, never overwrite
 $evidenceRoot = Join-Path $repositoryRoot 'frontend/test-results/copy-runtime'
 $runEvidenceDir = Join-Path $evidenceRoot "run-$suffix"
-New-Item -ItemType Directory -Path $runEvidenceDir -Force | Out-Null
+if (Test-Path -LiteralPath $runEvidenceDir) {
+    throw "EVIDENCE_COLLISION_DETECTED: Directory $runEvidenceDir already exists. Use a distinct project suffix."
+}
+New-Item -ItemType Directory -Path $runEvidenceDir | Out-Null
 
 $runBlock = {
     param($proj, $composeArgs)
