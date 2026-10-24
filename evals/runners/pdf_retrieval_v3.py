@@ -318,7 +318,57 @@ def project_retrieval_diagnostics(trace):
     return diagnostic
 
 
-def build_report(dataset, observations, bindings, response_reviews, *, source_results=None):
+def score_observations_ranking(observations, ranking_dataset, *, k=10, require_exhaustive=False):
+    """Score a sequence of observations against authoritative ranking dataset."""
+    from evals.runners.retrieval_ranking import macro_average_ranking, score_ranking_case
+
+    case_scores = []
+    for row in observations:
+        case_id = row["case_id"]
+        if row.get("failure_code"):
+            case_scores.append(
+                {
+                    "query_id": case_id,
+                    "status": "failed",
+                    "failure_reason": row["failure_code"],
+                }
+            )
+            continue
+        if case_id not in ranking_dataset.cases_by_id:
+            continue
+        rk_case = ranking_dataset.cases_by_id[case_id]
+        diagnostic = row.get("retrieval_diagnostics")
+        native = diagnostic.get("native_top200") if isinstance(diagnostic, dict) else None
+        if native is not None:
+            retrieval_ids = [item["chunk_id"] for item in native]
+        elif isinstance(diagnostic, dict) and "ordered_candidate_ids" in diagnostic:
+            retrieval_ids = diagnostic["ordered_candidate_ids"]
+        else:
+            candidates = row.get("candidates", [])
+            retrieval_ids = [
+                c["chunk_id"] if isinstance(c, dict) else c.chunk_id for c in candidates
+            ]
+        case_res = score_ranking_case(
+            case_id,
+            retrieval_ids,
+            rk_case.judgments_by_chunk_id,
+            universe_chunk_ids=ranking_dataset.candidate_universe_ids,
+            k=k,
+            require_exhaustive=require_exhaustive,
+        )
+        case_scores.append(case_res)
+    return macro_average_ranking(case_scores)
+
+
+def build_report(
+    dataset,
+    observations,
+    bindings,
+    response_reviews,
+    *,
+    source_results=None,
+    ranking_dataset=None,
+):
     rows = {row["case_id"]: row for row in observations}
     if len(rows) != len(observations) or set(rows) - {c.id for c in dataset.cases}:
         raise ValueError("observations must contain exactly one selected attempt per known case")
@@ -410,6 +460,24 @@ def build_report(dataset, observations, bindings, response_reviews, *, source_re
                 result["semantic_review"] = review
         cases.append(result)
     evaluable = [c["all_groups_covered"] for c in cases if "all_groups_covered" in c]
+    ranking_macro = None
+    if ranking_dataset is not None:
+        ranking_macro = score_observations_ranking(
+            observations, ranking_dataset, k=10, require_exhaustive=False
+        )
+        ranking_by_query = {c.query_id: c for c in ranking_macro.case_results}
+        for c_res in cases:
+            if c_res["case_id"] in ranking_by_query:
+                r_case = ranking_by_query[c_res["case_id"]]
+                c_res["ranking"] = {
+                    "dcg": r_case.dcg,
+                    "idcg": r_case.idcg,
+                    "ndcg": r_case.ndcg,
+                    "hit_at_10": r_case.hit_at_k,
+                    "mrr": r_case.mrr,
+                    "recall_at_10": r_case.recall_at_k,
+                    "status": r_case.status,
+                }
     return {
         "schema_version": 1,
         "dataset_sha256": dataset.dataset_sha256,
@@ -419,7 +487,18 @@ def build_report(dataset, observations, bindings, response_reviews, *, source_re
         "ingestion": source_results or {},
         "tools": "not_run",
         "metrics": {
-            "all_evidence_groups_covered": sum(evaluable) / len(evaluable) if evaluable else None
+            "all_evidence_groups_covered": sum(evaluable) / len(evaluable) if evaluable else None,
+            **(
+                {
+                    "macro_ndcg_at_10": ranking_macro.macro_ndcg,
+                    "macro_mrr": ranking_macro.macro_mrr,
+                    "macro_hit_at_10": ranking_macro.macro_hit_at_k,
+                    "macro_recall_at_10": ranking_macro.macro_recall_at_k,
+                    "ranking_denominators": ranking_macro.denominators,
+                }
+                if ranking_macro is not None
+                else {}
+            ),
         },
         "acceptance": "pending_owner_review_and_B",
         "paid_budget_usd": 0,
@@ -972,6 +1051,9 @@ def main():
     parser.add_argument("--response-reviews", type=Path)
     parser.add_argument("--counters", type=Path)
     parser.add_argument("--resume-quota", action="store_true")
+    parser.add_argument("--ranking-manifest", type=Path)
+    parser.add_argument("--ranking-dataset", type=Path)
+    parser.add_argument("--ranking-approval", type=Path)
     args = parser.parse_args()
     dataset = load_dataset(args.manifest, args.dataset)
     if args.stage == "validate":
@@ -1016,12 +1098,25 @@ def main():
         }
         for row in source_results.values():
             validate_artifact_identity(row, dataset, args.run_id, args.workspace_id)
+        ranking_dataset = None
+        if args.ranking_manifest and args.ranking_dataset:
+            from evals.datasets.retrieval_ranking_development_v1 import (
+                load_ranking_development_dataset,
+                validate_ranking_approval,
+            )
+
+            ranking_dataset = load_ranking_development_dataset(
+                args.ranking_manifest, args.ranking_dataset
+            )
+            if args.ranking_approval:
+                validate_ranking_approval(ranking_dataset, load_json(args.ranking_approval))
         report = build_report(
             dataset,
             rows,
             bindings,
             load_json(args.response_reviews) if args.response_reviews else {},
             source_results=source_results,
+            ranking_dataset=ranking_dataset,
         )
         report.update(
             run_id=args.run_id,

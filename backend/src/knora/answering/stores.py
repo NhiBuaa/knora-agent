@@ -26,7 +26,7 @@ class RetrievalConfiguration:
     fusion_policy_id: str | None = None
 
     def __post_init__(self) -> None:
-        if self.strategy != "bm25-only" and self.min_similarity is None:
+        if self.strategy not in {"bm25-only"} and self.min_similarity is None:
             raise ValueError("dense/hybrid retrieval requires its vector threshold")
         if self.strategy == "bm25-only" and (
             self.min_similarity is not None
@@ -35,6 +35,19 @@ class RetrievalConfiguration:
             or self.fusion_policy_version is not None
         ):
             raise ValueError("BM25 requires a lexical policy and no vector threshold or fusion")
+        if self.strategy in {"vector-only", "dense-only"} and (
+            self.lexical_policy_id is not None
+            or self.fusion_policy_id is not None
+            or self.fusion_policy_version is not None
+        ):
+            raise ValueError("dense-only retrieval requires no lexical policy or fusion policy")
+        if self.strategy == "hybrid" and (
+            self.lexical_policy_id is not None or self.fusion_policy_id is not None
+        ):
+            if self.lexical_policy_id is None:
+                raise ValueError("hybrid retrieval requires a lexical policy")
+            if self.fusion_policy_id is None:
+                raise ValueError("hybrid retrieval requires a fusion policy")
 
     @classmethod
     def bm25_diagnostic_v1(cls) -> "RetrievalConfiguration":
@@ -66,6 +79,52 @@ class RetrievalConfiguration:
             cls.bm25_top8_v1(),
             id="retrieval-bm25-upload-fixture-top8-v1",
             lexical_policy_id="bm25-word-upload-fixture-population-v1",
+        )
+
+    @classmethod
+    def dense_top8_v3(cls, *, min_similarity: float = 0.65) -> "RetrievalConfiguration":
+        """Dense-only Top8 from Qdrant HNSW/TurboQuant; requires calibrated threshold."""
+        if not isinstance(min_similarity, (int, float)) or isinstance(min_similarity, bool):
+            raise TypeError("calibrated min_similarity must be numeric")
+        if not -1.0 <= min_similarity <= 1.0:
+            raise ValueError("calibrated min_similarity is outside cosine similarity bounds")
+        return cls(
+            id="retrieval-dense-top8-v3",
+            candidate_k=8,
+            min_similarity=float(min_similarity),
+            max_evidence_chunks=5,
+            max_evidence_tokens=3000,
+            overlap_policy="adjacent-content-containment-v1",
+            strategy="dense-only",
+            vector_candidate_k=200,
+        )
+
+    @classmethod
+    def hybrid_top8_v3(
+        cls,
+        *,
+        candidate_k: int = 100,
+        min_similarity: float = 0.65,
+        lexical_policy_id: str = "bm25-word-frozen47-population-v1",
+        fusion_policy_id: str = "dbsf-v1",
+    ) -> "RetrievalConfiguration":
+        """Hybrid Top8 from native DBSF fusion (Top200 dense + Top200 BM25 to Top100 candidates)."""
+        if not isinstance(min_similarity, (int, float)) or isinstance(min_similarity, bool):
+            raise TypeError("calibrated min_similarity must be numeric")
+        if not -1.0 <= min_similarity <= 1.0:
+            raise ValueError("calibrated min_similarity is outside cosine similarity bounds")
+        return cls(
+            id="retrieval-hybrid-top8-v3",
+            candidate_k=candidate_k,
+            min_similarity=float(min_similarity),
+            max_evidence_chunks=5,
+            max_evidence_tokens=3000,
+            overlap_policy="adjacent-content-containment-v1",
+            strategy="hybrid",
+            vector_candidate_k=200,
+            fts_candidate_k=200,
+            lexical_policy_id=lexical_policy_id,
+            fusion_policy_id=fusion_policy_id,
         )
 
     def parity_semantics(self) -> dict[str, object]:
@@ -246,7 +305,7 @@ class BranchObservation:
             "normalized_lexemes": list(self.normalized_lexemes),
             "omitted_lexemes": list(self.omitted_lexemes),
         }
-        if self.branch == "bm25":
+        if self.branch in {"bm25", "dense", "fused"}:
             mapping.update(
                 schema_version=2,
                 raw_score=self.raw_score,

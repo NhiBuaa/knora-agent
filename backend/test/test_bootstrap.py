@@ -397,6 +397,54 @@ def test_object_store_settings_reject_empty_s3_credentials(field: str) -> None:
         _ = runtime.object_store_settings
 
 
+def test_v3_retrieval_accepts_cloudflare_workers_ai_canonical_selector() -> None:
+    selected = build_provider_selection(
+        Settings(
+            _env_file=None,
+            retrieval_configuration_id="retrieval-hybrid-rerank-top8-v3",
+            embedding_provider="cloudflare-workers-ai",
+            generation_provider="cloudflare-workers-ai",
+            embedding_dimension=1024,
+            cloudflare_account_id="a" * 32,
+            cloudflare_api_token="fake",
+        )
+    )
+    assert isinstance(selected.embedding_provider, CloudflareEmbeddingProvider)
+    assert isinstance(selected.generation_provider, OpenAICompatibleGenerationProvider)
+
+
+def test_v3_retrieval_rejects_non_cloudflare_providers() -> None:
+    with pytest.raises(
+        ValueError, match="V3 retrieval requires Cloudflare AI providers exclusively"
+    ):
+        build_provider_selection(
+            Settings(
+                _env_file=None,
+                retrieval_configuration_id="retrieval-hybrid-top8-v3",
+                embedding_provider="cloudflare",
+                generation_provider="ollama",
+                cloudflare_account_id="a" * 32,
+                cloudflare_api_token="token",
+                ollama_generation_model="qwen3:8b",
+            )
+        )
+
+    with pytest.raises(
+        ValueError, match="V3 retrieval requires Cloudflare AI providers exclusively"
+    ):
+        build_provider_selection(
+            Settings(
+                _env_file=None,
+                retrieval_configuration_id="retrieval-dense-top8-v3",
+                embedding_provider="ollama",
+                generation_provider="cloudflare",
+                cloudflare_account_id="a" * 32,
+                cloudflare_api_token="token",
+                ollama_embedding_model="qwen3:8b",
+            )
+        )
+
+
 @pytest.mark.asyncio
 async def test_bootstrap_cloudflare_cap_reaches_wire_without_extra_generation() -> None:
     import json
