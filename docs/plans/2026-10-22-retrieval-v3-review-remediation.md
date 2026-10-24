@@ -2,7 +2,7 @@
 
 > Dành cho agy: dùng `executing-plans`, xử lý từng task và tự review trước chuyển bước. Đây là phần bổ sung để hoàn thành bảy plan đóng băng; không thay thế hoặc giảm yêu cầu của chúng. Không tự tạo subagents chỉ vì tài liệu này.
 
-**Mục tiêu đề xuất hiện hành (R5, chờ duyệt):** Đóng 12 ID còn mở sau review R4 và 3 lỗi kiểm thử/bằng chứng mới; giữ 17 ID chống hồi quy. §15 bổ sung cách thực thi, kiểm chứng và bàn giao cho thiết kế §14. Trả đủ 29 ID lịch sử + 3 ID R5 và bằng chứng G3–G8; yêu cầu soạn kế hoạch không phải quyền triển khai/runtime.
+**Mục tiêu hiện hành (checklist R6 sau review R5):** Hoàn tất 15 ID chưa đạt, kiểm lại 17 ID đạt trong phạm vi review và giao đủ bằng chứng G3–G8. Đọc §16 cùng R5 §15 và thiết kế kế thừa §14.2–§14.6. R5 tại commit `4d48f56c0a93d5019b6840bee4ffcb31a8e48a39` đã được owner duyệt ở [#153 comment 6381910609](https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6381910609). R6 cụ thể hóa các sửa chữa trong phạm vi ấy; không thay D1–D8, ngưỡng nghiệm thu hoặc quyền merge/deploy.
 
 **Kiến trúc:** Sửa tại owner của từng stage S3→S8, truyền thay đổi upstream xuống stack. PostgreSQL giữ nguồn, quyền, phiên bản, canonical derivation và serving state; Qdrant là projection có thể dựng lại. Dùng các seam ingestion, answering, provider và runtime hiện hữu; không thêm orchestration hoặc kho trạng thái song song.
 
@@ -10,11 +10,11 @@
 
 **Đặc tả:** [Issue #153](https://github.com/NhiBuaa/knora-agent/issues/153); [frozen PR #215](https://github.com/NhiBuaa/knora-agent/pull/215); plan cha `2026-10-21-retrieval-v3-coordination.md` và sáu plan con cùng thư mục. Review lần một: `C:/Users/NhiBuaa/AppData/Local/Temp/retrieval-v3-chain-code-review-20261022.md`; review sau remediation: `C:/Users/NhiBuaa/AppData/Local/Temp/retrieval-v3-remediation-code-review-20261022.md`.
 
-**Phiên bản đề xuất hiện hành R5:** §15 là phần bổ sung sau review R4; đọc cùng §14.2–§14.6 và bảy plan đóng băng. §1–§14 giữ lịch sử và ràng buộc kế thừa; §15 chỉ thay các điều khoản được nêu rõ. Bản R4 đầu vào là commit `0251a1a6e2cd9ec52d53794016dc91a7ff6053d1`, SHA256 toàn file `69011840ce8596cdf14e9843f817ea3da53b9d1bbed437768e6b3178fc532ad7`. Tên commit/ledger không thay phê duyệt của người dùng; ghi đúng revision được duyệt trước triển khai.
+**Phiên bản hiện hành:** §16 là checklist sửa chữa sau independent review R5 ngày 24/10/2026; §1–§15 giữ lịch sử và các hợp đồng kế thừa. Các câu “chờ duyệt” tại R4/R5 bên dưới mô tả lúc soạn, không phủ nhận approval R5 đã dẫn ở đầu file. Bản R4 đầu vào là commit `0251a1a6e2cd9ec52d53794016dc91a7ff6053d1`, SHA256 toàn file `69011840ce8596cdf14e9843f817ea3da53b9d1bbed437768e6b3178fc532ad7`. Không sửa hồi tố nội dung hoặc nguồn phê duyệt cũ; revision R6 thực tế được ghi trong gói bàn giao sau commit.
 
 **Lịch sử R2:** R1 đã vào main qua PR #215, merge commit `ada17099050030fe527227fce0f2956539a2892f`. R2 được soạn tại `C:/Developer/Projects/knora-agent-worktree/docs-retrieval-v3-acceptance-remediation`, nhánh `docs/retrieval-v3-acceptance-remediation`, từ đúng merge commit đó; commit R2 `b6cff8626eb5722f27fd756f1622929908c2b63a`. Không sửa bảy plan đóng băng. Những câu mô tả lần soạn R1/R2, pins cũ và lỗi401 ở các mục dưới là lịch sử.
 
-**Thẩm quyền:** Ngày 24/10/2026 người dùng yêu cầu nghiên cứu, phân tích, thiết kế và lập kế hoạch sau review R4 để giao Anti tới nghiệm thu, ưu tiên duyệt tập trung. Đây là quyền soạn R5. Gói duyệt §15.7 gộp các quyết định kế thừa D1–D8 và phần bổ sung R5 để không xin lại từng thao tác; chưa có quyền runtime từ yêu cầu soạn kế hoạch. Ghi tham chiếu hội thoại nếu chưa có URL, không ký thay owner. Merge/deploy vẫn cần lệnh cuối trên kết quả và target cụ thể.
+**Thẩm quyền:** R5 §15 cùng D1–D8 đã được duyệt theo reference ở đầu file. Yêu cầu mới trong hội thoại ngày 24/10/2026 là lập kế hoạch xử lý kết quả review R5 và prompt giao Anti. Phiên soạn R6 chỉ sửa tài liệu; Anti tiếp tục quyền triển khai/verification đã được R5 cấp sau khi đối chiếu exact approval, target và ownership. Không xin lại các quyết định không đổi; chỉ trình delta nếu thật sự vượt phạm vi đã duyệt. Merge/deploy/đóng Issue vẫn chưa được cấp quyền.
 
 **Quyết định owner bổ sung về số lượt thực thi (24/10/2026):** Trong hội thoại này, owner yêu cầu ưu tiên đạt chất lượng và nghiệm thu, cho phép số lượt gọi AI cần thiết miễn không phung phí. Bỏ các trần tổng tự đặt của R4: 6.000 requests/campaign, các quota con theo loại call, 128 journeys/RC, 3 RC và 8.000 neurons/ngày nội bộ. Chính sách thay thế ở §14.5 áp dụng cho phần này; đây không phải lời duyệt toàn bộ R4 hay quyền bắt đầu runtime. Cloudflare-only/$0, quyền dữ liệu, giới hạn an toàn từng request và owner acceptance vẫn theo phạm vi đã chốt.
 
@@ -1461,3 +1461,218 @@ Prompt ngắn gửi Anti sau duyệt (đính kèm full commit/SHA256 thực củ
 > Đọc và thực hiện R5 §15 cùng §14.2–§14.6 trong `docs/plans/2026-10-22-retrieval-v3-review-remediation.md`, worktree `C:/Developer/Projects/knora-agent-worktree/docs-retrieval-v3-acceptance-remediation`, đúng revision/approval bàn giao. Dùng executing-plans; xử lý R5-0→12 tại đúng owner S3–S8 và cascade #216→#221. Đóng12ID mở +3ID mới, giữ17regression, giao đủ32dispositions/G3–G8 với code/local/CI/runtime/quality riêng. Không làm lại S2, sửa gold để pass, chạy local AI hoặc phát sinh phí. Không trần tổng AI/RC/vòng sửa; tự sửa và kiểm chứng tới đủ nghiệm thu trong quyền đã duyệt. Chốt DEP0/roles từ đầu, giữ required external capability pending khi thiếu; ghi evidence ở #153/PR. Chỉ gom hỏi khi vượt scope/quyền hoặc bất khả thi có bằng chứng. Giao một packet nghiệm thu/rollout cuối; chưa merge/deploy.
 
 **Tự kiểm kế hoạch R5:** 12 ID mở đều có owner/production boundary/regression/exit;17regression giữ nguyên nghĩa;3lỗi mới có disposition riêng; quyền và dependencies có điểm kiểm sớm; không thêm trần tổng calls/rounds. Exact parser/model/server/OS/runtime/quality vẫn cần qualification và evidence khi thực thi. Kế hoạch này làm rõ đường tới nghiệm thu, không cam kết mọi phụ thuộc ngoài quyền của Anti chắc chắn sẵn sàng.
+
+## 16. R6 — Checklist xử lý kết quả independent review R5
+
+### 16.1 Nguồn, quyền và phạm vi không đổi
+
+**Đề bài:** yêu cầu trong hội thoại ngày 24/10/2026: lập kế hoạch xử lý các điểm chưa đạt của review R5 và cung cấp prompt ngắn giao Anti. Review trong cùng hội thoại là nguồn findings; không bịa URL review. Đây là checklist thực thi các hợp đồng R5 đã duyệt, không phải một thiết kế thay thế. Chưa triển khai code hoặc chạy runtime trong lúc soạn mục này.
+
+**Bản duyệt gốc:** `docs/plans/2026-10-22-retrieval-v3-review-remediation.md` tại commit `4d48f56c0a93d5019b6840bee4ffcb31a8e48a39`, [#153 comment 6381910609](https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6381910609). SHA256 file Windows CRLF là `2a211d578d5be887f135982500e207b4552075efe0d3a66df86517959d3110aa`; Git blob LF là `bf5497549599827e7e4bfab0133d3f2dee43c2ab6707adb2d527d71c2cc68361`. Đây là cùng nội dung với encoding newline khác nhau; ghi rõ khi đối chiếu, không đổi hash artifact mà vẫn gọi là cùng bytes.
+
+**Kế thừa bắt buộc:** bảy plans đóng băng, §14.2 D1–D8, §14.3A–G, §14.5, §14.6 và toàn §15. Không làm lại S2, không hạ ngưỡng, đổi mẫu số, sửa gold để pass, chạy local AI/weights hoặc phát sinh phí. Native PDF/tokenizer không dùng ML vẫn được phép theo D1/D3. Không đặt trần tổng AI calls/journeys/RC/vòng sửa; giữ per-request safety và Free-provider limits. Hết Free quota thì checkpoint/chờ và làm phần độc lập, không bật Paid/local hoặc bỏ nhiệm vụ.
+
+**Quyền tiếp tục:** Anti đối chiếu approval gốc và dùng quyền D6–D8 để sửa code, commit/push các PR owner, chạy CI và disposable verification đúng namespace được giao. Không xin duyệt lại thiết kế hoặc từng lệnh đã được phép. Nếu phát hiện delta thật về scope/architecture/criteria/cost/permission/ownership, gom một packet gồm evidence và lựa chọn; tiếp tục phần độc lập. Chưa merge/deploy/đóng Issue, chưa tự nhận owner accepted.
+
+### 16.2 Pins và registry 32 ID
+
+Baseline dưới đây là đối tượng review R5, không phải SHA bắt buộc reset về khi Anti bắt đầu. Cả sáu worktree sạch khi review kết thúc. Mỗi intake/cascade/freeze phải đọc lại GitHub và ghi HEAD/base mới cùng delta trong #153/PR; giữ thay đổi của phiên khác.
+
+| Stage / PR | Worktree dưới `C:/Developer/Projects/knora-agent-worktree/` | HEAD đã review | CI đã đọc trong review |
+|---|---|---|---|
+| S3 / #216 | `feat-retrieval-v3-document-understanding` | `0ac3a4aa9afcee29d7077fe7a621e4fe902221ce` | run `40082928715`, success |
+| S4 / #217 | `feat-retrieval-v3-dense-hybrid-search` | `0e9fddf5ab7830f735cb052c97ab445b03be7b44` | run `40082921114`, failure |
+| S5 / #218 | `feat-retrieval-v3-sequential-dependence-ranking` | `7237a185d091767c08b12c3db9fe808d4e31edb8` | run `40082912178`, failure |
+| S6 / #219 | `feat-retrieval-v3-reranking-evidence` | `4c9659c47d0cc6bf766bfb501fab82cd40ece906` | run `40082903394`, failure |
+| S7 / #220 | `feat-retrieval-v3-query-understanding-coverage` | `cc8be7fbd09dc11e27e570e06c402948c597b1aa` | run `40082894852`, failure |
+| S8 / #221 | `feat-retrieval-v3-integrated-release` | `cf7ccfe3427a271932a12ba5352e08c7e5fa5397` | run `40082885468`, success |
+
+**15 ID phải xử lý:** `F03,F24,F05,F23,F25,F08,F13,F14,F18,R3-N04,F16,F17,F21,R2-N03,R5-N03`.
+
+**17 ID kiểm chống hồi quy:** `N01,F01,F02,F04,F06,F07,F09,F10,F11,F12,F15,F19,F20,F22,R2-N02,R5-N01,R5-N02`. PASS trong review trước chỉ là lỗi cụ thể ở phạm vi đã kiểm, không đóng runtime/quality/gate.
+
+Không đổi nghĩa ID: F19=scorer, F20=gold/hash, R2-N02=derivation identity, R2-N03=reranker test collection. Hai lỗi collection embedding/generation là việc sửa CI cùng phạm vi; ghi evidence riêng, không gán sai thành lỗi provider hay tạo finding ID thứ33 để né registry. R5-N01 đã cascade đủ candidate100; R5-N02 đã đổi query test basename: chỉ regression, không làm lại fix.
+
+### 16.3 Thứ tự và hợp đồng nhận hàng
+
+Anti thực hiện **R6-0 → S3(R6-1) → S4(R6-2) → S5(R6-3) → S6(R6-4) → S7(R6-5) → S8(R6-6) → R6-7**. Curator/dependency intake bắt đầu ngay R6-0, held-out sau freeze. Sửa collection test ngay tại owner sớm nhất trong quá trình đi qua S4/S6, không chờ S8. Sau mỗi owner fix, merge upstream theo cách không force-push vào từng downstream và kiểm conflicts/semantics; không chỉ vá bản tích hợp.
+
+Giao diện đích giữ §14.3/§15.3: S3 giao canonical geometry/origin/coverage + parser identity; S4 giao immutable corpus snapshot v1 và receipt từ PG expected vectors; S5 giao v2 statistics; S7 giao request-wide `RetrievalReadSnapshot`, `CanonicalSourceRead`, statement projection/verdict; S8 chỉ nhận captures thực gắn identities. Tên interface ở kế hoạch là đích thiết kế; không giả rằng chúng đã tồn tại ở baseline, không tạo wrapper cho đủ tên.
+
+**Chu trình mỗi lát sửa:** ca đỏ tại production entrypoint → ghi lỗi đúng nguyên nhân → sửa callers/schema/config/docs chịu ảnh hưởng → ca xanh và true-positive → scoped regressions/format → đọc diff → commit → cascade → xác minh downstream. Pseudocode assertions bên dưới là yêu cầu test, không phải file chạy độc lập; implementer phải định nghĩa fixture có kiểu từ raw input/PG/application seams tại owning test module. Mock chỉ kiểm hợp đồng, không đóng DB/process/server/provider runtime.
+
+#### R6-0 — Intake, resources, source truth và ma trận trước khi sửa
+
+**Owner:** Anti điều phối; tài liệu kế hoạch ở nhánh `docs/retrieval-v3-acceptance-remediation`. Tiến độ, evidence và blockers giữ trong #153/PR; không tạo ledger song song.
+
+- [ ] Kiểm repository/root/branch/status/worktree ownership, remote/base/HEAD sáu PR và exact plan/approval. Ghi trong một comment intake:32ID, trạng thái code/local/CI/runtime/quality/review/accepted, owner task và dependency. Đọc delta nếu HEAD đã đổi, không reset/stash/ghi đè.
+- [ ] Đọc logs CI S4–S7 nêu ở §16.2 và chuyển từng phản ví dụ review thành development regression tại owner. Ba test CLI S4 trước đó lỗi DB authentication là lỗi môi trường; không nhận password/URL có sẵn làm quyền reset. Dùng disposable DB được D6 cấp, xác minh target bằng metadata an toàn trước chạy.
+- [ ] Hoàn tất DEP0 theo §14.6D cho #148/#150/#158, giữ capability pending khi chưa có accepted contract/artifact; không làm thay dự án phụ thuộc hoặc tự miễn requirement.
+- [ ] Đăng ký độc lập curator/reviewer/runner/code reviewer theo D7 và namespace Workbench hiện hữu. Bắt đầu nguồn/gold mới theo §14.6A ngay; không đợi sửa code xong mới phát hiện thiếu người giữ gold. Giữ fresh context và access records, không nói có ACL isolation khi chỉ tách session.
+- [ ] Chốt ownership của app/PG/Qdrant/ObjectStore/ports/reservations trong D6 package, exact model/server/OS pins và Free/no-paid preflight. Chỉ wipe/reset resources tạo mới thuộc package này. Qualification thất bại thì ghi contract/error cụ thể, không tự chuyển model/provider/paid route.
+
+**Exit:** có intake32IDs, resource envelope, roles và dependency packet thực; thiếu external capability không cản code/offline độc lập. Không claim acceptance ở task intake.
+
+#### R6-1 — S3: native geometry và hard process limits (F03/F24)
+
+**Modify:** `backend/src/knora/adapters/pdf/docling.py`, shared `adapters/pdf/_pypdf_process.py`/`_pypdf_limits.py`, `providers/cloudflare/pdf_understanding.py`, `ingestion/pdf.py`/`pdf_structure.py`/`pdf_chunking.py`, extractor resolver/worker/PG finalizers chịu ảnh hưởng và `backend/pyproject.toml` theo D1. Native driver mới đặt trong package PDF hiện có, không supervisor mới. **Tests:** `backend/test/adapters/pdf/test_docling.py`, `test_pypdf.py`, `backend/test/providers/cloudflare/test_cloudflare_pdf_understanding.py`, `backend/test/ingestion/test_pdf_structure.py`, `test_pdf_chunking.py`, `test_pdf_job_processing.py` và PG finalization suites hiện hữu.
+
+- [ ] Chuyển ba phản ví dụ thành ca đỏ: RSS vượt budget vẫn thành công; native table không có cells/bbox; mixed OCR nối sau toàn native text. Sửa `except` không được nuốt chính `PdfExtractionError`; lỗi capability/psutil không được âm thầm tắt giới hạn bắt buộc.
+- [ ] Hoàn thành D1 geometry/render/transform/assembly, không dừng ở sửa regex. Raw fixtures: native hai cột, bảng không có ký tự pipe, repeated text, rotated/cropped, tiled/composed images, mixed native+scan. Expected facts/cells/order lấy raw source độc lập. Giữ origin, source hash/page/region, offsets theo cursor; không `find()` chọn nhầm repeated text.
+- [ ] Tái dùng supervisor handshake: child chưa parse trước khi hard limiter cài xong; parent enforce wall deadline cả OCR/assembly và reject late success. Pass remaining timeout vào transport; cancellation không dispatch tiếp. Không có capability hard-limit thì typed failure; kill/join/close/unlink đúng owned tree.
+- [ ] Test Windows Job/Linux cgroup bằng process thật, giới hạn D2, parse/render treo, tiny budget, output quá lớn và timeout sau provider response; lưu elapsed/limit/exit/cleanup/peak observations. Phân biệt committed/cgroup limit với số đo RSS. Fake response chỉ chứng minh deadline contract, không chứng minh cloud/process thật.
+- [ ] Pin parser/config mới §14.3G, giữ legacy immutable; chạy source→submission→worker→PG serialize/reload→chunk/citation. Trang dài phải có nhiều chunks ≤650 tokens và không xuyên trang, overlap≤75; không ép 1trang=1chunk. Incomplete không activate hoặc làm Q6 absence.
+
+**Assertions bắt buộc:**
+
+```python
+# Trên actual application/driver fixtures, không chỉ gọi check_limits().
+assert extraction_over_memory.succeeded is False
+assert late_valid_response.succeeded is False
+assert owned_child_tree_after_timeout == ()
+assert canonical_native_table.cells == source_reviewed_cells
+assert pg_reloaded_structure == extracted_structure
+assert all(c.page_start == c.page_end and c.token_count <= 650 for c in chunks)
+```
+
+**Exit:** F03/F24 có production + PG/process evidence cả hai OS; F01/F02/F04/F20/R2-N02 regression. G3 còn cần fidelity metrics §14.6A ở R6-7, không đóng bằng mock OCR hoặc bảng Markdown tự dựng.
+
+#### R6-2 — S4: corpus activation, vector receipt, collection và CI (F05/F23/F25)
+
+**Modify:** `backend/src/knora/adapters/postgres/search_index_store.py`, tables/additive Alembic migrations, `ingestion/search_indexing.py`/job routing/text+PDF finalizers, `adapters/cli/reindex_search.py`, `adapters/qdrant/search_index.py`/`native_search_index.py`, composition/capabilities. **Tests:** corpus transition/text/PDF indexing integration suites; `backend/test/adapters/qdrant/test_dense_search_index.py`, `test_native_search_index.py`, CLI/config suites §15.5. **Collection fix owner:** rename `backend/test/adapters/langchain/test_embedding.py` → `test_langchain_embedding.py` như bản S8 hiện có; tìm mọi refs và CI selections trước rename, giữ assertion nội dung.
+
+- [ ] Ca đỏ production transition: manifest có A,B nhưng mới có receipt A phải reject và giữ toàn bộ heads cũ. Không dùng `items` caller làm full membership. Implement immutable snapshot/head v1 + durable `corpus_reindex` và API `commit_corpus_transition(snapshot_id, expected_revision)` theo D3/§14.3B.
+- [ ] Parent/children/jobs thật, không callback `pass`; profile/embedding-set chọn từ exact manifest PG, bỏ avg_len256/digest0/UUID-desc cho route V3. Text/PDF/CLI/backfill/archive/reprocess đi cùng seam. Hỗ trợ document>64chunks bằng batches có receipts/completeness, không nâng cap không giới hạn.
+- [ ] Disposable PG test: crash sau update member đầu phải rollback toàn bộ; replay/lost reply idempotent; hai workers CAS chỉ một transition thắng; add/remove/revoke/restart không phục vụ corpus trộn profile. Empty corpus là explicit snapshot count0.
+- [ ] PG raw vectors immutable là expected authority. Thay JSON float/raw-hash equality bằng comparison policy versioned server-equivalent float32/Cosine §14.3C; payload digest chỉ diagnostic. Qualify tolerance từ error bounds và actual pinned-server positives trước freeze; reject wrong/swapped/missing/forged vectors. Không dùng tolerance tùy ý đủ lớn để mọi vector pass.
+- [ ] Positive đi qua `stage_generation`→actual readback→receipt→CAS phải chấp nhận normalization/float32 hợp lệ. Negative thay actual vector nhưng giữ/giả payload digest phải bị từ chối. Receipt bind exact snapshot/embedding set/config/comparison/server/collection/capture/count.
+- [ ] Readback effective float32/Cosine/on-disk/HNSW/bits4/always_ram theo pin. Thêm negatives uint8, float16, sai distance, thiếu fields không chứng minh được effective value, sai HNSW/quantization. Known server defaults chỉ được normalize khi có pinned schema + actual evidence, không tự coi missing là compatible. Đưa rescore/oversampling đúng query wire; kiểm filtered IDF scope sparse/hybrid và decoys. Không PATCH collection serving để ép pass.
+- [ ] Kiểm default collection toàn test roots/CI partitions tại S4; lỗi generation collision nếu có tại stage này cũng rename tại owner sớm nhất có file, giữ refs. Cascade lên S5–S8 rồi chạy lại configuration module: hybrid pool100, finalTop8 và evidence5 là các lớp khác nhau; R5-N01 chỉ regression.
+
+```python
+assert partial_transition.rejected and heads_after == heads_before
+assert crash_between_member_updates.rolled_back
+assert normalized_correct_vector.receipt_valid
+assert swapped_or_corrupt_vector.rejected
+assert effective_uint8_collection.rejected
+assert unverifiable_collection_configuration.rejected
+```
+
+**Exit:** F05/F23/F25 có DB/server production positives+negatives; F06/F07/F11/F19/R5-N01 giữ. N01 mỗi stage một head với ancestry đầy đủ, được phép additive head mới; không xóa migration/data để ép tên head cũ. ANN/quality còn ở R6-7.
+
+#### R6-3 — S5: persisted statistics v2 (F08)
+
+**Modify:** `backend/src/knora/adapters/postgres/search_index_store.py`, corpus builder/schema/migrations trong `ingestion/`, `answering/sequential_dependence.py`, `answering/module.py`/store ports/callers. **Tests:** `backend/test/answering/test_sequential_dependence.py`, `backend/test/ingestion/test_corpus_statistics.py`, `test_lexical_population.py`, `backend/test/adapters/postgres/test_corpus_statistics_transition.py` và existing application SDM tests.
+
+- [ ] Ca đỏ cùng profile: thêm hoặc đổi canonical document làm frequencies/token totals đổi mà digest giữ nguyên phải thất bại. Đọc fresh worker lẫn worker cũ; không chứng minh chỉ bằng object identity hoặc in-memory builder.
+- [ ] Builder ngoài HTTP request tạo immutable snapshot v2 từ full authorized membership, đủ unigram/ordered/window frequencies và policy/digests. Reader nhận expected snapshot, kiểm active head/revisions/schema/digest và đọc persisted statistics; không scan/tokenize toàn corpus hoặc giữ workspace lock qua network trong request.
+- [ ] Numerical fixture expected tính từ raw corpus độc lập, không từ Top-K; corpus khác frequencies/membership có snapshot/digest khác dù lexical profile bằng nhau. Digest verification phải phát hiện bytes bị sửa, không chỉ có chuỗi khác rỗng.
+- [ ] Chạy v1 S4 có dữ liệu→v2 upgrade→fresh restart→rollback/rebuild theo §14.3B. Unknown/corrupt/stale stats fail closed; không sửa bytes v1, đổi nhãn receipt hoặc phục hồi revoked generation. Kiểm crash/race/archive/reprocess và compatibility S4-only.
+
+```python
+assert stats_a.snapshot_id != stats_b.snapshot_id
+assert stats_a.statistics_digest != stats_b.statistics_digest
+assert fresh_worker.stats == serving_worker.stats == independently_expected_stats
+assert answering_request.performed_corpus_tokenization is False
+assert tampered_or_stale_snapshot.rejected
+```
+
+**Exit:** F08 có persisted PG numerical/application evidence; không đóng chỉ vì bỏ cache. G5 cần upgrade/rollback đúng dataset và chất lượng SDM qua R6-7.
+
+#### R6-4 — S6: collection, provider và fallback (R2-N03)
+
+**Modify/test:** `backend/test/answering/test_reranking.py`, `backend/test/providers/test_reranking.py`, `backend/test/providers/cloudflare/test_cloudflare_reranking.py`, LangChain generation test/refs, existing reranking/MMR/module lifecycle suites và callers chịu ảnh hưởng upstream. Rename provider-generic `test_reranking.py` thành `test_reranking_contract.py`; rename LangChain `test_generation.py` thành `test_langchain_generation.py` như S8; không rename lại provider Cloudflare đã đúng.
+
+- [ ] Tái hiện `import file mismatch` với đúng pytest configuration/collection CI, rồi sửa basename tại S6; embedding collision đã nhận từ S4. Cập nhật mọi selections/runner/refs. Không đổi `--import-mode` hoặc deselect test để che lỗi.
+- [ ] Giữ `reranking-cloudflare-bge-base-v1`, `result.response`, remap/cardinality, close/lifecycle và fallback DBSF+SDM. Reranker timeout/malformed/quota không phục hồi candidate stale/ngoại quyền; fallback cùng snapshot đã validate, pool≤100, evidence≤5chunks/3000tokens.
+- [ ] Default collect và full CI partition phải thành công tại S6 và S7 sau cascade; S8 CI xanh không thay CI của owner. F09/F10 regression và actual fallback/usage quality ở R6-7.
+
+**Exit:** R2-N03 đóng bằng collect/execution thực, CI đúng owner HEAD; không đổi nghĩa ID thành chỉ test provider envelope. Giữ source/security fences trước mọi cloud content call.
+
+#### R6-5 — S7: snapshot xuyên request, Q6, support và follow-up (F13/F14/F18/R3-N04)
+
+**Modify:** `backend/src/knora/answering/module.py`, `stores.py`, `source_verification.py`, `generation_validation.py`, query planning/results/evidence/trace configuration, `adapters/postgres/answering_store.py`/canonical reader, `providers/cloudflare/` answer-support adapter, `main.py`/bootstrap lifecycle, HTTP/SSE/Conversation readers. New support port/provider dùng tên đích §14.3F; chỉ tạo module có trách nhiệm ấy trong package hiện hữu. **Tests:** S7 selections §15.5, `test_s2_snapshot_fence.py`, dense/hybrid contracts và existing API/Conversation/stream/persist suites; thêm provider verifier tests tại package Cloudflare, đặt basename riêng.
+
+- [ ] R3-N04: capture `RetrievalReadSnapshot` trong short PG transaction trước search đầu; mọi branch/empty/recovery phải trả đúng snapshot và canonical membership/content. Validate/hydrate từng result trước merge/rerank; không union generations để hợp thức hóa.
+- [ ] Dùng trace version mới rõ ràng cho cả BM25/dense/hybrid; decoder/persist/recovery readers cùng đổi, legacy decoders giữ. Ca đỏ dense/hybrid schema2 bypass phải chuyển thành rejection khi revoke xảy ra lúc generation. Không chỉ đổi số schema mà thiếu mandatory snapshot/verdict fields.
+- [ ] Revalidate trước reranker/generator/verifier, trong transaction persist và trước final delivery/recovery. Actual AnswerQuestion spies: foreign secondary/recovery, empty thiếu snapshot, revoke trước mỗi phase và sau persist trước delivery đều chặn answer/source bytes; không giữ PG transaction qua network, không gửi partial answer trước validation.
+- [ ] F13: implement `read_canonical_source_scope(..., snapshot, cursor, limits)` từ PG structure/chunks, không similarity Top-K. Scope explicit→admitted context→unique authorized catalog; ambiguous clarification. Một bounded pass cho toàn missing groups theo D4. FOUND có facts+anchors; VERIFIED_ABSENT cần complete exact scope; partial/budget/error không báo “tài liệu không có”. Catalog section không chứng minh semantic fact absence.
+- [ ] F18: registry capabilities thay suffix detection, planner dùng resolved retrieval context. Reserve từng required group rồi composite/variants round-robin≤8; group5 clarification, không INSUFFICIENT_EVIDENCE. Nqueries=Nvalid vectors, không broadcast; pool≤100, evidence≤5/3000, inner cap2 giữ.
+- [ ] Follow-up positive qua Conversation thật: hỏi “báo cáo được gợi ý trình bày bao nhiêu chương?”→7; hỏi “bao gồm những chương nào?”→liệt kê đúng7tên từ cùng authorized source với evidence mới. Assistant answer chỉ giúp resolve context, không làm source truth. Source ambiguous/revoked thì không đoán.
+- [ ] F14: exact statement/group ranges từ composer, phủ toàn factual body cả before/items/after; hash final text. Deterministic checks cho mọi V3 ANSWER kể cả single-intent; không bag-of-words/numbers hoặc cắt dấu chấm bỏ claim trước citation.
+- [ ] Implement một verification-only Cloudflare call theo D5/§14.3F, strict digest/cardinality/quote offsets và group coverage; runtime input không chứa gold. UNKNOWN/malformed/timeout/quota không deliver successful answer hoặc fake refusal/absence. REFUSAL không gọi verifier. Không thêm answer rewrite/retry để né verdict.
+- [ ] Negative source “Thời hạn đổi trả là 7 ngày.” phải reject đủ ba outputs: “Sao Hỏa có sự sống [[E1]].”; “Mọi khách hàng được hoàn tiền vô điều kiện. Thời hạn đổi trả là 7 ngày [[E1]].”; “Phí vận chuyển là 7 ngày [[E1]].”. Thêm swapped citations,70/ngày-tháng, negation, forged offsets/digest và prompt injection. Positives “7 ngày”, “1 tuần”, citation sau dấu chấm, short/list/multi-sentence đúng nguồn phải pass. Tất cả đi qua actual execute/persist/HTTP/SSE/Conversation, không chỉ validator helper.
+
+```python
+assert topk_empty_but_pg_has_chapter5.outcome == "FOUND"
+assert complete_scope_without_chapter5.outcome == "VERIFIED_ABSENT"
+assert partial_scope.outcome == "UNVERIFIED"
+assert two_authorized_possible_sources.outcome == "AMBIGUOUS"
+assert five_required_groups.requests_clarification
+assert followup.chapters == seven_source_reviewed_chapter_names
+assert unrelated_or_uncited_claim.successful_answer is False
+assert concise_supported_answer.successful_answer is True
+assert revoked_during_generation.persisted_successful_answer is False
+assert revoked_before_delivery.delivered_answer_bytes == b""
+```
+
+**Exit:** cả bốn ID có PG/application/delivery evidence đúng phase; F12/F15/F22/R5-N02 giữ. Đóng regression không tự đóng quality/follow-up held-out G7; protocol §14.6A vẫn áp dụng.
+
+#### R6-6 — S8: admission, runtime thật, runbook và báo cáo thay thế (F16/F17/F21/R5-N03)
+
+**Modify:** `evals/datasets/pdf_retrieval_release_v1.py`, actual release entrypoints/manifests, `scripts/run-runtime-verification.ps1`, `scripts/runtime_evidence.py`, `backend/runtime_test/test_dense_hybrid_search.py`/`test_retrieval_v3_recovery.py` và runtime scenarios hiện hữu, `docs/runbooks/retrieval-v3-release.md`. **Tests:** `evals/test/test_pdf_retrieval_release_dataset.py`, `backend/test/config/test_runtime_evidence.py`, existing runtime/CLI/config tests. Runtime artifacts/reports giữ convention hiện hữu, không evaluation runner mới.
+
+- [ ] F16: mọi release path explicit/default/runner bắt buộc sealed package đủ hash/source/gold/split/approval/roles/scorer/criteria/config theo §14.6A. Approval thiếu `dataset_sha256` hoặc chỉ owner string+version phải reject. Legacy4samples chỉ chạy development với nhãn rõ; không admit làm release. Positives approved exact bytes và two-phase bindings phải pass.
+- [ ] F17: synthetic ANN/recovery suites giữ nhãn contract-only, không làm gate runtime. Bỏ selector dùng `ann_recall or decoy` như proof. Runtime scenarios dùng actual app/PG/Qdrant/Cloudflare trên package D6; corpus đủ>200 eligible, exact filtered comparator và bits4 cùng snapshot/query/config. Không tự dựng top196 hoặc hoán vị ranking để có metric đẹp.
+- [ ] Evidence loader bắt buộc subject/config/server/image identities/namespace/raw capture kind/provider usage và actual executed scenario coverage; helper-only/JUnit-only hoặc thiếu images/config/capture bị reject. Positive actual bundle pass; record skips/errors/missing riêng, không count thành runtime success.
+- [ ] Journeys đủ §15.4 R5-11: text/PDF ingest→canonical/index/answer/citation;3modes;planning/follow-up/Q6;reranker/verifier failures;archive/reprocess/revoke/isolation;partial transition/restart;Qdrant corruption/rebuild;v1→v2/rollback. Required dependency capabilities cần DEP2 evidence, không mock giả.
+- [ ] F21: runbook dùng `lexical_qdrant_url` và validation lỗi cấu hình rõ, bỏ `s.qdrant_url`. Copy từng lệnh `--help`/`--dry-run`/checkpoint/reindex/config/health từ runbook chạy trên resources được giao. Cutover/rollback thử trên disposable stack, đọc effective running config+heads+response/trace sau restart; in factory object không chứng minh đã đổi deployment. Không thực hiện cutover production hoặc deploy thật.
+- [ ] R5-N03: giữ nguyên artifact lịch sử, xuất báo cáo thay thế đúng32IDs tại report convention hiện hữu, dẫn lại RC `dd5a5add...` là historical/unsupported cho current acceptance. Cập nhật #153/PR summary liên kết report mới và correct plan SHA/ID meanings; không sửa owner approval, không tự ghi NhiBuaa đã thẩm định khi chưa có. Tách code/local/CI/runtime/quality/review/accepted và raw evidence links.
+
+```python
+assert approved_version_without_hash.rejected
+assert default_legacy_samples_as_release.rejected
+assert exact_approved_sealed_release.admitted
+assert helper_only_runtime_bundle.rejected
+assert missing_image_or_capture_identity.rejected
+assert runbook_probe_uses_declared_settings_only
+assert disposable_rollback.effective_config == pinned_rollback_config
+```
+
+**Exit:** bốn ID có admission negatives/positives, actual runtime/CLI/effective-state proof và superseding report. Báo cáo mới không ghi PASS gate trước khi R6-7 đủ mọi điều kiện.
+
+#### R6-7 — Cascade, freeze, independent review và một packet nghiệm thu
+
+**Owner:** Anti điều phối; curator/reviewer/held-out runner độc lập D7. **Tests/commands:** giữ §15.5, mở rộng tests mới vào CI selections có thẩm quyền và dùng existing runtime/evaluation runners. Không chạy nguyên script Temp chưa kiểm side effects.
+
+- [ ] Tại từng owner chạy checkout/import guard §12.3; local Python3.13 trước đây không thay Python3.12 CI. Default collect toàn CI test roots, chạy đầy đủ partitions bắt buộc trên đúng subjects; không importlib workaround/skips mandatory để xanh. Python: Ruff format/check/lint theo repository. Nếu docs/shared tooling thuộc selection thì format/check tương ứng; không format ngoài ownership.
+- [ ] Push/dispatch CI từng PR sau cascade, lưu branch/head/event/run và đọc `ci-subject.json` checkout SHA. Current success S3/S8 và failure S4–S7 chỉ baseline; final cần fresh CI của cả sáu HEAD. Run workflow từ nguồn được CI runbook quy định, pin full candidate `subject_sha` khi workflow có input ấy; workflow SHA/run ID không thay subject SHA.
+- [ ] DEP1 trước freeze. Kiểm không sửa frozen plans/gold/S2 hoặc bỏ fixtures/assertions bắt lỗi; source labels mới phải độc lập. Two-phase freeze theo §14.6A: source facts trước candidate output; mapping/chunk judgments của exact subjects trước final scoring. Held-out mới≥12PDF/60questions gồm≥8follow-up, không dùng probes đã lộ để claim blind.
+- [ ] Independent runner chạy toàn manifest và matrices baseline/candidate/quantization/scoring theo §14.6A. Giữ nguyên ngưỡng/mẫu số/strata/resource/p95 formula, factual/citation precision100%, mandatory Q6 positives và zero false-absence. Không tự copy số aggregate từ report cũ hoặc hạ chuẩn khi baseline yếu.
+- [ ] Independent reviewer đọc connected code/callers + raw captures,32-ID matrix và G3–G8. Có lỗi thì trả owner→sửa→cascade→CI→freeze lại subjects bị ảnh hưởng→confirmation độc lập. Dữ liệu held-out đã lộ thành development theo protocol; không giới hạn số RC/vòng sửa, tránh replay inputs/config không đổi vô ích.
+- [ ] DEP2 đủ required capability evidence trước G8. Giao packet §16.4 với blockers chính xác nếu còn; tiếp tục phần không phụ thuộc. Không đổi pending thành conditional acceptance. Owner acceptance và DEP3/merge/deploy là bước sau, chưa thực hiện trong nhiệm vụ này.
+
+### 16.4 Điều kiện kết thúc và gói trả kết quả
+
+| Gate | R6 owner tasks | Bằng chứng phải có ngoài code/local |
+|---|---|---|
+| G3 | 1 | Native/scan/mixed fidelity, canonical PG reload và true hard-limit/cleanup Windows+Linux |
+| G4 | 2 | Dynamic producers/full-membership CAS, actual normalized vector receipt, effective collection/query/IDF/ANN |
+| G5 | 3 | PG immutable statistics v2, fresh workers/numerical full corpus và v1 upgrade/rollback |
+| G6 | 4 +7 | Default collection/CI, real provider lifecycle/fallback/quality/usage; G4/G5 đủ |
+| G7 | 5 +7 | Full request fences, canonical Q6, all-statement support, concise positives/follow-up và held-out thresholds |
+| G8 | 6 +7 | Sealed release admission, actual stack/lifecycle/rebuild/rollback,32dispositions, superseding report, required DEP2 evidence và toàn upstream gates |
+
+**Mỗi row32IDs:** original requirement/owner → production entrypoint → regression node/scenario → exact HEAD/base/config/schema → command/exit/count/skips → CI checkout/run → raw runtime/quality artifact/hash khi bắt buộc → reviewer disposition/limits. Một ID có thể code/local đạt nhưng gate vẫn pending; không ghi PASS trọn hàng khi phần bắt buộc thiếu.
+
+**Packet cuối một lần:** approved R5 + R6 revision/diff → six HEAD/base và integrated RC →32-ID/G3–G8 matrices →commands/CI/raw captures →source/gold/scorer/criteria/role/freeze bindings →Cloudflare actual account/route/usage/$0 evidence →dependency owners/applicability/ACKs →effective target/migration/backfill/health/observation/rollback proposal. Chỉ secrets được che; IDs/hashes/counts/timestamps/failed observations cần cho audit phải giữ.
+
+Đạt đủ packet là **đủ bằng chứng trình nghiệm thu**, không phải owner accepted, merged, deployed hoặc #153 Done. PR #215 đã merge. Thứ tự còn lại #216→#217→#218→#219→#220→#221, sau owner ra lệnh và required CI đúng merge subjects; conflicts/base/identity đổi phải revalidate phần chịu ảnh hưởng. Không triển khai chỉ để hoàn tất checklist này.
+
+### 16.5 Prompt giao Anti và tự kiểm checklist
+
+Prompt ngắn (gói bàn giao kèm full commit R6 thực tế):
+
+> Tiếp tục #153 theo R6 §16 trong `docs/plans/2026-10-22-retrieval-v3-review-remediation.md`, worktree `C:/Developer/Projects/knora-agent-worktree/docs-retrieval-v3-acceptance-remediation`; đọc exact revision bàn giao cùng R5 đã duyệt ở #153 comment6381910609 và D1–D8. Dùng executing-plans, xử lý R6-0→7 tại đúng owner S3–S8, cascade #216→#221; đóng15ID còn mở, kiểm17regression và đủ32dispositions/G3–G8. Tự sửa/test/CI/runtime/review tới đủ bằng chứng nghiệm thu; không làm lại S2, sửa gold để pass, chạy local AI hoặc phát sinh phí. Không trần tổng AI/RC/vòng sửa, tránh lãng phí; quyền/resources/dependencies theo plan, chỉ gom hỏi khi thật sự vượt phạm vi đã duyệt. Ghi evidence đúngHEAD ở #153/PR, giao một packet cuối; chưa merge/deploy/đóng Issue.
+
+**Tự kiểm R6:**15ID chưa đạt đều có owner, production counterexample, cách sửa trong hợp đồng R5, negative/positive và exit;17regression giữ đúng nghĩa. Các thiếu sót cũ không bị rút thành chỉ sửa assertion/RSS check/JSON digest/regex/JUnit. Hai OS, full-member PG, real Qdrant/CF, held-out roles/dependencies và six-PR CI có gate riêng. Không thêm giới hạn tổng lượt hoặc authority/evaluation store mới; không tuyên bố các tasks đã thực hiện khi mới soạn checklist.
