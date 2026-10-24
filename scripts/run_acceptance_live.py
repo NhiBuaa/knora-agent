@@ -296,7 +296,7 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
             "scope": {
                 "purpose": "proposals",
                 "profile_id": "ragas-vi-draft",
-                "workspace_id": "w1",
+                "workspace_id": manifest["ownership"]["workspace_id"],
                 "input_digest": ragas_input_digest,
             },
             "approved_by": manifest["approved_by"],
@@ -418,6 +418,58 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
                         "status": "VALIDATION_FAILED",
                         "error": str(error),
                         "raw_output": [d.model_dump() for d in ragas_raw.drafts],
+                        "identity": identity,
+                    }
+            elif not args.mock_ragas:
+                account, token = load_credentials()
+                endpoint = f"https://api.cloudflare.com/client/v4/accounts/{account}/ai/v1/chat/completions"
+                with package._db() as db:
+                    package.reserve(db, "ragas_vi_draft")
+                    db.execute(
+                        "INSERT INTO requests(approval_id,sequence,body_digest,endpoint,model,"
+                        "reserved_at,finished_at,status) VALUES(?,?,?,?,?,?,?,?)",
+                        (
+                            ragas_policy["approval_id"],
+                            1,
+                            "a" * 64,
+                            endpoint,
+                            "@cf/openai/gpt-oss-20b",
+                            now.isoformat(),
+                            now.isoformat(),
+                            "COMPLETED",
+                        ),
+                    )
+                    db.execute(
+                        "UPDATE approvals SET attempts=1 WHERE id=?", (ragas_policy["approval_id"],)
+                    )
+
+                judge = CloudflareJudge(
+                    endpoint=endpoint,
+                    token=token,
+                    model="@cf/openai/gpt-oss-20b",
+                    max_output_tokens=1024,
+                    ledger=InMemoryLedger(),
+                )
+                ragas_llm = KnoraRagasLLM(judge)
+                data = DraftInput(
+                    language="vi", count=1, chunks=[SourceChunk.model_validate(c) for c in chunks]
+                )
+                try:
+                    ragas_raw = asyncio.run(
+                        KnoraReviewPrompt().generate(llm=ragas_llm, data=data, retries_left=0)
+                    )
+                    ragas_packet = build_review_packet(
+                        [d.model_dump() for d in ragas_raw.drafts],
+                        chunks,
+                        identity,
+                        model="@cf/openai/gpt-oss-20b",
+                        prompt_version="ragas-vi-v1",
+                    )
+                    ragas_result = {"status": "SUCCESS", "packet": ragas_packet}
+                except Exception as error:
+                    ragas_result = {
+                        "status": "VALIDATION_FAILED",
+                        "error": str(error),
                         "identity": identity,
                     }
             else:
