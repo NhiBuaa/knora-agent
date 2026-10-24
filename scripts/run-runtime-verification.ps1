@@ -154,7 +154,10 @@ function Invoke-Evidence {
     return $evidence
 }
 
+& (Join-Path $PSScriptRoot 'prepare-figma-e2e.ps1') -CheckFrontendOnly | Out-Null
 try {
+    $origPref = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
     # Stream diagnostics and retain rollback ownership even if preparation throws.
     & (Join-Path $PSScriptRoot 'prepare-figma-e2e.ps1') 2>&1 | ForEach-Object {
         if ([string]$_ -like 'KEYCLOAK_ROLLBACK_SNAPSHOT=*') {
@@ -162,6 +165,7 @@ try {
         }
         $_ | Out-Host
     }
+    $ErrorActionPreference = $origPref
     if ($LASTEXITCODE -ne 0) { throw 'RUNTIME_APPLICATION_PREPARE_FAILED' }
     foreach ($service in 'figma-postgres', 'figma-keycloak', 'figma-api') {
         Add-ImageIdentity $service

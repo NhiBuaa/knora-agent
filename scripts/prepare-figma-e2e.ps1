@@ -1,5 +1,6 @@
 param(
     [switch]$CheckConfigurationOnly,
+    [switch]$CheckFrontendOnly,
     [ValidatePattern('(?-i)^knora-figma-e2e(?:-[a-z0-9][a-z0-9-]{0,39})?$')]
     [string]$Project = 'knora-figma-e2e',
     [scriptblock]$Run
@@ -7,6 +8,208 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $repositoryRoot = Split-Path $PSScriptRoot -Parent
+$frontendDir = Join-Path $repositoryRoot 'frontend'
+
+if ($CheckFrontendOnly -and $CheckConfigurationOnly) {
+    throw 'FIGMA_CHECK_MODE_CONFLICT: -CheckFrontendOnly and -CheckConfigurationOnly are mutually exclusive'
+}
+if ($CheckFrontendOnly -and $Run) {
+    throw 'FIGMA_CHECK_MODE_CONFLICT: -CheckFrontendOnly cannot be combined with -Run'
+}
+
+function Test-FrontendDependencies {
+    param([string]$Dir)
+    if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
+        throw 'FIGMA_FRONTEND_UNAVAILABLE: node executable not found'
+    }
+    $nodeScript = @'
+const fs = require('fs');
+const path = require('path');
+const { createRequire } = require('module');
+
+function validateFrontend(frontendDir) {
+  let canonicalFrontend;
+  try {
+    canonicalFrontend = fs.realpathSync(frontendDir);
+  } catch (err) {
+    return { ok: false, code: 'FIGMA_FRONTEND_UNAVAILABLE', msg: 'Cannot resolve frontend directory' };
+  }
+
+  const pkgJsonPath = path.join(canonicalFrontend, 'package.json');
+  const lockJsonPath = path.join(canonicalFrontend, 'package-lock.json');
+  const nmPath = path.join(canonicalFrontend, 'node_modules');
+
+  if (!fs.existsSync(pkgJsonPath) || !fs.existsSync(lockJsonPath)) {
+    return { ok: false, code: 'FIGMA_FRONTEND_UNAVAILABLE', msg: 'package.json or package-lock.json missing' };
+  }
+  if (!fs.existsSync(nmPath)) {
+    return { ok: false, code: 'FIGMA_FRONTEND_UNAVAILABLE', msg: 'node_modules missing' };
+  }
+
+  let pkgJson, lockJson;
+  try {
+    pkgJson = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8'));
+    lockJson = JSON.parse(fs.readFileSync(lockJsonPath, 'utf8'));
+  } catch (err) {
+    return { ok: false, code: 'FIGMA_FRONTEND_METADATA_INVALID', msg: err.message };
+  }
+
+  function isPhysicallyContained(testPath) {
+    let canonicalTest;
+    try {
+      canonicalTest = fs.realpathSync(testPath);
+    } catch {
+      return false;
+    }
+    const normFrontend = path.normalize(canonicalFrontend).toLowerCase();
+    const normTest = path.normalize(canonicalTest).toLowerCase();
+    return normTest === normFrontend || normTest.startsWith(normFrontend + path.sep.toLowerCase());
+  }
+
+  if (!isPhysicallyContained(nmPath)) {
+    return { ok: false, code: 'FIGMA_FRONTEND_OWNERSHIP_REJECTED', msg: 'node_modules is outside frontend' };
+  }
+
+  const req = createRequire(pkgJsonPath);
+
+  let pwTestPkgPath;
+  try {
+    pwTestPkgPath = req.resolve('@playwright/test/package.json');
+  } catch (err) {
+    return { ok: false, code: 'FIGMA_FRONTEND_UNAVAILABLE', msg: '@playwright/test not resolved' };
+  }
+
+  const pwTestDir = path.dirname(pwTestPkgPath);
+  let pwTestPkg;
+  try {
+    pwTestPkg = JSON.parse(fs.readFileSync(pwTestPkgPath, 'utf8'));
+  } catch (err) {
+    return { ok: false, code: 'FIGMA_FRONTEND_METADATA_INVALID', msg: 'Cannot parse @playwright/test package.json' };
+  }
+
+  let pwTestCliPath;
+  try {
+    pwTestCliPath = req.resolve('@playwright/test/cli');
+  } catch (err) {
+    const binRel = typeof pwTestPkg.bin === 'string' ? pwTestPkg.bin : (pwTestPkg.bin && pwTestPkg.bin.playwright ? pwTestPkg.bin.playwright : 'cli.js');
+    pwTestCliPath = path.resolve(pwTestDir, binRel);
+  }
+
+  if (!fs.existsSync(pwTestCliPath)) {
+    return { ok: false, code: 'FIGMA_FRONTEND_UNAVAILABLE', msg: '@playwright/test CLI missing' };
+  }
+
+  if (!isPhysicallyContained(pwTestDir) || !isPhysicallyContained(pwTestCliPath)) {
+    return { ok: false, code: 'FIGMA_FRONTEND_OWNERSHIP_REJECTED', msg: '@playwright/test is outside frontend' };
+  }
+
+  const normPwTestDir = path.normalize(fs.realpathSync(pwTestDir)).toLowerCase();
+  const normPwTestCli = path.normalize(fs.realpathSync(pwTestCliPath)).toLowerCase();
+  if (!normPwTestCli.startsWith(normPwTestDir + path.sep.toLowerCase())) {
+    return { ok: false, code: 'FIGMA_FRONTEND_OWNERSHIP_REJECTED', msg: 'CLI does not belong to @playwright/test' };
+  }
+
+  const pwTestReq = createRequire(pwTestPkgPath);
+  let pwPkgPath;
+  try {
+    pwPkgPath = pwTestReq.resolve('playwright/package.json');
+  } catch (err) {
+    return { ok: false, code: 'FIGMA_FRONTEND_UNAVAILABLE', msg: 'playwright not resolved from @playwright/test' };
+  }
+  const pwDir = path.dirname(pwPkgPath);
+  if (!isPhysicallyContained(pwDir)) {
+    return { ok: false, code: 'FIGMA_FRONTEND_OWNERSHIP_REJECTED', msg: 'playwright is outside frontend' };
+  }
+
+  const pwReq = createRequire(pwPkgPath);
+  let pwCorePkgPath;
+  try {
+    pwCorePkgPath = pwReq.resolve('playwright-core/package.json');
+  } catch (err) {
+    return { ok: false, code: 'FIGMA_FRONTEND_UNAVAILABLE', msg: 'playwright-core not resolved from playwright' };
+  }
+  const pwCoreDir = path.dirname(pwCorePkgPath);
+  if (!isPhysicallyContained(pwCoreDir)) {
+    return { ok: false, code: 'FIGMA_FRONTEND_OWNERSHIP_REJECTED', msg: 'playwright-core is outside frontend' };
+  }
+
+  const lockPackages = lockJson.packages || {};
+  const packagesToCheck = [
+    { name: '@playwright/test', dir: pwTestDir, pkgPath: pwTestPkgPath },
+    { name: 'playwright', dir: pwDir, pkgPath: pwPkgPath },
+    { name: 'playwright-core', dir: pwCoreDir, pkgPath: pwCorePkgPath }
+  ];
+
+  for (const item of packagesToCheck) {
+    let installedPkg;
+    try {
+      installedPkg = JSON.parse(fs.readFileSync(item.pkgPath, 'utf8'));
+    } catch (err) {
+      return { ok: false, code: 'FIGMA_FRONTEND_METADATA_INVALID', msg: 'Cannot parse package.json: ' + item.name };
+    }
+
+    const relKey = path.relative(canonicalFrontend, item.dir).replace(/\\/g, '/');
+    const lockNode = lockPackages[relKey];
+    if (!lockNode) {
+      return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'No lock node found for ' + relKey };
+    }
+
+    if (installedPkg.version !== lockNode.version) {
+      return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'Version mismatch for ' + item.name + ': installed ' + installedPkg.version + ' != lock ' + lockNode.version };
+    }
+
+    if (lockNode.dependencies) {
+      const itemReq = createRequire(item.pkgPath);
+      for (const [depName, expectedVersionRange] of Object.entries(lockNode.dependencies)) {
+        let depPkgPath;
+        try {
+          depPkgPath = itemReq.resolve(depName + '/package.json');
+        } catch (err) {
+          return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'Cannot resolve dependency ' + depName + ' from ' + item.name };
+        }
+        let depInstalledPkg;
+        try {
+          depInstalledPkg = JSON.parse(fs.readFileSync(depPkgPath, 'utf8'));
+        } catch {
+          return { ok: false, code: 'FIGMA_FRONTEND_METADATA_INVALID', msg: 'Cannot read ' + depName + ' package.json' };
+        }
+        const depRelKey = path.relative(canonicalFrontend, path.dirname(depPkgPath)).replace(/\\/g, '/');
+        const depLockNode = lockPackages[depRelKey];
+        if (!depLockNode || depInstalledPkg.version !== depLockNode.version) {
+          return { ok: false, code: 'FIGMA_FRONTEND_LOCK_MISMATCH', msg: 'Resolved dependency ' + depName + ' version does not match lock node' };
+        }
+      }
+    }
+  }
+
+  return { ok: true, code: 'FIGMA_FRONTEND_OK', msg: 'All dependencies verified' };
+}
+
+const targetDir = process.argv[2] || process.argv[1];
+const res = validateFrontend(targetDir);
+console.log(JSON.stringify(res));
+process.exit(res.ok ? 0 : 1);
+'@
+    $resJson = $nodeScript | node - $Dir
+    $parsed = $null
+    try { $parsed = $resJson | ConvertFrom-Json } catch { }
+    if ($LASTEXITCODE -ne 0 -or -not $parsed) {
+        if ($parsed -and $parsed.code) {
+            throw "$($parsed.code): $($parsed.msg)"
+        }
+        throw "FIGMA_FRONTEND_METADATA_INVALID: node validator returned exit code $LASTEXITCODE"
+    }
+    if (-not $parsed.ok) {
+        throw "$($parsed.code): $($parsed.msg)"
+    }
+    return $parsed.code
+}
+
+if ($CheckFrontendOnly) {
+    $null = Test-FrontendDependencies $frontendDir
+    Write-Output 'FIGMA_FRONTEND_OK'
+    return
+}
 $issuer = 'http://127.0.0.1:8380/realms/knora-dev'
 # Reject ambient selectors before Docker, database, realm or user operations.
 foreach ($item in Get-ChildItem Env:) {
@@ -50,6 +253,7 @@ if ($CheckConfigurationOnly) { Write-Output 'FIGMA_CONFIG_OK'; return }
 if ($Project -ne 'knora-figma-e2e' -and -not $Run) { throw 'FIGMA_DISPOSABLE_RUN_REQUIRED: supply -Run for verification and owned cleanup' }
 if ($Project -eq 'knora-figma-e2e' -and $Run) { throw 'FIGMA_DISPOSABLE_PROJECT_REQUIRED' }
 
+$null = Test-FrontendDependencies $frontendDir
 $reservation = $null
 $reservationPath = Join-Path ([IO.Path]::GetTempPath()) "knora-figma-reservation-$Project.lock"
 $startupAttempted = $false
