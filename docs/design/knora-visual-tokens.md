@@ -68,3 +68,38 @@ to a shared presentation style without losing current readability.
 
 Both upstream WOFF2 character maps include sampled Vietnamese vowels and tone marks. Fonts are
 loaded through `next/font/local` and do not require build-time network access.
+
+## Motion and interaction tokens
+
+Motion and duration tokens are defined in `frontend/styles/controls.css` under `:root` and used across interactive elements:
+
+| CSS token | Value | Use |
+| --- | --- | --- |
+| `--duration-control` | 120ms | Button, citation, and interactive control hover/active transitions |
+| `--duration-menu` | 140ms | Dropdown menu enter transition |
+| `--duration-dialog` | 180ms | Modal dialog enter transition |
+| `--duration-sheet` | 200ms | Mobile drawer and evidence sheet enter transition |
+| `--ease-standard` | `cubic-bezier(0, 0, 0.2, 1)` | Standard deceleration easing curve for enter motion |
+
+### Motion principles
+
+- **Instant exit (0ms)**: Overlays, menus, and sheets dismiss immediately without an exit animation, preserving responsiveness and preventing stale focus or multi-click race conditions.
+- **Stable reading and polling**: Polling, streaming, selection changes, and conversation history reloads never replay enter transitions.
+- **Compositor-friendly**: Enter motion is strictly limited to `opacity` and subtle `translateY`/`translateX` (4px–6px), avoiding layout shifts or geometry reflows.
+
+### Reduced motion policy
+
+When `prefers-reduced-motion: reduce` is detected, all enter animations and transitions are disabled across interactive components (`.kn-button`, `.kn-dialog__content`, `.kn-menu__panel`, `.kn-composer__submit`, `.kn-turn-action`, etc.). Elements display immediately in their final state, preserving full accessibility and keyboard navigation.
+
+## Touch target sizing
+
+In alignment with WCAG 2.5.8 and mobile ergonomics, independent interactive controls provide a minimum touch target size of 44×44 CSSpx under coarse pointers and mobile viewports (`@media (pointer: coarse), (max-width: 768px)`):
+
+- **Dialog close buttons** (`.kn-dialog__close`): sized to 44×44px with `flex-shrink: 0` to prevent compression in narrow or flex headers.
+- **Menu triggers and items** (`.kn-menu__trigger`, `.kn-menu__panel :where(button, a[role="menuitem"])`): provide a minimum 44×44px hit area.
+- **Composer and turn actions** (`.kn-composer__submit`, `.kn-turn-action`): provide a minimum 44×44px hit area.
+- **Workspace selection**: touch-friendly 44px minimum target height.
+
+### Operator surface geometry contract exception
+
+The Operator technical interface (`.operator-surface`, `[data-operator="true"]`) is explicitly exempt from the 44px mobile touch target expansion. It maintains a compact 26px target height to preserve high information density and strict technical alignment on dense operational displays.

@@ -258,6 +258,40 @@ def test_launcher_rejects_malformed_dotenv_without_echoing_content(tmp_path: Pat
     assert secret_marker not in result.stderr
 
 
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+def test_launcher_rejects_missing_env_file(tmp_path: Path) -> None:
+    missing = tmp_path / "missing.env"
+    result = _launch("http://127.0.0.1:9", env_file=missing)
+    assert result.returncode == 2
+    assert "ENV_FILE_UNAVAILABLE" in result.stderr
+    assert "PRECHECK_OK" not in result.stdout
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+def test_launcher_loads_dotenv_from_spaced_path_outside_worktree_without_mutating_source(
+    tmp_path: Path,
+) -> None:
+    spaced_dir = tmp_path / "shared env directory with spaces"
+    spaced_dir.mkdir()
+    env_file = spaced_dir / ".env"
+    with _ollama_server() as url:
+        content_env = (
+            f"KNORA_OLLAMA_BASE_URL={url}\n"
+            "KNORA_DATABASE_URL=postgresql+psycopg://knora:knora@localhost:5432/demo?application_name=a=b=c\n"
+            "KNORA_OBJECT_STORE_S3_ENDPOINT=http://127.0.0.1:9000\n"
+        )
+        env_file.write_text(content_env, encoding="utf-8")
+        initial_bytes = env_file.read_bytes()
+        initial_stat = env_file.stat()
+
+        result = _launch(None, existing_storage=True, env_file=env_file)
+
+    assert result.returncode == 0, result.stderr
+    assert "PRECHECK_OK" in result.stdout
+    assert env_file.read_bytes() == initial_bytes
+    assert env_file.stat().st_mtime_ns == initial_stat.st_mtime_ns
+
+
 def test_launcher_starts_durable_conversation_worker() -> None:
     launcher = SCRIPT.read_text(encoding="utf-8")
     assert "scripts/run_conversation_worker.py" in launcher

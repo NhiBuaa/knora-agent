@@ -366,7 +366,7 @@ function ConversationPanelLayout({
           <>
             <button
               type="button"
-              className="m-0 mb-3 border-0 bg-transparent p-0 text-xs text-text-muted"
+              className="kn-evidence-close m-0 mb-3 border-0 bg-transparent p-0 text-xs text-text-muted max-[769px]:min-h-[44px] pointer-coarse:min-h-[44px]"
               onClick={closeEvidence}
             >
               Close evidence
