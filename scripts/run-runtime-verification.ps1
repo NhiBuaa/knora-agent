@@ -69,6 +69,60 @@ function Add-ImageIdentity {
     $images[$Service] = $identity
 }
 
+function Test-PackageResources {
+    $pyproject = Get-Content -Raw (Join-Path $repositoryRoot 'backend/pyproject.toml')
+    $inSection = $false
+    $targets = @{}
+    foreach ($line in ($pyproject -split "`n")) {
+        $trimmed = $line.Trim()
+        if ($trimmed -eq '[tool.hatch.build.targets.wheel.force-include]') {
+            $inSection = $true
+            continue
+        }
+        if ($inSection -and $trimmed.StartsWith('[')) {
+            break
+        }
+        if ($inSection -and $trimmed -match '^"([^"]+)"\s*=\s*"([^"]+)"') {
+            $src = $matches[1]
+            $dst = $matches[2]
+            $relFromRoot = $src.Replace('../', '').Replace('\', '/')
+            $fullSrc = Join-Path $repositoryRoot $relFromRoot
+            if (-not (Test-Path -LiteralPath $fullSrc -PathType Leaf)) {
+                throw "FORCE_INCLUDE_SOURCE_MISSING: $relFromRoot"
+            }
+            $hash = [BitConverter]::ToString([Security.Cryptography.SHA256]::HashData([IO.File]::ReadAllBytes($fullSrc))).Replace('-', '').ToLowerInvariant()
+            $targets[$dst] = $hash
+        }
+    }
+    if ($targets.Count -eq 0) { throw 'RUNTIME_PACKAGE_RESOURCES_NONE' }
+    $targetsJson = ($targets | ConvertTo-Json -Compress).Replace('"', '\"')
+    $checkCmd = @"
+import importlib.metadata, json, pathlib, hashlib, sys
+targets = json.loads('$targetsJson')
+dist = importlib.metadata.distribution('knora-agent')
+installed = {str(f).replace('\\', '/'): f for f in dist.files}
+missing = [dst for dst in targets if dst not in installed]
+if missing:
+    sys.exit(1)
+import knora.main
+from knora.evaluation.catalog import Milestone3Catalog
+cat = Milestone3Catalog()
+entry = cat._load()
+from evals.runners.m3_claim_authority import POLICY_PROJECTION_PATH
+import evals.runners.m3_claim_authority as m3_auth
+policy_path = pathlib.Path(m3_auth.__file__).resolve().parents[2] / POLICY_PROJECTION_PATH
+json.loads(policy_path.read_text())
+for dst, expected_hash in targets.items():
+    actual_file = installed[dst]
+    actual_path = actual_file.locate()
+    actual_hash = hashlib.sha256(pathlib.Path(str(actual_path)).read_bytes()).hexdigest().lower()
+    if actual_hash != expected_hash:
+        sys.exit(1)
+print(f'RUNTIME_PACKAGE_RESOURCES_OK={len(targets)}')
+"@
+    Invoke-Checked 'docker' (@('compose') + $compose + @('exec', '-T', 'figma-api', 'python', '-c', $checkCmd))
+}
+
 function Invoke-Playwright {
     param([string]$Name, [string]$Config, [string]$Spec, [string]$Match, [string]$Mode)
     $report = Join-Path $profileDir "$Name.xml"
@@ -113,6 +167,7 @@ try {
         Add-ImageIdentity $service
     }
     if ($Profile -eq 'application') {
+        Test-PackageResources
         $reports = @{}
         $reports.identity = Invoke-Playwright 'identity' 'playwright.figma.config.ts' 'figma-identity.spec.ts' $null $null
         $reports.documents = Invoke-Playwright 'documents' 'playwright.figma.config.ts' 'figma-document-navigation.spec.ts' $null 'application'
