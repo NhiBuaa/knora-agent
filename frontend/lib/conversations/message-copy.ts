@@ -1,3 +1,6 @@
+import { fromMarkdown } from "mdast-util-from-markdown";
+import { toHast } from "mdast-util-to-hast";
+import type { Element, Root, RootContent } from "hast";
 import type { CitationResponse } from "@/generated/knora-openapi";
 import { routes } from "@/lib/navigation/routes";
 
@@ -29,20 +32,6 @@ export function validateAnswerCitations(
 
   // Reject Private Use Area characters used internally by the markdown citation plugin
   if (/[\uE000-\uF8FF]/.test(answer)) {
-    return false;
-  }
-
-  // Reject markers embedded inside Markdown link URLs, images, or raw HTML
-  if (/\[[^\]]*\]\([^)]*\[\[[^)]*\)/.test(answer)) {
-    return false;
-  }
-  if (/!\[[^\]]*\]\([^)]*\[\[[^)]*\)/.test(answer)) {
-    return false;
-  }
-  if (/<!--[^]*?\[\[[^]*?-->/.test(answer)) {
-    return false;
-  }
-  if (/<[a-zA-Z0-9_-]+[^>]*\[\[[^>]*>/.test(answer)) {
     return false;
   }
 
@@ -87,6 +76,57 @@ export function validateAnswerCitations(
     ) {
       return false;
     }
+  }
+
+  // Protect validated markers before Markdown AST parsing
+  let prefix = "\uE000";
+  while (answer.includes(prefix)) prefix += "\uE000";
+  let markerIndex = 0;
+  const markdown = answer.replace(
+    /\[\[([^]*?)\]\]/g,
+    () => `${prefix}${indexes[markerIndex++]}\uE001`,
+  );
+
+  const mdast = fromMarkdown(markdown);
+  const hast = toHast(mdast);
+  if (!hast) {
+    return false;
+  }
+
+  let renderedMarkers = 0;
+  let invalid = false;
+
+  function visit(node: unknown) {
+    if (!node || typeof node !== "object") return;
+    const n = node as { type?: string; value?: string; children?: unknown[] };
+    if (n.type === "text" || n.type === "raw") {
+      if (typeof n.value === "string") {
+        const parts = n.value.split(new RegExp(`(${prefix}[0-9]+\uE001)`, "g"));
+        for (const value of parts) {
+          if (!value.startsWith(prefix)) {
+            if (value.includes("[[")) {
+              invalid = true;
+            }
+          } else {
+            const index = Number(value.slice(prefix.length, -1));
+            if (!indexes.includes(index)) {
+              invalid = true;
+            }
+            renderedMarkers++;
+          }
+        }
+      }
+    }
+    if (Array.isArray(n.children)) {
+      for (const child of n.children) {
+        visit(child);
+      }
+    }
+  }
+
+  visit(hast);
+  if (invalid || renderedMarkers !== markers.length) {
+    return false;
   }
 
   return true;

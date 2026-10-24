@@ -48,7 +48,9 @@ services:
       timeout: 2s
       retries: 30
   api:
-    build: ./backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
     command: sh -c "alembic upgrade head && uvicorn knora.main:app --host 0.0.0.0 --port 8000"
     environment:
       KNORA_DATABASE_URL: postgresql+psycopg://knora:isolated-test-only@postgres:5432/knora

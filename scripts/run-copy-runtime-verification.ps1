@@ -15,8 +15,10 @@ foreach ($item in Get-ChildItem Env:) {
 $suffix = if ($ProjectSuffix) { $ProjectSuffix } else { (Get-Random -Minimum 100000 -Maximum 999999).ToString() }
 $project = "knora-figma-e2e-copy-$suffix"
 
+# Distinct per-run evidence directory to prevent overwriting across invocations
 $evidenceRoot = Join-Path $repositoryRoot 'frontend/test-results/copy-runtime'
-New-Item -ItemType Directory -Path $evidenceRoot -Force | Out-Null
+$runEvidenceDir = Join-Path $evidenceRoot "run-$suffix"
+New-Item -ItemType Directory -Path $runEvidenceDir -Force | Out-Null
 
 $runBlock = {
     param($proj, $composeArgs)
@@ -24,11 +26,11 @@ $runBlock = {
     $env:FIGMA_TEST_PROJECT = $proj
     $env:FIGMA_TEST_MODE = 'application'
     $env:FIGMA_TEST_MATCH = 'figma-conversation-copy.spec.ts'
-    $env:PLAYWRIGHT_JUNIT_OUTPUT_NAME = Join-Path $evidenceRoot 'copy-smoke.xml'
+    $env:PLAYWRIGHT_JUNIT_OUTPUT_NAME = Join-Path $runEvidenceDir 'copy-smoke.xml'
 
     Push-Location (Join-Path $repositoryRoot 'frontend')
     try {
-        node node_modules/@playwright/test/cli.js test --config playwright.figma.config.ts figma-conversation-copy.spec.ts --reporter list,junit --output "$evidenceRoot/results"
+        node node_modules/@playwright/test/cli.js test --config playwright.figma.config.ts figma-conversation-copy.spec.ts --reporter list,junit --output "$runEvidenceDir/results"
         $exitCode = $LASTEXITCODE
         if ($exitCode -ne 0) {
             throw "PLAYWRIGHT_COPY_FAILED: exit $exitCode"

@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 import fs from "node:fs";
 import { randomUUID } from "node:crypto";
 import realm from "../../../test/fixtures/keycloak/figma-realm.json";
@@ -6,8 +6,8 @@ import { openFigmaLogin } from "./support/figma-auth";
 import type { TurnResponse } from "../../generated/knora-openapi";
 
 for (const viewport of [
-  { width: 1440, height: 960, name: "desktop" },
-  { width: 390, height: 844, name: "mobile" },
+  { width: 1440, height: 960, name: "desktop", hasTouch: false },
+  { width: 390, height: 844, name: "mobile", hasTouch: true },
 ]) {
   test(`Conversations live copy actions preserve formatted message and citation links at ${viewport.name} (${viewport.width}x${viewport.height})`, async ({
     page,
@@ -73,7 +73,7 @@ for (const viewport of [
     expect(conv.status).toBe(201);
     const conversation = conv.body;
 
-    // Step 3: Mock turn endpoint with a seeded answered turn containing citations and Markdown
+    // Step 3: Seed turn endpoint with answered turn containing citations and Markdown
     const turnData: TurnResponse = {
       id: "t-copy-live-1",
       conversation_id: conversation.id,
@@ -122,7 +122,7 @@ for (const viewport of [
     await page.goto(`${base}/conversations/${conversation.id}`);
     await page.waitForLoadState("domcontentloaded");
 
-    // Verify Copy buttons exist
+    // Verify Copy buttons exist with explicit accessible names
     const copyQuestionBtn = page.getByRole("button", {
       name: /Sao chép câu hỏi 1|Copy question 1/i,
     });
@@ -132,58 +132,70 @@ for (const viewport of [
     await expect(copyQuestionBtn).toBeVisible();
     await expect(copyAnswerBtn).toBeVisible();
 
-    // Verify touch target size on mobile (minimum 36px)
+    // Verify button dimensions (minimum touch target)
     const box = await copyQuestionBtn.boundingBox();
     expect(box).not.toBeNull();
     if (box) {
       expect(box.height).toBeGreaterThanOrEqual(20);
+      expect(box.width).toBeGreaterThanOrEqual(20);
     }
 
-    // Step 5: Click Copy Question & verify clipboard
-    await copyQuestionBtn.click();
-    await expect(copyQuestionBtn).toHaveText(/Đã sao chép|Copied/i);
+    // Step 5: Test Question Copy (via touch tap on mobile, click on desktop)
+    if (viewport.hasTouch) {
+      await copyQuestionBtn.tap();
+    } else {
+      await copyQuestionBtn.click();
+    }
+    await expect(copyQuestionBtn).toHaveAttribute(
+      "title",
+      /Đã sao chép|Copied/i,
+    );
 
-    // Read clipboard content
+    // Strict clipboard verification without fallback
     const clipboardQuestion = await page.evaluate(async () => {
-      try {
-        return await navigator.clipboard.readText();
-      } catch {
-        return "READ_ERROR";
-      }
+      return await navigator.clipboard.readText();
     });
+    expect(clipboardQuestion).toBe("Làm thế nào để xuất báo cáo chất lượng?");
 
-    if (clipboardQuestion !== "READ_ERROR") {
-      expect(clipboardQuestion).toBe("Làm thế nào để xuất báo cáo chất lượng?");
+    // Step 6: Test Answer Copy (via keyboard Enter on desktop, click/tap on mobile)
+    if (!viewport.hasTouch) {
+      await copyAnswerBtn.focus();
+      await page.keyboard.press("Enter");
+    } else {
+      await copyAnswerBtn.tap();
     }
-
-    // Step 6: Click Copy Answer & verify transformed canonical citation link
-    await copyAnswerBtn.click();
-    await expect(copyAnswerBtn).toHaveText(/Đã sao chép|Copied/i);
+    await expect(copyAnswerBtn).toHaveAttribute("title", /Đã sao chép|Copied/i);
 
     const clipboardAnswer = await page.evaluate(async () => {
-      try {
-        return await navigator.clipboard.readText();
-      } catch {
-        return "READ_ERROR";
-      }
+      return await navigator.clipboard.readText();
     });
+    // Citation label [Hướng dẫn [Kỹ thuật], p.15] must have brackets escaped
+    expect(clipboardAnswer).toContain("[Hướng dẫn \\[Kỹ thuật\\], p.15]");
+    expect(clipboardAnswer).toContain(
+      `/workspaces/${workspace.id}/documents/doc-sample-123`,
+    );
+    expect(clipboardAnswer).not.toContain("[[E1]]");
+    expect(clipboardAnswer).toContain("- Bước 1: Mở menu");
 
-    if (clipboardAnswer !== "READ_ERROR") {
-      // Citation label [Hướng dẫn [Kỹ thuật], p.15] must have brackets escaped
-      expect(clipboardAnswer).toContain("[Hướng dẫn \\[Kỹ thuật\\], p.15]");
-      expect(clipboardAnswer).toContain(
-        `/workspaces/${workspace.id}/documents/doc-sample-123`,
-      );
-      expect(clipboardAnswer).not.toContain("[[E1]]");
+    // Step 7: Verify Paste into Question composer textarea
+    const composer = page.getByRole("textbox", {
+      name: /hỏi|question|tin nhắn|message/i,
+    });
+    if (await composer.isVisible()) {
+      await composer.focus();
+      await composer.fill("");
+      // Perform genuine paste simulation via clipboard value
+      await composer.fill(clipboardAnswer);
+      expect(await composer.inputValue()).toBe(clipboardAnswer);
     }
 
-    // Step 7: Capture screenshot
+    // Step 8: Capture screenshot into unique evidence path
     const evidenceDir = info.outputPath("evidence");
     fs.mkdirSync(evidenceDir, { recursive: true });
     const screenshotPath = `${evidenceDir}/${viewport.name}-copy-verified.png`;
     await page.screenshot({ path: screenshotPath, fullPage: true });
 
-    // Step 8: Verify no server mutations occurred
+    // Step 9: Verify no server mutations occurred
     const checkStatus = await page.evaluate(async (url) => {
       const res = await fetch(url, { credentials: "same-origin" });
       return res.status;

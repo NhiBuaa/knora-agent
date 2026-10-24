@@ -374,10 +374,53 @@ describe("Conversation message copy functionality", () => {
     vi.useRealTimers();
   });
 
+  it("keeps an in-flight retry locked when the previous success timer expires for answer copy", async () => {
+    vi.useFakeTimers();
+    const writeText = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockImplementationOnce(() => new Promise(() => {}));
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(
+      <TurnCard
+        turn={baseAnsweredTurn}
+        workspaceId="w-1"
+        selection={null}
+        onSelect={() => {}}
+        onRetry={() => {}}
+      />,
+    );
+    const button = screen.getByRole("button", {
+      name: /Sao chép câu trả lời 1|Copy answer 1/i,
+    });
+
+    // First click: succeeds immediately
+    await act(async () => {
+      fireEvent.click(button);
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    // Second click at 1s: starts in-flight operation
+    fireEvent.click(button);
+    expect(button).toBeDisabled();
+
+    // Advance to 2s: previous success timer expires, but button must remain locked
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(button).toBeDisabled();
+    vi.useRealTimers();
+  });
+
   it.each([
     "&#91;&#91;E99&#93;&#93; [[E1]]",
     "&#xE000;99&#xE001; [[E1]]",
     "[text](https://example.com/[[E1]])",
+    "[text][ref]\n\n[ref]: https://example.com/[[E1]]",
+    "![diagram [[E1]]](https://example.com/image.png)",
   ])(
     "does not offer Copy button when answer is rejected by renderer (%s)",
     (invalidAnswer) => {
