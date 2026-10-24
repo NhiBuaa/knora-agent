@@ -138,18 +138,27 @@ this test acts only on its fresh synthetic data, and cleanup removes only its st
 ### Sub-features
 
 Conversation hub/history, new draft, create on question submission, archive/restore,
-durable queued Turns, history reconciliation, answer/refusal rendering and citation
+durable queued Turns, history reconciliation, answer/refusal rendering, per-message
+question and answer copy with canonical citation Markdown links, and citation
 inspection. Routes: `frontend/app/workspaces/[workspaceId]/conversations/{page.tsx,
 [conversationId]/page.tsx}`; controls: `frontend/components/conversations/
-{ConversationPanels,ConversationView}.tsx`.
+{ConversationPanels,ConversationView,TurnCard}.tsx`.
 
 ### How to get to it (user POV)
 
 Open `/workspaces/<id>/conversations` or select a retained Conversation. Button
 `New Conversation` opens the empty hub; field `Question` and button `Ask` submit.
-An archived Conversation shows `Archived conversation · Read-only`, no composer, and
-`Restore conversation` only when its Workspace is active. Answer citations open the
-`Evidence Inspector` complementary panel.
+Each user question provides a dedicated Copy button copying verbatim question text.
+Each completed authoritative answer provides a dedicated Copy button converting
+validated citation markers `[[E#]]` into markdown links with canonical application
+document routes; completed refusal notices copy their displayed refusal text.
+The Copy control renders accessible inline SVG icons (`CopyIcon`, `CheckIcon`,
+`AlertIcon`) with hidden screen-reader labels (`sr-only`), and supports pointer click,
+touch tap, and keyboard activation (`Space` and `Enter`).
+Copy buttons remain functional in archived read-only conversations without
+triggering mutations. An archived Conversation shows `Archived conversation · Read-only`,
+no composer, and `Restore conversation` only when its Workspace is active.
+Answer citations open the `Evidence Inspector` complementary panel.
 
 ### Driving it with Playwright
 
@@ -159,7 +168,10 @@ the archived Conversation stays archived in an authoritative GET. It does **not*
 a question or complete a Turn. The broader lifecycle test in `figma-ui-interactions.spec.ts`
 checks admission/lost-response recovery; controller cases check terminal states.
 `figma-conversation-navigation.spec.ts` includes recovery/expiry/history journeys, some
-requiring controller-produced artifacts. Read each precondition before selecting it.
+requiring controller-produced artifacts. Dedicated clipboard verification in
+`figma-conversation-copy.spec.ts` exercises question and answer copy against real
+browser clipboard content, verifies touch tap and keyboard activation, and exercises
+controlled clipboard rejection. Read each precondition before selecting it.
 
 ### Gotchas
 
