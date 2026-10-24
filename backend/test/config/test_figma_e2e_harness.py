@@ -21,7 +21,14 @@ POWERSHELL = shutil.which("pwsh") or shutil.which("powershell")
 def create_synthetic_frontend(base_dir: Path, **overrides) -> Path:
     fe = base_dir / "frontend"
     fe.mkdir(parents=True, exist_ok=True)
-    pkg = overrides.get("pkg_json", {"name": "frontend", "version": "0.0.0"})
+    pkg = overrides.get(
+        "pkg_json",
+        {
+            "name": "frontend",
+            "version": "0.0.0",
+            "devDependencies": {"@playwright/test": "^1.63.0"},
+        },
+    )
     if pkg is not None:
         (fe / "package.json").write_text(json.dumps(pkg) if isinstance(pkg, dict) else pkg)
 
@@ -31,7 +38,8 @@ def create_synthetic_frontend(base_dir: Path, **overrides) -> Path:
         "pw_test_pkg",
         {
             "name": "@playwright/test",
-            "version": "1.48.0",
+            "version": "1.63.0",
+            "dependencies": {"playwright": "1.63.0"},
             "bin": {"playwright": "cli.js"},
             "exports": {"./cli": "./cli.js", "./package.json": "./package.json"},
         },
@@ -51,7 +59,8 @@ def create_synthetic_frontend(base_dir: Path, **overrides) -> Path:
         "pw_pkg",
         {
             "name": "playwright",
-            "version": "1.48.0",
+            "version": "1.63.0",
+            "dependencies": {"playwright-core": "1.63.0"},
             "exports": {"./package.json": "./package.json"},
         },
     )
@@ -64,7 +73,7 @@ def create_synthetic_frontend(base_dir: Path, **overrides) -> Path:
         "pwc_pkg",
         {
             "name": "playwright-core",
-            "version": "1.48.0",
+            "version": "1.63.0",
             "exports": {"./package.json": "./package.json"},
         },
     )
@@ -80,10 +89,22 @@ def create_synthetic_frontend(base_dir: Path, **overrides) -> Path:
             "version": "0.0.0",
             "lockfileVersion": 3,
             "packages": {
-                "": {"name": "frontend", "version": "0.0.0"},
-                "node_modules/@playwright/test": {"version": "1.48.0"},
-                "node_modules/playwright": {"version": "1.48.0"},
-                "node_modules/playwright-core": {"version": "1.48.0"},
+                "": {
+                    "name": "frontend",
+                    "version": "0.0.0",
+                    "devDependencies": {"@playwright/test": "^1.63.0"},
+                },
+                "node_modules/@playwright/test": {
+                    "version": "1.63.0",
+                    "dependencies": {"playwright": "1.63.0"},
+                },
+                "node_modules/playwright": {
+                    "version": "1.63.0",
+                    "dependencies": {"playwright-core": "1.63.0"},
+                },
+                "node_modules/playwright-core": {
+                    "version": "1.63.0",
+                },
             },
         },
     )
@@ -663,8 +684,9 @@ def test_check_frontend_only_valid(tmp_path: Path) -> None:
         (
             {
                 "pw_test_pkg": {
-                    "name": "@playwright/test",
-                    "version": "1.47.0",
+                    "name": "wrong-playwright-test",
+                    "version": "1.63.0",
+                    "dependencies": {"playwright": "1.63.0"},
                     "bin": {"playwright": "cli.js"},
                     "exports": {"./cli": "./cli.js", "./package.json": "./package.json"},
                 }
@@ -673,34 +695,56 @@ def test_check_frontend_only_valid(tmp_path: Path) -> None:
         ),
         (
             {
-                "lock_json": {
-                    "name": "frontend",
-                    "version": "0.0.0",
-                    "lockfileVersion": 3,
-                    "packages": {
-                        "": {"name": "frontend", "version": "0.0.0"},
-                        "node_modules/@playwright/test": {
-                            "version": "1.48.0",
-                            "dependencies": {"some-subdep": "^1.0.0"},
-                        },
-                        "node_modules/some-subdep": {"version": "1.0.0"},
-                        "node_modules/playwright": {"version": "1.48.0"},
-                        "node_modules/playwright-core": {"version": "1.48.0"},
-                    },
+                "pw_test_pkg": {
+                    "name": "@playwright/test",
+                    "version": "1.62.0",
+                    "dependencies": {"playwright": "1.63.0"},
+                    "bin": {"playwright": "cli.js"},
+                    "exports": {"./cli": "./cli.js", "./package.json": "./package.json"},
                 }
             },
             "FIGMA_FRONTEND_LOCK_MISMATCH",
+        ),
+        (
+            {
+                "pw_test_pkg": {
+                    "name": "@playwright/test",
+                    "version": "1.63.0",
+                    "dependencies": {"playwright": "1.62.0"},
+                    "bin": {"playwright": "cli.js"},
+                    "exports": {"./cli": "./cli.js", "./package.json": "./package.json"},
+                }
+            },
+            "FIGMA_FRONTEND_LOCK_MISMATCH",
+        ),
+        (
+            {
+                "pkg_json": {
+                    "name": "frontend",
+                    "version": "0.0.0",
+                    "devDependencies": {"@playwright/test": "^1.64.0"},
+                }
+            },
+            "FIGMA_FRONTEND_LOCK_MISMATCH",
+        ),
+        (
+            {
+                "pw_test_pkg": {
+                    "name": "@playwright/test",
+                    "version": "1.63.0",
+                    "dependencies": {},
+                    "bin": {"playwright": "cli.js"},
+                    "exports": {"./cli": "./cli.js", "./package.json": "./package.json"},
+                }
+            },
+            "FIGMA_FRONTEND_METADATA_INVALID",
         ),
     ],
 )
 def test_check_frontend_only_failure_matrix(
     tmp_path: Path, override: dict, expected_code: str
 ) -> None:
-    fe = create_synthetic_frontend(tmp_path, **override)
-    if "some-subdep" in str(override):
-        sub = fe / "node_modules/some-subdep"
-        sub.mkdir(parents=True, exist_ok=True)
-        (sub / "package.json").write_text(json.dumps({"name": "some-subdep", "version": "2.0.0"}))
+    create_synthetic_frontend(tmp_path, **override)
     scripts = tmp_path / "scripts"
     scripts.mkdir(exist_ok=True)
     shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
@@ -721,6 +765,186 @@ def test_check_frontend_only_failure_matrix(
 
 
 @pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_check_frontend_only_rejects_external_frontend_junction(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    ext = tmp_path / "external-frontend"
+    create_synthetic_frontend(tmp_path, pkg_json={"name": "ext"})
+    shutil.move(tmp_path / "frontend", ext)
+    fe_junction = repo / "frontend"
+    try:
+        fe_junction.symlink_to(ext, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        subprocess.run(
+            [
+                POWERSHELL,
+                "-NoProfile",
+                "-Command",
+                f'New-Item -ItemType Junction -Path "{fe_junction}" -Target "{ext}"',
+            ],
+            capture_output=True,
+        )
+    scripts = repo / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    proc = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(scripts / "prepare-figma-e2e.ps1"),
+            "-CheckFrontendOnly",
+        ],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert "FIGMA_FRONTEND_OWNERSHIP_REJECTED" in proc.stderr
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_check_frontend_only_accepts_valid_nested_dependencies(tmp_path: Path) -> None:
+    fe = create_synthetic_frontend(tmp_path)
+    shutil.rmtree(fe / "node_modules/playwright")
+    nested_pw = fe / "node_modules/@playwright/test/node_modules/playwright"
+    nested_pw.mkdir(parents=True, exist_ok=True)
+    (nested_pw / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "playwright",
+                "version": "1.63.0",
+                "dependencies": {"playwright-core": "1.63.0"},
+                "exports": {"./package.json": "./package.json"},
+            }
+        )
+    )
+    flat_pw = fe / "node_modules/playwright"
+    flat_pw.mkdir(parents=True, exist_ok=True)
+    (flat_pw / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "playwright",
+                "version": "1.50.0",
+                "exports": {"./package.json": "./package.json"},
+            }
+        )
+    )
+    lock = {
+        "name": "frontend",
+        "version": "0.0.0",
+        "lockfileVersion": 3,
+        "packages": {
+            "": {
+                "name": "frontend",
+                "version": "0.0.0",
+                "devDependencies": {"@playwright/test": "^1.63.0"},
+            },
+            "node_modules/@playwright/test": {
+                "version": "1.63.0",
+                "dependencies": {"playwright": "1.63.0"},
+            },
+            "node_modules/@playwright/test/node_modules/playwright": {
+                "version": "1.63.0",
+                "dependencies": {"playwright-core": "1.63.0"},
+            },
+            "node_modules/playwright": {"version": "1.50.0"},
+            "node_modules/playwright-core": {"version": "1.63.0"},
+        },
+    }
+    (fe / "package-lock.json").write_text(json.dumps(lock))
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    proc = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(scripts / "prepare-figma-e2e.ps1"),
+            "-CheckFrontendOnly",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "FIGMA_FRONTEND_OK" in proc.stdout
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+def test_check_frontend_only_accepts_valid_internal_package_link(tmp_path: Path) -> None:
+    fe = create_synthetic_frontend(tmp_path)
+    shutil.rmtree(fe / "node_modules/playwright")
+    pkg_target = fe / "packages/playwright-linked"
+    pkg_target.mkdir(parents=True, exist_ok=True)
+    (pkg_target / "package.json").write_text(
+        json.dumps(
+            {
+                "name": "playwright",
+                "version": "1.63.0",
+                "dependencies": {"playwright-core": "1.63.0"},
+                "exports": {"./package.json": "./package.json"},
+            }
+        )
+    )
+    link = fe / "node_modules/playwright"
+    try:
+        link.symlink_to(pkg_target, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        subprocess.run(
+            [
+                POWERSHELL,
+                "-NoProfile",
+                "-Command",
+                f'New-Item -ItemType Junction -Path "{link}" -Target "{pkg_target}"',
+            ],
+            capture_output=True,
+        )
+    lock = {
+        "name": "frontend",
+        "version": "0.0.0",
+        "lockfileVersion": 3,
+        "packages": {
+            "": {
+                "name": "frontend",
+                "version": "0.0.0",
+                "devDependencies": {"@playwright/test": "^1.63.0"},
+            },
+            "node_modules/@playwright/test": {
+                "version": "1.63.0",
+                "dependencies": {"playwright": "1.63.0"},
+            },
+            "node_modules/playwright": {"resolved": "packages/playwright-linked", "link": True},
+            "packages/playwright-linked": {
+                "name": "playwright",
+                "version": "1.63.0",
+                "dependencies": {"playwright-core": "1.63.0"},
+            },
+            "node_modules/playwright-core": {"version": "1.63.0"},
+        },
+    }
+    (fe / "package-lock.json").write_text(json.dumps(lock))
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    proc = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(scripts / "prepare-figma-e2e.ps1"),
+            "-CheckFrontendOnly",
+        ],
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode == 0, proc.stderr
+    assert "FIGMA_FRONTEND_OK" in proc.stdout
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
 def test_check_frontend_only_cli_outside_package(tmp_path: Path) -> None:
     fe = create_synthetic_frontend(tmp_path)
     outside = tmp_path / "frontend/node_modules/outside-cli.js"
@@ -728,7 +952,8 @@ def test_check_frontend_only_cli_outside_package(tmp_path: Path) -> None:
     (fe / "node_modules/@playwright/test/cli.js").unlink()
     pw_test_pkg = {
         "name": "@playwright/test",
-        "version": "1.48.0",
+        "version": "1.63.0",
+        "dependencies": {"playwright": "1.63.0"},
         "bin": {"playwright": "../../outside-cli.js"},
     }
     (fe / "node_modules/@playwright/test/package.json").write_text(json.dumps(pw_test_pkg))
