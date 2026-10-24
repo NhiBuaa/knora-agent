@@ -6,6 +6,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -14,6 +15,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConversationView } from "@/components/conversations/ConversationView";
+import { TurnCard } from "@/components/conversations/TurnCard";
 import type { TurnResponse } from "@/generated/knora-openapi";
 
 afterEach(() => {
@@ -326,4 +328,92 @@ describe("Conversation message copy functionality", () => {
     fireEvent.click(copyQuestionBtn);
     expect(writeTextMock).toHaveBeenCalledWith("Hướng dẫn cài đặt hệ thống?");
   });
+
+  it("keeps an in-flight retry locked when the previous success timer expires", async () => {
+    vi.useFakeTimers();
+    const deferredWrite = vi
+      .fn()
+      .mockResolvedValueOnce(undefined)
+      .mockImplementationOnce(() => new Promise(() => {}));
+    Object.assign(navigator, {
+      clipboard: {
+        writeText: deferredWrite,
+      },
+    });
+
+    render(
+      <TurnCard
+        turn={baseAnsweredTurn}
+        workspaceId="w-1"
+        selection={null}
+        onSelect={() => {}}
+        onRetry={() => {}}
+      />,
+    );
+    const button = screen.getByRole("button", {
+      name: /Sao chép câu hỏi 1|Copy question 1/i,
+    });
+
+    // First click: succeeds immediately
+    await act(async () => {
+      fireEvent.click(button);
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+
+    // Second click at 1s: starts in-flight operation
+    fireEvent.click(button);
+    expect(button).toBeDisabled();
+
+    // Advance to 2s: previous success timer expires, but button must remain locked
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(button).toBeDisabled();
+    vi.useRealTimers();
+  });
+
+  it.each([
+    "&#91;&#91;E99&#93;&#93; [[E1]]",
+    "&#xE000;99&#xE001; [[E1]]",
+    "[text](https://example.com/[[E1]])",
+  ])(
+    "does not offer Copy button when answer is rejected by renderer (%s)",
+    (invalidAnswer) => {
+      const invalidTurn: TurnResponse = {
+        ...baseAnsweredTurn,
+        result: {
+          ...baseAnsweredTurn.result!,
+          answer: invalidAnswer,
+        },
+      };
+
+      render(
+        <TurnCard
+          turn={invalidTurn}
+          workspaceId="w-1"
+          selection={null}
+          onSelect={() => {}}
+          onRetry={() => {}}
+        />,
+      );
+      // Question copy button exists
+      expect(
+        screen.getByRole("button", {
+          name: /Sao chép câu hỏi 1|Copy question 1/i,
+        }),
+      ).toBeInTheDocument();
+      // Renderer shows alert
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "GENERATION_OUTPUT_INVALID",
+      );
+      // Answer copy button must NOT be rendered
+      expect(
+        screen.queryByRole("button", {
+          name: /Sao chép câu trả lời 1|Copy answer 1/i,
+        }),
+      ).toBeNull();
+    },
+  );
 });

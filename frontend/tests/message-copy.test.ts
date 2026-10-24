@@ -140,11 +140,11 @@ describe("copyableAnswerMarkdown", () => {
     );
   });
 
-  it("escapes markdown brackets in citation labels", () => {
+  it("escapes markdown brackets and backslashes in citation labels", () => {
     const citation = mockCitation({
       evidence_id: "E1",
       document_id: "doc-1",
-      source_name: "Bản tin [Nội bộ]",
+      source_name: "Guide \\[private]",
       page_start: null,
       page_end: null,
       heading_path: [],
@@ -157,8 +157,68 @@ describe("copyableAnswerMarkdown", () => {
       "http://localhost:3300",
     );
     expect(result).toBe(
-      "Dẫn xuất từ [Bản tin \\[Nội bộ\\]](http://localhost:3300/workspaces/ws-1/documents/doc-1).",
+      "Dẫn xuất từ [Guide \\\\\\[private\\]](http://localhost:3300/workspaces/ws-1/documents/doc-1).",
     );
+  });
+
+  it("fails closed on HTML entities that simulate brackets or markers", () => {
+    const citation = mockCitation({ evidence_id: "E1" });
+    expect(
+      copyableAnswerMarkdown(
+        "&#91;&#91;E99&#93;&#93; [[E1]]",
+        [citation],
+        "ws",
+        "http://localhost:3300",
+      ),
+    ).toBeNull();
+  });
+
+  it("fails closed on Private Use Area characters used by renderer", () => {
+    const citation = mockCitation({ evidence_id: "E1" });
+    expect(
+      copyableAnswerMarkdown(
+        "&#xE000;99&#xE001; [[E1]]",
+        [citation],
+        "ws",
+        "http://localhost:3300",
+      ),
+    ).toBeNull();
+    expect(
+      copyableAnswerMarkdown(
+        "\uE00099\uE001 [[E1]]",
+        [citation],
+        "ws",
+        "http://localhost:3300",
+      ),
+    ).toBeNull();
+  });
+
+  it("fails closed on citation markers inside markdown links, images, or raw HTML tags", () => {
+    const citation = mockCitation({ evidence_id: "E1" });
+    expect(
+      copyableAnswerMarkdown(
+        "[text](https://example.com/[[E1]])",
+        [citation],
+        "ws",
+        "http://localhost:3300",
+      ),
+    ).toBeNull();
+    expect(
+      copyableAnswerMarkdown(
+        "![alt](https://example.com/[[E1]])",
+        [citation],
+        "ws",
+        "http://localhost:3300",
+      ),
+    ).toBeNull();
+    expect(
+      copyableAnswerMarkdown(
+        "<!-- [[E1]] --> [[E1]]",
+        [citation],
+        "ws",
+        "http://localhost:3300",
+      ),
+    ).toBeNull();
   });
 
   it("transforms validated markers inside code fences into links according to renderer rules", () => {

@@ -2,7 +2,10 @@ import type { CitationResponse } from "@/generated/knora-openapi";
 import { routes } from "@/lib/navigation/routes";
 
 function escapeMarkdownLabel(label: string): string {
-  return label.replace(/\[/g, "\\[").replace(/\]/g, "\\]");
+  return label
+    .replace(/\\/g, "\\\\")
+    .replace(/\[/g, "\\[")
+    .replace(/\]/g, "\\]");
 }
 
 function formatCitationLabel(citation: CitationResponse): string {
@@ -23,6 +26,26 @@ export function validateAnswerCitations(
   if (!answer || typeof answer !== "string" || !answer.trim()) {
     return false;
   }
+
+  // Reject Private Use Area characters used internally by the markdown citation plugin
+  if (/[\uE000-\uF8FF]/.test(answer)) {
+    return false;
+  }
+
+  // Reject markers embedded inside Markdown link URLs, images, or raw HTML
+  if (/\[[^\]]*\]\([^)]*\[\[[^)]*\)/.test(answer)) {
+    return false;
+  }
+  if (/!\[[^\]]*\]\([^)]*\[\[[^)]*\)/.test(answer)) {
+    return false;
+  }
+  if (/<!--[^]*?\[\[[^]*?-->/.test(answer)) {
+    return false;
+  }
+  if (/<[a-zA-Z0-9_-]+[^>]*\[\[[^>]*>/.test(answer)) {
+    return false;
+  }
+
   const markers = Array.from(answer.matchAll(/\[\[([^]*?)\]\]/g));
   const indexes = markers.map((marker) =>
     citations.findIndex((citation) => citation.evidence_id === marker[1]),
@@ -37,6 +60,35 @@ export function validateAnswerCitations(
   ) {
     return false;
   }
+
+  // Detect encoded entities that decode to bracket sequences or PUA markers
+  if (/&(?:#x[0-9a-fA-F]+|#[0-9]+|[a-zA-Z]+);/i.test(answer)) {
+    const decoded = answer
+      .replace(/&#x([0-9a-fA-F]+);/gi, (_, h) => {
+        try {
+          return String.fromCodePoint(parseInt(h, 16));
+        } catch {
+          return "";
+        }
+      })
+      .replace(/&#([0-9]+);/g, (_, d) => {
+        try {
+          return String.fromCodePoint(parseInt(d, 10));
+        } catch {
+          return "";
+        }
+      })
+      .replace(/&lsqb;/gi, "[")
+      .replace(/&rsqb;/gi, "]");
+    if (
+      /[\uE000-\uF8FF]/.test(decoded) ||
+      decoded.replace(/\[\[([^]*?)\]\]/g, "").includes("[[") ||
+      Array.from(decoded.matchAll(/\[\[([^]*?)\]\]/g)).length !== markers.length
+    ) {
+      return false;
+    }
+  }
+
   return true;
 }
 

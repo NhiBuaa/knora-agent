@@ -89,6 +89,10 @@ export function TurnCard({
 
   async function handleCopyQuestion() {
     if (questionCopyState === "copying") return;
+    if (questionTimerRef.current) {
+      clearTimeout(questionTimerRef.current);
+      questionTimerRef.current = null;
+    }
     setQuestionCopyState("copying");
     try {
       if (!navigator?.clipboard?.writeText) {
@@ -96,13 +100,11 @@ export function TurnCard({
       }
       await navigator.clipboard.writeText(turn.question);
       setQuestionCopyState("copied");
-      if (questionTimerRef.current) clearTimeout(questionTimerRef.current);
       questionTimerRef.current = setTimeout(() => {
         setQuestionCopyState("idle");
       }, 2000);
     } catch {
       setQuestionCopyState("error");
-      if (questionTimerRef.current) clearTimeout(questionTimerRef.current);
       questionTimerRef.current = setTimeout(() => {
         setQuestionCopyState("idle");
       }, 3000);
@@ -111,6 +113,10 @@ export function TurnCard({
 
   async function handleCopyAnswer(content: string) {
     if (answerCopyState === "copying") return;
+    if (answerTimerRef.current) {
+      clearTimeout(answerTimerRef.current);
+      answerTimerRef.current = null;
+    }
     setAnswerCopyState("copying");
     try {
       if (!navigator?.clipboard?.writeText) {
@@ -118,13 +124,11 @@ export function TurnCard({
       }
       await navigator.clipboard.writeText(content);
       setAnswerCopyState("copied");
-      if (answerTimerRef.current) clearTimeout(answerTimerRef.current);
       answerTimerRef.current = setTimeout(() => {
         setAnswerCopyState("idle");
       }, 2000);
     } catch {
       setAnswerCopyState("error");
-      if (answerTimerRef.current) clearTimeout(answerTimerRef.current);
       answerTimerRef.current = setTimeout(() => {
         setAnswerCopyState("idle");
       }, 3000);
