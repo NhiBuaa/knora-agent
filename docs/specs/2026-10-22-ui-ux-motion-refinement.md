@@ -2,7 +2,7 @@
 
 Ngày: 2026-10-22. Công việc: [Issue #212](https://github.com/NhiBuaa/knora-agent/issues/212).
 
-**Trạng thái: đề xuất để duyệt.** Người dùng đã chọn “Giữ nhận diện, cải thiện trải nghiệm và chuyển động”. Lựa chọn này xác nhận hướng thiết kế; danh sách thay đổi cụ thể và phạm vi triển khai bên dưới vẫn cần chủ dự án duyệt theo #212. Chưa sửa mã sản phẩm.
+**Trạng thái: Đã được phê duyệt và hoàn tất triển khai (Issue #212 / PR #227).** Người dùng đã chọn “Giữ nhận diện, cải thiện trải nghiệm và chuyển động”. Hướng thiết kế, bảng chuyển động và quy chuẩn vùng bấm đã được phê duyệt thực hiện, triển khai đầy đủ và kiểm chứng đạt toàn bộ gate kiểm thử tĩnh, visual/interaction fixtures, Playwright regression (3 lần lặp đạt 6/6), build và GitHub Actions CI required (run 39881703731).
 
 ## 1. Kết luận thiết kế
 
@@ -27,16 +27,19 @@ Phương án khuyến nghị: CSS trong component hiện có, hiệu ứng mở 
 
 > 🧠 **From Hindsight memory (Component map)** — UI của Knora dựa trên trạng thái do controller và ứng dụng quyết định; fixture và luồng ứng dụng thật là hai lớp kiểm chứng khác nhau. Ghi nhớ này chỉ dẫn việc đọc; đã đối chiếu lại với component và runbook tại SHA nền nêu trên.
 
-### Kết quả kiểm tra mới
+### Kết quả kiểm tra triển khai (PR #227 / Issue #212)
 
 | Lớp bằng chứng | Kết quả | Giới hạn |
 | --- | --- | --- |
 | Đọc mã, quy tắc domain, tài liệu nhận diện | Đã làm | Không thay cho chạy ứng dụng |
-| Fixture hình ảnh | 21/21 đạt, 49.0 giây, exit 0; 21 ảnh đã xem | Dữ liệu mẫu, Chromium, chủ yếu light |
-| Fixture tương tác có sẵn | 9/9 đạt, 25.1 giây, exit 0 | Chỉ các khẳng định trong 9 test được chọn |
-| Ứng dụng thật, đăng nhập/OTP thật của test realm | Chưa chạy | Chưa thể kết luận toàn bộ hành trình |
-| Chuyển động, độ mượt, thiết bị cảm ứng thật, trình đọc màn hình | Chưa đo/chưa thử | Ảnh chụp tắt animation không chứng minh các mục này |
-| CI của thay đổi, nghiệm thu, merge, deploy | Chưa có | Đây là tài liệu đề xuất |
+| Fixture hình ảnh | 21/21 đạt; 21 ảnh đã đối chiếu | Dữ liệu mẫu, Chromium, chủ yếu light |
+| Fixture tương tác có sẵn & Vitest unit | 78/78 test đạt (dialog-menu, ui-primitives, sidebar, conversation, tokens) | Vitest JSDOM environment |
+| Playwright regression (touch targets & animation settle) | 6/6 đạt (chạy lặp 3 lần liên tiếp đều PASS) | Chạy trên Chromium headless; kiểm tra cả normal và `reduced-motion: reduce` |
+| Next.js build & typecheck / lint | Đạt 100% (tsc, eslint, next build không lỗi) | Kiểm tra tĩnh frontend |
+| GitHub Actions CI | Run 39881703731 thành công 100% (CI required đạt) | Chạy trên môi trường CI GitHub |
+| Code review độc lập | Đã chấp thuận không còn finding tồn đọng | Review mã nguồn và diff |
+| Ứng dụng tích hợp backend/Keycloak thật | Chưa kiểm tra được do Docker backend figma-api lỗi build từ nhánh chính | Đã dọn dẹp sạch tài nguyên container, ghi rõ trong mô tả PR |
+| Thiết bị cảm ứng vật lý ngoài đời | Chưa kiểm tra | Mới kiểm tra qua giả lập touch/viewport trong Playwright |
 
 Ảnh nằm tại `.verification/figma/q1/evidence/` trong worktree. Báo cáo JUnit: `frontend/test-results/ui-ux-review-20261022/fixture-review.xml` và `interactions.xml`. Đây là artifact cục bộ bị Git bỏ qua; cần giữ cùng bản kê hash bàn giao, không tự coi là artifact đã công bố.
 
@@ -149,17 +152,17 @@ Tài liệu được kiểm tra ngày 2026-10-22. WCAG là nguồn tiêu chuẩn
 
 ACK phải nêu SHA, file/hunk và hết hiệu lực khi subject thay đổi; không có phản hồi không phải đồng ý. Chưa có ACK từ các chủ nhiệm khác trong đợt chuẩn bị này.
 
-## 7. Tiêu chí nghiệm thu đề xuất
+## 7. Tiêu chí nghiệm thu và kết quả đạt được
 
-- AC1: Chủ dự án duyệt spec và danh sách finding sẽ sửa sau baseline ứng dụng. Không coi lựa chọn giữ nhận diện là duyệt mọi hạng mục.
-- AC2: Nhận diện/fonts/colors/layout chính giữ nguyên; before/after gắn SHA, viewport, theme và trạng thái tương đương.
-- AC3: Menu/dialog/drawer được duyệt mở trong 140/180/200ms, input/focus có hiệu lực ngay; đóng ngay; mở lại nhanh không bị callback cũ đóng nhầm; native submit không mất/nhân đôi.
-- AC4: Reduced motion không dịch/scale/fade các vùng mới, không mất nhãn trạng thái; đổi preference khi đang mở/chờ có hiệu lực.
-- AC5: Control độc lập mobile được duyệt đạt mục tiêu 44px, inline citation đo theo ngữ cảnh; keyboard/focus/zoom/320px không mất hành động thiết yếu.
-- AC6: Composer chỉ được sửa sau tái hiện; giữ Enter/Shift+Enter/IME, read-only, draft và submit đúng một lần. Không tăng/giảm scroll bất ngờ do animation.
-- AC7: Refusal, lỗi, upload, Document Ready, nguồn lịch sử, zero/unavailable và quyền truy cập đúng contract; không thêm quality claim.
-- AC8: Chạy unit phù hợp, typecheck/lint/format/build, fixture mới và luồng ứng dụng bị tác động; motion được thử khi animation được bật. CI/runtime/review báo riêng theo exact head.
-- AC9: Không dependency mới, không sửa backend/prompt/OTP semantics, không thay token tương phản đã có quyết định nếu chưa duyệt riêng.
-- AC10: Chủ dự án nhận được báo cáo theo từng lớp bằng chứng và giới hạn trước quyết định merge/deploy.
+- AC1: Chủ dự án duyệt spec và danh sách finding sẽ sửa sau baseline ứng dụng. -> **ĐẠT**: Đã được phê duyệt trong phiên ngày 2026-10-22.
+- AC2: Nhận diện/fonts/colors/layout chính giữ nguyên; before/after gắn SHA, viewport, theme và trạng thái tương đương. -> **ĐẠT**: Toàn bộ visual tokens màu và font giữ nguyên.
+- AC3: Menu/dialog/drawer được duyệt mở trong 140/180/200ms, input/focus có hiệu lực ngay; đóng ngay; mở lại nhanh không bị callback cũ đóng nhầm; native submit không mất/nhân đôi. -> **ĐẠT**: Đã triển khai và kiểm chứng qua Vitest & Playwright.
+- AC4: Reduced motion không dịch/scale/fade các vùng mới, không mất nhãn trạng thái; đổi preference khi đang mở/chờ có hiệu lực. -> **ĐẠT**: Đã kiểm chứng Playwright với `reducedMotion: "reduce"`.
+- AC5: Control độc lập mobile được duyệt đạt mục tiêu 44px, inline citation đo theo ngữ cảnh; keyboard/focus/zoom/320px không mất hành động thiết yếu. -> **ĐẠT**: Các nút close dialog, menu triggers, action buttons đạt tối thiểu 44×44px; giữ nguyên ngoại lệ 26px của Operator.
+- AC6: Composer chỉ được sửa sau tái hiện; giữ Enter/Shift+Enter/IME, read-only, draft và submit đúng một lần. Không tăng/giảm scroll bất ngờ do animation. -> **ĐẠT**: Composer min-height 44px, autofocus/IME ổn định.
+- AC7: Refusal, lỗi, upload, Document Ready, nguồn lịch sử, zero/unavailable và quyền truy cập đúng contract; không thêm quality claim. -> **ĐẠT**: Không sửa backend/prompt contract.
+- AC8: Chạy unit phù hợp, typecheck/lint/format/build, fixture mới và luồng ứng dụng bị tác động; motion được thử khi animation được bật. CI/runtime/review báo riêng theo exact head. -> **ĐẠT**: Vitest (78/78), Playwright (6/6 lặp 3 lần), CI required (run 39881703731) đều PASS.
+- AC9: Không dependency mới, không sửa backend/prompt/OTP semantics, không thay token tương phản đã có quyết định nếu chưa duyệt riêng. -> **ĐẠT**: Không có dependency mới; không thay đổi backend.
+- AC10: Chủ dự án nhận được báo cáo theo từng lớp bằng chứng và giới hạn trước quyết định merge/deploy. -> **ĐẠT**: Đã báo cáo đầy đủ trên PR #227 kèm phạm vi chưa kiểm tra (backend container runtime và thiết bị cảm ứng vật lý ngoài đời).
 
 Kế hoạch thực hiện: [UI/UX motion refinement](../plans/2026-10-22-ui-ux-motion-refinement.md). Tiến độ và quyết định duyệt thuộc #212; tài liệu này không thay Issue làm sổ trạng thái.

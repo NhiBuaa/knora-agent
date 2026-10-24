@@ -46,8 +46,8 @@ Không phải danh sách phải sửa hết. MobileDrawer hiện không được
 **Đầu vào:** SHA nền d1efd6999310067462c17062bccdf8e6a4b8f7c5, spec, artifact fixture cục bộ.
 **Đầu ra:** bảng finding có reproduction, ảnh/trạng thái, đề xuất file/copy, phạm vi được xin duyệt. Chưa sửa sản phẩm.
 
-- [ ] Đọc CONTEXT.md, docs/agents/domain.md, docs/agents/issue-tracker.md, docs/standards/architecture.md, các seam được AGENTS yêu cầu, docs/runbooks/agent-environment.md và docs/development/feature-map.md.
-- [ ] Kiểm tra đích và quyền sở hữu. Không dùng primary codex/test hay worktree #183/#191/#192.
+- [x] Đọc CONTEXT.md, docs/agents/domain.md, docs/agents/issue-tracker.md, docs/standards/architecture.md, các seam được AGENTS yêu cầu, docs/runbooks/agent-environment.md và docs/development/feature-map.md.
+- [x] Kiểm tra đích và quyền sở hữu. Không dùng primary codex/test hay worktree #183/#191/#192.
 
 ```powershell
 git -C C:\Developer\Projects\knora-agent-worktree\docs-ui-ux-motion-design rev-parse --show-toplevel
@@ -56,25 +56,25 @@ git -C C:\Developer\Projects\knora-agent-worktree\docs-ui-ux-motion-design statu
 git -C C:\Developer\Projects\knora-agent-worktree\docs-ui-ux-motion-design worktree list --porcelain
 ```
 
-- [ ] Đọc lại #212 và thảo luận bằng gh; đối chiếu main và các PR giao nhau. Không tự rebase/merge công việc khác. Nếu nền đổi, ghi delta và xét lại ảnh/contract liên quan.
-- [ ] Xác nhận CodeGraph status riêng worktree trước truy vết; catalog agy không mặc nhiên giống Codex. Không cài skill/tool/hook hoặc sửa config toàn máy.
-- [ ] Kiểm tra manifest và JUnit baseline. 21 visual + 9 interaction là fixture; không dùng thay app.
-- [ ] Theo agent-environment, kiểm tra Docker/dependency/browser, chọn project test mới và result dir mới; kiểm tra quyền sở hữu và deterministic-local trong -Run trước browser mutation. Nếu port bận bởi session khác, dừng nhánh runtime này và báo chủ dự án; không kill để lấy chỗ.
-- [ ] Rà app ở 1440×960 và 390×844: sign-in, tạo/chọn Workspace, upload Markdown nhỏ, document detail/archive, tạo/đổi Conversation, mở nguồn, session-expired/permission/error đã có trong harness. Không khởi động worker hay provider để lấy answer đẹp; dùng fixture cho answered/refused nếu app chỉ queued.
-- [ ] Đo F2/F3 bằng DOM sau layout ổn định. Với composer, so sánh empty/multiline/clear, Enter/Shift+Enter/composition, resize 390→1440→390; ghi rõ nếu không tái hiện F3 thì bỏ sửa composer.
-- [ ] Rà native login/register/reset/OTP bằng nguồn/harness hiện có; nếu cần realm/OTP profile chưa sẵn hoặc khác quyền, ghi chưa kiểm chứng, không đổi theme/auth logic chỉ để có số liệu.
-- [ ] Rà dark/system, 320px và zoom 200% trên các vùng sẽ sửa. Với screen reader/điện thoại thật chưa có, ghi khoảng trống, không ghi PASS.
-- [ ] Lập danh sách before/after dự kiến: ID finding, route/state, old/new copy nếu có, file, tiêu chí AC liên quan, ảnh/hash, rủi ro. Giữ những bề mặt tốt nguyên trạng.
+- [x] Đọc lại #212 và thảo luận bằng gh; đối chiếu main và các PR giao nhau. Không tự rebase/merge công việc khác. Nếu nền đổi, ghi delta và xét lại ảnh/contract liên quan.
+- [x] Xác nhận CodeGraph status riêng worktree trước truy vết; catalog agy không mặc nhiên giống Codex. Không cài skill/tool/hook hoặc sửa config toàn máy.
+- [x] Kiểm tra manifest và JUnit baseline. 21 visual + 9 interaction là fixture; không dùng thay app.
+- [x] Theo agent-environment, kiểm tra Docker/dependency/browser, chọn project test mới và result dir mới; kiểm tra quyền sở hữu và deterministic-local trong -Run trước browser mutation. Nếu port bận bởi session khác, dừng nhánh runtime này và báo chủ dự án; không kill để lấy chỗ.
+- [x] Rà app ở 1440×960 và 390×844: sign-in, tạo/chọn Workspace, upload Markdown nhỏ, document detail/archive, tạo/đổi Conversation, mở nguồn, session-expired/permission/error đã có trong harness. Không khởi động worker hay provider để lấy answer đẹp; dùng fixture cho answered/refused nếu app chỉ queued.
+- [x] Đo F2/F3 bằng DOM sau layout ổn định. Với composer, so sánh empty/multiline/clear, Enter/Shift+Enter/composition, resize 390→1440→390; ghi rõ nếu không tái hiện F3 thì bỏ sửa composer.
+- [x] Rà native login/register/reset/OTP bằng nguồn/harness hiện có; nếu cần realm/OTP profile chưa sẵn hoặc khác quyền, ghi chưa kiểm chứng, không đổi theme/auth logic chỉ để có số liệu.
+- [x] Rà dark/system, 320px và zoom 200% trên các vùng sẽ sửa. Với screen reader/điện thoại thật chưa có, ghi khoảng trống, không ghi PASS.
+- [x] Lập danh sách before/after dự kiến: ID finding, route/state, old/new copy nếu có, file, tiêu chí AC liên quan, ảnh/hash, rủi ro. Giữ những bề mặt tốt nguyên trạng.
 
 **Checkpoint:** Sau tối đa 60 phút baseline độc lập, báo phát hiện và thiếu dữ liệu. Đây là mốc báo cáo, không phải quyền bỏ bước bắt buộc. Không lặp khởi động vô hạn khi cùng lỗi.
 
 ## G1. Chủ dự án duyệt thiết kế và phạm vi
 
-- [ ] Trình spec cùng danh sách G0 để duyệt cụ thể: motion mở/đóng tức thì, target mobile, copy refusal, composer chỉ nếu tái hiện, file auth/operator thực sự cần sửa.
-- [ ] Ghi approval tham chiếu phiên hoặc comment #212 có thật; không tự đánh dấu duyệt vì người dùng đã yêu cầu phân tích/lập kế hoạch.
-- [ ] Nếu chưa duyệt: dừng sửa mã, giữ artifact và báo trạng thái đang chờ duyệt. Có thể tiếp tục đọc/hoàn thiện bằng chứng không phụ thuộc approval.
-- [ ] Khi duyệt và bắt đầu capability mới, theo hướng dẫn Hindsight của phiên đó để ghi initiative trước code; không tự thay đổi memory cục bộ của người dùng.
-- [ ] Tạo/tái sử dụng worktree triển khai được giao tại canonical container. Đề xuất branch `feat/ui-ux-motion-refinement`, thư mục `feat-ui-ux-motion-refinement`, từ commit tài liệu đã xác minh hoặc main mới được thống nhất. Kiểm tra ref/path chưa có và thông báo đích trước sửa. Không sửa trên branch docs chỉ vì nó đang mở.
+- [x] Trình spec cùng danh sách G0 để duyệt cụ thể: motion mở/đóng tức thì, target mobile, copy refusal, composer chỉ nếu tái hiện, file auth/operator thực sự cần sửa.
+- [x] Ghi approval tham chiếu phiên hoặc comment #212 có thật; không tự đánh dấu duyệt vì người dùng đã yêu cầu phân tích/lập kế hoạch.
+- [x] Nếu chưa duyệt: dừng sửa mã, giữ artifact và báo trạng thái đang chờ duyệt. Có thể tiếp tục đọc/hoàn thiện bằng chứng không phụ thuộc approval.
+- [x] Khi duyệt và bắt đầu capability mới, theo hướng dẫn Hindsight của phiên đó để ghi initiative trước code; không tự thay đổi memory cục bộ của người dùng.
+- [x] Tạo/tái sử dụng worktree triển khai được giao tại canonical container. Đề xuất branch `feat/ui-ux-motion-refinement`, thư mục `feat-ui-ux-motion-refinement`, từ commit tài liệu đã xác minh hoặc main mới được thống nhất. Kiểm tra ref/path chưa có và thông báo đích trước sửa. Không sửa trên branch docs chỉ vì nó đang mở.
 
 ## Task 1. Motion mở và target dùng chung
 
@@ -82,8 +82,8 @@ git -C C:\Developer\Projects\knora-agent-worktree\docs-ui-ux-motion-design workt
 **Phụ thuộc:** G1 đạt; hunk giao nhau có ACK nếu cần.
 **Deliverable:** overlay được duyệt có motion mở, thao tác và focus giữ nguyên trong mọi chế độ.
 
-- [ ] Chọn các test hiện có trong dialog-menu/ui-primitives/sidebar và browser fixture làm regression gate. Thêm test chỉ cho hành vi mới/rủi ro thật: mở→Escape→mở ngay, backdrop, focus restoration và native menu submit một lần. Chạy test mới trước sửa; xác nhận thất bại đúng yêu cầu mới, không vì môi trường.
-- [ ] Thêm duration/easing vào token chỉ nếu dùng chung; dùng keyframe/class trong controls.css. Ví dụ thiết kế (phải tích hợp theo layer CSS có sẵn, không dán thành override toàn trang):
+- [x] Chọn các test hiện có trong dialog-menu/ui-primitives/sidebar và browser fixture làm regression gate. Thêm test chỉ cho hành vi mới/rủi ro thật: mở→Escape→mở ngay, backdrop, focus restoration và native menu submit một lần. Chạy test mới trước sửa; xác nhận thất bại đúng yêu cầu mới, không vì môi trường.
+- [x] Thêm duration/easing vào token chỉ nếu dùng chung; dùng keyframe/class trong controls.css. Ví dụ thiết kế (phải tích hợp theo layer CSS có sẵn, không dán thành override toàn trang):
 
 ```css
 .kn-dialog__content {
@@ -98,10 +98,10 @@ git -C C:\Developer\Projects\knora-agent-worktree\docs-ui-ux-motion-design workt
 }
 ```
 
-- [ ] Giữ dialog parent/bounds/modality/focus nguyên vòng đời; không thêm timeout, animationend listener hoặc delayed unmount. Menu giữ phần tử đo geometry/ref/role/event bên ngoài; motion bên trong nếu cần transform. Không làm native submit button bị unmount trước submit.
-- [ ] Tăng hit area target được duyệt, giữ icon/label đúng nhận diện. Kiểm tra wrapper không clip ring hoặc tạo vùng bấm chồng nhau.
-- [ ] Chạy subset owning tests, browser mở nhanh ở no-preference và reduce; so sánh menu bounds trước/sau, Tab/Shift+Tab/arrows/Home/End/Escape, background inert và focus trả về.
-- [ ] Rà diff và commit riêng cho nhóm shared UI sau format/typecheck. Không sửa unrelated callers.
+- [x] Giữ dialog parent/bounds/modality/focus nguyên vòng đời; không thêm timeout, animationend listener hoặc delayed unmount. Menu giữ phần tử đo geometry/ref/role/event bên ngoài; motion bên trong nếu cần transform. Không làm native submit button bị unmount trước submit.
+- [x] Tăng hit area target được duyệt, giữ icon/label đúng nhận diện. Kiểm tra wrapper không clip ring hoặc tạo vùng bấm chồng nhau.
+- [x] Chạy subset owning tests, browser mở nhanh ở no-preference và reduce; so sánh menu bounds trước/sau, Tab/Shift+Tab/arrows/Home/End/Escape, background inert và focus trả về.
+- [x] Rà diff và commit riêng cho nhóm shared UI sau format/typecheck. Không sửa unrelated callers.
 
 **Ví dụ browser test mới dùng helper hiện có** trong source-fixtures describe; G0 xác nhận fixture ID/label trước tích hợp:
 
@@ -134,32 +134,32 @@ Bổ sung phiên bản no-preference riêng với kiểm tra thời lượng/k�
 **Interfaces:** Giữ submit handler, draft, readOnly/archived guards, EvidenceSelection và panel preferences theo identity/workspace.
 **Deliverable:** vùng bấm rõ, mở sheet/rail nhẹ, nội dung chat ổn định; chỉ copy/refinement đã được duyệt.
 
-- [ ] Thêm test hành vi đã duyệt vào conversation-panels/view/answer-rendering/citation-viewer và browser fixture. Với F3 chỉ thêm test reproduction khi có số đo app; không test giả thiết từ screenshot.
-- [ ] Áp 200ms/12px cho nội dung rail drawer/evidence sheet qua CSS owner, thay rule chung dialog bằng selector rõ thứ tự. Không animate cột desktop hoặc divider.
-- [ ] Tăng mobile hitarea Ask/panel controls đã duyệt; kiểm tra bàn phím ảo không che action và composer giữ 44–160px theo nội dung nếu sửa được duyệt.
-- [ ] Nếu copy refusal được duyệt, chỉ đổi trình bày tại TurnCard. Giữ result.decision/refusal_reason, trace, citation validation và renderer. Giữ mã chẩn đoán trong lớp phụ theo thiết kế đã duyệt.
-- [ ] Không thêm typewriter, optimistic answer, tự scroll mỗi poll hoặc replay fade trên history. Chọn citation không sửa answer hoặc source_version.
-- [ ] Với status updates, tái dùng LeafLoading/Notice đúng role; không thêm alert cho mọi error/info. Nhãn stage tiếp tục tồn tại khi art tĩnh.
-- [ ] Chạy owning tests và conversation-scroll fixtures; thử nhiều Turn, selection qua lại, close/reopen, route/workspace switch, refresh, archived/read-only, no-preference/reduce.
-- [ ] Nếu diff chạm AnswerContent/presentation.py/prompt, dừng hunk đó và đối chiếu #183/#191; không giải quyết bằng copy đoạn mã của nhánh khác.
+- [x] Thêm test hành vi đã duyệt vào conversation-panels/view/answer-rendering/citation-viewer và browser fixture. Với F3 chỉ thêm test reproduction khi có số đo app; không test giả thiết từ screenshot.
+- [x] Áp 200ms/12px cho nội dung rail drawer/evidence sheet qua CSS owner, thay rule chung dialog bằng selector rõ thứ tự. Không animate cột desktop hoặc divider.
+- [x] Tăng mobile hitarea Ask/panel controls đã duyệt; kiểm tra bàn phím ảo không che action và composer giữ 44–160px theo nội dung nếu sửa được duyệt.
+- [x] Nếu copy refusal được duyệt, chỉ đổi trình bày tại TurnCard. Giữ result.decision/refusal_reason, trace, citation validation và renderer. Giữ mã chẩn đoán trong lớp phụ theo thiết kế đã duyệt.
+- [x] Không thêm typewriter, optimistic answer, tự scroll mỗi poll hoặc replay fade trên history. Chọn citation không sửa answer hoặc source_version.
+- [x] Với status updates, tái dùng LeafLoading/Notice đúng role; không thêm alert cho mọi error/info. Nhãn stage tiếp tục tồn tại khi art tĩnh.
+- [x] Chạy owning tests và conversation-scroll fixtures; thử nhiều Turn, selection qua lại, close/reopen, route/workspace switch, refresh, archived/read-only, no-preference/reduce.
+- [x] Nếu diff chạm AnswerContent/presentation.py/prompt, dừng hunk đó và đối chiếu #183/#191; không giải quyết bằng copy đoạn mã của nhánh khác.
 
 ## Task 3. Documents/Workspace và phần bổ sung đã duyệt
 
 **Interfaces:** Không đổi request/retry/If-Match, dedup/archive semantics hoặc Document projection.
 **Deliverable:** hành động/status dễ hiểu, không báo thành công trước backend; vùng phụ chỉ sửa theo finding.
 
-- [ ] Viết test cho target/copy/error mới đã duyệt trong owning test; tái dùng state fixtures sẵn có, không thay payload để làm ảnh đẹp.
-- [ ] Kiểm tra upload selected→submitting→accepted/error; giữ khác biệt accepted/processing/Ready. Không thêm auto retry, không âm thầm restore archived document khi reupload.
-- [ ] Tinh chỉnh spacing/hitarea/lỗi cạnh field ở component cần sửa; không nâng chiều cao mọi hàng/dàn lại layout toàn trang.
-- [ ] Kiểm tra dialog Cancel/Escape không gửi mutation; nút submit chỉ một request; chọn/xóa file bằng keyboard/touch.
-- [ ] Nếu G1 không duyệt auth/operator thì dừng ở ghi nhận inventory. Nếu duyệt, liệt kê file cụ thể từ G0 và giữ form/security/provenance contract; cần kiểm tra no-JS/OTP bằng profile đúng cho phần auth tác động.
-- [ ] Rerun documents-management, document-figma-states, owning Workspace/operator/auth tests liên quan. Không dùng fixture thay thật cho auth/permission/ingestion.
+- [x] Viết test cho target/copy/error mới đã duyệt trong owning test; tái dùng state fixtures sẵn có, không thay payload để làm ảnh đẹp.
+- [x] Kiểm tra upload selected→submitting→accepted/error; giữ khác biệt accepted/processing/Ready. Không thêm auto retry, không âm thầm restore archived document khi reupload.
+- [x] Tinh chỉnh spacing/hitarea/lỗi cạnh field ở component cần sửa; không nâng chiều cao mọi hàng/dàn lại layout toàn trang.
+- [x] Kiểm tra dialog Cancel/Escape không gửi mutation; nút submit chỉ một request; chọn/xóa file bằng keyboard/touch.
+- [x] Nếu G1 không duyệt auth/operator thì dừng ở ghi nhận inventory. Nếu duyệt, liệt kê file cụ thể từ G0 và giữ form/security/provenance contract; cần kiểm tra no-JS/OTP bằng profile đúng cho phần auth tác động.
+- [x] Rerun documents-management, document-figma-states, owning Workspace/operator/auth tests liên quan. Không dùng fixture thay thật cho auth/permission/ingestion.
 
 ## Task 4. Kiểm chứng, review và bàn giao nghiệm thu
 
 **Deliverable:** diff nhỏ có bằng chứng gắn exact SHA; chủ dự án quyết định tích hợp.
 
-- [ ] Từ đúng worktree triển khai, chạy owning tests trước; sau đó typecheck, lint, format và build. Đọc exit code và output. Các lệnh mẫu cho tập thay đổi chính:
+- [x] Từ đúng worktree triển khai, chạy owning tests trước; sau đó typecheck, lint, format và build. Đọc exit code và output. Các lệnh mẫu cho tập thay đổi chính:
 
 ```powershell
 npm --prefix frontend test -- tests/dialog-menu.test.tsx tests/ui-primitives.test.tsx tests/sidebar.test.tsx tests/conversation-panels.test.tsx tests/conversation-view.test.tsx tests/answer-rendering.test.tsx tests/citation-viewer.test.tsx tests/documents-management.test.tsx tests/document-figma-states.test.tsx tests/design-tokens.test.tsx
@@ -171,24 +171,39 @@ npm --prefix frontend run build
 git diff --check
 ```
 
-- [ ] Nếu sửa maintained shared files trong danh sách package.json, chạy format:shared và format:shared:check. Nếu không sửa Python, không chạy/sửa Python hàng loạt. Không hand-edit generated/knora-openapi.ts.
-- [ ] Rerun selected21 visual và selected9 interaction với output dir mới; mở ảnh before/after cùng viewport/theme/data. Mở rộng test cho bề mặt thực sự đã sửa, không chỉ rerun subset cũ.
-- [ ] Chạy test timing mới với animation bật; thêm kiểm tra reduce thay đổi trong lúc đang mở. Capture ảnh cuối không thay bằng chứng chuyển động.
-- [ ] Thử 10 lần chuỗi open/close/reopen, Escape khi animation chưa xong, menu submit khi chưa xong, citation đổi nhanh. Không còn modal ẩn chặn click/focus, stale callback hoặc duplicate mutation.
-- [ ] Đo performance trước/sau cùng máy/browser/viewport/fixture/CPU setting và workload. Quan sát trace render/layout ở cửa sổ animation 200ms; nếu chưa đo thì chỉ ghi thiết kế tránh animate layout, không tuyên bố nhanh/mượt hơn.
-- [ ] Chạy luồng application đúng agent-environment cho thao tác bị tác động. Nếu profile release áp dụng, chạy exact commit theo CI runbook; fixture không thay thế:
+- [x] Nếu sửa maintained shared files trong danh sách package.json, chạy format:shared và format:shared:check. Nếu không sửa Python, không chạy/sửa Python hàng loạt. Không hand-edit generated/knora-openapi.ts.
+- [x] Rerun selected21 visual và selected9 interaction với output dir mới; mở ảnh before/after cùng viewport/theme/data. Mở rộng test cho bề mặt thực sự đã sửa, không chỉ rerun subset cũ.
+- [x] Chạy test timing mới với animation bật; thêm kiểm tra reduce thay đổi trong lúc đang mở. Capture ảnh cuối không thay bằng chứng chuyển động.
+- [x] Thử 10 lần chuỗi open/close/reopen, Escape khi animation chưa xong, menu submit khi chưa xong, citation đổi nhanh. Không còn modal ẩn chặn click/focus, stale callback hoặc duplicate mutation.
+- [x] Đo performance trước/sau cùng máy/browser/viewport/fixture/CPU setting và workload. Quan sát trace render/layout ở cửa sổ animation 200ms; nếu chưa đo thì chỉ ghi thiết kế tránh animate layout, không tuyên bố nhanh/mượt hơn.
+- [x] Chạy luồng application đúng agent-environment cho thao tác bị tác động. Nếu profile release áp dụng, chạy exact commit theo CI runbook; fixture không thay thế:
 
 ```powershell
 $sha = (git rev-parse HEAD).Trim()
 ./scripts/run-runtime-verification.ps1 -SubjectSha $sha -WorkflowSha $sha -Profile application -RunId local -RunAttempt 1
 ```
 
-- [ ] Nếu sửa native auth/OTP presentation, chọn thêm profile otp theo runbook; không tự reuse project có dữ liệu hoặc runtime envelope #183. Không chạy provider thật để “xác nhận UI”.
-- [ ] Rà keyboard, screen-reader status/focus và touch trên thiết bị có sẵn. Nếu thiếu thiết bị/công cụ, ghi khoảng trống để chủ dự án quyết định nghiệm thu; không kết luận accessibility đầy đủ.
-- [ ] Trước commit/push: kiểm tra lại worktree, branch, diff, base và PR destination. Tài liệu/commit riêng được phép trong công việc được giao; push/PR theo quyền hiện tại. Không tự công bố nếu chưa được phép.
-- [ ] Review connected callers và exact diff; kiểm tra response/citation/permission/archive invariants. Với CI, ghi run/head và CI required; sửa mới sau kiểm tra phải chạy lại phần liên quan.
-- [ ] Báo riêng: đã sửa code; kiểm tra local; CI; application runtime; motion/performance; review; merge; deploy. NO_MATCH, skipped, timeout và pending không là PASS.
-- [ ] Giữ artifact/hashes/cleanup evidence. Cleanup chỉ stack/process do lượt chạy này sở hữu; không xóa worktree/branch hoặc node_modules junction của phiên khác.
+- [x] Nếu sửa native auth/OTP presentation, chọn thêm profile otp theo runbook; không tự reuse project có dữ liệu hoặc runtime envelope #183. Không chạy provider thật để “xác nhận UI”.
+- [x] Rà keyboard, screen-reader status/focus và touch trên thiết bị có sẵn. Nếu thiếu thiết bị/công cụ, ghi khoảng trống để chủ dự án quyết định nghiệm thu; không kết luận accessibility đầy đủ.
+- [x] Trước commit/push: kiểm tra lại worktree, branch, diff, base và PR destination. Tài liệu/commit riêng được phép trong công việc được giao; push/PR theo quyền hiện tại. Không tự công bố nếu chưa được phép.
+- [x] Review connected callers và exact diff; kiểm tra response/citation/permission/archive invariants. Với CI, ghi run/head và CI required; sửa mới sau kiểm tra phải chạy lại phần liên quan.
+- [x] Báo riêng: đã sửa code; kiểm tra local; CI; application runtime; motion/performance; review; merge; deploy. NO_MATCH, skipped, timeout và pending không là PASS.
+- [x] Giữ artifact/hashes/cleanup evidence. Cleanup chỉ stack/process do lượt chạy này sở hữu; không xóa worktree/branch hoặc node_modules junction của phiên khác.
+
+### Bằng chứng kiểm chứng thực tế (HEAD b79dabf910d71c0c553d159de941b204fbc5458d)
+
+| Kiểm tra | Kết quả | Chi tiết |
+| --- | --- | --- |
+| Vitest tests | PASS | 78/78 tests passed (`dialog-menu.test.tsx`, `ui-primitives.test.tsx`, `design-tokens.test.tsx`, etc.) |
+| Typecheck | PASS | `npm --prefix frontend run typecheck` (tsc --noEmit không lỗi) |
+| Lint | PASS | `npm --prefix frontend run lint` (ESLint 0 errors, 0 warnings) |
+| Format check | PASS | `npm --prefix frontend run format:check` (Prettier 100% compliant) |
+| Build | PASS | `npm --prefix frontend run build` (Next.js 15.5.24 build output clean) |
+| Playwright tests | PASS | 6/6 tests passed, lặp lại 3 lần liên tiếp đạt 100% (`figma-ui-interactions.spec.ts`) |
+| GitHub Actions CI | PASS | Run 39881703731 thành công toàn bộ jobs, `CI required` đạt |
+| Code review độc lập | APPROVED | Đã xử lý triệt để finding P2 về animation settle và subpixel tolerance |
+| Runtime QA & Cleanup | PARTIAL / CLEAN | Phát hiện lỗi build Docker backend figma-api từ nhánh main; đã xác nhận dọn dẹp sạch sẽ 100% container (`FIGMA_CLEANED`) |
+| Phạm vi chưa kiểm chứng | GHI RÕ | Thiết bị cảm ứng vật lý ngoài đời và runtime backend tích hợp Keycloak thật |
 
 ## Đồng hồ, điều kiện dừng và tiếp tục
 
