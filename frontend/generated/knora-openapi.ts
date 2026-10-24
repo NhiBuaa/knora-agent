@@ -241,6 +241,7 @@ export type IngestionResponse = {
   chunk_count: number;
   chunk_set_id: string;
   chunking_configuration_id: string;
+  document_archived?: boolean;
   document_id: string;
   document_version_id: string;
   embedding_configuration_id: string;
@@ -323,6 +324,7 @@ export type PageResponse = {
   text: string;
 };
 export type PdfSubmissionResponse = {
+  document_archived?: boolean;
   document_id: string;
   document_version_id: string;
   ingestion_job_id: string;

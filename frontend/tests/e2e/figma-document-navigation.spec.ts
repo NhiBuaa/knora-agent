@@ -307,6 +307,45 @@ test("Documents live navigation preserves owned source and menu lifecycle", asyn
     page.getByRole("link", { name: sourceName, exact: true }),
   ).toBeVisible();
 
+  // Verify Issue #171 behavior: re-uploading an archived document shows notice & restore button
+  await page
+    .getByRole("button", { name: "Upload document", exact: true })
+    .click();
+  const reuploadDialog = page.getByRole("dialog", { name: "Upload document" });
+  await reuploadDialog.getByLabel("Document file").setInputFiles({
+    name: sourceName,
+    mimeType: "text/markdown",
+    buffer: Buffer.from(
+      "Synthetic navigation evidence for a seven chapter report.",
+    ),
+  });
+  const reuploadResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname ===
+        `/api/v1/workspaces/${workspaceId}/documents`,
+  );
+  await reuploadDialog
+    .getByRole("button", { name: "Upload document", exact: true })
+    .click();
+  const reuploadResult = await reuploadResponse;
+  expect(reuploadResult.ok()).toBe(true);
+  const reuploadBody = (await reuploadResult.json()) as {
+    outcome?: string;
+    document_archived?: boolean;
+  };
+  expect(reuploadBody.outcome).toBe("reused");
+  expect(reuploadBody.document_archived).toBe(true);
+  await expect(
+    page.getByText(
+      "This document already exists and is archived. Restore it to use it again.",
+    ),
+  ).toBeVisible();
+  await captureIdentity(
+    page,
+    path.join(evidence, "archived-reupload-notice.png"),
+  );
+
   const archivedRow = page
     .getByRole("listitem")
     .filter({ hasText: sourceName });

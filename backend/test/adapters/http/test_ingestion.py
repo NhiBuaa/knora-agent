@@ -192,6 +192,7 @@ def test_created_and_reused_results_use_distinct_http_statuses() -> None:
         "chunking_configuration_id": "chunking-m1-v1",
         "embedding_configuration_id": "embedding-local-m1-v2",
         "chunk_count": 2,
+        "document_archived": False,
     }
     command, principal = created_service.calls[0]
     assert command.workspace_id == "workspace-a"
@@ -258,6 +259,7 @@ def test_pdf_upload_returns_durable_job_response_without_reading_into_applicatio
         "status": "queued",
         "document_id": "document-1",
         "document_version_id": "version-1",
+        "document_archived": False,
     }
     command, principal = jobs.calls[0]
     assert command.source_name == "refund-policy.pdf"
@@ -534,3 +536,81 @@ def test_http_persistence_failure_returns_only_a_stable_error_code() -> None:
     assert response.status_code == 500
     assert response.json() == {"error": {"code": "PERSISTENCE_OPERATION_FAILED"}}
     assert canary not in response.text
+
+
+def test_http_ingestion_and_pdf_submission_report_archived_document_status(tmp_path) -> None:
+    from knora.adapters.postgres.ingestion_job_store import PostgresIngestionJobStore
+    from knora.adapters.postgres.tables import DocumentTable
+
+    workspace_id = f"test-http-{uuid4()}"
+    raw_key = f"key-{uuid4()}"
+    with SessionFactory.begin() as session:
+        session.add(WorkspaceTable(id=workspace_id, name="Archived Document Upload Test"))
+    auth = ApiKeyAuthenticator(
+        (
+            ApiCredential(
+                key_id="integration",
+                key_hash=hash_api_key(raw_key),
+                workspace_id=workspace_id,
+                enabled=True,
+            ),
+        )
+    )
+    object_store = FileSystemObjectStore(tmp_path)
+    job_store = PostgresIngestionJobStore(SessionFactory)
+    ingestion_jobs = IngestionJobs(
+        object_store=object_store,
+        store=job_store,
+    )
+    client = TestClient(
+        create_app(
+            api_key_authenticator=auth,
+            ingestion_jobs=ingestion_jobs,
+        )
+    )
+
+    # 1. Test synchronous Markdown ingestion
+    first_upload = valid_upload(client, key=raw_key, workspace_id=workspace_id)
+    assert first_upload.status_code == 201
+    assert first_upload.json()["document_archived"] is False
+    doc_id = first_upload.json()["document_id"]
+
+    # Archive the document in DB
+    with SessionFactory.begin() as session:
+        doc = session.get(DocumentTable, doc_id)
+        assert doc is not None
+        doc.archived = True
+
+    # Re-upload the same document: should report document_archived=True
+    second_upload = valid_upload(client, key=raw_key, workspace_id=workspace_id)
+    assert second_upload.status_code == 200
+    assert second_upload.json()["outcome"] == "reused"
+    assert second_upload.json()["document_archived"] is True
+
+    # 2. Test PDF upload and deduplicated submission
+    pdf_upload_1 = client.post(
+        f"/v1/workspaces/{workspace_id}/documents",
+        headers={"X-API-Key": raw_key, "Idempotency-Key": "pdf-req-1"},
+        data={"source_key": "manuals/guide.pdf"},
+        files={"file": ("guide.pdf", b"%PDF-1.7\nsmall fixture")},
+    )
+    assert pdf_upload_1.status_code in (200, 202)
+    assert pdf_upload_1.json()["document_archived"] is False
+    pdf_doc_id = pdf_upload_1.json()["document_id"]
+
+    # Archive the PDF document in DB
+    with SessionFactory.begin() as session:
+        pdf_doc = session.get(DocumentTable, pdf_doc_id)
+        assert pdf_doc is not None
+        pdf_doc.archived = True
+
+    # Re-upload same PDF (with different idempotency key so it triggers deduplication):
+    pdf_upload_2 = client.post(
+        f"/v1/workspaces/{workspace_id}/documents",
+        headers={"X-API-Key": raw_key, "Idempotency-Key": "pdf-req-2"},
+        data={"source_key": "manuals/guide.pdf"},
+        files={"file": ("guide.pdf", b"%PDF-1.7\nsmall fixture")},
+    )
+    assert pdf_upload_2.status_code in (200, 202)
+    assert pdf_upload_2.json()["submission_outcome"] == "deduplicated"
+    assert pdf_upload_2.json()["document_archived"] is True
