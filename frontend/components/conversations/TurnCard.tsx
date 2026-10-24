@@ -6,7 +6,9 @@ import { CitationViewer } from "@/components/citations/CitationViewer";
 import { routes } from "@/lib/navigation/routes";
 import type { EvidenceSelection } from "@/lib/conversations/panel-preferences";
 import { isVietnameseQuestion } from "@/lib/conversations/question-language";
+import { copyableAnswerMarkdown } from "@/lib/conversations/message-copy";
 import { AnswerContent } from "./AnswerContent";
+
 export function processingLabel(stage: string | null) {
   switch (stage) {
     case "retrieving":
@@ -19,6 +21,7 @@ export function processingLabel(stage: string | null) {
       return "Processing question…";
   }
 }
+
 export function TurnCard({
   turn,
   workspaceId,
@@ -47,15 +50,119 @@ export function TurnCard({
     !working && !interrupted && !failed && turn.result?.decision === "ANSWER"
       ? turn.result.answer
       : null;
+
+  const [questionCopyState, setQuestionCopyState] = React.useState<
+    "idle" | "copying" | "copied" | "error"
+  >("idle");
+  const [answerCopyState, setAnswerCopyState] = React.useState<
+    "idle" | "copying" | "copied" | "error"
+  >("idle");
+  const questionTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const answerTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (questionTimerRef.current) clearTimeout(questionTimerRef.current);
+      if (answerTimerRef.current) clearTimeout(answerTimerRef.current);
+    };
+  }, []);
+
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const copyableAnswer = answer
+    ? copyableAnswerMarkdown(
+        answer,
+        turn.result?.citations ?? [],
+        workspaceId,
+        origin,
+      )
+    : null;
+
+  const refusalText = refused
+    ? turn.result?.refusal_reason === "INSUFFICIENT_EVIDENCE"
+      ? vietnamese
+        ? "Tôi chưa có đủ bằng chứng để trả lời câu hỏi này."
+        : "I don’t have enough evidence to answer that."
+      : vietnamese
+        ? "Tôi không thể trả lời câu hỏi này dựa trên bằng chứng hiện có."
+        : "I can’t answer that from the available evidence."
+    : null;
+
+  async function handleCopyQuestion() {
+    if (questionCopyState === "copying") return;
+    setQuestionCopyState("copying");
+    try {
+      if (!navigator?.clipboard?.writeText) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(turn.question);
+      setQuestionCopyState("copied");
+      if (questionTimerRef.current) clearTimeout(questionTimerRef.current);
+      questionTimerRef.current = setTimeout(() => {
+        setQuestionCopyState("idle");
+      }, 2000);
+    } catch {
+      setQuestionCopyState("error");
+      if (questionTimerRef.current) clearTimeout(questionTimerRef.current);
+      questionTimerRef.current = setTimeout(() => {
+        setQuestionCopyState("idle");
+      }, 3000);
+    }
+  }
+
+  async function handleCopyAnswer(content: string) {
+    if (answerCopyState === "copying") return;
+    setAnswerCopyState("copying");
+    try {
+      if (!navigator?.clipboard?.writeText) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(content);
+      setAnswerCopyState("copied");
+      if (answerTimerRef.current) clearTimeout(answerTimerRef.current);
+      answerTimerRef.current = setTimeout(() => {
+        setAnswerCopyState("idle");
+      }, 2000);
+    } catch {
+      setAnswerCopyState("error");
+      if (answerTimerRef.current) clearTimeout(answerTimerRef.current);
+      answerTimerRef.current = setTimeout(() => {
+        setAnswerCopyState("idle");
+      }, 3000);
+    }
+  }
+
   return (
     <li
       className="m-0 flex flex-col gap-[22px]"
       aria-label={`Question ${turn.sequence}`}
     >
-      <div className="flex min-h-[52px] items-start justify-end">
+      <div className="flex min-h-[52px] flex-col items-end gap-1.5">
         <p className="max-w-full whitespace-pre-wrap break-words rounded-2xl bg-text-primary px-3.5 py-2.5 text-sm font-medium leading-5 text-surface">
           {turn.question}
         </p>
+        <button
+          type="button"
+          aria-label={
+            vietnamese
+              ? `Sao chép câu hỏi ${turn.sequence}`
+              : `Copy question ${turn.sequence}`
+          }
+          disabled={questionCopyState === "copying"}
+          onClick={handleCopyQuestion}
+          className="m-0 flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-0.5 text-xs text-text-muted hover:border-action hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-action disabled:opacity-50"
+        >
+          {questionCopyState === "copied"
+            ? vietnamese
+              ? "Đã sao chép"
+              : "Copied"
+            : questionCopyState === "error"
+              ? vietnamese
+                ? "Không thể sao chép"
+                : "Copy failed"
+              : vietnamese
+                ? "Sao chép"
+                : "Copy"}
+        </button>
       </div>
       <article className="m-0 flex flex-col gap-2.5 rounded-none border-0 bg-transparent p-0">
         {working && !sessionExpired && (
@@ -75,28 +182,78 @@ export function TurnCard({
           </div>
         )}
         {answer && (
-          <AnswerContent
-            answer={answer}
-            citations={turn.result?.citations ?? []}
-            selectedIndex={
-              selection?.turnId === turn.id ? selection.citationIndex : null
-            }
-            onSelect={(index) =>
-              onSelect({ turnId: turn.id, citationIndex: index })
-            }
-          />
+          <>
+            <AnswerContent
+              answer={answer}
+              citations={turn.result?.citations ?? []}
+              selectedIndex={
+                selection?.turnId === turn.id ? selection.citationIndex : null
+              }
+              onSelect={(index) =>
+                onSelect({ turnId: turn.id, citationIndex: index })
+              }
+            />
+            {copyableAnswer !== null && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  aria-label={
+                    vietnamese
+                      ? `Sao chép câu trả lời ${turn.sequence}`
+                      : `Copy answer ${turn.sequence}`
+                  }
+                  disabled={answerCopyState === "copying"}
+                  onClick={() => handleCopyAnswer(copyableAnswer)}
+                  className="m-0 flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-0.5 text-xs text-text-muted hover:border-action hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-action disabled:opacity-50"
+                >
+                  {answerCopyState === "copied"
+                    ? vietnamese
+                      ? "Đã sao chép"
+                      : "Copied"
+                    : answerCopyState === "error"
+                      ? vietnamese
+                        ? "Không thể sao chép"
+                        : "Copy failed"
+                      : vietnamese
+                        ? "Sao chép"
+                        : "Copy"}
+                </button>
+              </div>
+            )}
+          </>
         )}
         {refused && (
           <>
             <h2 className="font-display text-2xl font-semibold leading-8">
-              {turn.result?.refusal_reason === "INSUFFICIENT_EVIDENCE"
-                ? vietnamese
-                  ? "Tôi chưa có đủ bằng chứng để trả lời câu hỏi này."
-                  : "I don’t have enough evidence to answer that."
-                : vietnamese
-                  ? "Tôi không thể trả lời câu hỏi này dựa trên bằng chứng hiện có."
-                  : "I can’t answer that from the available evidence."}
+              {refusalText}
             </h2>
+            {refusalText && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  aria-label={
+                    vietnamese
+                      ? `Sao chép câu trả lời ${turn.sequence}`
+                      : `Copy answer ${turn.sequence}`
+                  }
+                  disabled={answerCopyState === "copying"}
+                  onClick={() => handleCopyAnswer(refusalText)}
+                  className="m-0 flex items-center gap-1 rounded-md border border-border bg-surface px-2 py-0.5 text-xs text-text-muted hover:border-action hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-action disabled:opacity-50"
+                >
+                  {answerCopyState === "copied"
+                    ? vietnamese
+                      ? "Đã sao chép"
+                      : "Copied"
+                    : answerCopyState === "error"
+                      ? vietnamese
+                        ? "Không thể sao chép"
+                        : "Copy failed"
+                      : vietnamese
+                        ? "Sao chép"
+                        : "Copy"}
+                </button>
+              </div>
+            )}
             <p className="text-sm leading-[22px]">
               {vietnamese ? "Lý do từ chối" : "Refused"}:{" "}
               {turn.result?.refusal_reason}

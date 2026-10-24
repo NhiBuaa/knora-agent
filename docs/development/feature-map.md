@@ -135,18 +135,24 @@ this test acts only on its fresh synthetic data, and cleanup removes only its st
 ### Sub-features
 
 Conversation hub/history, new draft, create on question submission, archive/restore,
-durable queued Turns, history reconciliation, answer/refusal rendering and citation
+durable queued Turns, history reconciliation, answer/refusal rendering, per-message
+question and answer copy with canonical citation Markdown links, and citation
 inspection. Routes: `frontend/app/workspaces/[workspaceId]/conversations/{page.tsx,
 [conversationId]/page.tsx}`; controls: `frontend/components/conversations/
-{ConversationPanels,ConversationView}.tsx`.
+{ConversationPanels,ConversationView,TurnCard}.tsx`.
 
 ### How to get to it (user POV)
 
 Open `/workspaces/<id>/conversations` or select a retained Conversation. Button
 `New Conversation` opens the empty hub; field `Question` and button `Ask` submit.
-An archived Conversation shows `Archived conversation · Read-only`, no composer, and
-`Restore conversation` only when its Workspace is active. Answer citations open the
-`Evidence Inspector` complementary panel.
+Each user question provides a dedicated Copy button copying verbatim question text.
+Each completed authoritative answer provides a dedicated Copy button converting
+validated citation markers `[[E#]]` into markdown links with canonical application
+document routes; completed refusal notices copy their displayed refusal text.
+Copy buttons remain functional in archived read-only conversations without
+triggering mutations. An archived Conversation shows `Archived conversation · Read-only`,
+no composer, and `Restore conversation` only when its Workspace is active.
+Answer citations open the `Evidence Inspector` complementary panel.
 
 ### Driving it with Playwright
 
