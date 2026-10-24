@@ -162,6 +162,54 @@ _SECTION_REF_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+_SECTION_WORDS = {
+    "chương",
+    "mục",
+    "điều",
+    "khoản",
+    "phần",
+    "chapter",
+    "section",
+    "article",
+}
+
+_UNIT_WORDS = {
+    "ngày",
+    "ngay",
+    "tháng",
+    "thang",
+    "năm",
+    "nam",
+    "tuần",
+    "tuan",
+    "giờ",
+    "gio",
+    "phút",
+    "phut",
+    "giây",
+    "giay",
+    "triệu",
+    "trieu",
+    "tỷ",
+    "ty",
+    "đồng",
+    "dong",
+    "vnd",
+    "usd",
+    "day",
+    "days",
+    "week",
+    "weeks",
+    "month",
+    "months",
+    "year",
+    "years",
+    "hour",
+    "hours",
+}
+
+_NEGATION_WORDS = {"không", "chưa", "chẳng", "not", "never"}
+
 _STOPWORDS = {
     "và",
     "với",
@@ -177,42 +225,6 @@ _STOPWORDS = {
     "trong",
     "đến",
     "theo",
-    "chương",
-    "mục",
-    "điều",
-    "khoản",
-    "phần",
-    "chapter",
-    "section",
-    "article",
-    "đây",
-    "chỉ",
-    "nội",
-    "dung",
-    "về",
-    "thông",
-    "tin",
-    "quy",
-    "định",
-    "tổng",
-    "quan",
-    "chung",
-    "giới",
-    "thiệu",
-    "chi",
-    "tiết",
-    "khác",
-    "nào",
-    "một",
-    "hai",
-    "ba",
-    "bốn",
-    "năm",
-    "sáu",
-    "bảy",
-    "tám",
-    "chín",
-    "mười",
     "này",
     "kia",
     "đó",
@@ -232,12 +244,14 @@ _STOPWORDS = {
     "bởi",
     "do",
     "bằng",
-}
+} | _SECTION_WORDS
 
 
 def _validate_citation_alignment(
     answer: str,
     alias_to_candidate: Mapping[str, Any],
+    *,
+    is_multi_group: bool = False,
 ) -> None:
     matches = list(MARKER_PATTERN.finditer(answer))
     if not matches:
@@ -249,14 +263,19 @@ def _validate_citation_alignment(
     for match in matches:
         marker = match.group(1)
         start = match.start()
-        text_before = answer[prev_boundary:start]
-        boundary_matches = list(re.finditer(r"[.;\n]", text_before))
-        if boundary_matches:
-            seg_start = prev_boundary + boundary_matches[-1].end()
-        else:
-            seg_start = prev_boundary
+        text_before = answer[prev_boundary:start].strip()
 
-        seg_text = answer[seg_start:start].strip()
+        # Strip trailing punctuation so citation placed after period (e.g. "Sentence. [[E1]]")
+        # properly maps the preceding sentence to the marker
+        text_to_search = re.sub(r"[\s.;:,-]+$", "", text_before)
+        boundary_matches = list(re.finditer(r"[;\n]|\.\s+", text_to_search))
+        if boundary_matches:
+            seg_start_rel = boundary_matches[-1].end()
+            seg_text = text_to_search[seg_start_rel:].strip()
+        else:
+            seg_text = text_to_search.strip()
+
+        seg_text = re.sub(r"^[\s.;:,-]+", "", seg_text)
         if not seg_text and segments:
             seg_text = segments[-1][1]
         segments.append((marker, seg_text))
@@ -278,37 +297,93 @@ def _validate_citation_alignment(
             if not _matches_word_boundary(sec, cand_full):
                 _invalid()
 
-        # 2. Number constraints: every non-section number must exist in candidate context
+        # 2. Number constraints with whitelist conversion 7 days <-> 1 week
         non_section_text = _SECTION_REF_PATTERN.sub(" ", norm_seg)
         seg_numbers = re.findall(r"\b\d+(?:[.,]\d+)?\b", non_section_text)
         for num in seg_numbers:
             if not _matches_word_boundary(num, cand_full):
+                if (
+                    num == "7"
+                    and any(d in norm_seg for d in ["ngày", "ngay", "day", "days"])
+                    and any(w in cand_full for w in ["1 tuần", "một tuần", "1 week", "one week"])
+                ):
+                    continue
+                if (
+                    num == "1"
+                    and any(w in norm_seg for w in ["tuần", "tuan", "week", "weeks"])
+                    and any(d in cand_full for d in ["7 ngày", "bảy ngày", "7 day", "7 days"])
+                ):
+                    continue
                 _invalid()
 
-        # 3. Factual substance check: must not be completely factless or only filler
-        cand_words = set(re.findall(r"\w+", cand_content)) - _STOPWORDS
-        cand_words = {w for w in cand_words if len(w) >= 2 and not w.isdigit()}
-
-        seg_words = [
-            w for w in re.findall(r"\w+", norm_seg) if w not in _STOPWORDS and not w.isdigit()
+        # 3. Unit constraints: non-whitelisted unit words in segment must match evidence
+        seg_units = [
+            w
+            for w in re.findall(r"\b\w+\b", norm_seg)
+            if w in _UNIT_WORDS
+            and not (
+                (
+                    w in {"ngày", "ngay", "day", "days"}
+                    and any(x in cand_full for x in ["1 tuần", "một tuần", "1 week", "one week"])
+                )
+                or (
+                    w in {"tuần", "tuan", "week", "weeks"}
+                    and any(x in cand_full for x in ["7 ngày", "bảy ngày", "7 day", "7 days"])
+                )
+            )
         ]
-        matched_words = [w for w in seg_words if w in cand_words]
-
-        if seg_numbers:
-            if seg_words and not matched_words:
+        for u in seg_units:
+            if not _matches_word_boundary(u, cand_full):
                 _invalid()
-        else:
-            has_2gram = False
-            content_words_in_seg = [
+
+        # 4. Polarity/negation check: ungrounded negation or dropped negation on critical terms
+        seg_negs = [w for w in re.findall(r"\b\w+\b", norm_seg) if w in _NEGATION_WORDS]
+        cand_negs = [w for w in re.findall(r"\b\w+\b", cand_full) if w in _NEGATION_WORDS]
+        if seg_negs and not cand_negs:
+            _invalid()
+        for neg in ["không", "chưa", "not"]:
+            if f"{neg} " in cand_full:
+                words_after_neg = re.findall(rf"{neg}\s+(\w+)", cand_full)
+                for w in words_after_neg:
+                    if (
+                        w not in _STOPWORDS
+                        and _matches_word_boundary(w, norm_seg)
+                        and not any(n in norm_seg for n in _NEGATION_WORDS)
+                    ):
+                        _invalid()
+
+        # 5. Filler check: segment cannot be purely filler phrases
+        filler_patterns = [
+            r"đây\s+chỉ\s+là\s+phần\s+giới\s+thiệu",
+            r"tổng\s+quan\s+chung",
+            r"giới\s+thiệu\s+tổng\s+quan",
+            r"chưa\s+có\s+thông\s+tin\s+chi\s+tiết",
+            r"nội\s+dung\s+chung",
+        ]
+        if any(re.search(p, norm_seg) for p in filler_patterns):
+            cand_words = set(re.findall(r"\w+", cand_content)) - _STOPWORDS
+            cand_words = {w for w in cand_words if len(w) >= 2 and not w.isdigit()}
+            seg_substantive = [
                 w for w in re.findall(r"\w+", norm_seg) if w not in _STOPWORDS and not w.isdigit()
             ]
-            for i in range(len(content_words_in_seg) - 1):
-                w1, w2 = content_words_in_seg[i], content_words_in_seg[i + 1]
-                bigram = f"{w1} {w2}"
+            if not any(w in cand_words for w in seg_substantive):
+                _invalid()
+
+        # 6. Multi-group substantive facts check:
+        # must have at least 2 substantive words or a valid 2-gram
+        if is_multi_group and not seg_numbers:
+            cand_words = set(re.findall(r"\w+", cand_content)) - _STOPWORDS
+            cand_words = {w for w in cand_words if len(w) >= 2 and not w.isdigit()}
+            seg_words = [
+                w for w in re.findall(r"\w+", norm_seg) if w not in _STOPWORDS and not w.isdigit()
+            ]
+            matched_words = [w for w in seg_words if w in cand_words]
+            has_2gram = False
+            for i in range(len(seg_words) - 1):
+                bigram = f"{seg_words[i]} {seg_words[i + 1]}"
                 if bigram in cand_content:
                     has_2gram = True
                     break
-
             if not has_2gram and len(matched_words) < 2:
                 _invalid()
 
@@ -350,7 +425,8 @@ def validate_generation(
         _invalid()
 
     if alias_to_candidate and required_subquestions:
-        _validate_citation_alignment(result.answer, alias_to_candidate)
+        is_multi = len(required_subquestions) > 1
+        _validate_citation_alignment(result.answer, alias_to_candidate, is_multi_group=is_multi)
 
     if required_subquestions and len(required_subquestions) > 1:
         _validate_answer_group_completeness(

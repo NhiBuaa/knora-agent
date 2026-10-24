@@ -286,7 +286,7 @@ def test_reranker_failure_fallback_dbsf_sdm():
 
     answer_question = _build_answer_question(store, generator, reranker, config)
 
-    command = QuestionCommand(workspace_id="ws-1", question="some question")
+    command = QuestionCommand(workspace_id="ws-1", question="high initial score")
     principal = WorkspacePrincipal(workspace_id="ws-1", key_id="key-1")
 
     # Pipeline does NOT refuse or crash; it safely falls back to DBSF+SDM
@@ -320,7 +320,7 @@ def test_postgres_recheck_revocation_fails_closed():
     config = RerankingConfiguration.cloudflare_bge_reranker_v1()
 
     answer_question = _build_answer_question(store, generator, reranker, config)
-    command = QuestionCommand(workspace_id="ws-1", question="some question")
+    command = QuestionCommand(workspace_id="ws-1", question="high initial score")
     principal = WorkspacePrincipal(workspace_id="ws-1", key_id="key-1")
 
     with pytest.raises(KnoraError) as exc_info:
