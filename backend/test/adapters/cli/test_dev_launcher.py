@@ -1656,6 +1656,14 @@ def test_concurrent_launchers_serialize_via_project_reservation(tmp_path: Path, 
 
         assert proc_b.returncode == 2, proc_b.stderr
         assert "DEV_PROJECT_RESERVED:knora-dev" in proc_b.stderr
+        assert (
+            f"DEV_RESERVATION_PATH:{shared_temp / 'knora-dev-reservation-knora-dev.lock'}"
+            in proc_b.stderr
+        )
+        assert (
+            "DEV_RESERVATION_RUNBOOK:docs/runbooks/local-development.md#recovery-triage-preserve-retained-data"
+            in proc_b.stderr
+        )
         assert not calls_b.exists() or calls_b.read_text().strip() == ""
         assert "COMPOSE_MUTATION_ATTEMPTED" not in proc_b.stderr
     finally:
@@ -2608,3 +2616,263 @@ def test_launcher_verifies_volume_destination_and_role_label(tmp_path: Path, she
     else:
         assert result.returncode == 2, result.stderr
         assert "COMPOSE_PROJECT_OWNERSHIP_UNVERIFIED:knora-dev" in result.stderr
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+def test_daily_launcher_rejects_missing_env_file(tmp_path: Path) -> None:
+    missing = tmp_path / "missing.env"
+    result = subprocess.run(
+        [
+            _powershell(),
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(SCRIPT),
+            "-PreflightOnly",
+            "-EnvFile",
+            str(missing),
+            "-PythonExe",
+            sys.executable,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert result.returncode == 2
+    assert "ENV_FILE_UNAVAILABLE" in result.stderr
+    assert "PRECHECK_OK" not in result.stdout
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+def test_daily_launcher_rejects_malformed_dotenv_without_echoing_content(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    secret_marker = "do-not-print-this-secret"
+    env_file.write_text(f"BROKEN {secret_marker}\n", encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            _powershell(),
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(SCRIPT),
+            "-PreflightOnly",
+            "-EnvFile",
+            str(env_file),
+            "-PythonExe",
+            sys.executable,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert result.returncode == 2
+    assert "INVALID_DOTENV_ENTRY:1" in result.stderr
+    assert secret_marker not in result.stdout + result.stderr
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+def test_daily_launcher_loads_dotenv_from_spaced_path_and_preserves_caller(
+    tmp_path: Path,
+) -> None:
+    spaced_dir = tmp_path / "shared env directory with spaces"
+    spaced_dir.mkdir()
+    env_file = spaced_dir / ".env"
+    issuer_val = "http://127.0.0.1:8180/realms/custom?param=a=b=c"
+    env_file.write_text(
+        "KNORA_EMBEDDING_PROVIDER=deterministic-local\n"
+        "KNORA_GENERATION_PROVIDER=deterministic-local\n"
+        f"KEYCLOAK_ISSUER={issuer_val}\n"
+        f"KNORA_KEYCLOAK_ISSUER={issuer_val}\n",
+        encoding="utf-8",
+    )
+    initial_bytes = env_file.read_bytes()
+    initial_stat = env_file.stat()
+
+    child = tmp_path / "child.py"
+    child.write_text(
+        "import os\n"
+        "for key in ('KNORA_EMBEDDING_PROVIDER', 'KNORA_GENERATION_PROVIDER', 'KEYCLOAK_ISSUER'):\n"
+        "    print(key + '=' + os.environ.get(key, 'unset'))\n",
+        encoding="utf-8",
+    )
+
+    command = (
+        "$env:CALLER_GUARD = 'caller-preserved'; "
+        "& $env:TEST_LAUNCHER -PreflightOnly -EnvFile $env:TEST_ENV "
+        "-PythonExe $env:TEST_PYTHON; "
+        "if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; "
+        "& $env:TEST_PYTHON $env:TEST_CHILD; "
+        "if ($env:CALLER_GUARD -ne 'caller-preserved') { throw 'Caller leaked' }; "
+        "Write-Output 'CALLER_GUARD_OK'"
+    )
+
+    result = subprocess.run(
+        [_powershell(), "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
+        capture_output=True,
+        text=True,
+        timeout=25,
+        env={
+            **os.environ,
+            "TEST_LAUNCHER": str(SCRIPT),
+            "TEST_ENV": str(env_file),
+            "TEST_PYTHON": sys.executable,
+            "TEST_CHILD": str(child),
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    assert "PRECHECK_OK" in result.stdout
+    assert "KNORA_EMBEDDING_PROVIDER=deterministic-local" in result.stdout
+    assert "KNORA_GENERATION_PROVIDER=deterministic-local" in result.stdout
+    assert f"KEYCLOAK_ISSUER={issuer_val}" in result.stdout
+    assert "CALLER_GUARD_OK" in result.stdout
+    assert env_file.read_bytes() == initial_bytes
+    assert env_file.stat().st_mtime_ns == initial_stat.st_mtime_ns
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher reservation")
+@pytest.mark.parametrize("shell", ["powershell", "pwsh"])
+def test_launcher_reservation_diagnostics_when_lock_retained_with_valid_metadata(
+    tmp_path: Path, shell: str
+):
+    executable = shutil.which(shell)
+    if executable is None:
+        pytest.skip(f"{shell} is unavailable")
+
+    shared_temp = tmp_path / "shared_temp"
+    shared_temp.mkdir(parents=True)
+
+    lock_file = shared_temp / "knora-dev-reservation-knora-dev.lock"
+    lock_file.write_text(
+        "PID=54321\n"
+        "REPO=C:\\Developer\\Projects\\knora-agent\n"
+        "PROJECT=knora-dev\n"
+        "TIMESTAMP=2026-10-22T12:34:56.7890123Z\n",
+        encoding="utf-8",
+    )
+
+    checkout = tmp_path / "checkout"
+    scripts = checkout / "scripts"
+    scripts.mkdir(parents=True)
+    shutil.copy2(SCRIPT, scripts / SCRIPT.name)
+    native = SCRIPT.with_name("dev-process-job.cs")
+    if native.exists():
+        shutil.copy2(native, scripts / native.name)
+    env_file = checkout / ".env"
+    env_file.write_text("# isolated\n")
+
+    port_pg = _unused_port()
+    port_api = _unused_port()
+    port_ui = _unused_port()
+
+    proc = subprocess.run(
+        [
+            executable,
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(scripts / SCRIPT.name),
+            "-EnvFile",
+            str(env_file),
+            "-PostgresPort",
+            str(port_pg),
+            "-ApiPort",
+            str(port_api),
+            "-FrontendPort",
+            str(port_ui),
+        ],
+        cwd=str(checkout),
+        env={
+            **os.environ,
+            "TEMP": str(shared_temp),
+            "TMP": str(shared_temp),
+        },
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+
+    assert proc.returncode == 2, proc.stderr
+    assert "DEV_PROJECT_RESERVED:knora-dev" in proc.stderr
+    assert f"DEV_RESERVATION_PATH:{lock_file}" in proc.stderr
+    assert (
+        "DEV_RESERVATION_RUNBOOK:docs/runbooks/local-development.md#recovery-triage-preserve-retained-data"
+        in proc.stderr
+    )
+    assert "DEV_RESERVATION_OWNER_PID:54321" in proc.stderr
+    assert "DEV_RESERVATION_TIMESTAMP:2026-10-22T12:34:56.7890123Z" in proc.stderr
+    assert lock_file.exists(), "Retained lock file must not be removed by rejected invocation"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher reservation")
+@pytest.mark.parametrize("shell", ["powershell", "pwsh"])
+def test_launcher_reservation_diagnostics_when_metadata_malformed(tmp_path: Path, shell: str):
+    executable = shutil.which(shell)
+    if executable is None:
+        pytest.skip(f"{shell} is unavailable")
+
+    shared_temp = tmp_path / "shared_temp"
+    shared_temp.mkdir(parents=True)
+
+    lock_file = shared_temp / "knora-dev-reservation-knora-dev.lock"
+    lock_file.write_text(
+        "INVALID_ENTRY_NOT_KEY_VALUE\nPID=999999999999999999999\nTIMESTAMP=::::\n",
+        encoding="utf-8",
+    )
+
+    checkout = tmp_path / "checkout"
+    scripts = checkout / "scripts"
+    scripts.mkdir(parents=True)
+    shutil.copy2(SCRIPT, scripts / SCRIPT.name)
+    native = SCRIPT.with_name("dev-process-job.cs")
+    if native.exists():
+        shutil.copy2(native, scripts / native.name)
+    env_file = checkout / ".env"
+    env_file.write_text("# isolated\n")
+
+    port_pg = _unused_port()
+    port_api = _unused_port()
+    port_ui = _unused_port()
+
+    proc = subprocess.run(
+        [
+            executable,
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(scripts / SCRIPT.name),
+            "-EnvFile",
+            str(env_file),
+            "-PostgresPort",
+            str(port_pg),
+            "-ApiPort",
+            str(port_api),
+            "-FrontendPort",
+            str(port_ui),
+        ],
+        cwd=str(checkout),
+        env={
+            **os.environ,
+            "TEMP": str(shared_temp),
+            "TMP": str(shared_temp),
+        },
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+
+    assert proc.returncode == 2, proc.stderr
+    assert "DEV_PROJECT_RESERVED:knora-dev" in proc.stderr
+    assert f"DEV_RESERVATION_PATH:{lock_file}" in proc.stderr
+    assert (
+        "DEV_RESERVATION_RUNBOOK:docs/runbooks/local-development.md#recovery-triage-preserve-retained-data"
+        in proc.stderr
+    )
+    assert "DEV_RESERVATION_OWNER_PID" not in proc.stderr
+    assert "DEV_RESERVATION_TIMESTAMP" not in proc.stderr
+    assert "INVALID_ENTRY_NOT_KEY_VALUE" not in proc.stderr, "Must not dump arbitrary file content"
+    assert lock_file.exists(), "Retained lock file must not be removed by rejected invocation"

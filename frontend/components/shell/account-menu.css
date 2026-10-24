@@ -50,6 +50,14 @@
   font-size: 14px;
   font-weight: 600;
 }
+@media (pointer: coarse), (max-width: 768px) {
+  .account-menu__theme {
+    min-height: 44px;
+  }
+  .account-menu-root .account-menu__logout {
+    min-height: 44px;
+  }
+}
 
 .kn-theme-choices {
   margin: 0;

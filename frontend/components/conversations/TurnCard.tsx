@@ -97,23 +97,25 @@ export function TurnCard({
                   ? "Tôi không thể trả lời câu hỏi này dựa trên bằng chứng hiện có."
                   : "I can’t answer that from the available evidence."}
             </h2>
-            <p className="text-sm leading-[22px]">
-              {vietnamese ? "Lý do từ chối" : "Refused"}:{" "}
-              {turn.result?.refusal_reason}
-            </p>
-            <span className="m-0 w-fit rounded-full border border-signature bg-signature/10 px-2 py-1 text-[11px] text-signature">
-              {turn.result?.refusal_reason === "INSUFFICIENT_EVIDENCE"
-                ? vietnamese
-                  ? "Chưa đủ bằng chứng"
-                  : "Insufficient evidence"
-                : vietnamese
-                  ? "Từ chối có kiểm soát"
-                  : "Controlled refusal"}
-            </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="m-0 w-fit rounded-full border border-signature bg-signature/10 px-2 py-1 text-[11px] text-signature">
+                {turn.result?.refusal_reason === "INSUFFICIENT_EVIDENCE"
+                  ? vietnamese
+                    ? "Chưa đủ bằng chứng"
+                    : "Insufficient evidence"
+                  : vietnamese
+                    ? "Từ chối có kiểm soát"
+                    : "Controlled refusal"}
+              </span>
+              <p className="m-0 text-xs text-text-muted">
+                {vietnamese ? "Lý do từ chối" : "Refused"}:{" "}
+                {turn.result?.refusal_reason}
+              </p>
+            </div>
             <div className="flex flex-wrap gap-2">
               <Link
                 href={routes.documents(workspaceId)}
-                className="m-0 rounded-lg border border-border px-2.5 py-1.5 text-[11px]"
+                className="kn-turn-action m-0 rounded-lg border border-border px-2.5 py-1.5 text-[11px] hover:bg-surface-subtle"
               >
                 {vietnamese
                   ? "Xem tài liệu đã lập chỉ mục"
@@ -151,7 +153,7 @@ export function TurnCard({
             type="button"
             disabled={disabled}
             onClick={onRetry}
-            className="m-0 w-fit rounded-lg border border-action px-2.5 py-1.5 text-[11px] text-action-text disabled:opacity-50"
+            className="kn-turn-action m-0 w-fit rounded-lg border border-action px-2.5 py-1.5 text-[11px] text-action-text disabled:opacity-50"
           >
             Try again
           </button>
