@@ -393,7 +393,7 @@ def score_capture(capture: dict, judge, *, measure: bool = True) -> dict:
                     "score": scorer.score,
                     "rationale": scorer.reason,
                 }
-            except Exception as error:
+            except JudgeError as error:
                 metrics[name] = {
                     "status": "error",
                     "score": None,
