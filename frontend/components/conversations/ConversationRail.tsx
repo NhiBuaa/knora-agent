@@ -81,7 +81,7 @@ export function ConversationRail({
         type="button"
         aria-label={collapsed ? "Expand rail" : "Collapse rail"}
         onClick={() => onChange(collapsed ? "expanded" : "collapsed")}
-        className="m-0 mt-auto flex h-8 shrink-0 items-center gap-2 border-0 bg-transparent p-0 text-xs font-medium text-text-muted"
+        className="kn-rail-collapse m-0 mt-auto flex min-h-8 shrink-0 items-center gap-2 border-0 bg-transparent p-0 text-xs font-medium text-text-muted max-[769px]:min-h-[44px] pointer-coarse:min-h-[44px]"
       >
         <span aria-hidden="true" className="text-base">
           {collapsed ? "›" : "‹"}
