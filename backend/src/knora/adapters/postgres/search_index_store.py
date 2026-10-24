@@ -71,11 +71,9 @@ class PostgresSearchIndexStore:
             if g.lexical_profile.statistics_digest != stats_digest:
                 raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
 
-        cache_key = (workspace_id, stats_digest)
-        cached = _CORPUS_STATS_CACHE.get(cache_key)
-        if cached is not None:
-            return cached
-
+        # F08: Do not use global cache keyed on (workspace_id, stats_digest),
+        # because stats_digest is tied to profile definition and does not change
+        # when corpus membership/documents change. Read/compute directly from active PG snapshot.
         chunks: list[ChunkTable] = []
         for g in generations:
             chunks.extend(
@@ -94,15 +92,13 @@ class PostgresSearchIndexStore:
             for tok in tokens:
                 freqs[tok] = freqs.get(tok, 0) + 1
 
-        stats = CorpusStatistics(
+        return CorpusStatistics(
             total_tokens=max(1, total_tokens),
             total_chunks=len(chunks),
             unigram_frequencies=freqs,
             average_chunk_length=total_tokens / len(chunks) if chunks else 0.0,
             statistics_digest=stats_digest,
         )
-        _CORPUS_STATS_CACHE[cache_key] = stats
-        return stats
 
     def read_active_generations(
         self, workspace_id: str, lexical_policy_id: str
