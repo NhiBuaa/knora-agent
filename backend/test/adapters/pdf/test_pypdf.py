@@ -559,6 +559,68 @@ def test_rejects_child_output_sent_after_the_extraction_deadline() -> None:
     assert raised.value.reason == "EXTRACTION_TIMEOUT"
 
 
+def test_late_success_cannot_finalize_and_cleans_up_resources(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from pathlib import Path
+    from typing import BinaryIO
+
+    import psutil
+
+    source = pdf_with_pages("ordinary text")
+    configuration = replace(
+        PdfExtractionConfiguration.milestone_two(),
+        extraction_timeout_seconds=0.05,
+    )
+
+    probed_pids: list[int] = []
+    original_install = pypdf_process._install_hard_memory_limit
+
+    def probe_install_hard_memory_limit(process, memory_limit):
+        if process.pid is not None:
+            probed_pids.append(process.pid)
+        return original_install(process, memory_limit)
+
+    monkeypatch.setattr(
+        "knora.adapters.pdf._pypdf_process._install_hard_memory_limit",
+        probe_install_hard_memory_limit,
+    )
+
+    class ProbedLateOutputExtractor(LateOutputExtractor):
+        def __init__(self) -> None:
+            super().__init__()
+            self.temp_path: Path | None = None
+
+        def _copy_to_temporary_file(self, stream: BinaryIO, max_raw_bytes: int) -> tuple[Path, str]:
+            path, raw_hash = super()._copy_to_temporary_file(stream, max_raw_bytes)
+            self.temp_path = path
+            return path, raw_hash
+
+    extractor = ProbedLateOutputExtractor()
+    with pytest.raises(PdfExtractionError) as raised:
+        extractor.extract(BytesIO(source), configuration)
+
+    assert raised.value.code == "PDF_RESOURCE_LIMIT_EXCEEDED"
+    assert raised.value.reason == "EXTRACTION_TIMEOUT"
+
+    # F03 check 1: Temporary PDF file must be deleted completely
+    assert extractor.temp_path is not None
+    assert not extractor.temp_path.exists(), "Temporary PDF file leaked after late timeout"
+
+    # F03 check 2: Child process must be cleanly terminated without orphans
+    assert len(probed_pids) == 1
+    child_pid = probed_pids[0]
+    time.sleep(0.1)
+    if psutil.pid_exists(child_pid):
+        try:
+            proc = psutil.Process(child_pid)
+            assert not proc.is_running() or proc.status() == psutil.STATUS_ZOMBIE, (
+                f"Child process {child_pid} is still active"
+            )
+        except psutil.NoSuchProcess:
+            pass
+
+
 def test_normalization_contract_and_pinned_metadata_are_observable() -> None:
     configuration = PdfExtractionConfiguration.milestone_two()
     expected_text = "Café au lait\nsecond\nline\n\nlast"
