@@ -152,6 +152,9 @@ Each user question provides a dedicated Copy button copying verbatim question te
 Each completed authoritative answer provides a dedicated Copy button converting
 validated citation markers `[[E#]]` into markdown links with canonical application
 document routes; completed refusal notices copy their displayed refusal text.
+The Copy control renders accessible inline SVG icons (`CopyIcon`, `CheckIcon`,
+`AlertIcon`) with hidden screen-reader labels (`sr-only`), and supports pointer click,
+touch tap, and keyboard activation (`Space` and `Enter`).
 Copy buttons remain functional in archived read-only conversations without
 triggering mutations. An archived Conversation shows `Archived conversation · Read-only`,
 no composer, and `Restore conversation` only when its Workspace is active.
@@ -165,7 +168,10 @@ the archived Conversation stays archived in an authoritative GET. It does **not*
 a question or complete a Turn. The broader lifecycle test in `figma-ui-interactions.spec.ts`
 checks admission/lost-response recovery; controller cases check terminal states.
 `figma-conversation-navigation.spec.ts` includes recovery/expiry/history journeys, some
-requiring controller-produced artifacts. Read each precondition before selecting it.
+requiring controller-produced artifacts. Dedicated clipboard verification in
+`figma-conversation-copy.spec.ts` exercises question and answer copy against real
+browser clipboard content, verifies touch tap and keyboard activation, and exercises
+controlled clipboard rejection. Read each precondition before selecting it.
 
 ### Gotchas
 
