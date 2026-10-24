@@ -78,13 +78,13 @@ must remain explicit and cannot replace an existing acceptance criterion or requ
 Use existing checks; command and partition definitions remain in package/config/workflow sources.
 Local targeted checks do not replace the unchanged full required PR CI.
 
-| Changed surface                  | Start with                                                                       | Expand when needed                                                                                                                                                                  |
-| -------------------------------- | -------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Backend/application              | Tests mirroring the owning module under `backend/test`; Python formatting/lint   | HTTP/provider contracts and real isolated database tests for changed boundaries, persistence or atomicity                                                                           |
-| Frontend/BFF                     | Owning Vitest tests, typecheck, lint and formatting from `frontend/package.json` | Build and relevant application Playwright journey for user-visible behavior; fixture mode proves rendering only                                                                     |
-| Launcher, evidence or CI tooling | Existing config/CLI regression tests, including refusal/failure/cleanup paths    | Compose configuration, supported OS checks and affected disposable application journeys when launch/ownership/browser behavior changes                                              |
-| Instructions/docs                | Link/command/source checks and applicable shared formatting                      | For changed agent instructions, a fresh agent exercising an existing task; a read-only trial is not proof of a bug-fix loop                                                         |
-| Model/retrieval quality          | Deterministic contracts for code behavior                                        | Separately authorized evaluation with approved inputs and provenance under the [Architecture Standard](../standards/architecture.md#evaluation-governance); no inference by default |
+| Changed surface                  | Start with                                                                       | Expand when needed                                                                                                                                                                            |
+| -------------------------------- | -------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Backend/application              | Tests mirroring the owning module under `backend/test`; Python formatting/lint   | HTTP/provider contracts and real database tests (using shared local DB sequentially or isolated test DB for migrations/destructive fixtures) for changed boundaries, persistence or atomicity |
+| Frontend/BFF                     | Owning Vitest tests, typecheck, lint and formatting from `frontend/package.json` | Build and relevant application Playwright journey for user-visible behavior; fixture mode proves rendering only                                                                               |
+| Launcher, evidence or CI tooling | Existing config/CLI regression tests, including refusal/failure/cleanup paths    | Compose configuration, supported OS checks and affected disposable application journeys when launch/ownership/browser behavior changes                                                        |
+| Instructions/docs                | Link/command/source checks and applicable shared formatting                      | For changed agent instructions, a fresh agent exercising an existing task; a read-only trial is not proof of a bug-fix loop                                                                   |
+| Model/retrieval quality          | Deterministic contracts for code behavior                                        | Separately authorized evaluation with approved inputs and provenance under the [Architecture Standard](../standards/architecture.md#evaluation-governance); no inference by default           |
 
 Unit/integration PASS proves only the asserted seam. Offline Playwright fixtures do not prove a
 live backend. Application browser PASS proves only the executed journeys on that build/environment;
@@ -118,6 +118,83 @@ Keep these identities distinct; a green old head, another PR or workflow-source 
 verify the current change. A new push invalidates the previous head's CI claim. A missing, failed,
 cancelled or skipped required result is not CI Verified. Runtime release profiles additionally
 use the exact subject-SHA validation below.
+
+## Local test execution and evidence retention
+
+Local test execution uses the existing `--ci-suite` options defined in root `conftest.py`: `backend`, `windows`, `database`, and `security-shadow`. These options route tests according to partition rules, not ad-hoc directory conventions:
+
+- `backend`: The backend unit and non-Windows, non-database partition according to repository routing. It is not "all tests without a database".
+- `windows`: Windows-specific tests requiring Windows APIs, Job Objects, or local launcher harnesses.
+- `database`: Integration tests interacting with PostgreSQL adapters, ingestion workers, and stores.
+- `security-shadow`: Archived/research tests excluded from required CI.
+
+Use `--ci-selection` to write a selection manifest (`selection.json`) capturing the exact executed and deselected tests. This bounds terminal output while preserving complete, auditable proof of partition execution.
+
+### Suite execution commands
+
+Run suite commands in a dedicated PowerShell process from the verified checkout root using the discovered Python interpreter. `$evidence` is a fresh, per-run directory:
+
+```powershell
+# Backend partition according to existing routing (not all local tests).
+python -m pytest backend/test evals/test --ci-suite=backend --ci-selection="$evidence/backend-selection.json" --junitxml="$evidence/backend.xml" -o "cache_dir=$evidence/cache"
+
+# Windows partition: run on Windows with configured shells and dependencies.
+python -m pytest backend/test evals/test --ci-suite=windows --ci-selection="$evidence/windows-selection.json" --junitxml="$evidence/windows.xml" -o "cache_dir=$evidence/cache"
+
+# Database partition: requires explicit reviewed test target before invocation.
+if ([string]::IsNullOrWhiteSpace($env:KNORA_DATABASE_URL)) { throw 'LOCAL_DB_TARGET_REQUIRED: set the reviewed test target in this process; do not use the implicit fallback' }
+python -m pytest backend/test evals/test --ci-suite=database --ci-selection="$evidence/database-selection.json" --junitxml="$evidence/database.xml" -o "cache_dir=$evidence/cache"
+```
+
+Capture `$LASTEXITCODE` immediately after executing a single pytest command.
+
+**Database target safety**: Setting `$env:KNORA_DATABASE_URL` alone does not prove permission to truncate or reset data; an operator must separately verify that the targeted database is an authorized, disposable test instance before invoking the database suite. Certain database suite fixtures (such as `backend/test/adapters/postgres/test_object_lifecycle_store.py:30–36`) execute `TRUNCATE` and commit transactions before and after tests, which permanently destroys persistent data. Never run the database test suite against a shared development database preserving project records. Ordinary local application smoke tests use the shared local database sequentially and do not run this destructive test suite. Note that this preparation guard checks `$env:KNORA_DATABASE_URL` in the command template; bare `pytest` invocations bypassing the template fall back to the implicit default URL.
+
+### Long-running command evidence pattern
+
+To ensure evidence is captured from the beginning of execution, runs are tied to an exact git checkout, and process interruptions or lost connections are detected honestly, use the following PowerShell child-process pattern. The script block runs exclusively in an isolated child shell without mutating the caller environment:
+
+```powershell
+$testBlock = {
+$ErrorActionPreference = 'Stop'
+$python = (Get-Command python -ErrorAction Stop).Source
+$evidence = Join-Path ([IO.Path]::GetTempPath()) ('knora-local-tests-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $evidence -ErrorAction Stop | Out-Null
+Write-Output "RUN_PID=$PID EVIDENCE=$evidence"
+$subjectSha = git rev-parse HEAD
+if ($LASTEXITCODE -ne 0) { throw 'GIT_HEAD_UNAVAILABLE' }
+$subjectSha | Set-Content -LiteralPath (Join-Path $evidence 'subject-sha.txt') -Encoding UTF8
+$worktreeStatus = git status --short
+if ($LASTEXITCODE -ne 0) { throw 'GIT_STATUS_UNAVAILABLE' }
+$worktreeStatus | Set-Content -LiteralPath (Join-Path $evidence 'worktree-status.txt') -Encoding UTF8
+$ErrorActionPreference = 'Continue'
+if (Get-Variable PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) { $PSNativeCommandUseErrorActionPreference = $false }
+$LASTEXITCODE = $null
+& $python -m pytest backend/test evals/test --ci-suite=backend --ci-selection="$evidence/selection.json" --junitxml="$evidence/junit.xml" -o "cache_dir=$evidence/cache" *> (Join-Path $evidence 'pytest.log')
+$testExit = $LASTEXITCODE
+$ErrorActionPreference = 'Stop'
+if ($null -eq $testExit) { throw 'PYTEST_EXIT_UNAVAILABLE' }
+$testExit | Set-Content -LiteralPath (Join-Path $evidence 'exit-code.txt') -Encoding UTF8
+Write-Output "EXIT_CODE=$testExit EVIDENCE=$evidence"
+exit $testExit
+}
+$testShell = (Get-Process -Id $PID).Path
+$encodedTestBlock = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($testBlock.ToString()))
+& $testShell -NoProfile -EncodedCommand $encodedTestBlock
+$outerExit = $LASTEXITCODE
+Write-Output "CHILD_EXIT=$outerExit"
+if ($outerExit -ne 0) { throw "TEST_CHILD_FAILED:$outerExit; inspect this run's evidence" }
+```
+
+### Evidence verification matrix
+
+| Execution scenario                                  | Required evidence                                                               | Conclusion                                                                            |
+| --------------------------------------------------- | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Pytest runs to completion and passes                | Exit 0, readable JUnit XML, valid test count, selection manifest if suite used  | PASS in the executed scope                                                            |
+| Test or assertion failure                           | Non-zero exit code, log file, JUnit XML if generated by pytest                  | FAIL; outer process completion does not imply pass                                    |
+| Early error (foreign preload mismatch, usage error) | Non-zero exit code and error log; JUnit XML or selection manifest may not exist | Early initialization failure, NOT a PASS; missing JUnit is expected on early errors   |
+| No tests selected                                   | Non-zero exit code (e.g. exit 5) or empty selection manifest                    | Unproven behavior, NOT a PASS                                                         |
+| Interrupted or lost session                         | Log started, recorded PID, but missing `exit-code.txt`                          | Undetermined / incomplete; verify PID and files before rerunning; never assume exit 0 |
 
 ## Pull request checks
 
