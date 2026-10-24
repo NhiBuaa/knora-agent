@@ -93,7 +93,9 @@ class NativeQdrantSearchIndex:
         if not isinstance(result, list):
             raise ProjectionResponseError("Qdrant persisted-point readback is incomplete")
 
-        return self.index.parse_stage_response(generation, result)
+        return self.index.parse_stage_response(
+            generation, result, expected_chunk_vectors=chunk_vectors
+        )
 
     def remove_generation(self, generation: LexicalGeneration) -> None:
         """Delete only this generation's deterministic point IDs, waiting for completion."""

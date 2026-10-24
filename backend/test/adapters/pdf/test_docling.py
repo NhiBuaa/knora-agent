@@ -584,3 +584,65 @@ def test_r2_n02_identity_and_configuration_isolation() -> None:
     # 4. Coordination store rejects unknown parser ID
     with pytest.raises(CoordinationInvariantError):
         PostgresIngestionJobCoordinationStore._resolve_extraction_configuration("unknown-parser-id")
+
+
+def test_docling_extractor_enforces_memory_budget() -> None:
+    from dataclasses import replace
+
+    extractor = DoclingTextExtractor()
+    config = DoclingExtractionConfiguration.cloudflare_native_v1()
+    tiny_memory_config = replace(config, extractor_memory_bytes=1)
+    pdf_bytes = _create_test_pdf("Sample text for memory test")
+
+    with pytest.raises(PdfExtractionError) as exc_info:
+        extractor.extract(BytesIO(pdf_bytes), tiny_memory_config)
+    assert exc_info.value.code == "PDF_RESOURCE_LIMIT_EXCEEDED"
+    assert exc_info.value.reason == "EXTRACTOR_MEMORY"
+
+
+def test_docling_extractor_enforces_timeout_after_conversion() -> None:
+    import time
+    from dataclasses import replace
+
+    from knora.providers.cloudflare.pdf_understanding import CloudflareToMarkdownResponse
+
+    def slow_conversion(data: bytes) -> CloudflareToMarkdownResponse:
+        time.sleep(0.05)
+        return CloudflareToMarkdownResponse(
+            content="# Converted Title\n\nBody here.", format="markdown"
+        )
+
+    mock_provider = MagicMock(spec=CloudflarePdfUnderstandingProvider)
+    mock_provider.convert_to_markdown.side_effect = slow_conversion
+
+    extractor = DoclingTextExtractor(cf_provider=mock_provider)
+    config = DoclingExtractionConfiguration.cloudflare_native_v1()
+    timeout_config = replace(config, extraction_timeout_seconds=0.01)
+
+    # Trigger fallback path by providing non-pypdf bytes
+    with pytest.raises(PdfExtractionError) as exc_info:
+        extractor.extract(BytesIO(b"not-a-valid-pdf-stream"), timeout_config)
+    assert exc_info.value.code == "PDF_RESOURCE_LIMIT_EXCEEDED"
+    assert exc_info.value.reason == "TIMEOUT"
+
+
+def test_docling_extractor_repeated_sections_have_distinct_offsets() -> None:
+    repeated_text = "Standard clause.\n\nStandard clause.\n\nStandard clause."
+    pdf_bytes = _create_test_pdf(repeated_text)
+    extractor = DoclingTextExtractor()
+    config = DoclingExtractionConfiguration.cloudflare_native_v1()
+
+    result = extractor.extract(BytesIO(pdf_bytes), config)
+    assert result.structure is not None
+    page = result.structure.pages[0]
+    blocks = page.blocks
+    assert len(blocks) >= 3
+
+    # Offsets must be strictly monotonically increasing
+    for i in range(len(blocks) - 1):
+        assert blocks[i].start_offset < blocks[i].end_offset
+        assert blocks[i].end_offset <= blocks[i + 1].start_offset
+
+    # Each block slice must exactly equal block text
+    for b in blocks:
+        assert page.text[b.start_offset : b.end_offset] == b.text

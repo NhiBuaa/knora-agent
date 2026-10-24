@@ -444,3 +444,63 @@ def test_parse_stage_response_rejects_dimension_mismatch(
     ]
     with pytest.raises(ProjectionResponseError, match="dimension mismatch"):
         dense_index.parse_stage_response(sample_generation, mismatch_points)
+
+
+def test_parse_stage_response_rejects_missing_vector_digest(
+    dense_index: QdrantSearchIndex, sample_generation: LexicalGeneration
+) -> None:
+    vec = tuple(0.01 * i for i in range(768))
+    points = [
+        {
+            "id": lexical_point_id(sample_generation.generation_id, "chunk-1"),
+            "vector": {"dense": list(vec)},
+            "payload": {
+                "workspace_id": "ws-tenant-1",
+                "generation_id": "gen-test-1",
+                "chunk_id": "chunk-1",
+                "profile_id": sample_generation.lexical_profile.id,
+                "profile_digest": sample_generation.lexical_profile.digest(),
+                "content_checksum": sample_generation.chunks[0].content_checksum,
+                "content_digest": sample_generation.content_digest(),
+                "embedding_configuration_id": dense_index.embedding_configuration.id,
+                # vector_digest is omitted / missing
+            },
+        }
+    ]
+    with pytest.raises(ProjectionResponseError, match="vector digest is missing"):
+        dense_index.parse_stage_response(sample_generation, points)
+
+
+def test_parse_stage_response_rejects_vector_differing_from_expected_pg_vector(
+    dense_index: QdrantSearchIndex, sample_generation: LexicalGeneration
+) -> None:
+    pg_vec = tuple(0.01 * i for i in range(768))
+    forged_vec = tuple(9.0 for _ in range(768))
+    forged_digest = hashlib.sha256(
+        json.dumps([float(v) for v in forged_vec], separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+
+    # The point has a forged digest matching its forged vector
+    points = [
+        {
+            "id": lexical_point_id(sample_generation.generation_id, "chunk-1"),
+            "vector": {"dense": list(forged_vec)},
+            "payload": {
+                "workspace_id": "ws-tenant-1",
+                "generation_id": "gen-test-1",
+                "chunk_id": "chunk-1",
+                "profile_id": sample_generation.lexical_profile.id,
+                "profile_digest": sample_generation.lexical_profile.digest(),
+                "content_checksum": sample_generation.chunks[0].content_checksum,
+                "content_digest": sample_generation.content_digest(),
+                "embedding_configuration_id": dense_index.embedding_configuration.id,
+                "vector_digest": forged_digest,
+            },
+        }
+    ]
+
+    # Passing expected_chunk_vectors with the authoritative PG vector must reject forged digest
+    with pytest.raises(ProjectionResponseError, match="differs from expected PG vector"):
+        dense_index.parse_stage_response(
+            sample_generation, points, expected_chunk_vectors={"chunk-1": pg_vec}
+        )
