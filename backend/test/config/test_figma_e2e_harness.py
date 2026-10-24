@@ -468,6 +468,17 @@ def test_ordinary_preparation_has_no_resource_reset(disposable_runner) -> None:
 def test_disposable_project_refuses_retained_resources_before_start(
     tmp_path: Path, resource: str
 ) -> None:
+    create_synthetic_frontend(tmp_path)
+    scripts = tmp_path / "scripts"
+    scripts.mkdir(exist_ok=True)
+    shutil.copy(ROOT / "scripts/prepare-figma-e2e.ps1", scripts)
+    fixtures = tmp_path / "test/fixtures/keycloak"
+    fixtures.mkdir(parents=True, exist_ok=True)
+    shutil.copy(ROOT / "test/fixtures/keycloak/figma-realm.json", fixtures)
+    (scripts / "configure-keycloak-auth-flow.ps1").write_text(
+        "param($Mode,$BaseUrl,$Project,$AdminUsername,$AdminPassword)\n"
+    )
+
     project = "knora-figma-e2e-agent-guard"
     graph = compose_graph("figma")
     graph["name"] = project
@@ -500,7 +511,7 @@ function docker {
     environment.update(TEST_GRAPH=str(graph_path), TEST_RESOURCE=resource)
     result = subprocess.run(
         [POWERSHELL, "-NoProfile", "-Command", command],
-        cwd=ROOT,
+        cwd=tmp_path,
         env=environment,
         capture_output=True,
         text=True,
