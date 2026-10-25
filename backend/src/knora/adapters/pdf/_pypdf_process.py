@@ -260,7 +260,10 @@ def _install_hard_memory_limit(
 ) -> int | _CgroupMemoryLimit | None:
     if os.name == "nt":
         return _install_windows_memory_limit(process, memory_limit)
-    return _install_posix_memory_limit(process, memory_limit)
+    try:
+        return _install_posix_memory_limit(process, memory_limit)
+    except _MemoryLimitUnavailable:
+        return None
 
 
 def _hard_memory_limit_triggered(
@@ -309,7 +312,8 @@ def _child_entrypoint(
     connection: Connection,
 ) -> None:
     try:
-        _install_child_posix_memory_limit(configuration.extractor_memory_bytes)
+        with suppress(_MemoryLimitUnavailable, OSError):
+            _install_child_posix_memory_limit(configuration.extractor_memory_bytes)
         try:
             command = connection.recv()
         except (EOFError, OSError):

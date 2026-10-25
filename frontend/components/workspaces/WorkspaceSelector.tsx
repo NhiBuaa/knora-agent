@@ -233,6 +233,7 @@ export function WorkspaceSelector({
         Workspace
       </p>
       <div
+        data-operator={operator ? "true" : undefined}
         className={String.raw`workspace-selector-heading flex min-h-[26px] items-center justify-between gap-2 [&_.kn-menu\_\_panel]:left-0 [&_.kn-menu\_\_panel]:right-auto [&_.kn-menu\_\_panel]:w-[182px] [&_.kn-menu\_\_panel]:min-w-[182px] [&_.kn-menu\_\_panel_button]:text-signature ${operator ? "[&_[aria-haspopup=menu]]:h-[26px] [&_[aria-haspopup=menu]]:py-0" : ""}`}
       >
         <button

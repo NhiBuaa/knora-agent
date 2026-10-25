@@ -242,3 +242,58 @@ it("leaves the whole menu on Tab instead of tabbing through each action", async 
   expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Outside" })).toHaveFocus();
 });
+
+it("supports rapid reopen of dialog on Escape without losing focus or mounting twice", async () => {
+  function RapidDialog() {
+    const [open, setOpen] = useState(false);
+    return (
+      <>
+        <button onClick={() => setOpen(true)}>Open dialog</button>
+        <Dialog open={open} title="Rapid modal" onClose={() => setOpen(false)}>
+          <button onClick={() => setOpen(false)}>Confirm</button>
+        </Dialog>
+      </>
+    );
+  }
+  render(<RapidDialog />);
+  const user = userEvent.setup();
+  const trigger = screen.getByRole("button", { name: "Open dialog" });
+
+  await user.click(trigger);
+  expect(screen.getByRole("dialog", { name: "Rapid modal" })).toBeVisible();
+  const closeBtn = screen.getByRole("button", { name: "Close Rapid modal" });
+  expect(closeBtn).toHaveFocus();
+
+  await user.keyboard("{Escape}");
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(trigger).toHaveFocus();
+
+  await user.click(trigger);
+  expect(screen.getByRole("dialog", { name: "Rapid modal" })).toBeVisible();
+  expect(
+    screen.getByRole("button", { name: "Close Rapid modal" }),
+  ).toHaveFocus();
+});
+
+it("supports rapid toggle of menu without stale state", async () => {
+  render(
+    <Menu label="Quick menu">
+      <button role="menuitem">Item 1</button>
+      <button role="menuitem">Item 2</button>
+    </Menu>,
+  );
+  const user = userEvent.setup();
+  const trigger = screen.getByRole("button", { name: "Quick menu" });
+
+  await user.click(trigger);
+  expect(screen.getByRole("menu")).toBeVisible();
+  await user.keyboard("{Escape}");
+  expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  expect(trigger).toHaveFocus();
+
+  await user.click(trigger);
+  expect(screen.getByRole("menu")).toBeVisible();
+  await user.click(trigger);
+  expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  expect(trigger).toHaveFocus();
+});

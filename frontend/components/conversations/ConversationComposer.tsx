@@ -152,7 +152,7 @@ export function ConversationComposer({
     input.current.style.height = `${Math.min(160, Math.max(44, input.current.scrollHeight))}px`;
   }, [draft]);
   return (
-    <div className="flex min-h-[72px] items-center border-t border-border bg-surface px-4 py-[11px] min-[960px]:px-6">
+    <div className="flex min-h-[72px] items-center border-t border-border bg-surface px-4 py-2 min-[960px]:px-6 min-[960px]:py-[11px]">
       {archived ? (
         <div
           aria-label={
@@ -182,7 +182,7 @@ export function ConversationComposer({
         <form
           aria-label="Question composer"
           onSubmit={onSubmit}
-          className="kn-composer-field flex min-h-12 w-full items-end gap-2 rounded-[10px] border border-border bg-surface pl-3.5 pr-2"
+          className="kn-composer-field flex min-h-12 w-full items-end gap-2 rounded-[10px] border border-border bg-surface pl-3.5 pr-2 max-[639px]:py-0.5"
         >
           <label htmlFor="conversation-question" className="sr-only">
             Question
@@ -207,14 +207,14 @@ export function ConversationComposer({
             readOnly={readOnly}
             onChange={(event) => onChange(event.target.value)}
             placeholder="Ask about the documents in this workspace…"
-            className="kn-field__control my-0 max-h-40 overflow-y-auto min-h-0 w-full resize-none border-0 bg-transparent px-0 py-3 text-[13px] leading-5 text-text-primary placeholder:text-text-muted"
+            className="kn-field__control my-0 max-h-40 min-h-0 w-full resize-none overflow-y-auto border-0 bg-transparent px-0 py-3 text-[13px] leading-5 text-text-primary placeholder:text-text-muted"
           />
           <button
             type="submit"
             aria-label="Ask"
             title="Send question"
             disabled={disabled}
-            className="m-0 mb-[7px] flex size-[34px] shrink-0 items-center justify-center rounded-lg border border-action bg-action p-0 text-base font-semibold text-action-foreground disabled:border-border disabled:bg-surface-subtle disabled:text-text-muted"
+            className="kn-composer__submit m-0 mb-[7px] flex size-[34px] shrink-0 items-center justify-center rounded-lg border border-action bg-action p-0 text-base font-semibold text-action-foreground disabled:border-border disabled:bg-surface-subtle disabled:text-text-muted"
           >
             <span aria-hidden="true">↑</span>
           </button>

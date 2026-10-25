@@ -93,7 +93,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: frontend-reports
-          path: frontend/test-results/**/*.xml
+          path: |
+            frontend/test-results/**/*.xml
+            frontend/test-results/figma-ui/**/verification-touch-target-*.png
           if-no-files-found: error
 
   backend:

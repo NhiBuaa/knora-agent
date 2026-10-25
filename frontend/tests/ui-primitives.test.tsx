@@ -39,6 +39,64 @@ describe("compact UI primitives", () => {
     expect(submitted).toHaveBeenCalledTimes(1);
   });
 
+  it("enforces disabled buttons suppress their own click and keyboard callbacks, and enable when requirements are met", async () => {
+    const user = userEvent.setup();
+    const disabledClick = vi.fn();
+    const disabledKey = vi.fn();
+    const enabledClick = vi.fn();
+
+    function ControlledForm() {
+      const [text, setText] = React.useState("");
+      return (
+        <div>
+          <input
+            aria-label="Prompt"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+          <Button
+            disabled={text.trim().length === 0}
+            onClick={text.trim().length > 0 ? enabledClick : disabledClick}
+            onKeyDown={disabledKey}
+          >
+            Submit prompt
+          </Button>
+        </div>
+      );
+    }
+
+    render(<ControlledForm />);
+    const submitBtn = screen.getByRole("button", { name: "Submit prompt" });
+    const input = screen.getByRole("textbox", { name: "Prompt" });
+
+    expect(submitBtn).toBeDisabled();
+
+    // Direct pointer click on disabled button
+    await user.click(submitBtn);
+    expect(disabledClick).not.toHaveBeenCalled();
+
+    // Keyboard activation attempt while disabled
+    submitBtn.focus();
+    await user.keyboard("{Enter} ");
+    expect(disabledClick).not.toHaveBeenCalled();
+    expect(disabledKey).not.toHaveBeenCalled();
+
+    // Provide required input -> button becomes enabled
+    await user.type(input, "Valid query");
+    expect(submitBtn).toBeEnabled();
+
+    // Pointer click on enabled button
+    await user.click(submitBtn);
+    expect(enabledClick).toHaveBeenCalledTimes(1);
+
+    // Keyboard activation on enabled button
+    submitBtn.focus();
+    await user.keyboard("{Enter}");
+    expect(enabledClick).toHaveBeenCalledTimes(2);
+    await user.keyboard(" ");
+    expect(enabledClick).toHaveBeenCalledTimes(3);
+  });
+
   it("offers the locked button variants with semantic signature and ghost styles", () => {
     render(
       <>

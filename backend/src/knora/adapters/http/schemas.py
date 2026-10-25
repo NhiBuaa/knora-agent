@@ -19,6 +19,7 @@ class IngestionResponse(BaseModel):
     chunking_configuration_id: str
     embedding_configuration_id: str
     chunk_count: int
+    document_archived: bool = False
 
 
 class PdfSubmissionResponse(BaseModel):
@@ -27,6 +28,7 @@ class PdfSubmissionResponse(BaseModel):
     status: Literal["queued", "processing", "retry_scheduled", "succeeded", "superseded", "failed"]
     document_id: str
     document_version_id: str
+    document_archived: bool = False
 
 
 class SuccessfulJobResultResponse(BaseModel):
