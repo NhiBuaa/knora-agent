@@ -436,35 +436,32 @@ class PostgresSearchIndexStore:
             current_active_profile_digests
             and target_profile_digest not in current_active_profile_digests
         )
-        submitted_doc_ids = {g.document_id for g, _ in items}
-        if is_profile_transition and active_doc_ids and submitted_doc_ids != active_doc_ids:
-            missing = active_doc_ids - submitted_doc_ids
-            raise StaleGenerationError(
-                "corpus transition requires receipts for all active documents in corpus; "
-                f"missing: {missing}"
-            )
-
-        is_cold_activation = not active_doc_ids
-        if is_cold_activation:
-            canonical_doc_ids = set(
-                session.scalars(
-                    select(DocumentTable.id).where(
-                        DocumentTable.workspace_id == workspace_id,
-                        DocumentTable.archived.is_(False),
-                    )
-                ).all()
-            )
-            if canonical_doc_ids and submitted_doc_ids != canonical_doc_ids:
-                missing = canonical_doc_ids - submitted_doc_ids
-                if missing:
-                    raise StaleGenerationError(
-                        "cold corpus activation requires receipts for all canonical "
-                        f"documents in corpus; missing: {missing}"
-                    )
-                extra = submitted_doc_ids - canonical_doc_ids
-                raise StaleGenerationError(
-                    f"cold corpus activation contains unexpected documents; extra: {extra}"
+        canonical_doc_ids = set(
+            session.scalars(
+                select(DocumentTable.id).where(
+                    DocumentTable.workspace_id == workspace_id,
+                    DocumentTable.archived.is_(False),
                 )
+            ).all()
+        )
+        submitted_doc_ids = {g.document_id for g, _ in items}
+        is_cold_activation = not active_doc_ids
+
+        if (
+            (is_profile_transition or is_cold_activation)
+            and canonical_doc_ids
+            and submitted_doc_ids != canonical_doc_ids
+        ):
+            missing = canonical_doc_ids - submitted_doc_ids
+            if missing:
+                prefix = "cold corpus activation" if is_cold_activation else "corpus transition"
+                raise StaleGenerationError(
+                    f"{prefix} requires receipts for all canonical "
+                    f"documents in corpus; missing: {missing}"
+                )
+            extra = submitted_doc_ids - canonical_doc_ids
+            prefix = "cold corpus activation" if is_cold_activation else "corpus transition"
+            raise StaleGenerationError(f"{prefix} contains unexpected documents; extra: {extra}")
 
         for generation, receipt in items:
             receipt.validate(generation)
