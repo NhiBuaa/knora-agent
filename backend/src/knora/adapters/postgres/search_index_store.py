@@ -75,9 +75,6 @@ class PostgresSearchIndexStore:
         membership_digest = hashlib.sha256("".join(membership_items).encode("utf-8")).hexdigest()
         cache_key = (workspace_id, lexical_policy_id, membership_digest, stats_digest)
 
-        if cache_key in _CORPUS_STATS_CACHE:
-            return _CORPUS_STATS_CACHE[cache_key]
-
         chunks: list[ChunkTable] = []
         for g in generations:
             chunks.extend(
@@ -87,6 +84,17 @@ class PostgresSearchIndexStore:
                     .order_by(ChunkTable.ordinal)
                 ).all()
             )
+
+        for chunk in chunks:
+            expected_checksum = getattr(chunk, "content_checksum", None)
+            if expected_checksum:
+                actual_checksum = hashlib.sha256(chunk.content.encode("utf-8")).hexdigest()
+                if actual_checksum != expected_checksum:
+                    _CORPUS_STATS_CACHE.pop(cache_key, None)
+                    raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+
+        if cache_key in _CORPUS_STATS_CACHE:
+            return _CORPUS_STATS_CACHE[cache_key]
 
         freqs: dict[str, int] = {}
         ordered_pair_freqs: dict[tuple[str, str], int] = {}
