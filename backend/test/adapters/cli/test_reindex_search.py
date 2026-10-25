@@ -1,15 +1,20 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
 
+import pytest
 from sqlalchemy import select
 
 from knora.adapters.cli.reindex_search import build_parser, load_profile, run_reindex
 from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.ingestion_store import PostgresIngestionStore
 from knora.adapters.postgres.tables import (
+    ChunkSetTable,
+    DocumentTable,
+    DocumentVersionTable,
     IngestionJobTable,
     LexicalGenerationTable,
     OriginalSourceObjectTable,
@@ -143,6 +148,86 @@ def test_reindex_search_dry_run() -> None:
             )
         ).all()
         assert len(gens) == 0
+
+
+@pytest.mark.parametrize("existing_parent", [False, True])
+def test_reindex_preserves_derivation_identity_and_current_revision(existing_parent: bool) -> None:
+    workspace_id = f"test-reindex-parent-{uuid4()}"
+    document_id, version_id = _setup_workspace_and_text_doc(workspace_id, "retained-source")
+    with SessionFactory.begin() as session:
+        document = session.get(DocumentTable, document_id)
+        version = session.get(DocumentVersionTable, version_id)
+        workspace = session.get(WorkspaceTable, workspace_id)
+        chunk_set = session.scalar(
+            select(ChunkSetTable).where(ChunkSetTable.document_version_id == version_id)
+        )
+        document.revision = 7
+        workspace.revision = 3
+        chunk_set.parser_configuration_id = "pdf-parser-retained-v1"
+        chunk_set.normalizer_configuration_id = "pdf-normalizer-retained-v1"
+        if existing_parent:
+            source = OriginalSourceObjectTable(
+                id=str(uuid4()),
+                workspace_id=workspace_id,
+                document_version_id=version_id,
+                object_key=f"{workspace_id}/source",
+                raw_sha256=version.normalized_content_checksum,
+                byte_size=len(version.normalized_content.encode("utf-8")),
+                media_type=version.media_type or "text/plain",
+            )
+            session.add(source)
+            session.flush()
+            session.add(
+                IngestionJobTable(
+                    id=str(uuid4()),
+                    workspace_id=workspace_id,
+                    operation="submit_pdf",
+                    document_id=document_id,
+                    target_document_version_id=version_id,
+                    source_object_id=source.id,
+                    content_fingerprint=f"retained-parent-{version_id}",
+                    parser_configuration_id=chunk_set.parser_configuration_id,
+                    normalizer_configuration_id=chunk_set.normalizer_configuration_id,
+                    chunking_configuration_id=chunk_set.chunking_configuration_id,
+                    derivation_kind="dense",
+                    embedding_configuration_id=document.active_embedding_configuration_id,
+                    status="succeeded",
+                    attempt_count=1,
+                    started_at=datetime.now(UTC),
+                    terminal_at=datetime.now(UTC),
+                    terminal_outcome_code="succeeded",
+                )
+            )
+
+    result = run_reindex(workspace_id=workspace_id, profile=SAMPLE_PROFILE)
+    assert result["enqueued"] == 1
+    with SessionFactory() as session:
+        child = session.scalar(
+            select(IngestionJobTable).where(
+                IngestionJobTable.workspace_id == workspace_id,
+                IngestionJobTable.derivation_kind == "lexical_index",
+            )
+        )
+        parent = session.get(IngestionJobTable, child.parent_ingestion_job_id)
+        assert child.source_revision == 7
+        assert child.workspace_revision == 3
+        assert (
+            child.parser_configuration_id
+            == parent.parser_configuration_id
+            == "pdf-parser-retained-v1"
+        )
+        assert (
+            child.normalizer_configuration_id
+            == parent.normalizer_configuration_id
+            == "pdf-normalizer-retained-v1"
+        )
+        assert (
+            child.operation
+            == parent.operation
+            == ("submit_pdf" if existing_parent else "ingest_document")
+        )
+        assert child.source_object_id == parent.source_object_id
+    assert run_reindex(workspace_id=workspace_id, profile=SAMPLE_PROFILE)["enqueued"] == 0
 
 
 def test_reindex_search_real_run_and_idempotence() -> None:
