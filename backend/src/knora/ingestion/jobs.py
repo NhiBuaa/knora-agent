@@ -47,15 +47,15 @@ class PdfSubmissionConfiguration:
     ) -> PdfSubmissionConfiguration:
         from knora.adapters.pdf.docling import DoclingExtractionConfiguration
 
-        docling = DoclingExtractionConfiguration.cloudflare_native_v1()
+        docling = DoclingExtractionConfiguration.cloudflare_native_v2()
         legacy = cls.milestone_two(embedding_configuration=embedding_configuration)
         return replace(
             legacy,
-            parser_configuration_id="pdf-parser-docling-native-cloudflare-v1",
+            parser_configuration_id="pdf-parser-docling-native-cloudflare-v2",
             normalizer_configuration_id=docling.normalizer_version,
             chunking_configuration=replace(
                 legacy.chunking_configuration,
-                id="chunking-docling-native-cf-v1",
+                id="chunking-docling-native-cf-v2",
                 parser_version=docling.parser_version,
                 chunker_version=docling.chunking_policy_version,
             ),
