@@ -477,6 +477,45 @@ class PostgresSearchIndexStore:
         profile_digests = {g.lexical_profile.digest() for g, _ in items}
         if len(profile_digests) != 1:
             raise StaleGenerationError("corpus transition contains mixed profile digests")
+        target_profile_digest = next(iter(profile_digests))
+        workspace_ids = {g.workspace_id for g, _ in items}
+        if len(workspace_ids) != 1:
+            raise StaleGenerationError("corpus transition contains mixed workspaces")
+        workspace_id = next(iter(workspace_ids))
+
+        # Check full persisted membership: all active documents in this workspace
+        # must transition together when switching to a new corpus profile digest
+        active_doc_ids = set(
+            session.scalars(
+                select(DocumentTable.id)
+                .join(LexicalHeadTable, LexicalHeadTable.document_id == DocumentTable.id)
+                .where(
+                    DocumentTable.workspace_id == workspace_id,
+                    DocumentTable.archived.is_(False),
+                    LexicalHeadTable.active_generation_id.is_not(None),
+                )
+            ).all()
+        )
+        current_active_profile_digests = set()
+        for doc_id in active_doc_ids:
+            head = session.get(LexicalHeadTable, doc_id)
+            if head and head.active_generation_id:
+                active_row = session.get(LexicalGenerationTable, head.active_generation_id)
+                if active_row:
+                    current_active_profile_digests.add(active_row.profile_digest)
+
+        is_profile_transition = bool(
+            current_active_profile_digests
+            and target_profile_digest not in current_active_profile_digests
+        )
+        submitted_doc_ids = {g.document_id for g, _ in items}
+        if is_profile_transition and active_doc_ids and submitted_doc_ids != active_doc_ids:
+            missing = active_doc_ids - submitted_doc_ids
+            raise StaleGenerationError(
+                "corpus transition requires receipts for all active documents in corpus; "
+                f"missing: {missing}"
+            )
+
         for generation, receipt in items:
             receipt.validate(generation)
         ordered_items = sorted(items, key=lambda pair: pair[0].document_id)

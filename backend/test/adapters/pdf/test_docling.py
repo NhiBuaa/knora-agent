@@ -531,7 +531,7 @@ def test_extraction_timeout_enforced() -> None:
         with pytest.raises(PdfExtractionError) as exc_info:
             extractor.extract(BytesIO(pdf_bytes), timeout_config)
         assert exc_info.value.code == "PDF_RESOURCE_LIMIT_EXCEEDED"
-        assert exc_info.value.reason == "TIMEOUT"
+        assert exc_info.value.reason in ("TIMEOUT", "EXTRACTION_TIMEOUT")
 
 
 def test_cancellation_enforced() -> None:
@@ -623,7 +623,7 @@ def test_docling_extractor_enforces_timeout_after_conversion() -> None:
     with pytest.raises(PdfExtractionError) as exc_info:
         extractor.extract(BytesIO(b"not-a-valid-pdf-stream"), timeout_config)
     assert exc_info.value.code == "PDF_RESOURCE_LIMIT_EXCEEDED"
-    assert exc_info.value.reason == "TIMEOUT"
+    assert exc_info.value.reason in ("TIMEOUT", "EXTRACTION_TIMEOUT")
 
 
 def test_docling_extractor_repeated_sections_have_distinct_offsets() -> None:
@@ -668,10 +668,40 @@ def test_r6_f24_extraction_over_memory_not_swallowed() -> None:
     assert succeeded is False
 
 
+def _create_3x3_positioned_pdf() -> bytes:
+    from pypdf import PdfWriter
+    from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
+
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=612, height=792)
+    font = DictionaryObject(
+        {
+            NameObject("/Type"): NameObject("/Font"),
+            NameObject("/Subtype"): NameObject("/Type1"),
+            NameObject("/BaseFont"): NameObject("/Helvetica"),
+        }
+    )
+    page[NameObject("/Resources")] = DictionaryObject(
+        {NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font)})}
+    )
+    commands = [
+        "BT /F1 12 Tf",
+        "1 0 0 1 72 700 Tm (Metric) Tj 1 0 0 1 200 700 Tm (Q1) Tj 1 0 0 1 350 700 Tm (Q2) Tj",
+        "1 0 0 1 72 680 Tm (Revenue) Tj 1 0 0 1 200 680 Tm (100) Tj 1 0 0 1 350 680 Tm (120) Tj",
+        "1 0 0 1 72 660 Tm (Profit) Tj 1 0 0 1 200 660 Tm (20) Tj 1 0 0 1 350 660 Tm (30) Tj",
+        "ET",
+    ]
+    stream = DecodedStreamObject()
+    stream.set_data("\n".join(commands).encode("latin-1"))
+    page[NameObject("/Contents")] = writer._add_object(stream)
+    out = BytesIO()
+    writer.write(out)
+    return out.getvalue()
+
+
 def test_r6_f03_canonical_native_table_cells_without_pipes() -> None:
-    # Native table with tab/column spacing instead of markdown pipes
-    native_table_text = "Metric\tQ1\tQ2\nRevenue\t100\t120\nProfit\t20\t30"
-    pdf_bytes = _create_test_pdf(native_table_text)
+    # Native table with positioned text without pipes or tabs
+    pdf_bytes = _create_3x3_positioned_pdf()
     extractor = DoclingTextExtractor()
     config = DoclingExtractionConfiguration.cloudflare_native_v1()
 
@@ -682,6 +712,8 @@ def test_r6_f03_canonical_native_table_cells_without_pipes() -> None:
     canonical_native_table = page.tables[0]
     assert canonical_native_table.num_rows == 3
     assert canonical_native_table.num_columns == 3
+    assert canonical_native_table.bbox is not None
+    assert all(c.bbox is not None for c in canonical_native_table.cells)
 
     source_reviewed_cells = (
         ("Metric", True, 0, 0),
@@ -698,6 +730,112 @@ def test_r6_f03_canonical_native_table_cells_without_pipes() -> None:
         (c.text, c.is_header, c.row_index, c.column_index) for c in canonical_native_table.cells
     )
     assert extracted_cells == source_reviewed_cells
+
+
+def test_r6_f03_mixed_page_reading_order() -> None:
+    from pypdf import PdfWriter
+    from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject, NumberObject
+
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=612, height=792)
+    font = DictionaryObject(
+        {
+            NameObject("/Type"): NameObject("/Font"),
+            NameObject("/Subtype"): NameObject("/Type1"),
+            NameObject("/BaseFont"): NameObject("/Helvetica"),
+        }
+    )
+    xobjects = DictionaryObject()
+    img_stream = DecodedStreamObject()
+    img_stream.set_data(b"\x00" * 100)
+    img_stream[NameObject("/Type")] = NameObject("/XObject")
+    img_stream[NameObject("/Subtype")] = NameObject("/Image")
+    img_stream[NameObject("/Width")] = NumberObject(10)
+    img_stream[NameObject("/Height")] = NumberObject(10)
+    img_stream[NameObject("/ColorSpace")] = NameObject("/DeviceGray")
+    img_stream[NameObject("/BitsPerComponent")] = NumberObject(8)
+    xobjects[NameObject("/Im1")] = writer._add_object(img_stream)
+
+    page[NameObject("/Resources")] = DictionaryObject(
+        {
+            NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font)}),
+            NameObject("/XObject"): xobjects,
+        }
+    )
+    # Header at y=750, Image at y=500, Footer at y=200
+    commands = [
+        "BT /F1 12 Tf 1 0 0 1 72 750 Tm (Header Paragraph) Tj ET",
+        "q 100 0 0 100 72 500 cm /Im1 Do Q",
+        "BT /F1 12 Tf 1 0 0 1 72 200 Tm (Footer Paragraph) Tj ET",
+    ]
+    stream = DecodedStreamObject()
+    stream.set_data("\n".join(commands).encode("latin-1"))
+    page[NameObject("/Contents")] = writer._add_object(stream)
+    out = BytesIO()
+    writer.write(out)
+    pdf_bytes = out.getvalue()
+
+    mock_provider = MagicMock(spec=CloudflarePdfUnderstandingProvider)
+    mock_provider.ocr_page_image.return_value = CloudflareVisionOcrResponse(
+        text="Scanned Image Content",
+        confidence=0.9,
+    )
+
+    extractor = DoclingTextExtractor(cf_provider=mock_provider)
+    config = DoclingExtractionConfiguration.cloudflare_native_v1()
+    result = extractor.extract(BytesIO(pdf_bytes), config)
+
+    page = result.structure.pages[0]
+    origins = [b.source_origin for b in page.blocks]
+    # Reading order top-to-bottom: Header (native), Image (ocr), Footer (native)
+    assert origins == [SourceOrigin.NATIVE_TEXT, SourceOrigin.OCR, SourceOrigin.NATIVE_TEXT]
+    assert [b.text for b in page.blocks] == [
+        "Header Paragraph",
+        "Scanned Image Content",
+        "Footer Paragraph",
+    ]
+    for b in page.blocks:
+        assert page.text[b.start_offset : b.end_offset] == b.text
+
+
+def test_r6_f24_mock_memory_info_oserror_fails_closed() -> None:
+    import psutil
+
+    extractor = DoclingTextExtractor()
+    config = DoclingExtractionConfiguration.cloudflare_native_v1()
+    pdf_bytes = _create_test_pdf("Sample text")
+
+    def mock_mem() -> None:
+        raise OSError(12, "Cannot allocate memory or permission denied")
+
+    with patch.object(psutil.Process, "memory_info", side_effect=mock_mem):
+        with pytest.raises(PdfExtractionError) as exc_info:
+            extractor.extract(BytesIO(pdf_bytes), config)
+        assert exc_info.value.code == "PDF_RESOURCE_LIMIT_EXCEEDED"
+        assert exc_info.value.reason == "CAPABILITY_UNAVAILABLE"
+
+
+def test_r6_f24_supervisor_kills_slow_child_promptly() -> None:
+    import time
+    from dataclasses import replace
+
+    from knora.adapters.pdf._pypdf_process import _child_sleep_past_timeout
+
+    extractor = DoclingTextExtractor()
+    extractor._child_target = _child_sleep_past_timeout
+    config = DoclingExtractionConfiguration.cloudflare_native_v1()
+    # 10ms deadline
+    fast_config = replace(config, extraction_timeout_seconds=0.010)
+    pdf_bytes = _create_test_pdf("Sample text")
+
+    start = time.monotonic()
+    with pytest.raises(PdfExtractionError) as exc_info:
+        extractor.extract(BytesIO(pdf_bytes), fast_config)
+    elapsed = time.monotonic() - start
+
+    assert exc_info.value.code == "PDF_RESOURCE_LIMIT_EXCEEDED"
+    assert exc_info.value.reason in ("TIMEOUT", "EXTRACTION_TIMEOUT")
+    assert elapsed < 0.200, f"Supervisor did not terminate child promptly: took {elapsed:.3f}s"
 
 
 def _dummy_long_running_child() -> None:

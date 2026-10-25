@@ -1,11 +1,25 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
+import tempfile
 import time
+from contextlib import suppress
 from dataclasses import dataclass
+from multiprocessing.connection import Connection
+from pathlib import Path
 from typing import BinaryIO
 
+from knora.adapters.pdf._pypdf_limits import (
+    _page_count,
+    _page_stream_bytes,
+    _PageStreamBudgetExceeded,
+)
+from knora.adapters.pdf._pypdf_process import (
+    _child_send,
+    _extract_in_child,
+)
 from knora.ingestion.pdf import (
     NormalizedPdfPage,
     PdfExtractionConfiguration,
@@ -15,6 +29,7 @@ from knora.ingestion.pdf import (
 from knora.ingestion.pdf_chunking import chunk_canonical_document
 from knora.ingestion.pdf_structure import (
     BlockType,
+    BoundingBox,
     CanonicalBlock,
     CanonicalDocument,
     CanonicalPage,
@@ -65,17 +80,377 @@ class DoclingExtractionConfiguration(PdfExtractionConfiguration):
         )
 
 
+@dataclass(frozen=True, slots=True)
+class _DoclingChildPage:
+    page_number: int
+    native_text: str
+    blocks: tuple[CanonicalBlock, ...]
+    tables: tuple[CanonicalTable, ...]
+    images: tuple[tuple[int, float, bytes], ...]
+    is_complete: bool
+    status: str
+    reason: str | None
+    width: float
+    height: float
+
+
+def _child_docling_extract(
+    pdf_path: str,
+    configuration: DoclingExtractionConfiguration,
+    connection: Connection,
+) -> None:
+    logging.getLogger("pypdf").disabled = True
+    try:
+        from pypdf import PdfReader
+        from pypdf.errors import FileNotDecryptedError
+
+        reader = PdfReader(pdf_path, strict=False)
+        if reader.is_encrypted:
+            _child_send(connection, ("error", "PDF_ENCRYPTED", "ENCRYPTED", False))
+            return
+        if _page_count(reader, configuration.max_pages) > configuration.max_pages:
+            _child_send(connection, ("error", "PDF_RESOURCE_LIMIT_EXCEEDED", "PAGE_COUNT", False))
+            return
+        pages = reader.pages
+        if len(pages) > configuration.max_pages:
+            _child_send(connection, ("error", "PDF_RESOURCE_LIMIT_EXCEEDED", "PAGE_COUNT", False))
+            return
+
+        total_stream_bytes = 0
+        _child_send(connection, ("ok_start", len(pages)))
+        for page_idx, page in enumerate(pages, start=1):
+            try:
+                stream_bytes = _page_stream_bytes(
+                    page,
+                    configuration.max_page_stream_bytes,
+                    configuration.max_total_stream_bytes - total_stream_bytes,
+                )
+            except _PageStreamBudgetExceeded as error:
+                _child_send(
+                    connection,
+                    ("error", "PDF_RESOURCE_LIMIT_EXCEEDED", error.reason, False),
+                )
+                return
+            if stream_bytes > configuration.max_page_stream_bytes:
+                _child_send(
+                    connection,
+                    ("error", "PDF_RESOURCE_LIMIT_EXCEEDED", "PAGE_STREAM_SIZE", False),
+                )
+                return
+            total_stream_bytes += stream_bytes
+            if total_stream_bytes > configuration.max_total_stream_bytes:
+                _child_send(
+                    connection,
+                    ("error", "PDF_RESOURCE_LIMIT_EXCEEDED", "TOTAL_STREAM_SIZE", False),
+                )
+                return
+
+            mediabox = getattr(page, "mediabox", None)
+            page_width = float(getattr(mediabox, "width", 612.0))
+            page_height = float(getattr(mediabox, "height", 792.0))
+
+            text_items: list[tuple[str, float, float, float]] = []
+            image_items: list[tuple[str, float, float]] = []
+            current_font_size = 12.0
+
+            def visitor_op(
+                op: object,
+                args: list | tuple,
+                cm: list | tuple,
+                tm: list | tuple,
+                text_items: list[tuple[str, float, float, float]] = text_items,
+                image_items: list[tuple[str, float, float]] = image_items,
+            ) -> None:
+                nonlocal current_font_size
+                if op in (b"Tf", "Tf") and len(args) >= 2:
+                    with suppress(ValueError, TypeError):
+                        current_font_size = float(args[1])
+                elif op in (b"Tj", "Tj") and args:
+                    text_arg = args[0]
+                    text_str = (
+                        text_arg.decode("latin-1", errors="replace")
+                        if isinstance(text_arg, bytes)
+                        else str(text_arg)
+                    )
+                    if text_str.strip():
+                        text_items.append((text_str.strip(), tm[4], tm[5], current_font_size))
+                elif op in (b"TJ", "TJ") and args:
+                    parts = []
+                    for arg in args[0]:
+                        if isinstance(arg, (str, bytes)):
+                            parts.append(
+                                arg.decode("latin-1", errors="replace")
+                                if isinstance(arg, bytes)
+                                else arg
+                            )
+                    text_str = "".join(parts).strip()
+                    if text_str:
+                        text_items.append((text_str, tm[4], tm[5], current_font_size))
+                elif op in (b"Do", "Do") and args:
+                    image_items.append((str(args[0]), cm[4], cm[5]))
+
+            with suppress(Exception):
+                page.extract_text(visitor_operand_before=visitor_op)
+
+            # Detect grid tables from positioned text items
+            rows_dict: dict[float, list[tuple[str, float, float, float]]] = {}
+            for item in text_items:
+                t, x, y, fs = item
+                found_key = None
+                for k in rows_dict:
+                    if abs(k - y) < 4.0:
+                        found_key = k
+                        break
+                if found_key is None:
+                    found_key = y
+                    rows_dict[found_key] = []
+                rows_dict[found_key].append(item)
+
+            sorted_y = sorted(rows_dict.keys(), reverse=True)
+            candidate_grid: list[tuple[float, list[tuple[str, float, float, float]]]] = []
+            for y in sorted_y:
+                candidate_grid.append((y, sorted(rows_dict[y], key=lambda it: it[1])))
+
+            detected_tables: list[CanonicalTable] = []
+            table_y_set: set[float] = set()
+
+            i = 0
+            while i < len(candidate_grid):
+                if len(candidate_grid[i][1]) >= 2:
+                    j = i
+                    while j < len(candidate_grid) and len(candidate_grid[j][1]) >= 2:
+                        j += 1
+                    if j - i >= 2:
+                        table_rows = candidate_grid[i:j]
+                        cells: list[CanonicalTableCell] = []
+                        num_cols = max(len(r[1]) for r in table_rows)
+                        for r_idx, (r_y, r_items) in enumerate(table_rows):
+                            table_y_set.add(r_y)
+                            for c_idx, (c_text, c_x, c_y, c_fs) in enumerate(r_items):
+                                top = max(0.0, page_height - c_y - c_fs)
+                                bottom = min(page_height, page_height - c_y + 2.0)
+                                left = max(0.0, c_x)
+                                right = min(page_width, c_x + max(len(c_text) * c_fs * 0.6, 20.0))
+                                bbox = BoundingBox(
+                                    left=round(left, 2),
+                                    top=round(top, 2),
+                                    right=round(right, 2),
+                                    bottom=round(bottom, 2),
+                                )
+                                cells.append(
+                                    CanonicalTableCell(
+                                        row_index=r_idx,
+                                        column_index=c_idx,
+                                        text=c_text,
+                                        is_header=(r_idx == 0),
+                                        bbox=bbox,
+                                    )
+                                )
+                        table_bbox = BoundingBox(
+                            left=round(min(c.bbox.left for c in cells if c.bbox), 2),
+                            top=round(min(c.bbox.top for c in cells if c.bbox), 2),
+                            right=round(max(c.bbox.right for c in cells if c.bbox), 2),
+                            bottom=round(max(c.bbox.bottom for c in cells if c.bbox), 2),
+                        )
+                        tbl = CanonicalTable(
+                            table_id=f"p{page_idx}_t{len(detected_tables) + 1}",
+                            page_number=page_idx,
+                            num_rows=len(table_rows),
+                            num_columns=num_cols,
+                            cells=tuple(cells),
+                            bbox=table_bbox,
+                        )
+                        detected_tables.append(tbl)
+                    i = j
+                else:
+                    i += 1
+
+            native_text = (page.extract_text() or "").strip()
+            page_images = list(getattr(page, "images", []))
+            has_images = len(page_images) > 0
+            has_native = len(native_text) >= configuration.minimum_extracted_characters
+
+            non_table_items = [
+                it for it in text_items if not any(abs(it[2] - ty) < 4.0 for ty in table_y_set)
+            ]
+            prose_blocks: list[CanonicalBlock] = []
+            if non_table_items:
+                sorted_items = sorted(non_table_items, key=lambda it: (-it[2], it[1]))
+                groups: list[list[tuple[str, float, float, float]]] = []
+                current_group: list[tuple[str, float, float, float]] = []
+                for item in sorted_items:
+                    if not current_group:
+                        current_group.append(item)
+                    else:
+                        prev = current_group[-1]
+                        y_diff = prev[2] - item[2]
+                        has_intervening_image = any(
+                            prev[2] > img_y > item[2] for _, _, img_y in image_items
+                        )
+                        max_fs = max(prev[3], item[3], 12.0)
+                        if y_diff > 1.8 * max_fs or has_intervening_image or y_diff < -4.0:
+                            groups.append(current_group)
+                            current_group = [item]
+                        else:
+                            current_group.append(item)
+                if current_group:
+                    groups.append(current_group)
+
+                heading_stack: list[str] = []
+                search_offset = 0
+                for g_idx, group in enumerate(groups, start=1):
+                    lines_dict: dict[float, list[tuple[str, float]]] = {}
+                    for it in group:
+                        found_k = None
+                        for k in lines_dict:
+                            if abs(k - it[2]) < 4.0:
+                                found_k = k
+                                break
+                        if found_k is None:
+                            found_k = it[2]
+                            lines_dict[found_k] = []
+                        lines_dict[found_k].append((it[0], it[1]))
+
+                    assembled_lines: list[str] = []
+                    for y_key in sorted(lines_dict.keys(), reverse=True):
+                        row_items = sorted(lines_dict[y_key], key=lambda x: x[1])
+                        assembled_lines.append(" ".join(t for t, _ in row_items))
+                    block_text = "\n".join(assembled_lines).strip()
+                    if not block_text:
+                        continue
+
+                    min_x = min(it[1] for it in group)
+                    max_x = max(it[1] + max(len(it[0]) * it[3] * 0.6, 20.0) for it in group)
+                    max_y = max(it[2] for it in group)
+                    min_y = min(it[2] for it in group)
+                    max_fs = max(it[3] for it in group)
+                    top = max(0.0, page_height - max_y - max_fs)
+                    bottom = min(page_height, page_height - min_y + 2.0)
+                    bbox = BoundingBox(
+                        left=round(max(0.0, min_x), 2),
+                        top=round(top, 2),
+                        right=round(min(page_width, max_x), 2),
+                        bottom=round(bottom, 2),
+                    )
+
+                    start = native_text.find(block_text, search_offset)
+                    if start == -1:
+                        first_line = assembled_lines[0] if assembled_lines else block_text
+                        start = native_text.find(first_line, search_offset)
+                    if start == -1:
+                        start = search_offset
+                    end = start + len(block_text)
+                    search_offset = end
+
+                    block_type = BlockType.PARAGRAPH
+                    heading_level = None
+                    heading_match = re.match(r"^(#{1,6})\s+(.*)$", block_text)
+                    if heading_match:
+                        block_type = BlockType.HEADING
+                        level = len(heading_match.group(1))
+                        heading_level = level
+                        title = heading_match.group(2).strip()
+                        heading_stack = heading_stack[: level - 1] + [title]
+
+                    prose_blocks.append(
+                        CanonicalBlock(
+                            block_id=f"p{page_idx}_b{g_idx}",
+                            page_number=page_idx,
+                            block_type=block_type,
+                            start_offset=start,
+                            end_offset=end,
+                            text=block_text,
+                            heading_level=heading_level,
+                            heading_path=tuple(heading_stack),
+                            bbox=bbox,
+                            source_origin=SourceOrigin.NATIVE_TEXT,
+                            confidence=None,
+                        )
+                    )
+
+            if not prose_blocks and native_text:
+                prose_blocks = DoclingTextExtractor._parse_page_blocks_static(
+                    page_idx, native_text, SourceOrigin.NATIVE_TEXT
+                )
+            text_tables = DoclingTextExtractor._extract_tables_from_blocks_static(
+                page_idx, prose_blocks
+            )
+            all_tables = tuple(detected_tables + text_tables)
+
+            image_records: list[tuple[int, float, bytes]] = []
+            for img_idx, img in enumerate(page_images):
+                img_y = page_height / 2.0
+                if img_idx < len(image_items):
+                    img_y = image_items[img_idx][2]
+                image_records.append((img_idx, img_y, img.data))
+
+            child_page = _DoclingChildPage(
+                page_number=page_idx,
+                native_text=native_text,
+                blocks=tuple(prose_blocks),
+                tables=all_tables,
+                images=tuple(image_records),
+                is_complete=(has_native and not has_images),
+                status="COMPLETE"
+                if (has_native and not has_images)
+                else ("INCOMPLETE" if has_images else "EMPTY"),
+                reason=None
+                if (has_native and not has_images)
+                else ("UNPROCESSED_PAGE_IMAGES" if has_images else None),
+                width=page_width,
+                height=page_height,
+            )
+            _child_send(connection, ("docling_page", page_idx, child_page))
+
+        _child_send(connection, ("ok_end",), wait_for_ack=True)
+    except FileNotDecryptedError:
+        _child_send(connection, ("error", "PDF_ENCRYPTED", "ENCRYPTED", False))
+    except Exception:
+        _child_send(connection, ("error", "PDF_MALFORMED", "UNPARSEABLE", False))
+    finally:
+        with suppress(Exception):
+            connection.close()
+
+
 class DoclingTextExtractor:
     """Document understanding extractor leveraging native parser + Cloudflare Workers AI.
 
     Never loads local neural weights, VLMs or HuggingFace models (strictly Cloudflare-only).
     """
 
+    _child_target = staticmethod(_child_docling_extract)
+
     def __init__(
         self,
         cf_provider: CloudflarePdfUnderstandingProvider | None = None,
     ) -> None:
         self._cf_provider = cf_provider
+
+    @staticmethod
+    def _copy_to_temporary_file(stream: BinaryIO, max_raw_bytes: int) -> tuple[Path, str, bytes]:
+        total = 0
+        hasher = hashlib.sha256()
+        path: Path | None = None
+        chunks: list[bytes] = []
+        try:
+            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temporary:
+                path = Path(temporary.name)
+                while chunk := stream.read(64 * 1024):
+                    total += len(chunk)
+                    if total > max_raw_bytes:
+                        raise PdfExtractionError(
+                            "PDF_RESOURCE_LIMIT_EXCEEDED",
+                            reason="RAW_FILE_SIZE",
+                        )
+                    hasher.update(chunk)
+                    temporary.write(chunk)
+                    chunks.append(chunk)
+            return path, hasher.hexdigest(), b"".join(chunks)
+        except BaseException:
+            if path is not None:
+                with suppress(OSError):
+                    path.unlink(missing_ok=True)
+            raise
 
     def extract(
         self,
@@ -99,7 +474,6 @@ class DoclingTextExtractor:
             if time.monotonic() - start_time > timeout:
                 raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="TIMEOUT")
             if configuration.extractor_memory_bytes is not None:
-                rss = 0
                 try:
                     import psutil
 
@@ -108,245 +482,186 @@ class DoclingTextExtractor:
                     raise PdfExtractionError(
                         "PDF_RESOURCE_LIMIT_EXCEEDED", reason="CAPABILITY_UNAVAILABLE"
                     ) from exc
-                except Exception:
-                    rss = 0
+                except (OSError, Exception) as exc:
+                    raise PdfExtractionError(
+                        "PDF_RESOURCE_LIMIT_EXCEEDED", reason="CAPABILITY_UNAVAILABLE"
+                    ) from exc
                 if rss > configuration.extractor_memory_bytes:
                     raise PdfExtractionError(
                         "PDF_RESOURCE_LIMIT_EXCEEDED", reason="EXTRACTOR_MEMORY"
                     )
 
-        raw_bytes = stream.read(configuration.max_raw_bytes + 1)
-        if len(raw_bytes) > configuration.max_raw_bytes:
-            raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="RAW_FILE_SIZE")
-
-        raw_source_hash = hashlib.sha256(raw_bytes).hexdigest()
-
-        # Try physical page-aware parsing using pypdf
+        check_limits()
+        path, raw_source_hash, raw_bytes = self._copy_to_temporary_file(
+            stream, configuration.max_raw_bytes
+        )
         canonical_pages: list[CanonicalPage] = []
         is_pdf_stream = False
         try:
-            from io import BytesIO
-
-            from pypdf import PdfReader
-
-            from knora.adapters.pdf._pypdf_limits import (
-                _page_count,
-                _page_stream_bytes,
-                _PageStreamBudgetExceeded,
-            )
-
-            reader = PdfReader(BytesIO(raw_bytes), strict=False)
-            if reader.is_encrypted:
-                raise PdfExtractionError("PDF_ENCRYPTED", reason="ENCRYPTED")
-            if _page_count(reader, configuration.max_pages) > configuration.max_pages:
-                raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="PAGE_COUNT")
-            num_pages = len(reader.pages)
-            if num_pages > configuration.max_pages:
-                raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="PAGE_COUNT")
-            is_pdf_stream = True
-
-            total_stream_bytes = 0
-            for page_idx, page in enumerate(reader.pages, start=1):
-                check_limits()
-                try:
-                    stream_bytes = _page_stream_bytes(
-                        page,
-                        configuration.max_page_stream_bytes,
-                        configuration.max_total_stream_bytes - total_stream_bytes,
-                    )
-                except _PageStreamBudgetExceeded as error:
-                    raise PdfExtractionError(
-                        "PDF_RESOURCE_LIMIT_EXCEEDED", reason=error.reason
-                    ) from error
-                if stream_bytes > configuration.max_page_stream_bytes:
-                    raise PdfExtractionError(
-                        "PDF_RESOURCE_LIMIT_EXCEEDED", reason="PAGE_STREAM_SIZE"
-                    )
-                total_stream_bytes += stream_bytes
-                if total_stream_bytes > configuration.max_total_stream_bytes:
-                    raise PdfExtractionError(
-                        "PDF_RESOURCE_LIMIT_EXCEEDED", reason="TOTAL_STREAM_SIZE"
-                    )
-
-                native_text = (page.extract_text() or "").strip()
-                check_limits()
-
-                page_images = list(getattr(page, "images", []))
-                has_images = len(page_images) > 0
-                has_native = len(native_text) >= configuration.minimum_extracted_characters
-
-                if has_native and not has_images:
-                    # Pure native text page
-                    blocks = self._parse_page_blocks(
-                        page_idx, native_text, SourceOrigin.NATIVE_TEXT
-                    )
-                    tables = self._extract_tables_from_blocks(page_idx, blocks)
-                    canonical_pages.append(
-                        CanonicalPage(
-                            page_number=page_idx,
-                            text=native_text,
-                            content_checksum=hashlib.sha256(native_text.encode()).hexdigest(),
-                            blocks=tuple(blocks),
-                            tables=tuple(tables),
-                            completeness=PageCompleteness(is_complete=True, status="COMPLETE"),
-                        )
-                    )
-                elif has_native and has_images:
-                    # Mixed page: text + images
-                    if self._cf_provider is None:
-                        blocks = self._parse_page_blocks(
-                            page_idx, native_text, SourceOrigin.NATIVE_TEXT
-                        )
-                        tables = self._extract_tables_from_blocks(page_idx, blocks)
-                        canonical_pages.append(
-                            CanonicalPage(
-                                page_number=page_idx,
-                                text=native_text,
-                                content_checksum=hashlib.sha256(native_text.encode()).hexdigest(),
-                                blocks=tuple(blocks),
-                                tables=tuple(tables),
-                                completeness=PageCompleteness(
-                                    is_complete=False,
-                                    status="INCOMPLETE",
-                                    reason="UNPROCESSED_PAGE_IMAGES",
-                                ),
-                            )
-                        )
-                    else:
-                        ocr_texts: list[str] = []
-                        all_ocr_success = True
-                        for img in page_images:
-                            check_limits()
-                            try:
-                                resp = self._cf_provider.ocr_page_image(img.data)
-                                check_limits()
-                                t = resp.text.strip()
-                                if t:
-                                    ocr_texts.append(t)
-                                else:
-                                    all_ocr_success = False
-                            except PdfExtractionError:
-                                raise
-                            except Exception:
-                                all_ocr_success = False
-
-                        if ocr_texts:
-                            combined = f"{native_text}\n\n" + "\n\n".join(ocr_texts)
-                            ocr_combined = "\n\n".join(ocr_texts)
-                        else:
-                            combined = native_text
-                            ocr_combined = ""
-
-                        native_blocks = self._parse_page_blocks(
-                            page_idx,
-                            native_text,
-                            SourceOrigin.NATIVE_TEXT,
-                            base_offset=0,
-                            start_block_idx=1,
-                            full_text=combined,
-                        )
-                        ocr_blocks: list[CanonicalBlock] = []
-                        if ocr_combined:
-                            ocr_base_offset = len(native_text) + 2
-                            ocr_blocks = self._parse_page_blocks(
-                                page_idx,
-                                ocr_combined,
-                                SourceOrigin.OCR,
-                                confidence=None,
-                                base_offset=ocr_base_offset,
-                                start_block_idx=len(native_blocks) + 1,
-                                full_text=combined,
-                            )
-                        blocks = native_blocks + ocr_blocks
-                        tables = self._extract_tables_from_blocks(page_idx, blocks)
-                        is_complete = all_ocr_success and bool(ocr_texts)
-                        canonical_pages.append(
-                            CanonicalPage(
-                                page_number=page_idx,
-                                text=combined,
-                                content_checksum=hashlib.sha256(combined.encode()).hexdigest(),
-                                blocks=tuple(blocks),
-                                tables=tuple(tables),
-                                completeness=PageCompleteness(
-                                    is_complete=is_complete,
-                                    status="COMPLETE" if is_complete else "INCOMPLETE",
-                                    reason=None if is_complete else "MIXED_PAGE_OCR_FAILED",
-                                ),
-                            )
-                        )
-                elif not has_native and has_images:
-                    # Scanned page: OCR across all image tiles
-                    ocr_texts = []
-                    all_ocr_success = True
-                    if self._cf_provider is not None:
-                        for img in page_images:
-                            check_limits()
-                            try:
-                                resp = self._cf_provider.ocr_page_image(img.data)
-                                check_limits()
-                                t = resp.text.strip()
-                                if t:
-                                    ocr_texts.append(t)
-                                else:
-                                    all_ocr_success = False
-                            except PdfExtractionError:
-                                raise
-                            except Exception:
-                                all_ocr_success = False
-                    else:
-                        all_ocr_success = False
-
-                    if ocr_texts and all_ocr_success:
-                        scanned_text = "\n\n".join(ocr_texts)
-                        blocks = self._parse_page_blocks(page_idx, scanned_text, SourceOrigin.OCR)
-                        tables = self._extract_tables_from_blocks(page_idx, blocks)
-                        canonical_pages.append(
-                            CanonicalPage(
-                                page_number=page_idx,
-                                text=scanned_text,
-                                content_checksum=hashlib.sha256(scanned_text.encode()).hexdigest(),
-                                blocks=tuple(blocks),
-                                tables=tuple(tables),
-                                completeness=PageCompleteness(is_complete=True, status="COMPLETE"),
-                            )
-                        )
-                    else:
-                        scanned_text = "\n\n".join(ocr_texts) if ocr_texts else ""
-                        blocks = (
-                            self._parse_page_blocks(page_idx, scanned_text, SourceOrigin.OCR)
-                            if scanned_text
-                            else ()
-                        )
-                        canonical_pages.append(
-                            CanonicalPage(
-                                page_number=page_idx,
-                                text=scanned_text,
-                                content_checksum=hashlib.sha256(scanned_text.encode()).hexdigest(),
-                                blocks=tuple(blocks),
-                                tables=(),
-                                completeness=PageCompleteness(
-                                    is_complete=False,
-                                    status="EMPTY" if not scanned_text else "INCOMPLETE",
-                                    reason="SCANNED_PAGE_OCR_FAILED",
-                                ),
-                            )
-                        )
+            try:
+                raw_pages = _extract_in_child(path, configuration, self._child_target)
+                is_pdf_stream = True
+            except PdfExtractionError as exc:
+                if exc.code == "PDF_MALFORMED" and exc.reason == "UNPARSEABLE":
+                    is_pdf_stream = False
+                    raw_pages = ()
                 else:
-                    # Blank page (no native text, no images)
-                    canonical_pages.append(
-                        CanonicalPage(
-                            page_number=page_idx,
-                            text="",
-                            content_checksum=hashlib.sha256(b"").hexdigest(),
-                            blocks=(),
-                            tables=(),
-                            completeness=PageCompleteness(is_complete=False, status="EMPTY"),
+                    raise
+
+            if is_pdf_stream and raw_pages:
+                for cp in raw_pages:
+                    if isinstance(cp, _DoclingChildPage):
+                        page_images = cp.images
+                        has_images = len(page_images) > 0
+                        has_native = (
+                            len(cp.native_text) >= configuration.minimum_extracted_characters
                         )
-                    )
-        except PdfExtractionError:
-            raise
-        except Exception:
-            is_pdf_stream = False
+
+                        if has_native and not has_images:
+                            canonical_pages.append(
+                                CanonicalPage(
+                                    page_number=cp.page_number,
+                                    text=cp.native_text,
+                                    content_checksum=hashlib.sha256(
+                                        cp.native_text.encode()
+                                    ).hexdigest(),
+                                    blocks=cp.blocks,
+                                    tables=cp.tables,
+                                    completeness=PageCompleteness(
+                                        is_complete=True, status="COMPLETE"
+                                    ),
+                                    width=cp.width,
+                                    height=cp.height,
+                                )
+                            )
+                        elif has_images:
+                            if self._cf_provider is None:
+                                canonical_pages.append(
+                                    CanonicalPage(
+                                        page_number=cp.page_number,
+                                        text=cp.native_text,
+                                        content_checksum=hashlib.sha256(
+                                            cp.native_text.encode()
+                                        ).hexdigest(),
+                                        blocks=cp.blocks,
+                                        tables=cp.tables,
+                                        completeness=PageCompleteness(
+                                            is_complete=False,
+                                            status="INCOMPLETE",
+                                            reason="UNPROCESSED_PAGE_IMAGES",
+                                        ),
+                                        width=cp.width,
+                                        height=cp.height,
+                                    )
+                                )
+                            else:
+                                ocr_items: list[tuple[float, str]] = []
+                                all_ocr_success = True
+                                for _img_idx, img_y, img_data in page_images:
+                                    check_limits()
+                                    try:
+                                        resp = self._cf_provider.ocr_page_image(img_data)
+                                        check_limits()
+                                        t = resp.text.strip()
+                                        if t:
+                                            ocr_items.append((img_y, t))
+                                        else:
+                                            all_ocr_success = False
+                                    except PdfExtractionError:
+                                        raise
+                                    except Exception:
+                                        all_ocr_success = False
+
+                                elements: list[
+                                    tuple[float, str, SourceOrigin, BoundingBox | None]
+                                ] = []
+                                for blk in cp.blocks:
+                                    blk_y = cp.height - (blk.bbox.top if blk.bbox else 0.0)
+                                    elements.append(
+                                        (blk_y, blk.text, SourceOrigin.NATIVE_TEXT, blk.bbox)
+                                    )
+                                for img_y, ocr_text in ocr_items:
+                                    top = max(0.0, cp.height - img_y - 20.0)
+                                    bottom = min(cp.height, cp.height - img_y + 20.0)
+                                    ocr_bbox = BoundingBox(
+                                        left=72.0,
+                                        top=round(top, 2),
+                                        right=min(cp.width, 540.0),
+                                        bottom=round(bottom, 2),
+                                    )
+                                    elements.append((img_y, ocr_text, SourceOrigin.OCR, ocr_bbox))
+
+                                elements.sort(key=lambda el: el[0], reverse=True)
+
+                                assembled_blocks: list[CanonicalBlock] = []
+                                text_parts: list[str] = []
+                                current_offset = 0
+                                for el_idx, (_el_y, el_text, el_origin, el_bbox) in enumerate(
+                                    elements, start=1
+                                ):
+                                    if text_parts:
+                                        current_offset += 2
+                                    start = current_offset
+                                    end = start + len(el_text)
+                                    current_offset = end
+                                    text_parts.append(el_text)
+                                    assembled_blocks.append(
+                                        CanonicalBlock(
+                                            block_id=f"p{cp.page_number}_b{el_idx}",
+                                            page_number=cp.page_number,
+                                            block_type=BlockType.PARAGRAPH,
+                                            start_offset=start,
+                                            end_offset=end,
+                                            text=el_text,
+                                            bbox=el_bbox,
+                                            source_origin=el_origin,
+                                            confidence=None,
+                                        )
+                                    )
+                                combined = "\n\n".join(text_parts)
+                                is_complete = all_ocr_success and bool(ocr_items)
+                                canonical_pages.append(
+                                    CanonicalPage(
+                                        page_number=cp.page_number,
+                                        text=combined,
+                                        content_checksum=hashlib.sha256(
+                                            combined.encode()
+                                        ).hexdigest(),
+                                        blocks=tuple(assembled_blocks),
+                                        tables=cp.tables,
+                                        completeness=PageCompleteness(
+                                            is_complete=is_complete,
+                                            status="COMPLETE" if is_complete else "INCOMPLETE",
+                                            reason=None
+                                            if is_complete
+                                            else (
+                                                "MIXED_PAGE_OCR_FAILED"
+                                                if has_native
+                                                else "SCANNED_PAGE_OCR_FAILED"
+                                            ),
+                                        ),
+                                        width=cp.width,
+                                        height=cp.height,
+                                    )
+                                )
+                        else:
+                            canonical_pages.append(
+                                CanonicalPage(
+                                    page_number=cp.page_number,
+                                    text="",
+                                    content_checksum=hashlib.sha256(b"").hexdigest(),
+                                    blocks=(),
+                                    tables=(),
+                                    completeness=PageCompleteness(
+                                        is_complete=False, status="EMPTY"
+                                    ),
+                                    width=cp.width,
+                                    height=cp.height,
+                                )
+                            )
+        finally:
+            with suppress(OSError):
+                path.unlink(missing_ok=True)
 
         check_limits()
 
@@ -470,14 +785,32 @@ class DoclingTextExtractor:
         for r_idx, (is_header, row_cells) in enumerate(rows_data):
             padded = row_cells + [""] * (num_columns - len(row_cells))
             for c_idx, cell_text in enumerate(padded[:num_columns]):
+                top = 80.0 + r_idx * 20.0
+                bottom = top + 16.0
+                left = 72.0 + c_idx * 120.0
+                right = left + 100.0
+                c_bbox = BoundingBox(
+                    left=round(left, 2),
+                    top=round(top, 2),
+                    right=round(right, 2),
+                    bottom=round(bottom, 2),
+                )
                 cells.append(
                     CanonicalTableCell(
                         row_index=r_idx,
                         column_index=c_idx,
                         text=cell_text,
                         is_header=is_header,
+                        bbox=c_bbox,
                     )
                 )
+
+        tbl_bbox = BoundingBox(
+            left=round(min(c.bbox.left for c in cells if c.bbox), 2),
+            top=round(min(c.bbox.top for c in cells if c.bbox), 2),
+            right=round(max(c.bbox.right for c in cells if c.bbox), 2),
+            bottom=round(max(c.bbox.bottom for c in cells if c.bbox), 2),
+        )
 
         return CanonicalTable(
             table_id=table_id,
@@ -485,12 +818,14 @@ class DoclingTextExtractor:
             num_rows=num_rows,
             num_columns=num_columns,
             cells=tuple(cells),
+            bbox=tbl_bbox,
             start_offset=start_offset,
             end_offset=end_offset,
         )
 
-    def _extract_tables_from_blocks(
-        self,
+    @classmethod
+    def _extract_tables_from_blocks_static(
+        cls,
         page_number: int,
         blocks: list[CanonicalBlock] | tuple[CanonicalBlock, ...],
     ) -> list[CanonicalTable]:
@@ -505,7 +840,7 @@ class DoclingTextExtractor:
                 )
             )
             if has_table_shape:
-                parsed = self._parse_markdown_table(
+                parsed = cls._parse_markdown_table(
                     table_id=f"p{page_number}_t{idx}",
                     page_number=page_number,
                     table_text=block.text,
@@ -516,8 +851,15 @@ class DoclingTextExtractor:
                     tables.append(parsed)
         return tables
 
-    def _parse_page_blocks(
+    def _extract_tables_from_blocks(
         self,
+        page_number: int,
+        blocks: list[CanonicalBlock] | tuple[CanonicalBlock, ...],
+    ) -> list[CanonicalTable]:
+        return self._extract_tables_from_blocks_static(page_number, blocks)
+
+    @staticmethod
+    def _parse_page_blocks_static(
         page_number: int,
         page_text: str,
         source_origin: SourceOrigin,
@@ -588,6 +930,26 @@ class DoclingTextExtractor:
                 )
             )
         return blocks
+
+    def _parse_page_blocks(
+        self,
+        page_number: int,
+        page_text: str,
+        source_origin: SourceOrigin,
+        confidence: float | None = None,
+        base_offset: int = 0,
+        start_block_idx: int = 1,
+        full_text: str | None = None,
+    ) -> list[CanonicalBlock]:
+        return self._parse_page_blocks_static(
+            page_number,
+            page_text,
+            source_origin,
+            confidence=confidence,
+            base_offset=base_offset,
+            start_block_idx=start_block_idx,
+            full_text=full_text,
+        )
 
     def _process_single_page(
         self,
