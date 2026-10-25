@@ -1,6 +1,7 @@
 import asyncio
 from collections.abc import AsyncIterator, Callable, Sequence
 from dataclasses import asdict
+from decimal import Decimal
 from math import isfinite
 from time import get_clock_info, perf_counter
 from uuid import uuid4
@@ -634,12 +635,14 @@ class AnswerQuestion:
             self._store.revalidate_lexical_snapshot(
                 command.workspace_id, retrieval_configuration.lexical_policy_id, lexical_generations
             )
+        generation_deadline = asyncio.get_running_loop().time() + 90.0
+        generation_evidence = tuple(
+            GenerationEvidence(evidence_id=alias, content=candidate.content)
+            for alias, candidate in alias_to_candidate.items()
+        )
         generation = await self._generation_provider.generate(
             question=generation_question,
-            evidence=tuple(
-                GenerationEvidence(evidence_id=alias, content=candidate.content)
-                for alias, candidate in alias_to_candidate.items()
-            ),
+            evidence=generation_evidence,
         )
         generation_ended = self._clock()
         phase_timings = self._phase_timings(
@@ -649,17 +652,82 @@ class AnswerQuestion:
             selection_ended=selection_ended,
             generation_ended=generation_ended,
         )
+        repair = getattr(self._generation_provider, "repair_generation", None)
+        max_attempts = (
+            3
+            if is_v3_retrieval
+            and generation.provider == "cloudflare-workers-ai"
+            and generation.decision == "ANSWER"
+            and callable(repair)
+            else 1
+        )
+        generation_attempts = []
         try:
-            validated = validate_generation(
-                generation,
-                available_evidence_ids=tuple(alias_to_candidate),
-                required_subquestions=query_plan.subquestions
-                if has_multiple_subquestions
-                else None,
-                alias_to_candidate=alias_to_candidate,
-                is_v3=is_v3_retrieval,
-            )
+            for attempt in range(max_attempts):
+                if attempt:
+                    try:
+                        self._store.revalidate_lexical_snapshot(
+                            command.workspace_id,
+                            retrieval_configuration.lexical_policy_id,
+                            lexical_generations,
+                        )
+                        remaining = generation_deadline - asyncio.get_running_loop().time()
+                        if remaining <= 0:
+                            raise TimeoutError
+                        async with asyncio.timeout(remaining):
+                            generation = await repair(
+                                question=generation_question,
+                                evidence=generation_evidence,
+                            )
+                    except TimeoutError:
+                        generation_attempts.append(
+                            {"validation_outcome": "error", "error_code": "PROVIDER_REQUEST_FAILED"}
+                        )
+                        raise KnoraError("PROVIDER_REQUEST_FAILED") from None
+                    except KnoraError as error:
+                        generation_attempts.append(
+                            {"validation_outcome": "error", "error_code": error.code}
+                        )
+                        raise
+                observation = {
+                    "provider": generation.provider,
+                    "model": generation.model,
+                    "prompt_version": generation.prompt_version,
+                    "provider_request_id": generation.provider_request_id,
+                    "finish_reason": generation.finish_reason,
+                    "usage": generation.usage,
+                    "cost": generation.cost,
+                    "answer": generation.answer,
+                }
+                try:
+                    # A repair must answer; refusal cannot hide a failed generation.
+                    if attempt and generation.decision != "ANSWER":
+                        raise KnoraError("GENERATION_OUTPUT_INVALID")
+                    validated = validate_generation(
+                        generation,
+                        available_evidence_ids=tuple(alias_to_candidate),
+                        required_subquestions=query_plan.subquestions
+                        if has_multiple_subquestions
+                        else None,
+                        alias_to_candidate=alias_to_candidate,
+                        is_v3=is_v3_retrieval,
+                    )
+                except KnoraError:
+                    generation_attempts.append({**observation, "validation_outcome": "invalid"})
+                    if attempt + 1 == max_attempts:
+                        raise
+                else:
+                    generation_attempts.append({**observation, "validation_outcome": "valid"})
+                    break
         except KnoraError:
+            if len(generation_attempts) > 1:
+                phase_timings = self._phase_timings(
+                    started=started,
+                    embedding_ended=embedding_ended,
+                    retrieval_ended=retrieval_ended,
+                    selection_ended=selection_ended,
+                    generation_ended=self._clock(),
+                )
             trace_ended = self._clock()
             self._store.persist_trace(
                 self._trace(
@@ -681,6 +749,7 @@ class AnswerQuestion:
                     ),
                     validation_outcome="invalid",
                     generation=generation,
+                    generation_attempts=tuple(generation_attempts),
                     started=started,
                     ended_at=trace_ended,
                     retrieval_configuration=retrieval_configuration,
@@ -701,6 +770,15 @@ class AnswerQuestion:
                 )
             )
             raise
+
+        if len(generation_attempts) > 1:
+            phase_timings = self._phase_timings(
+                started=started,
+                embedding_ended=embedding_ended,
+                retrieval_ended=retrieval_ended,
+                selection_ended=selection_ended,
+                generation_ended=self._clock(),
+            )
 
         if validated.result.decision == "REFUSAL":
             decision = "REFUSAL"
@@ -733,6 +811,7 @@ class AnswerQuestion:
                 parsed_markers=validated.parsed_markers,
                 validation_outcome="valid",
                 generation=generation,
+                generation_attempts=tuple(generation_attempts),
                 started=started,
                 ended_at=trace_ended,
                 retrieval_configuration=retrieval_configuration,
@@ -886,6 +965,7 @@ class AnswerQuestion:
         parsed_markers: tuple[str, ...] = (),
         validation_outcome: str = "not_applicable",
         generation: GenerationResult | None = None,
+        generation_attempts: tuple[dict[str, object], ...] = (),
         retrieval_configuration: RetrievalConfiguration | None = None,
         branch_observations: tuple[dict[str, object], ...] = (),
         retrieval_embedding_set_ids: tuple[str, ...] = (),
@@ -1024,6 +1104,30 @@ class AnswerQuestion:
                 "usage": generation.usage,
                 "cost": generation.cost,
             }
+            if len(generation_attempts) > 1:
+                metadata = provider_metadata["generation"]
+                metadata["repair_policy"] = {
+                    "id": "retrieval-v3-grounded-repair-v1",
+                    "max_attempts": 3,
+                    "generation_deadline_seconds": 90,
+                }
+                metadata["attempts"] = list(generation_attempts)
+                metadata["usage"] = {}
+                for attempt in generation_attempts:
+                    for key, value in attempt.get("usage", {}).items():
+                        metadata["usage"][key] = metadata["usage"].get(key, 0) + value
+                costs = [a.get("cost", {}) for a in generation_attempts]
+                metadata["cost"] = {}
+                if all(
+                    c.get("amount_usd") is not None
+                    and c.get("pricing_version") == costs[0].get("pricing_version")
+                    and c.get("currency") == costs[0].get("currency")
+                    for c in costs
+                ):
+                    metadata["cost"] = {
+                        **costs[0],
+                        "amount_usd": format(sum(Decimal(c["amount_usd"]) for c in costs), "f"),
+                    }
         candidate_decisions = []
         for index, item in enumerate(selection.decisions, start=1):
             if item.outcome == "TOKEN_BUDGET_EXCEEDED":

@@ -337,7 +337,8 @@ def _section_count_support(statement: str, source: str) -> bool | None:
         statement.strip(),
     ) or re.fullmatch(
         rf"(?:tổng số|số lượng|số)\s+(?P<label>{labels})\s+"
-        rf"(?:được\s+)?(?:(?:gợi ý|đề xuất)\s+)?(?:là\s+)?(?P<count>\d+)[.!?]?",
+        rf"(?:được\s+)?(?:(?:gợi ý|đề xuất)\s+)?(?:là\s+)?(?P<count>\d+)"
+        rf"(?:\s+(?P=label))?[.!?]?",
         statement.strip(),
     )
     if count is None:

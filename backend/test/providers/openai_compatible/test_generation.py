@@ -11,6 +11,66 @@ from knora.providers.openai_compatible.generation import OpenAICompatibleGenerat
 
 
 @pytest.mark.asyncio
+async def test_cloudflare_repair_uses_versioned_prompt_and_same_source_schema():
+    requests = []
+
+    async def endpoint(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {
+                            "content": json.dumps(
+                                {
+                                    "decision": "ANSWER",
+                                    "before": [
+                                        {
+                                            "text": "Đổi trả trong 7 ngày.",
+                                            "bold": None,
+                                            "support": ["E1"],
+                                        }
+                                    ],
+                                    "items": [],
+                                    "after": [],
+                                    "refusal_reason": None,
+                                }
+                            )
+                        },
+                    }
+                ],
+                "usage": {"total_tokens": 12},
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
+        provider = OpenAICompatibleGenerationProvider(
+            base_url="https://provider.example/v1",
+            api_key="test",
+            model="test",
+            input_cost_per_million_tokens=None,
+            output_cost_per_million_tokens=None,
+            pricing_version=None,
+            client=client,
+            provider_identity="cloudflare-workers-ai",
+            direct_json_schema=True,
+        )
+        evidence = (GenerationEvidence("E1", "Đổi trả trong 7 ngày."),)
+        initial = await provider.generate(question="Bao nhiêu ngày?", evidence=evidence)
+        repaired = await provider.repair_generation(question="Bao nhiêu ngày?", evidence=evidence)
+    assert initial.prompt_version == "cloudflare-gpt-oss-cited-answer-v21"
+    assert repaired.prompt_version.startswith("retrieval-v3-grounded-repair-v1:")
+    assert requests[0]["messages"][1] == requests[1]["messages"][1]
+    assert requests[0]["response_format"] == requests[1]["response_format"]
+    assert requests[0]["messages"][0] != requests[1]["messages"][0]
+    assert repaired.answer == "Đổi trả trong 7 ngày. [[E1]]"
+    assert repaired.usage == {"total_tokens": 12}
+    assert repaired.cost == {}
+
+
+@pytest.mark.asyncio
 async def test_openai_compatible_generation_returns_structured_result_and_safe_metadata() -> None:
     observed: dict[str, object] = {}
 
