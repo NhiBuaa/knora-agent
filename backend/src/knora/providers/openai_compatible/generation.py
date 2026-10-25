@@ -53,12 +53,29 @@ class OpenAICompatibleGenerationProvider:
         question: str,
         evidence: tuple[GenerationEvidence, ...],
     ) -> GenerationResult:
+        return await self._generate(question=question, evidence=evidence, repair=False)
+
+    async def repair_generation(
+        self,
+        *,
+        question: str,
+        evidence: tuple[GenerationEvidence, ...],
+    ) -> GenerationResult:
+        if self._provider_identity != "cloudflare-workers-ai":
+            raise KnoraError("GENERATION_OUTPUT_INVALID")
+        return await self._generate(question=question, evidence=evidence, repair=True)
+
+    async def _generate(
+        self, *, question: str, evidence: tuple[GenerationEvidence, ...], repair: bool
+    ) -> GenerationResult:
         if self._client is None:
             self._client = httpx.AsyncClient(timeout=self._timeout_seconds)
         try:
             cloudflare = self._provider_identity == "cloudflare-workers-ai"
             prompt = build_prompt(
-                "cloudflare-answer" if cloudflare else "generic",
+                "cloudflare-answer-repair"
+                if repair
+                else ("cloudflare-answer" if cloudflare else "generic"),
                 question=question,
                 evidence=evidence,
             )

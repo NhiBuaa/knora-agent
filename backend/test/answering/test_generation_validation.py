@@ -452,3 +452,19 @@ def test_factual_text_after_last_citation_remains_uncited() -> None:
                 "E1": _make_cand("both", "Đổi trả 7 ngày. Phí vận chuyển 30 đồng.")
             },
         )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Số chương được đề xuất là **3 chương** [[E1]]",
+        "Tổng số chương được gợi ý là 3 chương. [[E1]]",
+    ],
+)
+def test_source_proven_count_allows_repeated_matching_unit(text) -> None:
+    validate_generation(
+        GenerationResult("ANSWER", text, ("E1",), None),
+        available_evidence_ids=("E1",),
+        alias_to_candidate={"E1": _make_cand("outline", OUTLINE_SOURCE)},
+        is_v3=True,
+    )
