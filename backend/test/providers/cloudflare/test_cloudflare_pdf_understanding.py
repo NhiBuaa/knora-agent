@@ -19,21 +19,22 @@ from knora.providers.cloudflare.pdf_understanding import (
         (b"\xff\xd8\xffexample", "image/jpeg"),
     ],
 )
-def test_moondream_ocr_uses_json_data_uri_and_reads_answer(image, mime):
+@pytest.mark.parametrize("nested_result", [False, True])
+def test_moondream_ocr_uses_json_data_uri_and_reads_answer(image, mime, nested_result):
     def endpoint(request):
         assert request.headers["content-type"].startswith("application/json")
         payload = json.loads(request.content)
         assert payload["task"] == "query"
+        assert payload["stream"] is False
+        assert payload["reasoning"] is True
         assert payload["question"] == "Extract text exactly"
         assert payload["image"] == f"data:{mime};base64," + base64.b64encode(image).decode("ascii")
+        result = {"answer": "Teacher Manh", "finish_reason": "stop"}
         return httpx.Response(
             200,
             json={
                 "success": True,
-                "result": {
-                    "answer": "Teacher Manh",
-                    "finish_reason": "stop",
-                },
+                "result": {"result": result, "usage": {}} if nested_result else result,
             },
         )
 
@@ -53,6 +54,9 @@ def test_moondream_ocr_uses_json_data_uri_and_reads_answer(image, mime):
         {"success": False, "errors": [{"code": 6003}], "result": {"answer": "untrusted"}},
         {"success": True, "result": {"answer": 123}},
         {"success": True, "result": {"answer": "partial", "finish_reason": "length"}},
+        {"success": True, "result": {}},
+        {"success": True, "result": {"result": {"answer": 123}, "usage": {}}},
+        {"success": True, "result": {"result": {"answer": "partial", "finish_reason": "length"}}},
     ],
 )
 def test_moondream_does_not_accept_failed_malformed_or_truncated_text(payload):
