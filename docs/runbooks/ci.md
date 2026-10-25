@@ -206,6 +206,17 @@ empty, failed, skipped or duplicate cases fail the job.
 No AI provider credentials, developer `.env` files, model benchmarks, or real application E2E
 services are used by pull request CI. Browser fixtures are synthetic and offline.
 
+The Frontend job uploads `frontend-reports` with `vitest.xml`, `figma-fixtures.xml` and
+the masked touch-target captures from
+`frontend/test-results/figma-ui/**/verification-touch-target-*.png`.
+The current fixture contract in
+[`figma-ui-interactions.spec.ts`](../../frontend/tests/e2e/figma-ui-interactions.spec.ts)
+produces six captures: mobile 320/390/768, long-title dialog close at 320, and coarse-pointer
+user/Operator views. Tests use `testInfo.outputPath(...)` so each invocation owns its output.
+For changes to these controls, inspect the XML and open the expected captures from the same
+CI run; an upload success alone does not prove every capture exists or the layout is correct.
+Keep fixture evidence separate from application runtime or physical-device testing.
+
 Issue #188 remains research-only / archived. The independent, non-required
 `.github/workflows/security-shadow.yml` workflow owns the `Security shadow (offline unit)` and
 `Security shadow (offline integration)` jobs. It runs automatically for pull requests targeting
@@ -262,7 +273,40 @@ Ruff excludes Markdown so it does not rewrite Python examples in historical reco
 PowerShell, shell, XML and FreeMarker currently have no automatic formatting gate; the coverage
 above is explicit and is recorded as a follow-up when those conventions are established. Add a formatter when an agreed convention exists for those languages.
 
+## Backend Docker packaging
+
+Build [`backend/Dockerfile`](../../backend/Dockerfile) with the repository root as its context,
+as the existing Compose services do. The wheel requires sibling resources from `evals/` and
+`docs/`, declared by `[tool.hatch.build.targets.wheel.force-include]` in
+[`backend/pyproject.toml`](../../backend/pyproject.toml). There are currently 16 resources;
+the Dockerfile stages those exact files before installing the package.
+
+[`backend/Dockerfile.dockerignore`](../../backend/Dockerfile.dockerignore) excludes everything
+first, then allows exact files. When adding or removing tracked backend source, migrations or
+force-include resources:
+
+1. Reconcile the exact allowlist with `git ls-files` and the manifest. Update resource staging
+   in the Dockerfile when the manifest changes; keep WORKDIR, loaders and resource destinations
+   consistent with the existing package contract.
+2. Update the corresponding expected counts only when the tracked-file or manifest change
+   justifies them. Keep the static equality check and BuildKit positive/negative probes in
+   [`test_figma_e2e_harness.py`](../../backend/test/config/test_figma_e2e_harness.py).
+   The positive probe must compare the full exported file set and bytes; the negative control
+   must still detect an extra file. Directory/glob negations would weaken this boundary.
+3. Obtain actual BuildKit results on an isolated runner, such as Backend Ubuntu CI. A local
+   prerequisite skip is not proof that the Docker probe passed. Use the application runtime
+   resource check below to verify the installed image as well.
+
 ## Runtime Verification
+
+Prefer the hosted workflow for the full runner. A local invocation requires a disposable
+environment with exclusive ownership of its Docker daemon resources and verification ports
+for the entire run. `run-runtime-verification.ps1` uses the fixed `knora-figma-e2e` project and
+cleans it with `down --volumes` after preparation, including failure paths. Its initial
+freshness checks do not reserve that project against another session. Do not run the full
+runner on a shared development machine; use the scoped
+[`-Project ... -Run` smoke harness](agent-environment.md#launch) for authorized local checks.
+That smoke run does not replace a release profile.
 
 Runtime Verification is manual and must use the exact release candidate commit:
 
@@ -281,11 +325,23 @@ Dispatch `.github/workflows/runtime-verification.yml` with a lower-case full 40-
 checks `git rev-parse HEAD` before creating evidence. The workflow source SHA is recorded
 separately from the tested SHA.
 
+The runner performs `prepare-figma-e2e.ps1 -CheckFrontendOnly` before entering startup/cleanup.
+A failed dependency check stops the run before Docker cleanup. See the
+[frontend pre-check contract](agent-environment.md#frontend-dependency-containment-pre-check--checkfrontendonly)
+for result codes and its limited scope.
+
 The `application` profile runs fresh isolated identity, document, conversation, Workspace and
 Operator journeys. Controller-owned PDF/Turn scenarios are excluded and remain release gaps until
 their own fresh processing/controller evidence exists. The `otp` profile runs the native Mailpit
 journey and eight essential two-node storage cases. Crash, outage, activation and commit-reply
 fault cases are separate acceptance scopes and are never silently counted as the base OTP pass.
+
+After collecting image identities and before the application browser journeys,
+`Test-PackageResources` checks the installed `figma-api` distribution against the checkout's
+force-include manifest and source hashes, including policy/JSON/corpus reads. Success prints
+`RUNTIME_PACKAGE_RESOURCES_OK=<count>` (currently 16); missing sources, empty resource lists,
+missing installed resources or content mismatches fail the run. The `otp` profile omits this
+application resource check and does not collect a `figma-api` image identity.
 
 The synthetic realm uses a 900-second user action lifespan so the real 300-second OTP resend
 cooldown can finish inside the native reset transaction. OTP expiry and attempt/send limits remain
@@ -321,7 +377,12 @@ ownership checks remain active; other workflow steps run as the normal runner ac
    A failed, cancelled, skipped, missing, empty or differently hashed report fails validation.
    Evidence for another SHA or a narrower scenario selection cannot satisfy acceptance.
 
-5. Retain the sanitized JSON and JUnit reports for 30 days with the workflow run. Do not retain
+5. For `application`, inspect the same run's resource-check log and require
+   `RUNTIME_PACKAGE_RESOURCES_OK=<count>` with the manifest's expected count (currently 16),
+   plus the application image identities. Manifest validation alone does not verify this
+   stdout marker. Keep the full workflow successful, including cleanup; a marker alone is
+   not runtime acceptance.
+6. Retain the sanitized JSON and JUnit reports for 30 days with the workflow run. Do not retain
    `.env`, realm snapshots, authentication URLs, OTPs, tokens, traces, videos or broad logs.
 
 Runtime evidence does not change branch protection or publish a release automatically. After a
