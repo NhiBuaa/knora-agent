@@ -144,10 +144,17 @@ class AnswerQuestion:
                 workspace_id=command.workspace_id
             )
 
-        is_v3_retrieval = bool(retrieval_configuration.id) and retrieval_configuration.id.endswith(
-            "-v3"
+        is_v3_retrieval = (
+            getattr(retrieval_configuration, "is_v3_retrieval", False)
+            or bool(getattr(retrieval_configuration, "sdm_policy_id", None))
+            or bool(getattr(retrieval_configuration, "reranking_policy_id", None))
+            or (bool(retrieval_configuration.id) and retrieval_configuration.id.endswith("-v3"))
         )
-        query_plan = self._query_planner.plan(command.question) if is_v3_retrieval else None
+        query_plan = (
+            self._query_planner.plan(retrieval_query)
+            if (is_v3_retrieval and self._query_planner is not None)
+            else None
+        )
         query_plan_observation = query_plan.to_observation() if query_plan is not None else None
 
         active_subquestions = query_plan.subquestions if query_plan is not None else None
@@ -528,6 +535,7 @@ class AnswerQuestion:
                 workspace_id=command.workspace_id,
                 retrieval_configuration=retrieval_configuration,
                 all_known_candidates=candidates,
+                snapshot=lexical_generations,
             )
             verification_observation = verification.to_observation()
             if verification.recovered_candidates:
@@ -723,6 +731,13 @@ class AnswerQuestion:
                 phase_timings=phase_timings,
             )
         )
+        # Final delivery revalidation: fail-closed if revoked between persist and delivery
+        if is_v3_retrieval and (lexical or dense_or_hybrid_v3) and lexical_generations:
+            self._store.revalidate_lexical_snapshot(
+                command.workspace_id,
+                retrieval_configuration.lexical_policy_id or "bm25-unicode-word-v1",
+                lexical_generations,
+            )
         return QuestionResult(
             workspace_id=command.workspace_id,
             decision=decision,
@@ -1086,8 +1101,26 @@ class AnswerQuestion:
             latency_ms=((ended_at if ended_at is not None else self._clock()) - started) * 1000,
             branch_observations=branch_observations,
             conversation_turn_id=command.turn_id,
-            trace_schema_version=3 if lexical else 2,
-            branch_observation_schema_version=2 if lexical else 1,
+            trace_schema_version=3
+            if (
+                lexical
+                or retrieval_configuration.strategy in {"dense-only", "hybrid"}
+                or bool(retrieval_configuration.fusion_policy_id)
+                or bool(retrieval_configuration.sdm_policy_id)
+                or bool(retrieval_configuration.reranking_policy_id)
+                or (bool(retrieval_configuration.id) and retrieval_configuration.id.endswith("-v3"))
+            )
+            else 2,
+            branch_observation_schema_version=2
+            if (
+                lexical
+                or retrieval_configuration.strategy in {"dense-only", "hybrid"}
+                or bool(retrieval_configuration.fusion_policy_id)
+                or bool(retrieval_configuration.sdm_policy_id)
+                or bool(retrieval_configuration.reranking_policy_id)
+                or (bool(retrieval_configuration.id) and retrieval_configuration.id.endswith("-v3"))
+            )
+            else 1,
         )
 
     def _phase_timings(

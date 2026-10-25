@@ -105,6 +105,7 @@ def _render_client(contract: dict[str, object]) -> bytes:
 
 
 def _render_artifacts() -> tuple[bytes, bytes, bytes]:
+    sys.path.insert(0, str(ROOT))
     sys.path.insert(0, str(SOURCE_ROOT))
     from knora.main import app
 

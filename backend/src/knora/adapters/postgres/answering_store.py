@@ -2,7 +2,7 @@ from contextlib import contextmanager
 from dataclasses import replace
 from uuid import uuid4
 
-from sqlalchemy import and_, case, exists, func, select
+from sqlalchemy import and_, case, exists, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -105,8 +105,74 @@ class PostgresAnsweringStore(AnsweringStore):
         else:
             validate_dynamic_population_in_transaction(session, workspace_id, current)
 
+    def read_canonical_chunks_for_scope(
+        self,
+        workspace_id: str,
+        target_item: str,
+        snapshot: object,
+        *,
+        cursor: int = 0,
+        limit: int = 1024,
+    ) -> list[RetrievalCandidate]:
+        if not target_item or not target_item.strip():
+            return []
+        term = target_item.strip()
+        with self._session_factory() as session:
+            statement = (
+                select(DocumentTable, DocumentVersionTable, ChunkSetTable, ChunkTable)
+                .join(DocumentVersionTable, DocumentVersionTable.document_id == DocumentTable.id)
+                .join(ChunkSetTable, ChunkSetTable.document_version_id == DocumentVersionTable.id)
+                .join(ChunkTable, ChunkTable.chunk_set_id == ChunkSetTable.id)
+                .where(
+                    DocumentTable.workspace_id == workspace_id,
+                    DocumentTable.archived.is_(False),
+                    or_(
+                        ChunkTable.content.ilike(f"%{term}%"),
+                        func.array_to_string(ChunkTable.heading_path, " ").ilike(f"%{term}%"),
+                    ),
+                )
+            )
+            if snapshot is not None and isinstance(snapshot, (tuple, list)):
+                cset_ids = [
+                    getattr(item, "chunk_set_id", None)
+                    for item in snapshot
+                    if getattr(item, "chunk_set_id", None)
+                ]
+                if cset_ids:
+                    statement = statement.where(ChunkSetTable.id.in_(cset_ids))
+            statement = statement.order_by(ChunkTable.ordinal.asc()).offset(cursor).limit(limit)
+            rows = session.execute(statement).all()
+            return [
+                RetrievalCandidate(
+                    document_id=document.id,
+                    document_version_id=version.id,
+                    source_key=document.source_key,
+                    source_name=document.source_name,
+                    chunk_set_id=chunk_set.id,
+                    embedding_set_id=None,
+                    embedding_configuration_id=None,
+                    chunk_id=chunk.id,
+                    chunk_ordinal=chunk.ordinal,
+                    heading_path=tuple(chunk.heading_path) if chunk.heading_path else (),
+                    start_line=chunk.start_line,
+                    end_line=chunk.end_line,
+                    content=chunk.content,
+                    content_checksum=chunk.content_checksum,
+                    token_count=chunk.token_count,
+                    cosine_distance=None,
+                    similarity=None,
+                    page_start=chunk.page_start,
+                    page_end=chunk.page_end,
+                    start_offset=chunk.start_offset,
+                    end_offset=chunk.end_offset,
+                )
+                for document, version, chunk_set, chunk in rows
+            ]
+
     def _revalidate_lexical_trace(self, session: Session, trace: QuestionTraceRecord) -> None:
         if trace.trace_schema_version != 3:
+            return
+        if trace.decision == "REFUSAL" and trace.generation_status == "not_called":
             return
         try:
             retrieval = trace.provider_metadata["retrieval"]
@@ -906,7 +972,7 @@ class PostgresAnsweringStore(AnsweringStore):
                     decision="REFUSAL",
                     answer=None,
                     citations=(),
-                    refusal_reason="INSUFFICIENT_EVIDENCE",
+                    refusal_reason=trace.refusal_reason or "INSUFFICIENT_EVIDENCE",
                     trace_id=trace.id,
                     workspace_id=workspace_id,
                 )
@@ -993,8 +1059,10 @@ class PostgresAnsweringStore(AnsweringStore):
             or not trace.answer.strip()
         ):
             return False
-        if trace.refusal_reason != (
-            "INSUFFICIENT_EVIDENCE" if trace.decision == "REFUSAL" else None
+        if trace.refusal_reason not in (
+            {"INSUFFICIENT_EVIDENCE", "CLARIFICATION_REQUIRED"}
+            if trace.decision == "REFUSAL"
+            else {None}
         ):
             return False
 
