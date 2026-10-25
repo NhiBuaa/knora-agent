@@ -111,18 +111,25 @@ def test_load_profile_with_explicit_file(tmp_path: Path) -> None:
     assert loaded.statistics_digest == "b" * 64
 
 
-def test_load_profile_v3_dynamic_fallback() -> None:
-    # When no profile file is provided and retrieval configuration is v3 dynamic
+def test_load_profile_v3_uses_live_corpus_without_s2_population(monkeypatch) -> None:
     from knora.infrastructure.settings import settings
 
-    orig_id = settings.retrieval_configuration_id
-    try:
-        settings.retrieval_configuration_id = "retrieval-hybrid-top8-v3"
-        loaded = load_profile(None)
-        assert loaded.id == "bm25-word-frozen47-population-v1"
-        assert loaded.tokenizer == "tiktoken"
-    finally:
-        settings.retrieval_configuration_id = orig_id
+    monkeypatch.setattr(settings, "retrieval_configuration_id", "retrieval-hybrid-top8-v3")
+    workspace_id = f"test-reindex-profile-{uuid4()}"
+    _setup_workspace_and_text_doc(workspace_id, "live-corpus")
+    loaded = load_profile(workspace_id=workspace_id)
+    assert loaded.id == "lexical-bm25-v1"
+    assert loaded.avg_len > 0
+    assert loaded.statistics_digest != "0" * 64
+    assert run_reindex(workspace_id=workspace_id, profile=loaded)["enqueued"] == 1
+
+
+def test_load_profile_v3_rejects_missing_corpus(monkeypatch) -> None:
+    from knora.infrastructure.settings import settings
+
+    monkeypatch.setattr(settings, "retrieval_configuration_id", "retrieval-hybrid-top8-v3")
+    with pytest.raises(ValueError, match="non-empty corpus"):
+        load_profile()
 
 
 def test_reindex_search_dry_run() -> None:
