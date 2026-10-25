@@ -37,7 +37,8 @@ services:
     profiles: [application]
     image: knora-153-s2-application:verify
     build:
-      context: ./backend
+      context: .
+      dockerfile: backend/Dockerfile
     environment:
       KNORA_DATABASE_URL: postgresql+psycopg://knora_s2:isolated_s2@postgres:5432/knora_153_s2
       KNORA_PROVIDER_MODE: deterministic-local

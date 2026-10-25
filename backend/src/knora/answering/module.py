@@ -399,6 +399,7 @@ class AnswerQuestion:
                 if corpus_stats.statistics_digest is None or (
                     expected_digest is not None
                     and corpus_stats.statistics_digest != expected_digest
+                    and getattr(corpus_stats, "base_statistics_digest", None) != expected_digest
                 ):
                     raise KnoraError("CORPUS_STATISTICS_UNAVAILABLE")
 

@@ -110,4 +110,8 @@ def test_pytest_rejects_a_foreign_package_loaded_before_configuration(
     result = run_checkout(own, foreign, entrypoint, preload=True)
     assert result.returncode == pytest.ExitCode.USAGE_ERROR, result.stdout + result.stderr
     assert "KNORA_CHECKOUT_MISMATCH" in result.stderr
+    expected_path = str((own / "backend/src/knora/__init__.py").resolve())
+    actual_path = str((foreign / "backend/src/knora/__init__.py").resolve())
+    assert f"expected={expected_path}" in result.stderr
+    assert f"actual={actual_path}" in result.stderr
     assert not (own / "result.json").exists()
