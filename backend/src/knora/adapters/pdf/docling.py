@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import concurrent.futures
 import hashlib
 import logging
 import re
 import tempfile
 import time
 from contextlib import suppress
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from multiprocessing.connection import Connection
 from pathlib import Path
 from typing import BinaryIO
@@ -26,7 +27,10 @@ from knora.ingestion.pdf import (
     PdfExtractionError,
     PdfExtractionResult,
 )
-from knora.ingestion.pdf_chunking import chunk_canonical_document
+from knora.ingestion.pdf_chunking import (
+    chunk_canonical_document,
+    serialize_table_to_markdown,
+)
 from knora.ingestion.pdf_structure import (
     BlockType,
     BoundingBox,
@@ -61,6 +65,29 @@ class DoclingExtractionConfiguration(PdfExtractionConfiguration):
         return cls(
             parser_version="docling-native-cf-v1",
             extraction_options_version="cf-tomarkdown-moondream-v1",
+            normalizer_version="pdf-normalizer-m2-v1",
+            tokenizer_name="cl100k_base",
+            tokenizer_version="tiktoken-0.12.0",
+            chunking_policy_version="page-block-v1",
+            target_tokens=500,
+            overlap_tokens=75,
+            max_tokens=650,
+            max_raw_bytes=25 * 1024 * 1024,
+            max_pages=500,
+            max_page_stream_bytes=4 * 1024 * 1024,
+            max_total_stream_bytes=64 * 1024 * 1024,
+            extraction_timeout_seconds=60.0,
+            extractor_memory_bytes=512 * 1024 * 1024,
+            minimum_extracted_characters=1,
+            cloudflare_ocr_model="@cf/moondream/moondream3.1-9B-A2B",
+            enable_local_models=False,
+        )
+
+    @classmethod
+    def cloudflare_native_v2(cls) -> DoclingExtractionConfiguration:
+        return cls(
+            parser_version="docling-native-cf-v2",
+            extraction_options_version="cf-tomarkdown-moondream-v2",
             normalizer_version="pdf-normalizer-m2-v1",
             tokenizer_name="cl100k_base",
             tokenizer_version="tiktoken-0.12.0",
@@ -146,8 +173,44 @@ def _child_docling_extract(
                 return
 
             mediabox = getattr(page, "mediabox", None)
-            page_width = float(getattr(mediabox, "width", 612.0))
-            page_height = float(getattr(mediabox, "height", 792.0))
+            cropbox = getattr(page, "cropbox", None) or mediabox
+            crop_left = float(getattr(cropbox, "left", 0.0) if cropbox else 0.0)
+            crop_bottom = float(getattr(cropbox, "bottom", 0.0) if cropbox else 0.0)
+            crop_width = float(getattr(cropbox, "width", 612.0) if cropbox else 612.0)
+            crop_height = float(getattr(cropbox, "height", 792.0) if cropbox else 792.0)
+
+            rotation = int(getattr(page, "rotation", 0) or page.get("/Rotate", 0) or 0) % 360
+            if rotation in (90, 270):
+                page_width = crop_height
+                page_height = crop_width
+            else:
+                page_width = crop_width
+                page_height = crop_height
+
+            def _transform_point(
+                x_val: float,
+                y_val: float,
+                cm_mat: list | tuple | None,
+                crop_l: float = crop_left,
+                crop_b: float = crop_bottom,
+                crop_w: float = crop_width,
+                crop_h: float = crop_height,
+                rot: int = rotation,
+            ) -> tuple[float, float]:
+                if cm_mat and len(cm_mat) >= 6:
+                    xu = x_val * float(cm_mat[0]) + y_val * float(cm_mat[2]) + float(cm_mat[4])
+                    yu = x_val * float(cm_mat[1]) + y_val * float(cm_mat[3]) + float(cm_mat[5])
+                else:
+                    xu, yu = x_val, y_val
+                xr = xu - crop_l
+                yr = yu - crop_b
+                if rot == 90:
+                    return yr, crop_w - xr
+                if rot == 180:
+                    return crop_w - xr, crop_h - yr
+                if rot == 270:
+                    return crop_h - yr, xr
+                return xr, yr
 
             text_items: list[tuple[str, float, float, float]] = []
             image_items: list[tuple[str, float, float]] = []
@@ -173,7 +236,8 @@ def _child_docling_extract(
                         else str(text_arg)
                     )
                     if text_str.strip():
-                        text_items.append((text_str.strip(), tm[4], tm[5], current_font_size))
+                        tx, ty = _transform_point(float(tm[4]), float(tm[5]), cm)
+                        text_items.append((text_str.strip(), tx, ty, current_font_size))
                 elif op in (b"TJ", "TJ") and args:
                     parts = []
                     for arg in args[0]:
@@ -185,9 +249,11 @@ def _child_docling_extract(
                             )
                     text_str = "".join(parts).strip()
                     if text_str:
-                        text_items.append((text_str, tm[4], tm[5], current_font_size))
+                        tx, ty = _transform_point(float(tm[4]), float(tm[5]), cm)
+                        text_items.append((text_str, tx, ty, current_font_size))
                 elif op in (b"Do", "Do") and args:
-                    image_items.append((str(args[0]), cm[4], cm[5]))
+                    ix, iy = _transform_point(0.0, 0.0, cm)
+                    image_items.append((str(args[0]), ix, iy))
 
             with suppress(Exception):
                 page.extract_text(visitor_operand_before=visitor_op)
@@ -210,6 +276,11 @@ def _child_docling_extract(
             candidate_grid: list[tuple[float, list[tuple[str, float, float, float]]]] = []
             for y in sorted_y:
                 candidate_grid.append((y, sorted(rows_dict[y], key=lambda it: it[1])))
+
+            native_text = (page.extract_text() or "").strip()
+            page_images = list(getattr(page, "images", []))
+            has_images = len(page_images) > 0
+            has_native = len(native_text) >= configuration.minimum_extracted_characters
 
             detected_tables: list[CanonicalTable] = []
             table_y_set: set[float] = set()
@@ -252,6 +323,29 @@ def _child_docling_extract(
                             right=round(max(c.bbox.right for c in cells if c.bbox), 2),
                             bottom=round(max(c.bbox.bottom for c in cells if c.bbox), 2),
                         )
+                        table_lines = [" ".join(c[0] for c in r_items) for _, r_items in table_rows]
+                        table_sample = "\n".join(table_lines)
+                        t_start = native_text.find(table_sample)
+                        if t_start == -1 and table_lines:
+                            first_line = table_lines[0]
+                            t_start = native_text.find(first_line)
+                            if t_start != -1:
+                                last_line = table_lines[-1]
+                                last_pos = native_text.find(last_line, t_start)
+                                t_end = (
+                                    (last_pos + len(last_line))
+                                    if last_pos != -1
+                                    else (t_start + len(first_line))
+                                )
+                            else:
+                                t_start = None
+                                t_end = None
+                        elif t_start != -1:
+                            t_end = t_start + len(table_sample)
+                        else:
+                            t_start = None
+                            t_end = None
+
                         tbl = CanonicalTable(
                             table_id=f"p{page_idx}_t{len(detected_tables) + 1}",
                             page_number=page_idx,
@@ -259,16 +353,13 @@ def _child_docling_extract(
                             num_columns=num_cols,
                             cells=tuple(cells),
                             bbox=table_bbox,
+                            start_offset=t_start,
+                            end_offset=t_end,
                         )
                         detected_tables.append(tbl)
                     i = j
                 else:
                     i += 1
-
-            native_text = (page.extract_text() or "").strip()
-            page_images = list(getattr(page, "images", []))
-            has_images = len(page_images) > 0
-            has_native = len(native_text) >= configuration.minimum_extracted_characters
 
             non_table_items = [
                 it for it in text_items if not any(abs(it[2] - ty) < 4.0 for ty in table_y_set)
@@ -368,14 +459,50 @@ def _child_docling_extract(
                         )
                     )
 
-            if not prose_blocks and native_text:
-                prose_blocks = DoclingTextExtractor._parse_page_blocks_static(
+            table_blocks: list[CanonicalBlock] = []
+            for t_idx, dt in enumerate(detected_tables, start=1):
+                if dt.start_offset is not None and dt.end_offset is not None:
+                    table_blocks.append(
+                        CanonicalBlock(
+                            block_id=f"p{page_idx}_tb{t_idx}",
+                            page_number=page_idx,
+                            block_type=BlockType.TABLE,
+                            start_offset=dt.start_offset,
+                            end_offset=dt.end_offset,
+                            text=native_text[dt.start_offset : dt.end_offset],
+                            bbox=dt.bbox,
+                            source_origin=SourceOrigin.NATIVE_TEXT,
+                            confidence=None,
+                        )
+                    )
+
+            all_page_blocks = prose_blocks + table_blocks
+            if not all_page_blocks and native_text:
+                all_page_blocks = DoclingTextExtractor._parse_page_blocks_static(
                     page_idx, native_text, SourceOrigin.NATIVE_TEXT
                 )
+            else:
+                all_page_blocks.sort(key=lambda b: (b.bbox.top if b.bbox else 0.0, b.start_offset))
+                all_page_blocks = [
+                    replace(b, block_id=f"p{page_idx}_b{idx}")
+                    for idx, b in enumerate(all_page_blocks, start=1)
+                ]
+
             text_tables = DoclingTextExtractor._extract_tables_from_blocks_static(
-                page_idx, prose_blocks
+                page_idx, all_page_blocks
             )
-            all_tables = tuple(detected_tables + text_tables)
+            all_tables = tuple(
+                detected_tables
+                + [
+                    t
+                    for t in text_tables
+                    if not any(
+                        abs(t.bbox.top - dt.bbox.top) < 4.0
+                        for dt in detected_tables
+                        if dt.bbox and t.bbox
+                    )
+                ]
+            )
 
             image_records: list[tuple[int, float, bytes]] = []
             for img_idx, img in enumerate(page_images):
@@ -387,7 +514,7 @@ def _child_docling_extract(
             child_page = _DoclingChildPage(
                 page_number=page_idx,
                 native_text=native_text,
-                blocks=tuple(prose_blocks),
+                blocks=tuple(all_page_blocks),
                 tables=all_tables,
                 images=tuple(image_records),
                 is_complete=(has_native and not has_images),
@@ -558,28 +685,74 @@ class DoclingTextExtractor:
                                 ocr_items: list[tuple[float, str]] = []
                                 all_ocr_success = True
                                 for _img_idx, img_y, img_data in page_images:
+                                    remaining = timeout - (time.monotonic() - start_time)
+                                    if remaining <= 0:
+                                        raise PdfExtractionError(
+                                            "PDF_RESOURCE_LIMIT_EXCEEDED", reason="TIMEOUT"
+                                        )
                                     check_limits()
                                     try:
-                                        resp = self._cf_provider.ocr_page_image(img_data)
+                                        with concurrent.futures.ThreadPoolExecutor(
+                                            max_workers=1
+                                        ) as executor:
+                                            future = executor.submit(
+                                                self._cf_provider.ocr_page_image, img_data
+                                            )
+                                            resp = future.result(timeout=max(0.001, remaining))
                                         check_limits()
                                         t = resp.text.strip()
                                         if t:
                                             ocr_items.append((img_y, t))
                                         else:
                                             all_ocr_success = False
+                                    except concurrent.futures.TimeoutError as exc:
+                                        raise PdfExtractionError(
+                                            "PDF_RESOURCE_LIMIT_EXCEEDED", reason="TIMEOUT"
+                                        ) from exc
                                     except PdfExtractionError:
                                         raise
                                     except Exception:
                                         all_ocr_success = False
 
                                 elements: list[
-                                    tuple[float, str, SourceOrigin, BoundingBox | None]
+                                    tuple[
+                                        float,
+                                        str,
+                                        SourceOrigin,
+                                        BoundingBox | None,
+                                        BlockType,
+                                        CanonicalTable | None,
+                                    ]
                                 ] = []
                                 for blk in cp.blocks:
-                                    blk_y = cp.height - (blk.bbox.top if blk.bbox else 0.0)
+                                    if blk.block_type != BlockType.TABLE:
+                                        blk_y = cp.height - (blk.bbox.top if blk.bbox else 0.0)
+                                        elements.append(
+                                            (
+                                                blk_y,
+                                                blk.text,
+                                                SourceOrigin.NATIVE_TEXT,
+                                                blk.bbox,
+                                                blk.block_type,
+                                                None,
+                                            )
+                                        )
+
+                                updated_tables: list[CanonicalTable] = []
+                                for tbl in cp.tables:
+                                    tbl_text = serialize_table_to_markdown(tbl)
+                                    tbl_y = cp.height - (tbl.bbox.top if tbl.bbox else 0.0)
                                     elements.append(
-                                        (blk_y, blk.text, SourceOrigin.NATIVE_TEXT, blk.bbox)
+                                        (
+                                            tbl_y,
+                                            tbl_text,
+                                            SourceOrigin.NATIVE_TEXT,
+                                            tbl.bbox,
+                                            BlockType.TABLE,
+                                            tbl,
+                                        )
                                     )
+
                                 for img_y, ocr_text in ocr_items:
                                     top = max(0.0, cp.height - img_y - 20.0)
                                     bottom = min(cp.height, cp.height - img_y + 20.0)
@@ -589,16 +762,30 @@ class DoclingTextExtractor:
                                         right=min(cp.width, 540.0),
                                         bottom=round(bottom, 2),
                                     )
-                                    elements.append((img_y, ocr_text, SourceOrigin.OCR, ocr_bbox))
+                                    elements.append(
+                                        (
+                                            img_y,
+                                            ocr_text,
+                                            SourceOrigin.OCR,
+                                            ocr_bbox,
+                                            BlockType.PARAGRAPH,
+                                            None,
+                                        )
+                                    )
 
                                 elements.sort(key=lambda el: el[0], reverse=True)
 
                                 assembled_blocks: list[CanonicalBlock] = []
                                 text_parts: list[str] = []
                                 current_offset = 0
-                                for el_idx, (_el_y, el_text, el_origin, el_bbox) in enumerate(
-                                    elements, start=1
-                                ):
+                                for el_idx, (
+                                    _el_y,
+                                    el_text,
+                                    el_origin,
+                                    el_bbox,
+                                    el_type,
+                                    el_tbl,
+                                ) in enumerate(elements, start=1):
                                     if text_parts:
                                         current_offset += 2
                                     start = current_offset
@@ -609,7 +796,7 @@ class DoclingTextExtractor:
                                         CanonicalBlock(
                                             block_id=f"p{cp.page_number}_b{el_idx}",
                                             page_number=cp.page_number,
-                                            block_type=BlockType.PARAGRAPH,
+                                            block_type=el_type,
                                             start_offset=start,
                                             end_offset=end,
                                             text=el_text,
@@ -618,6 +805,11 @@ class DoclingTextExtractor:
                                             confidence=None,
                                         )
                                     )
+                                    if el_tbl is not None:
+                                        updated_tables.append(
+                                            replace(el_tbl, start_offset=start, end_offset=end)
+                                        )
+
                                 combined = "\n\n".join(text_parts)
                                 is_complete = all_ocr_success and bool(ocr_items)
                                 canonical_pages.append(
@@ -628,7 +820,9 @@ class DoclingTextExtractor:
                                             combined.encode()
                                         ).hexdigest(),
                                         blocks=tuple(assembled_blocks),
-                                        tables=cp.tables,
+                                        tables=tuple(
+                                            updated_tables if updated_tables else cp.tables
+                                        ),
                                         completeness=PageCompleteness(
                                             is_complete=is_complete,
                                             status="COMPLETE" if is_complete else "INCOMPLETE",
