@@ -111,10 +111,15 @@ def test_load_profile_with_explicit_file(tmp_path: Path) -> None:
     assert loaded.statistics_digest == "b" * 64
 
 
-def test_load_profile_v3_uses_live_corpus_without_s2_population(monkeypatch) -> None:
+@pytest.mark.parametrize(
+    "configuration_id", ["retrieval-hybrid-top8-v3", "retrieval-hybrid-sdm-top8-v3"]
+)
+def test_load_profile_v3_uses_live_corpus_without_s2_population(
+    monkeypatch, configuration_id
+) -> None:
     from knora.infrastructure.settings import settings
 
-    monkeypatch.setattr(settings, "retrieval_configuration_id", "retrieval-hybrid-top8-v3")
+    monkeypatch.setattr(settings, "retrieval_configuration_id", configuration_id)
     workspace_id = f"test-reindex-profile-{uuid4()}"
     _setup_workspace_and_text_doc(workspace_id, "live-corpus")
     loaded = load_profile(workspace_id=workspace_id)
