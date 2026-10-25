@@ -79,6 +79,27 @@ class MockSession:
         params = statement.compile().params
         if model is DocumentTable:
             ws_id = params.get("workspace_id_1")
+            target_profile_digest = params.get("profile_digest_1")
+            if target_profile_digest:
+                doc_ids = sorted(
+                    [
+                        r.id
+                        for (m, _), r in self.rows.items()
+                        if m is DocumentTable
+                        and r.workspace_id == ws_id
+                        and not r.archived
+                        and self.heads.get(r.id)
+                        and self.heads[r.id].desired_generation_id
+                        and self.rows.get(
+                            (LexicalGenerationTable, self.heads[r.id].desired_generation_id)
+                        )
+                        and self.rows[
+                            (LexicalGenerationTable, self.heads[r.id].desired_generation_id)
+                        ].profile_digest
+                        == target_profile_digest
+                    ]
+                )
+                return MockScalarResult(doc_ids)
             doc_ids = sorted(
                 [
                     r.id
@@ -508,3 +529,27 @@ def test_corpus_switch_requires_every_member_receipt(corpus_case: CorpusTransiti
     corpus_case.finish_last_child(prepared)
     assert corpus_case.active_snapshot() == prepared.snapshot_id
     assert corpus_case.active_member_ids() == prepared.all_member_ids
+
+
+def test_cold_corpus_transition_requires_every_staged_document_receipt() -> None:
+    store, session, ctx = build_harness()
+    # Reset active_generation_id for both documents to simulate cold workspace
+    ctx["head1"].active_generation_id = None
+    ctx["head2"].active_generation_id = None
+    ctx["row1_a"].status = "requested"
+    ctx["row2_a"].status = "requested"
+
+    gen1 = ctx["gen1_a"]
+    gen2 = ctx["gen2_a"]
+    receipt1 = StageReceipt(gen1.generation_id, 1, gen1.content_digest())
+    receipt2 = StageReceipt(gen2.generation_id, 1, gen2.content_digest())
+
+    # Committing only one staged doc during cold activation must fail
+    with pytest.raises(StaleGenerationError, match="all staged documents in corpus"):
+        store.commit_corpus_transition([(gen1, receipt1)])
+
+    # Committing all staged docs succeeds atomically
+    store.commit_corpus_transition([(gen1, receipt1), (gen2, receipt2)])
+    active = store.read_active_generations("workspace-1", ctx["profile_a"].id)
+    assert len(active) == 2
+    assert {g.document_id for g in active} == {"doc-1", "doc-2"}
