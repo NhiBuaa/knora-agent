@@ -110,7 +110,7 @@ export function Dialog({
           <button
             type="button"
             aria-label={`Close ${title}`}
-            className="kn-dialog__close"
+            className="kn-dialog__close shrink-0"
             onClick={onClose}
           >
             ×

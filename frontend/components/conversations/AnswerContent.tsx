@@ -5,6 +5,7 @@ import Markdown from "react-markdown";
 import type { Element, Root, RootContent } from "hast";
 import type { CitationResponse } from "@/generated/knora-openapi";
 import { CitationChip } from "@/components/citations/CitationViewer";
+import { validateAnswerCitations } from "@/lib/conversations/message-copy";
 
 export function AnswerContent({
   answer,
@@ -21,13 +22,7 @@ export function AnswerContent({
   const indexes = markers.map((marker) =>
     citations.findIndex((citation) => citation.evidence_id === marker[1]),
   );
-  // A missing projection is an explicit contract failure, never a hidden citation.
-  if (
-    answer.replace(/\[\[([^]*?)\]\]/g, "").includes("[[") ||
-    markers.some((marker) => !/^E[1-9][0-9]*$/.test(marker[1])) ||
-    indexes.some((index) => index < 0) ||
-    new Set(indexes).size !== indexes.length
-  ) {
+  if (!validateAnswerCitations(answer, citations)) {
     return <p role="alert">GENERATION_OUTPUT_INVALID</p>;
   }
 

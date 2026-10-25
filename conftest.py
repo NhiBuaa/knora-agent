@@ -83,7 +83,7 @@ def pytest_sessionstart(session: pytest.Session) -> None:
     source = getattr(knora, "__file__", None)
     if source is None or Path(source).resolve() != expected:
         raise pytest.UsageError(
-            "KNORA_CHECKOUT_MISMATCH: knora must load from this checkout's backend/src; "
+            f"KNORA_CHECKOUT_MISMATCH: expected={expected}; actual={source or '<unknown>'}; "
             "check pytest configuration and preloaded plugins"
         )
 

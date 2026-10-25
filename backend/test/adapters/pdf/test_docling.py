@@ -893,3 +893,150 @@ def test_r6_structure_serialization_and_chunk_bounds() -> None:
 
     # Chunking token and page bounds
     assert all(c.page_start == c.page_end and c.token_count <= 650 for c in result.chunks)
+
+
+def test_r6_f03_mixed_page_preserves_table_and_cm_translation_matrix() -> None:
+    from pypdf import PdfWriter
+    from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject, NumberObject
+
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=612, height=792)
+    font = DictionaryObject(
+        {
+            NameObject("/Type"): NameObject("/Font"),
+            NameObject("/Subtype"): NameObject("/Type1"),
+            NameObject("/BaseFont"): NameObject("/Helvetica"),
+        }
+    )
+    xobjects = DictionaryObject()
+    img_stream = DecodedStreamObject()
+    img_stream.set_data(b"\x00" * 100)
+    img_stream[NameObject("/Type")] = NameObject("/XObject")
+    img_stream[NameObject("/Subtype")] = NameObject("/Image")
+    img_stream[NameObject("/Width")] = NumberObject(10)
+    img_stream[NameObject("/Height")] = NumberObject(10)
+    img_stream[NameObject("/ColorSpace")] = NameObject("/DeviceGray")
+    img_stream[NameObject("/BitsPerComponent")] = NumberObject(8)
+    xobjects[NameObject("/Im1")] = writer._add_object(img_stream)
+
+    page[NameObject("/Resources")] = DictionaryObject(
+        {
+            NameObject("/Font"): DictionaryObject({NameObject("/F1"): writer._add_object(font)}),
+            NameObject("/XObject"): xobjects,
+        }
+    )
+    # Header at y=750, 3x3 Table translated by 50pt in cm at y=700..660,
+    # Image at y=500, Footer at y=200
+    commands = [
+        "BT /F1 12 Tf 1 0 0 1 72 750 Tm (Native Header) Tj ET",
+        "q 1 0 0 1 50 0 cm",
+        "BT /F1 12 Tf",
+        "1 0 0 1 72 700 Tm (Metric) Tj 1 0 0 1 200 700 Tm (Q1) Tj 1 0 0 1 350 700 Tm (Q2) Tj",
+        "1 0 0 1 72 680 Tm (Revenue) Tj 1 0 0 1 200 680 Tm (100) Tj 1 0 0 1 350 680 Tm (120) Tj",
+        "1 0 0 1 72 660 Tm (Profit) Tj 1 0 0 1 200 660 Tm (20) Tj 1 0 0 1 350 660 Tm (30) Tj",
+        "ET",
+        "Q",
+        "q 100 0 0 100 72 500 cm /Im1 Do Q",
+        "BT /F1 12 Tf 1 0 0 1 72 200 Tm (Native Footer) Tj ET",
+    ]
+    stream = DecodedStreamObject()
+    stream.set_data("\n".join(commands).encode("latin-1"))
+    page[NameObject("/Contents")] = writer._add_object(stream)
+    out = BytesIO()
+    writer.write(out)
+    pdf_bytes = out.getvalue()
+
+    mock_provider = MagicMock(spec=CloudflarePdfUnderstandingProvider)
+    mock_provider.ocr_page_image.return_value = CloudflareVisionOcrResponse(
+        text="Scanned Image Content",
+        confidence=0.9,
+    )
+
+    extractor = DoclingTextExtractor(cf_provider=mock_provider)
+    config = DoclingExtractionConfiguration.cloudflare_native_v1()
+    result = extractor.extract(BytesIO(pdf_bytes), config)
+
+    assert result.structure is not None
+    page = result.structure.pages[0]
+
+    # Check that table geometry accounts for cm translation (+50pt)
+    assert len(page.tables) >= 1
+    table = page.tables[0]
+    assert table.bbox is not None
+    assert table.bbox.left == 122.0  # 72 + 50 translation
+    assert table.cells[0].bbox is not None
+    assert table.cells[0].bbox.left == 122.0
+
+    # Check table text is preserved in page text and offsets match
+    assert table.start_offset is not None and table.end_offset is not None
+    table_slice = page.text[table.start_offset : table.end_offset]
+    assert "Metric" in table_slice
+    assert "Revenue" in table_slice
+    assert "Profit" in table_slice
+
+    # Check reading order: Header (native) -> Table (native) -> Image (ocr) -> Footer (native)
+    block_types = [b.block_type for b in page.blocks]
+    assert block_types == [
+        BlockType.PARAGRAPH,
+        BlockType.TABLE,
+        BlockType.PARAGRAPH,
+        BlockType.PARAGRAPH,
+    ]
+    origins = [b.source_origin for b in page.blocks]
+    assert origins == [
+        SourceOrigin.NATIVE_TEXT,
+        SourceOrigin.NATIVE_TEXT,
+        SourceOrigin.OCR,
+        SourceOrigin.NATIVE_TEXT,
+    ]
+    for b in page.blocks:
+        assert page.text[b.start_offset : b.end_offset] == b.text
+
+
+def test_r6_f24_ocr_respects_hard_job_deadline() -> None:
+    import time
+    from dataclasses import replace
+
+    from pypdf import PdfWriter
+    from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject, NumberObject
+
+    writer = PdfWriter()
+    page = writer.add_blank_page(width=612, height=792)
+    xobjects = DictionaryObject()
+    img_stream = DecodedStreamObject()
+    img_stream.set_data(b"\x00" * 100)
+    img_stream[NameObject("/Type")] = NameObject("/XObject")
+    img_stream[NameObject("/Subtype")] = NameObject("/Image")
+    img_stream[NameObject("/Width")] = NumberObject(10)
+    img_stream[NameObject("/Height")] = NumberObject(10)
+    img_stream[NameObject("/ColorSpace")] = NameObject("/DeviceGray")
+    img_stream[NameObject("/BitsPerComponent")] = NumberObject(8)
+    xobjects[NameObject("/Im1")] = writer._add_object(img_stream)
+    page[NameObject("/Resources")] = DictionaryObject({NameObject("/XObject"): xobjects})
+    commands = ["q 100 0 0 100 72 500 cm /Im1 Do Q"]
+    stream = DecodedStreamObject()
+    stream.set_data("\n".join(commands).encode("latin-1"))
+    page[NameObject("/Contents")] = writer._add_object(stream)
+    out = BytesIO()
+    writer.write(out)
+
+    mock_provider = MagicMock(spec=CloudflarePdfUnderstandingProvider)
+
+    def slow_ocr(*args, **kwargs):
+        time.sleep(2.0)
+        return CloudflareVisionOcrResponse(text="Late text", confidence=0.9)
+
+    mock_provider.ocr_page_image.side_effect = slow_ocr
+
+    extractor = DoclingTextExtractor(cf_provider=mock_provider)
+    config = DoclingExtractionConfiguration.cloudflare_native_v1()
+    fast_config = replace(config, extraction_timeout_seconds=0.8)
+
+    start = time.monotonic()
+    with pytest.raises(PdfExtractionError) as exc_info:
+        extractor.extract(BytesIO(out.getvalue()), fast_config)
+    elapsed = time.monotonic() - start
+
+    assert exc_info.value.code == "PDF_RESOURCE_LIMIT_EXCEEDED"
+    assert exc_info.value.reason in ("TIMEOUT", "EXTRACTION_TIMEOUT")
+    assert elapsed < 1.3, f"OCR call exceeded deadline: took {elapsed:.3f}s"

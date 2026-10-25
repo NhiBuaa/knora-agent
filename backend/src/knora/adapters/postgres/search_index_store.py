@@ -512,6 +512,35 @@ class PostgresSearchIndexStore:
                 f"missing: {missing}"
             )
 
+        is_cold_activation = not active_doc_ids
+        if is_cold_activation:
+            staged_doc_ids = set(
+                session.scalars(
+                    select(DocumentTable.id)
+                    .join(LexicalHeadTable, LexicalHeadTable.document_id == DocumentTable.id)
+                    .join(
+                        LexicalGenerationTable,
+                        LexicalHeadTable.desired_generation_id == LexicalGenerationTable.id,
+                    )
+                    .where(
+                        DocumentTable.workspace_id == workspace_id,
+                        DocumentTable.archived.is_(False),
+                        LexicalGenerationTable.profile_digest == target_profile_digest,
+                    )
+                ).all()
+            )
+            if staged_doc_ids and submitted_doc_ids != staged_doc_ids:
+                missing = staged_doc_ids - submitted_doc_ids
+                if missing:
+                    raise StaleGenerationError(
+                        "corpus transition requires receipts for all staged documents in corpus; "
+                        f"missing: {missing}"
+                    )
+                extra = submitted_doc_ids - staged_doc_ids
+                raise StaleGenerationError(
+                    f"corpus transition contains unexpected unstaged documents; extra: {extra}"
+                )
+
         for generation, receipt in items:
             receipt.validate(generation)
         ordered_items = sorted(items, key=lambda pair: pair[0].document_id)
