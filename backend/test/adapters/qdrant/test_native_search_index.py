@@ -70,6 +70,57 @@ def test_stage_requires_completed_upsert_and_full_persisted_readback(wire, gener
         client.close()
 
 
+@pytest.mark.parametrize("failure", [None, "second_write", "partial_readback"])
+def test_dynamic_generation_batches_95_chunks_and_requires_all_readback(wire, generation, failure):
+    from dataclasses import replace
+
+    texts = {f"chunk-{i}": f"source text {i}" for i in range(95)}
+    generation = replace(
+        generation,
+        chunks=tuple(
+            LexicalChunk(chunk_id, ordinal, hashlib.sha256(text.encode()).hexdigest())
+            for ordinal, (chunk_id, text) in enumerate(texts.items())
+        ),
+    )
+    dynamic_wire = QdrantSearchIndex(wire.collection_name)
+    stored = {}
+    write_sizes = []
+    read_sizes = []
+
+    def serve(request):
+        body = json.loads(request.content)
+        if request.method == "PUT":
+            assert request.url.params["wait"] == "true"
+            write_sizes.append(len(body["points"]))
+            assert 1 <= write_sizes[-1] <= 64
+            if failure == "second_write" and len(write_sizes) == 2:
+                return httpx.Response(503)
+            stored.update({point["id"]: point for point in body["points"]})
+            return httpx.Response(200, json={"status": "ok", "result": {"status": "completed"}})
+        read_sizes.append(len(body["ids"]))
+        assert 1 <= read_sizes[-1] <= 64
+        points = [stored[point_id] for point_id in body["ids"]]
+        if failure == "partial_readback" and len(read_sizes) == 2:
+            points = points[:-1]
+        return httpx.Response(200, json={"status": "ok", "result": points})
+
+    with httpx.Client(
+        base_url="http://127.0.0.1:16433", transport=httpx.MockTransport(serve)
+    ) as client:
+        index = NativeQdrantSearchIndex(index=dynamic_wire, client=client)
+        if failure:
+            with pytest.raises((LexicalProjectionUnavailable, ProjectionResponseError)):
+                index.stage_generation(generation, texts)
+            if failure == "second_write":
+                assert read_sizes == []
+        else:
+            receipt = index.stage_generation(generation, texts)
+            assert receipt.point_count == 95
+            assert write_sizes == [64, 31]
+            assert read_sizes == [64, 31]
+            assert {point["payload"]["chunk_id"] for point in stored.values()} == set(texts)
+
+
 @pytest.mark.parametrize("result", [{"status": "acknowledged"}, {"status": "failed"}, {}, None])
 def test_stage_never_reads_back_or_receipts_an_incomplete_upsert(wire, generation, result) -> None:
     requests = []
