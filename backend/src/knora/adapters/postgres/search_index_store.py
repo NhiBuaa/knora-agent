@@ -89,12 +89,30 @@ class PostgresSearchIndexStore:
             )
 
         freqs: dict[str, int] = {}
+        ordered_pair_freqs: dict[tuple[str, str], int] = {}
+        window_pair_freqs: dict[tuple[str, str], int] = {}
         total_tokens = 0
+        window_size = 8
         for chunk in chunks:
+            expected_checksum = getattr(chunk, "content_checksum", None)
+            if expected_checksum:
+                actual_checksum = hashlib.sha256(chunk.content.encode("utf-8")).hexdigest()
+                if actual_checksum != expected_checksum:
+                    raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+
             tokens = tokenize_lexical_text(chunk.content)
             total_tokens += len(tokens)
             for tok in tokens:
                 freqs[tok] = freqs.get(tok, 0) + 1
+            for i in range(len(tokens) - 1):
+                pair = (tokens[i], tokens[i + 1])
+                ordered_pair_freqs[pair] = ordered_pair_freqs.get(pair, 0) + 1
+            for i in range(len(tokens)):
+                t1 = tokens[i]
+                for j in range(i + 1, min(len(tokens), i + window_size)):
+                    t2 = tokens[j]
+                    upair = (t1, t2) if t1 <= t2 else (t2, t1)
+                    window_pair_freqs[upair] = window_pair_freqs.get(upair, 0) + 1
 
         content_checksum = hashlib.sha256(
             "".join(
@@ -114,6 +132,8 @@ class PostgresSearchIndexStore:
             statistics_digest=bound_stats_digest,
             snapshot_id=f"snap-{membership_digest[:8]}-{content_checksum[:8]}",
             base_statistics_digest=stats_digest,
+            ordered_pair_frequencies=ordered_pair_freqs,
+            window_pair_frequencies=window_pair_freqs,
         )
         _CORPUS_STATS_CACHE[cache_key] = stats
         return stats
