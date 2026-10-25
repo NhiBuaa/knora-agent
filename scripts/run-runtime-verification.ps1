@@ -193,7 +193,6 @@ try {
             Add-ImageIdentity $service
         }
     }
-    }
     if ($Profile -eq 'application') {
         Test-PackageResources
         $reports = @{}

@@ -38,7 +38,7 @@ if (-not $cfAccount -or -not $cfToken) {
 # 2. Kiểm tra trạng thái migration cơ sở dữ liệu và kết nối trực tiếp PostgreSQL & Qdrant
 python -m alembic current
 python -c "from knora.infrastructure.database import engine; conn = engine.connect(); conn.close(); print('PostgreSQL live connection: OK')"
-python -c "import urllib.request; from knora.infrastructure.settings import Settings; s = Settings(); q_url = getattr(s, 'lexical_qdrant_url', None) or getattr(s, 'qdrant_url', None); resp = urllib.request.urlopen(f'{q_url}/healthz', timeout=5) if q_url else None; print('Qdrant live cluster: OK' if resp and resp.status == 200 else 'Qdrant failed / unconfigured')"
+python -c "import sys, urllib.request; from knora.infrastructure.settings import Settings; s = Settings(); q_url = s.lexical_qdrant_url; (print('Qdrant unconfigured', file=sys.stderr) or sys.exit(1)) if not q_url else None; resp = urllib.request.urlopen(f'{q_url}/healthz', timeout=5); (print('Qdrant cluster live: OK') if resp.status == 200 else (print('Qdrant health check failed', file=sys.stderr) or sys.exit(1)))"
 
 # 3. Kiểm tra tiến trình reindex ở chế độ dry-run (trần pool 100 candidates)
 python -m knora.adapters.cli.reindex_search --workspace-id <TARGET_WORKSPACE_ID> --dry-run
@@ -113,7 +113,7 @@ Khi phát hiện sự cố nghiêm trọng (ví dụ: Cloudflare Workers AI tê 
    Xác nhận cấu hình và kiểm tra ứng dụng thực tế sau khi chuyển đổi:
    ```powershell
    # 1. Xác nhận cấu hình đang phục vụ đã chuyển thành công về BM25
-   python -c "from knora.answering.retrieval_configuration import retrieval_configuration_for_id; cfg = retrieval_configuration_for_id('retrieval-bm25-top8-v1'); print('Rollback active configuration:', cfg.id, 'strategy:', cfg.strategy)"
+   python -c "import sys; from knora.answering.retrieval_configuration import resolve_retrieval_configuration; cfg = resolve_retrieval_configuration('retrieval-bm25-top8-v1', vector_min_similarity=None); print('Rollback serving configuration:', cfg.id, 'strategy:', cfg.strategy); sys.exit(0 if cfg.id == 'retrieval-bm25-top8-v1' else 1)"
 
    # 2. Xác nhận answering flow hoạt động bình thường với BM25 contract
    python -m pytest backend/test/answering/test_bm25_contract.py
