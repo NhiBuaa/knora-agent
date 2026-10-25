@@ -74,24 +74,27 @@ class NativeQdrantSearchIndex:
         chunk_vectors: Mapping[str, tuple[float, ...] | list[float]] | None = None,
     ) -> StageReceipt:
 
-        response = self._request(
-            "PUT",
-            f"/collections/{self.index.collection_name}/points?wait=true",
-            self.index.stage_body(generation, chunk_texts, chunk_vectors),
-        )
+        points = self.index.stage_body(generation, chunk_texts, chunk_vectors)["points"]
+        for start in range(0, len(points), 64):
+            response = self._request(
+                "PUT",
+                f"/collections/{self.index.collection_name}/points?wait=true",
+                {"points": points[start : start + 64]},
+            )
+            self._require_completed(response)
 
-        self._require_completed(response)
-
-        response = self._request(
-            "POST",
-            f"/collections/{self.index.collection_name}/points",
-            self.index.persisted_points_body(generation),
-        )
-
-        result = response.get("result")
-
-        if not isinstance(result, list):
-            raise ProjectionResponseError("Qdrant persisted-point readback is incomplete")
+        read_body = self.index.persisted_points_body(generation)
+        result = []
+        for start in range(0, len(read_body["ids"]), 64):
+            response = self._request(
+                "POST",
+                f"/collections/{self.index.collection_name}/points",
+                {**read_body, "ids": read_body["ids"][start : start + 64]},
+            )
+            batch = response.get("result")
+            if not isinstance(batch, list):
+                raise ProjectionResponseError("Qdrant persisted-point readback is incomplete")
+            result.extend(batch)
 
         return self.index.parse_stage_response(
             generation, result, expected_chunk_vectors=chunk_vectors
