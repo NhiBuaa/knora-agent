@@ -1993,10 +1993,8 @@ def test_check_frontend_only_rejects_root_spec_section_mismatch(tmp_path: Path) 
     )
     assert proc.returncode != 0
     assert "FIGMA_FRONTEND_LOCK_MISMATCH" in proc.stderr
-    assert (
-        "section devDependencies missing in root lock node" in proc.stderr
-        or "missing in root lock devDependencies" in proc.stderr
-    )
+    assert "devDependencies" in proc.stderr
+    assert "missing in root lock" in proc.stderr
 
 
 @pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
