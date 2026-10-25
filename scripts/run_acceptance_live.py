@@ -201,6 +201,13 @@ def build_human_review_packet_data(
 
 
 def main(argv: list[str] | None = None, mock_handler=None) -> int:
+    try:
+        if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+            sys.stdout.reconfigure(encoding="utf-8")
+        if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+            sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
     parser = argparse.ArgumentParser(description="Issue #158 Evaluation Acceptance Runner")
     parser.add_argument(
         "--manifest", required=True, type=Path, help="Path to approved manifest JSON"
@@ -318,6 +325,7 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
     ragas_slot_status = snap["slots"]["ragas_vi_draft"]["status"]
 
     if ragas_slot_status != "COMPLETED":
+        ragas_now = clock()
         ragas_authority = {"ragas_input": 1}
         ragas_input_digest = digest_json(ragas_authority)
         ragas_policy = {
@@ -334,9 +342,9 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
             "egress_approved": True,
             "account_id": manifest["account_id"],
             "plan": "Workers Free",
-            "proof_observed_at": now.isoformat(),
+            "proof_observed_at": ragas_now.isoformat(),
             "proof_digest": "2" * 64,
-            "deadline": (now + timedelta(minutes=4)).isoformat(),
+            "deadline": (ragas_now + timedelta(minutes=4)).isoformat(),
             "max_attempts": 1,
             "quota_remaining_neurons": 10000,
             "max_neurons_per_attempt": 200,
@@ -371,7 +379,7 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
         cleanup = {
             "registration_id": "acceptance-window-1",
             "scope": manifest["ownership"],
-            "deadline": (now + timedelta(minutes=60)).isoformat(),
+            "deadline": (clock() + timedelta(minutes=50)).isoformat(),
             "proof_digest": "0" * 64,
         }
 
