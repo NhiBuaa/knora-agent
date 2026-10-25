@@ -11,7 +11,7 @@ import pytest
 
 from knora.evaluation.live_admission import _SLOTS_V2, reviewed_build_pins
 
-NOW = datetime(2026, 10, 24, 0, 0, tzinfo=UTC)
+NOW = datetime.now(UTC)
 
 
 def make_test_manifest_v3(tmp_path: Path) -> dict:

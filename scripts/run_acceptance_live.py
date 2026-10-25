@@ -254,13 +254,13 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
                 file=sys.stderr,
             )
             return 1
-        package = LivePackage.initialize(manifest, journal_path, clock=lambda: now)
+        package = LivePackage.initialize(manifest, journal_path, clock=clock)
         print(f"LivePackage initialized: {manifest['package_id']}")
     else:  # resume
         if not journal_path.is_file():
             print(f"ERROR: Journal missing at {journal_path} for resume mode.", file=sys.stderr)
             return 1
-        package = LivePackage(manifest, journal_path, clock=lambda: now)
+        package = LivePackage(manifest, journal_path, clock=clock)
         print(f"LivePackage resumed: {manifest['package_id']}")
 
     root = Path(__file__).resolve().parents[1]
@@ -612,12 +612,6 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
     manifest_items = {it["item_id"]: it for it in manifest.get("items", [])}
 
     judged_results = {}
-    cleanup = {
-        "registration_id": "acceptance-window-scoring",
-        "scope": manifest["ownership"],
-        "deadline": (now + timedelta(minutes=60)).isoformat(),
-        "proof_digest": "0" * 64,
-    }
 
     # Expand human labels for flexible lookup
     expanded_items = []
@@ -637,14 +631,21 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
     # Execute judge_real slot
     real_slot_status = snap["slots"]["judge_real"]["status"]
     if real_slot_status != "COMPLETED":
+        cleanup_real = {
+            "registration_id": "acceptance-window-scoring-real",
+            "scope": manifest["ownership"],
+            "deadline": (clock() + timedelta(minutes=50)).isoformat(),
+            "proof_digest": "0" * 64,
+        }
         with package.window(
             scope=manifest["ownership"],
-            cleanup=cleanup,
+            cleanup=cleanup_real,
             start=lambda: None,
             stop=lambda: None,
             stack_startup=False,
         ):
             for idx, case_id in enumerate(TARGET_CASES):
+                item_now = clock()
                 item_info = manifest_items.get(case_id) or manifest_items.get(
                     case_id.replace("pdf-v3-", "")
                 )
@@ -666,9 +667,9 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
                     "egress_approved": True,
                     "account_id": manifest["account_id"],
                     "plan": "Workers Free",
-                    "proof_observed_at": now.isoformat(),
+                    "proof_observed_at": item_now.isoformat(),
                     "proof_digest": "2" * 64,
-                    "deadline": (now + timedelta(minutes=4)).isoformat(),
+                    "deadline": (item_now + timedelta(minutes=4)).isoformat(),
                     "max_attempts": item_info["cap"],
                     "quota_remaining_neurons": 10000,
                     "max_neurons_per_attempt": 200,
@@ -758,14 +759,21 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
     synth_slot_status = snap["slots"]["judge_synthetic"]["status"]
     synth_list = list(SYNTHETIC_CONTROLS.items())
     if synth_slot_status != "COMPLETED":
+        cleanup_synth = {
+            "registration_id": "acceptance-window-scoring-synth",
+            "scope": manifest["ownership"],
+            "deadline": (clock() + timedelta(minutes=50)).isoformat(),
+            "proof_digest": "0" * 64,
+        }
         with package.window(
             scope=manifest["ownership"],
-            cleanup=cleanup,
+            cleanup=cleanup_synth,
             start=lambda: None,
             stop=lambda: None,
             stack_startup=False,
         ):
-            for variant_id, spec in synth_list:
+            for idx, (variant_id, spec) in enumerate(synth_list):
+                item_now = clock()
                 ctrl_item_id = f"control-{variant_id}"
                 item_info = (
                     manifest_items.get(ctrl_item_id)
@@ -790,9 +798,9 @@ def main(argv: list[str] | None = None, mock_handler=None) -> int:
                     "egress_approved": True,
                     "account_id": manifest["account_id"],
                     "plan": "Workers Free",
-                    "proof_observed_at": now.isoformat(),
+                    "proof_observed_at": item_now.isoformat(),
                     "proof_digest": "2" * 64,
-                    "deadline": (now + timedelta(minutes=4)).isoformat(),
+                    "deadline": (item_now + timedelta(minutes=4)).isoformat(),
                     "max_attempts": item_info["cap"],
                     "quota_remaining_neurons": 10000,
                     "max_neurons_per_attempt": 200,
