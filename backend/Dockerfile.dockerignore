@@ -5,9 +5,9 @@
 
 # Re-include backend config files
 
-# Exact tracked migrations (53 files)
+# Exact tracked migrations (55 files)
 
-# Exact tracked backend src files (177 files)
+# Exact tracked backend src files (185 files)
 
 # Exact 16 sibling force-include resources (16 files)
 
@@ -73,6 +73,7 @@
 !backend/migrations/versions/20261016_0154_ingestion_derivation_kinds.py
 !backend/migrations/versions/20261016_0155_ingestion_parent_link.py
 !backend/migrations/versions/20261018_0156_lexical_rollback_revision.py
+!backend/migrations/versions/20261021_0157_text_search_parent_link.py
 !backend/migrations/versions/20261022_0157_merge_evaluation_workbench_heads.py
 !backend/migrations/versions/20261022_0158_canonical_document_structure.py
 !backend/migrations/versions/4949b27855f4_conversation_turn_runtime.py
@@ -89,6 +90,7 @@
 !backend/src/knora/adapters/cli/cleanup_lexical.py
 !backend/src/knora/adapters/cli/ingest.py
 !backend/src/knora/adapters/cli/m5_e2e_bootstrap.py
+!backend/src/knora/adapters/cli/reindex_search.py
 !backend/src/knora/adapters/cli/worker.py
 !backend/src/knora/adapters/execution/__init__.py
 !backend/src/knora/adapters/execution/thread_attempt_runner.py
@@ -102,6 +104,7 @@
 !backend/src/knora/adapters/http/schemas.py
 !backend/src/knora/adapters/http/tools.py
 !backend/src/knora/adapters/http/workspaces.py
+!backend/src/knora/adapters/langchain/embedding.py
 !backend/src/knora/adapters/object_store/__init__.py
 !backend/src/knora/adapters/object_store/filesystem.py
 !backend/src/knora/adapters/object_store/inventory.py
@@ -158,6 +161,7 @@
 !backend/src/knora/answering/reembedding_v2.py
 !backend/src/knora/answering/retrieval_configuration.py
 !backend/src/knora/answering/retrieval_v2.py
+!backend/src/knora/answering/sequential_dependence.py
 !backend/src/knora/answering/stores.py
 !backend/src/knora/api/__init__.py
 !backend/src/knora/api/m5_e2e_faults.py
@@ -203,6 +207,7 @@
 !backend/src/knora/ingestion/job_processing.py
 !backend/src/knora/ingestion/jobs.py
 !backend/src/knora/ingestion/lexical_population.py
+!backend/src/knora/ingestion/lexical_positions.py
 !backend/src/knora/ingestion/module.py
 !backend/src/knora/ingestion/object_lifecycle.py
 !backend/src/knora/ingestion/object_store.py

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import concurrent.futures
 import hashlib
+import inspect
 import logging
 import re
 import tempfile
@@ -121,11 +122,55 @@ class _DoclingChildPage:
     height: float
 
 
+def _is_prose_columns(
+    table_rows: list[tuple[float, list[tuple[str, float, float, float]]]],
+    page_w: float,
+) -> bool:
+    if not table_rows:
+        return False
+    num_cols = max(len(r[1]) for r in table_rows)
+    if num_cols <= 3:
+        first_row = table_rows[0][1]
+        if any(item[0].rstrip().endswith((".", "!", "?")) for item in first_row):
+            return True
+        if len(first_row) >= 2 and (first_row[-1][1] - first_row[0][1]) > page_w * 0.35:
+            all_cells = [item[0].rstrip() for r in table_rows for item in r[1]]
+            if any(c.endswith((".", "!", "?")) for c in all_cells):
+                return True
+    return False
+
+
+def _detect_columns_and_sort(
+    items: list[tuple[str, float, float, float]],
+    page_width: float,
+) -> list[list[tuple[str, float, float, float]]]:
+    if not items:
+        return []
+    spans = []
+    for it in items:
+        x0 = it[1]
+        x1 = it[1] + max(len(it[0]) * it[3] * 0.6, 20.0)
+        spans.append((x0, x1))
+
+    for split_ratio in [0.45, 0.5, 0.55, 0.4, 0.6]:
+        split_x = page_width * split_ratio
+        crossing = [s for s in spans if s[0] < split_x - 10 and s[1] > split_x + 10]
+        if not crossing:
+            left = [it for it in items if it[1] < split_x]
+            right = [it for it in items if it[1] >= split_x]
+            if left and right and len(left) >= 2 and len(right) >= 2:
+                left_items = sorted(left, key=lambda it: (-it[2], it[1]))
+                right_items = sorted(right, key=lambda it: (-it[2], it[1]))
+                return [left_items, right_items]
+    return [sorted(items, key=lambda it: (-it[2], it[1]))]
+
+
 def _child_docling_extract(
     pdf_path: str,
     configuration: DoclingExtractionConfiguration,
     connection: Connection,
 ) -> None:
+    is_v1 = configuration.parser_version == "docling-native-cf-v1"
     logging.getLogger("pypdf").disabled = True
     try:
         from pypdf import PdfReader
@@ -292,6 +337,9 @@ def _child_docling_extract(
                         j += 1
                     if j - i >= 2:
                         table_rows = candidate_grid[i:j]
+                        if not is_v1 and _is_prose_columns(table_rows, page_width):
+                            i += 1
+                            continue
                         cells: list[CanonicalTableCell] = []
                         num_cols = max(len(r[1]) for r in table_rows)
                         for r_idx, (r_y, r_items) in enumerate(table_rows):
@@ -364,27 +412,36 @@ def _child_docling_extract(
                 it for it in text_items if not any(abs(it[2] - ty) < 4.0 for ty in table_y_set)
             ]
             prose_blocks: list[CanonicalBlock] = []
+            columns = (
+                _detect_columns_and_sort(non_table_items, page_width)
+                if (not is_v1 and non_table_items)
+                else (
+                    [sorted(non_table_items, key=lambda it: (-it[2], it[1]))]
+                    if non_table_items
+                    else []
+                )
+            )
             if non_table_items:
-                sorted_items = sorted(non_table_items, key=lambda it: (-it[2], it[1]))
                 groups: list[list[tuple[str, float, float, float]]] = []
-                current_group: list[tuple[str, float, float, float]] = []
-                for item in sorted_items:
-                    if not current_group:
-                        current_group.append(item)
-                    else:
-                        prev = current_group[-1]
-                        y_diff = prev[2] - item[2]
-                        has_intervening_image = any(
-                            prev[2] > img_y > item[2] for _, _, img_y in image_items
-                        )
-                        max_fs = max(prev[3], item[3], 12.0)
-                        if y_diff > 1.8 * max_fs or has_intervening_image or y_diff < -4.0:
-                            groups.append(current_group)
-                            current_group = [item]
-                        else:
+                for col_items in columns:
+                    current_group: list[tuple[str, float, float, float]] = []
+                    for item in col_items:
+                        if not current_group:
                             current_group.append(item)
-                if current_group:
-                    groups.append(current_group)
+                        else:
+                            prev = current_group[-1]
+                            y_diff = prev[2] - item[2]
+                            has_intervening_image = any(
+                                prev[2] > img_y > item[2] for _, _, img_y in image_items
+                            )
+                            max_fs = max(prev[3], item[3], 12.0)
+                            if y_diff > 1.8 * max_fs or has_intervening_image or y_diff < -4.0:
+                                groups.append(current_group)
+                                current_group = [item]
+                            else:
+                                current_group.append(item)
+                    if current_group:
+                        groups.append(current_group)
 
                 heading_stack: list[str] = []
                 for g_idx, group in enumerate(groups, start=1):
@@ -473,12 +530,13 @@ def _child_docling_extract(
                 assembled_blocks = all_page_blocks
                 assembled_page_text = native_text
             else:
-                all_page_blocks.sort(
-                    key=lambda b: (
-                        b.bbox.top if b.bbox else 0.0,
-                        b.bbox.left if b.bbox else 0.0,
+                if is_v1 or len(columns) <= 1:
+                    all_page_blocks.sort(
+                        key=lambda b: (
+                            b.bbox.top if b.bbox else 0.0,
+                            b.bbox.left if b.bbox else 0.0,
+                        )
                     )
-                )
                 assembled_blocks = []
                 text_parts = []
                 current_offset = 0
@@ -631,12 +689,22 @@ class DoclingTextExtractor:
         timeout = configuration.extraction_timeout_seconds
 
         def check_limits() -> None:
-
             if cancellation is not None and getattr(cancellation, "is_cancelled", lambda: False)():
                 raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="CANCELLED")
 
             if time.monotonic() - start_time > timeout:
                 raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="TIMEOUT")
+
+            try:
+                import psutil
+
+                process = psutil.Process()
+                if process.memory_info().rss > configuration.extractor_memory_bytes:
+                    raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="MEMORY_LIMIT")
+            except PdfExtractionError:
+                raise
+            except Exception:
+                pass
 
         path, raw_source_hash, raw_bytes = self._copy_to_temporary_file(
             stream, configuration.max_raw_bytes
@@ -710,28 +778,47 @@ class DoclingTextExtractor:
                                             "PDF_RESOURCE_LIMIT_EXCEEDED", reason="TIMEOUT"
                                         )
                                     check_limits()
-                                    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-                                    try:
-                                        future = executor.submit(
-                                            self._cf_provider.ocr_page_image, img_data
-                                        )
-                                        resp = future.result(timeout=max(0.001, remaining))
-                                        check_limits()
-                                        t = resp.text.strip()
-                                        if t:
-                                            ocr_items.append((img_y, t))
-                                        else:
+                                    sig = inspect.signature(self._cf_provider.ocr_page_image)
+                                    if "timeout" in sig.parameters:
+                                        try:
+                                            resp = self._cf_provider.ocr_page_image(
+                                                img_data, timeout=remaining
+                                            )
+                                            check_limits()
+                                            t = resp.text.strip()
+                                            if t:
+                                                ocr_items.append((img_y, t))
+                                            else:
+                                                all_ocr_success = False
+                                        except PdfExtractionError:
+                                            raise
+                                        except Exception:
                                             all_ocr_success = False
-                                    except concurrent.futures.TimeoutError as exc:
-                                        raise PdfExtractionError(
-                                            "PDF_RESOURCE_LIMIT_EXCEEDED", reason="TIMEOUT"
-                                        ) from exc
-                                    except PdfExtractionError:
-                                        raise
-                                    except Exception:
-                                        all_ocr_success = False
-                                    finally:
-                                        executor.shutdown(wait=False, cancel_futures=True)
+                                    else:
+                                        executor = concurrent.futures.ThreadPoolExecutor(
+                                            max_workers=1
+                                        )
+                                        try:
+                                            future = executor.submit(
+                                                self._cf_provider.ocr_page_image, img_data
+                                            )
+                                            resp = future.result(timeout=max(0.001, remaining))
+                                            check_limits()
+                                            t = resp.text.strip()
+                                            if t:
+                                                ocr_items.append((img_y, t))
+                                            else:
+                                                all_ocr_success = False
+                                        except concurrent.futures.TimeoutError as exc:
+                                            raise PdfExtractionError(
+                                                "PDF_RESOURCE_LIMIT_EXCEEDED", reason="TIMEOUT"
+                                            ) from exc
+                                        except PdfExtractionError:
+                                            raise
+                                        except Exception:
+                                            all_ocr_success = False
+                                        finally:
+                                            executor.shutdown(wait=False, cancel_futures=True)
 
                                 elements: list[
                                     tuple[
@@ -890,14 +977,29 @@ class DoclingTextExtractor:
             if remaining <= 0:
                 raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="TIMEOUT")
             check_limits()
-            executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-            try:
-                future = executor.submit(self._cf_provider.convert_to_markdown, raw_bytes)
-                conversion = future.result(timeout=max(0.001, remaining))
-            except concurrent.futures.TimeoutError as exc:
-                raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="TIMEOUT") from exc
-            finally:
-                executor.shutdown(wait=False, cancel_futures=True)
+            sig = inspect.signature(self._cf_provider.convert_to_markdown)
+            if "timeout" in sig.parameters:
+                try:
+                    conversion = self._cf_provider.convert_to_markdown(raw_bytes, timeout=remaining)
+                except PdfExtractionError:
+                    raise
+                except Exception as exc:
+                    raise PdfExtractionError(
+                        "PDF_EXTRACTOR_UNAVAILABLE",
+                        reason=f"CLOUDFLARE_CONVERSION_FAILED: {exc}",
+                        retryable=True,
+                    ) from exc
+            else:
+                executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+                try:
+                    future = executor.submit(self._cf_provider.convert_to_markdown, raw_bytes)
+                    conversion = future.result(timeout=max(0.001, remaining))
+                except concurrent.futures.TimeoutError as exc:
+                    raise PdfExtractionError(
+                        "PDF_RESOURCE_LIMIT_EXCEEDED", reason="TIMEOUT"
+                    ) from exc
+                finally:
+                    executor.shutdown(wait=False, cancel_futures=True)
             check_limits()
             if conversion.format == "error":
                 raise PdfExtractionError(
