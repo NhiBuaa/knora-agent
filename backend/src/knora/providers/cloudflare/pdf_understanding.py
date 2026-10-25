@@ -192,7 +192,8 @@ class CloudflarePdfUnderstandingProvider:
             "task": "query",
             "question": instruction,
             "image": f"data:{mime};base64," + base64.b64encode(image_bytes).decode("ascii"),
-            "reasoning": False,
+            "reasoning": True,
+            "stream": False,
             "max_tokens": 2048,
         }
 
@@ -210,6 +211,8 @@ class CloudflarePdfUnderstandingProvider:
                     "PDF_EXTRACTOR_UNAVAILABLE", reason="CLOUDFLARE_MALFORMED_OUTPUT"
                 )
             result = payload.get("result")
+            if isinstance(result, dict) and "result" in result:
+                result = result["result"]
             if not isinstance(result, dict) or result.get("finish_reason") == "length":
                 raise PdfExtractionError(
                     "PDF_EXTRACTOR_UNAVAILABLE", reason="CLOUDFLARE_MALFORMED_OUTPUT"
@@ -219,7 +222,6 @@ class CloudflarePdfUnderstandingProvider:
                 or result.get("response")
                 or result.get("description")
                 or result.get("text")
-                or ""
             )
             if not isinstance(text, str):
                 raise PdfExtractionError(
