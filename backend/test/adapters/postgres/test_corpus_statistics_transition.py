@@ -452,7 +452,7 @@ def test_read_corpus_statistics_transition_and_revocation() -> None:
     profile_a = ctx["profile_a"]
     # 1. Read initial statistics before transition
     stats_a = store.read_corpus_statistics("workspace-1", profile_a.id)
-    assert stats_a.statistics_digest == profile_a.statistics_digest
+    assert stats_a.base_statistics_digest == profile_a.statistics_digest
     assert stats_a.total_chunks == 2
     assert stats_a.total_tokens > 0
 
@@ -489,7 +489,7 @@ def test_read_corpus_statistics_transition_and_revocation() -> None:
 
     # During staging, reader still returns stats for profile A
     stats_during = store.read_corpus_statistics("workspace-1", profile_a.id)
-    assert stats_during.statistics_digest == profile_a.statistics_digest
+    assert stats_during.base_statistics_digest == profile_a.statistics_digest
 
     # Commit transition atomically
     receipt1 = StageReceipt("gen-1-b", 1, gen1_b.content_digest())
@@ -498,7 +498,8 @@ def test_read_corpus_statistics_transition_and_revocation() -> None:
 
     # Reader now returns stats for profile B
     stats_after = store.read_corpus_statistics("workspace-1", profile_b.id)
-    assert stats_after.statistics_digest == profile_b.statistics_digest
+    assert stats_after.base_statistics_digest == profile_b.statistics_digest
+    assert stats_after.statistics_digest != stats_a.statistics_digest
 
     # Revoke documents causes read_corpus_statistics to fail closed
     store.revoke(workspace_id="workspace-1", document_id="doc-1")
