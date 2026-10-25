@@ -6,7 +6,9 @@ import { CitationViewer } from "@/components/citations/CitationViewer";
 import { routes } from "@/lib/navigation/routes";
 import type { EvidenceSelection } from "@/lib/conversations/panel-preferences";
 import { isVietnameseQuestion } from "@/lib/conversations/question-language";
+import { copyableAnswerMarkdown } from "@/lib/conversations/message-copy";
 import { AnswerContent } from "./AnswerContent";
+
 export function processingLabel(stage: string | null) {
   switch (stage) {
     case "retrieving":
@@ -19,6 +21,117 @@ export function processingLabel(stage: string | null) {
       return "Processing question…";
   }
 }
+
+type CopyState = "idle" | "copying" | "copied" | "error";
+
+function CopyIcon({ className = "size-4 shrink-0" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      style={{ width: "16px", height: "16px", flexShrink: 0, display: "block" }}
+      aria-hidden="true"
+    >
+      <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+      <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+    </svg>
+  );
+}
+
+function CheckIcon({ className = "size-4 shrink-0" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      style={{ width: "16px", height: "16px", flexShrink: 0, display: "block" }}
+      aria-hidden="true"
+    >
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  );
+}
+
+function AlertIcon({ className = "size-4 shrink-0" }: { className?: string }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      style={{ width: "16px", height: "16px", flexShrink: 0, display: "block" }}
+      aria-hidden="true"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
+  );
+}
+
+interface CopyButtonProps {
+  label: string;
+  state: CopyState;
+  vietnamese: boolean;
+  onClick: () => void;
+}
+
+function CopyButton({ label, state, vietnamese, onClick }: CopyButtonProps) {
+  const statusText =
+    state === "copied"
+      ? vietnamese
+        ? "Đã sao chép"
+        : "Copied"
+      : state === "error"
+        ? vietnamese
+          ? "Không thể sao chép"
+          : "Copy failed"
+        : vietnamese
+          ? "Sao chép"
+          : "Copy";
+
+  return (
+    <button
+      type="button"
+      title={statusText}
+      aria-label={label}
+      disabled={state === "copying"}
+      onClick={onClick}
+      className="m-0 inline-flex h-7 w-7 items-center justify-center rounded-md border border-border bg-surface text-text-muted transition-colors hover:border-action hover:text-text-primary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-action disabled:opacity-50"
+    >
+      {state === "copied" ? (
+        <CheckIcon className="size-4 shrink-0 text-action" />
+      ) : state === "error" ? (
+        <AlertIcon className="size-4 shrink-0 text-signature" />
+      ) : (
+        <CopyIcon className="size-4 shrink-0" />
+      )}
+      <span className="sr-only">{statusText}</span>
+    </button>
+  );
+}
+
 export function TurnCard({
   turn,
   workspaceId,
@@ -47,15 +160,110 @@ export function TurnCard({
     !working && !interrupted && !failed && turn.result?.decision === "ANSWER"
       ? turn.result.answer
       : null;
+
+  const [questionCopyState, setQuestionCopyState] = React.useState<
+    "idle" | "copying" | "copied" | "error"
+  >("idle");
+  const [answerCopyState, setAnswerCopyState] = React.useState<
+    "idle" | "copying" | "copied" | "error"
+  >("idle");
+  const questionTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const answerTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (questionTimerRef.current) clearTimeout(questionTimerRef.current);
+      if (answerTimerRef.current) clearTimeout(answerTimerRef.current);
+    };
+  }, []);
+
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const copyableAnswer = answer
+    ? copyableAnswerMarkdown(
+        answer,
+        turn.result?.citations ?? [],
+        workspaceId,
+        origin,
+      )
+    : null;
+
+  const refusalText = refused
+    ? turn.result?.refusal_reason === "INSUFFICIENT_EVIDENCE"
+      ? vietnamese
+        ? "Tôi chưa có đủ bằng chứng để trả lời câu hỏi này."
+        : "I don’t have enough evidence to answer that."
+      : vietnamese
+        ? "Tôi không thể trả lời câu hỏi này dựa trên bằng chứng hiện có."
+        : "I can’t answer that from the available evidence."
+    : null;
+
+  async function handleCopyQuestion() {
+    if (questionCopyState === "copying") return;
+    if (questionTimerRef.current) {
+      clearTimeout(questionTimerRef.current);
+      questionTimerRef.current = null;
+    }
+    setQuestionCopyState("copying");
+    try {
+      if (!navigator?.clipboard?.writeText) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(turn.question);
+      setQuestionCopyState("copied");
+      questionTimerRef.current = setTimeout(() => {
+        setQuestionCopyState("idle");
+      }, 2000);
+    } catch {
+      setQuestionCopyState("error");
+      questionTimerRef.current = setTimeout(() => {
+        setQuestionCopyState("idle");
+      }, 3000);
+    }
+  }
+
+  async function handleCopyAnswer(content: string) {
+    if (answerCopyState === "copying") return;
+    if (answerTimerRef.current) {
+      clearTimeout(answerTimerRef.current);
+      answerTimerRef.current = null;
+    }
+    setAnswerCopyState("copying");
+    try {
+      if (!navigator?.clipboard?.writeText) {
+        throw new Error("Clipboard API unavailable");
+      }
+      await navigator.clipboard.writeText(content);
+      setAnswerCopyState("copied");
+      answerTimerRef.current = setTimeout(() => {
+        setAnswerCopyState("idle");
+      }, 2000);
+    } catch {
+      setAnswerCopyState("error");
+      answerTimerRef.current = setTimeout(() => {
+        setAnswerCopyState("idle");
+      }, 3000);
+    }
+  }
+
   return (
     <li
       className="m-0 flex flex-col gap-[22px]"
       aria-label={`Question ${turn.sequence}`}
     >
-      <div className="flex min-h-[52px] items-start justify-end">
+      <div className="flex min-h-[52px] flex-col items-end gap-1.5">
         <p className="max-w-full whitespace-pre-wrap break-words rounded-2xl bg-text-primary px-3.5 py-2.5 text-sm font-medium leading-5 text-surface">
           {turn.question}
         </p>
+        <CopyButton
+          label={
+            vietnamese
+              ? `Sao chép câu hỏi ${turn.sequence}`
+              : `Copy question ${turn.sequence}`
+          }
+          state={questionCopyState}
+          vietnamese={vietnamese}
+          onClick={handleCopyQuestion}
+        />
       </div>
       <article className="m-0 flex flex-col gap-2.5 rounded-none border-0 bg-transparent p-0">
         {working && !sessionExpired && (
@@ -75,28 +283,52 @@ export function TurnCard({
           </div>
         )}
         {answer && (
-          <AnswerContent
-            answer={answer}
-            citations={turn.result?.citations ?? []}
-            selectedIndex={
-              selection?.turnId === turn.id ? selection.citationIndex : null
-            }
-            onSelect={(index) =>
-              onSelect({ turnId: turn.id, citationIndex: index })
-            }
-          />
+          <>
+            <AnswerContent
+              answer={answer}
+              citations={turn.result?.citations ?? []}
+              selectedIndex={
+                selection?.turnId === turn.id ? selection.citationIndex : null
+              }
+              onSelect={(index) =>
+                onSelect({ turnId: turn.id, citationIndex: index })
+              }
+            />
+            {copyableAnswer !== null && (
+              <div className="flex items-center gap-2">
+                <CopyButton
+                  label={
+                    vietnamese
+                      ? `Sao chép câu trả lời ${turn.sequence}`
+                      : `Copy answer ${turn.sequence}`
+                  }
+                  state={answerCopyState}
+                  vietnamese={vietnamese}
+                  onClick={() => handleCopyAnswer(copyableAnswer)}
+                />
+              </div>
+            )}
+          </>
         )}
         {refused && (
           <>
             <h2 className="font-display text-2xl font-semibold leading-8">
-              {turn.result?.refusal_reason === "INSUFFICIENT_EVIDENCE"
-                ? vietnamese
-                  ? "Tôi chưa có đủ bằng chứng để trả lời câu hỏi này."
-                  : "I don’t have enough evidence to answer that."
-                : vietnamese
-                  ? "Tôi không thể trả lời câu hỏi này dựa trên bằng chứng hiện có."
-                  : "I can’t answer that from the available evidence."}
+              {refusalText}
             </h2>
+            {refusalText && (
+              <div className="flex items-center gap-2">
+                <CopyButton
+                  label={
+                    vietnamese
+                      ? `Sao chép câu trả lời ${turn.sequence}`
+                      : `Copy answer ${turn.sequence}`
+                  }
+                  state={answerCopyState}
+                  vietnamese={vietnamese}
+                  onClick={() => handleCopyAnswer(refusalText)}
+                />
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-2">
               <span className="m-0 w-fit rounded-full border border-signature bg-signature/10 px-2 py-1 text-[11px] text-signature">
                 {turn.result?.refusal_reason === "INSUFFICIENT_EVIDENCE"
