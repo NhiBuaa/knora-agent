@@ -13,7 +13,7 @@ from evals.datasets.pdf_retrieval_release_v1 import DatasetContractError, load_r
 
 
 def test_release_dataset_loading_and_contract() -> None:
-    dataset = load_release_dataset()
+    dataset = load_release_dataset(allow_development_scale=True)
     assert dataset.version == "pdf_retrieval_release_v1"
     assert len(dataset.cases) >= 4
     assert len(dataset.dataset_sha256) == 64
@@ -32,8 +32,8 @@ def test_release_dataset_loading_and_contract() -> None:
 
 
 def test_release_dataset_immutability_and_hash_stability() -> None:
-    d1 = load_release_dataset()
-    d2 = load_release_dataset()
+    d1 = load_release_dataset(allow_development_scale=True)
+    d2 = load_release_dataset(allow_development_scale=True)
     assert d1.dataset_sha256 == d2.dataset_sha256
 
 
@@ -220,7 +220,7 @@ def test_validate_approval_checks_owner_and_version() -> None:
         validate_approval,
     )
 
-    dataset = load_release_dataset()
+    dataset = load_release_dataset(allow_development_scale=True)
     valid_approval = {
         "status": "approved",
         "owner": "NhiBuaa",
@@ -304,3 +304,8 @@ def test_missing_canonical_dataset_rejects_sample_fallback_when_approval_enforce
         DatasetContractError, match="Release dataset not found at canonical location"
     ):
         load_release_dataset(enforce_approval=True)
+
+
+def test_release_dataset_rejects_development_scale_by_default() -> None:
+    with pytest.raises(DatasetContractError, match="fails scale criteria: requires >= 60 cases"):
+        load_release_dataset()

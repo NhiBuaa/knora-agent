@@ -200,6 +200,7 @@ def load_release_dataset(
     manifest_path: Path | None = None,
     approval_path: Path | None = None,
     enforce_approval: bool = True,
+    allow_development_scale: bool = False,
 ) -> ReleaseDataset:
     """Loads and cryptographically validates the release evaluation dataset.
 
@@ -251,6 +252,25 @@ def load_release_dataset(
             if c.id in seen_ids:
                 raise DatasetContractError(f"Duplicate case id: {c.id}")
             seen_ids.add(c.id)
+
+        # Enforce minimum release scale under R6 contract: >= 12 PDFs, >= 60 questions (F16)
+        pdf_names = {
+            c.metadata.get("pdf_name") or c.metadata.get("source_key")
+            for c in parsed_cases
+            if c.metadata.get("pdf_name") or c.metadata.get("source_key")
+        }
+        # Default release invocation (path is None) must never admit development sample scale
+        is_default_file = target.name == "pdf_retrieval_release_v1.jsonl"
+        if (
+            is_default_file
+            and not allow_development_scale
+            and (len(parsed_cases) < 60 or len(pdf_names) < 12)
+        ):
+            raise DatasetContractError(
+                f"Release dataset fails scale criteria: requires >= 60 cases and >= 12 PDFs; "
+                f"got {len(parsed_cases)} cases across {len(pdf_names)} PDFs. "
+                "Development sample cannot be admitted for release."
+            )
 
         dataset_hash = hashlib.sha256(raw_bytes.replace(b"\r\n", b"\n")).hexdigest()
         dataset = ReleaseDataset(

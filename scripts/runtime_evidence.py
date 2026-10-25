@@ -168,6 +168,24 @@ def _load_evidence(path: Path, candidate_sha: str) -> dict[str, Any]:
     ]
     if profile != "retrieval-v3":
         required_provenance.append("image_identities")
+    else:
+        # F17: retrieval-v3 requires actual captures; reject dummy 0-call testcases
+        captures = (
+            data.get("server_captures")
+            or data.get("provider_captures")
+            or data.get("runtime_captures")
+        )
+        provider_calls = data.get("provider_calls", 0)
+        scenario_calls = data.get("scenario_provider_calls", {})
+        total_calls = provider_calls + sum(
+            scenario_calls.values() if isinstance(scenario_calls, dict) else [0]
+        )
+        if not captures and total_calls <= 0:
+            raise ValueError(
+                "evidence rejected: retrieval-v3 requires actual server/provider "
+                "execution captures; synthetic dummy testcase with 0 provider calls "
+                "is inadmissible"
+            )
     if any(field not in data or data[field] in (None, "", {}) for field in required_provenance):
         raise ValueError("evidence provenance is incomplete")
     if data.get("subject_sha") != candidate_sha:
