@@ -107,7 +107,7 @@ class RetrievalConfiguration:
         *,
         candidate_k: int = 100,
         min_similarity: float = 0.65,
-        lexical_policy_id: str = "bm25-word-frozen47-population-v1",
+        lexical_policy_id: str = "lexical-bm25-v1",
         fusion_policy_id: str = "dbsf-v1",
         sdm_policy_id: str | None = None,
     ) -> "RetrievalConfiguration":
@@ -136,7 +136,7 @@ class RetrievalConfiguration:
         cls,
         *,
         min_similarity: float = 0.65,
-        lexical_policy_id: str = "bm25-word-frozen47-population-v1",
+        lexical_policy_id: str = "lexical-bm25-v1",
         fusion_policy_id: str = "dbsf-v1",
         sdm_policy_id: str = "sdm-metzler-croft-2005-v1",
     ) -> "RetrievalConfiguration":

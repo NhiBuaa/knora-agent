@@ -239,7 +239,7 @@ def test_v3_dense_and_hybrid_configuration_registration() -> None:
     assert hybrid.vector_candidate_k == 200
     assert hybrid.fts_candidate_k == 200
     assert hybrid.min_similarity == 0.65
-    assert hybrid.lexical_policy_id == "bm25-word-frozen47-population-v1"
+    assert hybrid.lexical_policy_id == "lexical-bm25-v1"
     assert hybrid.fusion_policy_id == "dbsf-v1"
     assert hybrid.overlap_policy == "adjacent-content-containment-v1"
 
