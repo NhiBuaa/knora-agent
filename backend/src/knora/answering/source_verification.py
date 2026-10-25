@@ -304,6 +304,14 @@ def read_canonical_source_scope(
                 anchors=tuple(c.chunk_id for c in matching),
             )
 
+    if hasattr(store, "has_complete_scope_proof") and not store.has_complete_scope_proof(
+        workspace_id, snapshot
+    ):
+        return CanonicalScopeReadResult(
+            outcome="UNVERIFIED",
+            reason="store lacks complete scope proof for snapshot",
+        )
+
     if complete_catalog is not None and snapshot:
         cat_lower = [c.casefold() for c in complete_catalog]
         if target_item.casefold() not in cat_lower:

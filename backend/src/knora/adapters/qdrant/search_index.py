@@ -105,7 +105,7 @@ class QdrantSearchIndex:
             max_norm_diff = max(
                 abs(float(a) - float(e) / norm_e) for a, e in zip(actual, expected, strict=True)
             )
-            return max_norm_diff <= abs_tolerance or cos_sim >= 1.0 - cosine_tolerance
+            return max_norm_diff <= abs_tolerance
 
         return False
 
