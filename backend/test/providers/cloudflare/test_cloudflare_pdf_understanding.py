@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import base64
+import json
+
 import httpx
 import pytest
 
@@ -7,6 +10,77 @@ from knora.ingestion.pdf import PdfExtractionError
 from knora.providers.cloudflare.pdf_understanding import (
     CloudflarePdfUnderstandingProvider,
 )
+
+
+@pytest.mark.parametrize(
+    "image,mime",
+    [
+        (b"\x89PNG\r\n\x1a\nexample", "image/png"),
+        (b"\xff\xd8\xffexample", "image/jpeg"),
+    ],
+)
+def test_moondream_ocr_uses_json_data_uri_and_reads_answer(image, mime):
+    def endpoint(request):
+        assert request.headers["content-type"].startswith("application/json")
+        payload = json.loads(request.content)
+        assert payload["task"] == "query"
+        assert payload["question"] == "Extract text exactly"
+        assert payload["image"] == f"data:{mime};base64," + base64.b64encode(image).decode("ascii")
+        return httpx.Response(
+            200,
+            json={
+                "success": True,
+                "result": {
+                    "answer": "Teacher Manh",
+                    "finish_reason": "stop",
+                },
+            },
+        )
+
+    with httpx.Client(transport=httpx.MockTransport(endpoint), trust_env=False) as client:
+        provider = CloudflarePdfUnderstandingProvider(
+            account_id="0123456789abcdef0123456789abcdef",
+            api_token="test",
+            client=client,
+        )
+        result = provider.ocr_page_image(image, instruction="Extract text exactly")
+    assert result.text == "Teacher Manh"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"success": False, "errors": [{"code": 6003}], "result": {"answer": "untrusted"}},
+        {"success": True, "result": {"answer": 123}},
+        {"success": True, "result": {"answer": "partial", "finish_reason": "length"}},
+    ],
+)
+def test_moondream_does_not_accept_failed_malformed_or_truncated_text(payload):
+    with httpx.Client(
+        transport=httpx.MockTransport(lambda _: httpx.Response(200, json=payload))
+    ) as client:
+        provider = CloudflarePdfUnderstandingProvider(
+            account_id="0123456789abcdef0123456789abcdef",
+            api_token="test",
+            client=client,
+        )
+        with pytest.raises(PdfExtractionError):
+            provider.ocr_page_image(b"image")
+
+
+@pytest.mark.parametrize(
+    "status,retryable", [(400, False), (401, False), (403, False), (429, True), (503, True)]
+)
+def test_moondream_does_not_retry_permanent_http_failures(status, retryable):
+    with httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(status))) as client:
+        provider = CloudflarePdfUnderstandingProvider(
+            account_id="0123456789abcdef0123456789abcdef",
+            api_token="test",
+            client=client,
+        )
+        with pytest.raises(PdfExtractionError) as error:
+            provider.ocr_page_image(b"image")
+        assert error.value.retryable is retryable
 
 
 def test_tomarkdown_parses_real_envelope() -> None:

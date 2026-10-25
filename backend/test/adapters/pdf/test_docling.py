@@ -737,6 +737,48 @@ def test_r6_f03_canonical_native_table_cells_without_pipes() -> None:
     assert extracted_cells == source_reviewed_cells
 
 
+@pytest.mark.parametrize("vertical_shift", [0, -20])
+def test_positioned_and_delimited_tables_on_same_page_have_distinct_ids(vertical_shift):
+    import re
+
+    from pypdf import PdfReader, PdfWriter
+    from pypdf.generic import DecodedStreamObject, NameObject
+
+    reader = PdfReader(BytesIO(_create_3x3_positioned_pdf()))
+    page = reader.pages[0]
+    stream = DecodedStreamObject()
+    native_data = page.get_contents().get_data()
+    native_data = re.sub(
+        rb" (700|680|660) Tm",
+        lambda match: f" {int(match[1]) + vertical_shift} Tm".encode(),
+        native_data,
+    )
+    stream.set_data(
+        native_data
+        + (
+            b"\nBT /F1 12 Tf 1 0 0 1 72 770 Tm (| Name | Value |) Tj "
+            b"1 0 0 1 72 754 Tm (| --- | --- |) Tj "
+            b"1 0 0 1 72 738 Tm (| Tax | 5 |) Tj ET"
+        )
+    )
+    writer = PdfWriter()
+    page[NameObject("/Contents")] = stream
+    writer.add_page(page)
+    data = BytesIO()
+    writer.write(data)
+    result = DoclingTextExtractor().extract(
+        BytesIO(data.getvalue()), DoclingExtractionConfiguration.cloudflare_native_v2()
+    )
+    tables = result.structure.pages[0].tables
+    assert len(tables) == 2, [b.text for b in result.structure.pages[0].blocks]
+    assert len({table.table_id for table in tables}) == 2
+    texts = {cell.text for table in tables for cell in table.cells}
+    assert {"Tax", "5", "Revenue", "100", "120"} <= texts
+    assert sum(cell.text == "Revenue" for table in tables for cell in table.cells) == 1
+    page = result.structure.pages[0]
+    assert all("|" in page.text[table.start_offset : table.end_offset] for table in tables)
+
+
 def test_r6_f03_mixed_page_reading_order() -> None:
     from pypdf import PdfWriter
     from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject, NumberObject
