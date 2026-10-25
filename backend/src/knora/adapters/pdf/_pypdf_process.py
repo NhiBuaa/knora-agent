@@ -268,8 +268,11 @@ def _install_hard_memory_limit(
             ) from error
     try:
         return _install_posix_memory_limit(process, memory_limit)
-    except _MemoryLimitUnavailable:
-        return None
+    except (_MemoryLimitUnavailable, OSError) as error:
+        raise PdfExtractionError(
+            "PDF_RESOURCE_LIMIT_EXCEEDED",
+            reason="CAPABILITY_UNAVAILABLE",
+        ) from error
 
 
 def _hard_memory_limit_triggered(
