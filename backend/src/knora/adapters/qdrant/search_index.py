@@ -342,13 +342,6 @@ class QdrantSearchIndex:
                 expected_vec_digest = payload.get("vector_digest")
                 if not expected_vec_digest or not isinstance(expected_vec_digest, str):
                     raise ProjectionResponseError("persisted dense vector digest is missing")
-                actual_vec_digest = hashlib.sha256(
-                    json.dumps([float(v) for v in dense_vec], separators=(",", ":")).encode("utf-8")
-                ).hexdigest()
-                if actual_vec_digest != expected_vec_digest:
-                    raise ProjectionResponseError(
-                        "persisted dense vector content has been altered or corrupted"
-                    )
 
                 if expected_chunk_vectors is not None:
                     if chunk_match.chunk_id not in expected_chunk_vectors:
@@ -359,6 +352,16 @@ class QdrantSearchIndex:
                     if not self._vectors_equivalent(dense_vec, expected_pg_vec):
                         raise ProjectionResponseError(
                             "persisted dense vector differs from expected PG vector"
+                        )
+                else:
+                    actual_vec_digest = hashlib.sha256(
+                        json.dumps([float(v) for v in dense_vec], separators=(",", ":")).encode(
+                            "utf-8"
+                        )
+                    ).hexdigest()
+                    if actual_vec_digest != expected_vec_digest:
+                        raise ProjectionResponseError(
+                            "persisted dense vector content has been altered or corrupted"
                         )
 
             seen.add(point_id)

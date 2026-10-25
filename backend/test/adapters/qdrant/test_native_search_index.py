@@ -717,6 +717,30 @@ def test_stage_generation_with_dense_vectors(wire, generation) -> None:
             "hnsw_config": {"m": 16, "ef_construct": 100},
             "quantization_config": {"turbo": {"bits": "bits4", "always_ram": False}},
         },
+        {
+            "size": 768,
+            # missing distance
+            "datatype": "float32",
+            "on_disk": True,
+            "hnsw_config": {"m": 16, "ef_construct": 100},
+            "quantization_config": {"turbo": {"bits": "bits4", "always_ram": True}},
+        },
+        {
+            "size": 768,
+            "distance": "Cosine",
+            "datatype": "float32",
+            # missing on_disk
+            "hnsw_config": {"m": 16, "ef_construct": 100},
+            "quantization_config": {"turbo": {"bits": "bits4", "always_ram": True}},
+        },
+        {
+            "size": 768,
+            "distance": "Cosine",
+            "datatype": "float32",
+            "on_disk": True,
+            # missing hnsw_config
+            "quantization_config": {"turbo": {"bits": "bits4", "always_ram": True}},
+        },
     ],
 )
 def test_ensure_collection_rejects_incompatible_dense_readback(wire, actual_dense) -> None:

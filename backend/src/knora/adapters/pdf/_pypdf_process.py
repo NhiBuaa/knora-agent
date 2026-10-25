@@ -42,6 +42,7 @@ if os.name == "nt":
     _PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
     _JOB_OBJECT_EXTENDED_LIMIT_INFORMATION = 9
     _JOB_OBJECT_LIMIT_PROCESS_MEMORY = 0x0100
+    _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000
 
     class _JobObjectBasicLimitInformation(ctypes.Structure):
         _fields_ = [
@@ -110,7 +111,9 @@ def _install_windows_memory_limit_for_pid(
         raise OSError(error, "CreateJobObjectW failed")
     try:
         information = _JobObjectExtendedLimitInformation()
-        information.basic_limit_information.limit_flags = _JOB_OBJECT_LIMIT_PROCESS_MEMORY
+        information.basic_limit_information.limit_flags = (
+            _JOB_OBJECT_LIMIT_PROCESS_MEMORY | _JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+        )
         information.process_memory_limit = memory_limit
         if not set_information(
             job_handle,
@@ -333,6 +336,14 @@ def _child_entrypoint(
             connection.close()
 
 
+def _child_sleep_past_timeout(
+    _pdf_path: str,
+    configuration: PdfExtractionConfiguration,
+    _connection: Connection,
+) -> None:
+    time.sleep(configuration.extraction_timeout_seconds + 2.0)
+
+
 def _extract_in_child(
     path: Path,
     configuration: PdfExtractionConfiguration,
@@ -433,9 +444,9 @@ def _extract_in_child(
             with suppress(Exception):
                 parent.close()
         if process is not None and process.pid is not None:
-            process.join(timeout=1)
             if process.is_alive():
                 _stop(process)
+            process.join(timeout=0.1)
         _close_memory_limit(memory_limit_handle)
 
     if terminal_error is not None:
@@ -485,6 +496,8 @@ def _receive_message(
             heartbeat()
         remaining = deadline - time.monotonic()
         if remaining <= 0:
+            if process is not None:
+                _stop(process)
             raise PdfExtractionError(
                 "PDF_RESOURCE_LIMIT_EXCEEDED",
                 reason="EXTRACTION_TIMEOUT",
@@ -492,6 +505,8 @@ def _receive_message(
         try:
             available = connection.poll(min(_MONITOR_INTERVAL_SECONDS, remaining))
         except (EOFError, OSError) as error:
+            if process is not None:
+                _stop(process)
             raise PdfExtractionError(
                 "PDF_EXTRACTOR_UNAVAILABLE",
                 reason="CHILD_CRASH",
@@ -501,6 +516,8 @@ def _receive_message(
             if heartbeat is not None:
                 heartbeat()
             if time.monotonic() >= deadline:
+                if process is not None:
+                    _stop(process)
                 raise PdfExtractionError(
                     "PDF_RESOURCE_LIMIT_EXCEEDED",
                     reason="EXTRACTION_TIMEOUT",
@@ -508,6 +525,8 @@ def _receive_message(
             try:
                 message = connection.recv()
             except (EOFError, OSError) as error:
+                if process is not None:
+                    _stop(process)
                 raise PdfExtractionError(
                     "PDF_EXTRACTOR_UNAVAILABLE",
                     reason="CHILD_CRASH",
@@ -516,11 +535,20 @@ def _receive_message(
             if heartbeat is not None:
                 heartbeat()
             if time.monotonic() >= deadline:
+                if process is not None:
+                    _stop(process)
                 raise PdfExtractionError(
                     "PDF_RESOURCE_LIMIT_EXCEEDED",
                     reason="EXTRACTION_TIMEOUT",
                 )
             return message
+        if time.monotonic() >= deadline:
+            if process is not None:
+                _stop(process)
+            raise PdfExtractionError(
+                "PDF_RESOURCE_LIMIT_EXCEEDED",
+                reason="EXTRACTION_TIMEOUT",
+            )
         if process is not None and not process.is_alive():
             try:
                 if not connection.poll(0):
@@ -559,6 +587,10 @@ def _receive_pages(
         message = _receive_message(connection, deadline, heartbeat=heartbeat)
         if message[0] == "error":
             _raise_child_error(message)
+        if message[0] == "docling_page":
+            _, page_number, page_payload = message
+            pages.append(page_payload)
+            continue
         if message[0] == "page":
             if len(message) != 5 or not isinstance(message[1], int):
                 raise PdfExtractionError(
@@ -616,6 +648,12 @@ def _check_memory(
         info = monitored.memory_info()
     except psutil.NoSuchProcess:
         return 0
+    except (OSError, Exception) as error:
+        _stop(process)
+        raise PdfExtractionError(
+            "PDF_RESOURCE_LIMIT_EXCEEDED",
+            reason="CAPABILITY_UNAVAILABLE",
+        ) from error
     high_water = max(info.rss, getattr(info, "peak_wset", 0))
     if high_water > configuration.extractor_memory_bytes:
         _stop(process)

@@ -510,11 +510,12 @@ def test_parse_stage_response_accepts_normalized_float32_server_equivalent_vecto
     dense_index: QdrantSearchIndex, sample_generation: LexicalGeneration
 ) -> None:
     pg_vec = tuple(0.01 * i for i in range(768))
-    # Slight float32 tolerance difference
-    readback_vec = tuple(v + 1e-6 for v in pg_vec)
-    readback_digest = hashlib.sha256(
-        json.dumps([float(v) for v in readback_vec], separators=(",", ":")).encode("utf-8")
+    # Stored payload preserves the original staged vector digest
+    pg_digest = hashlib.sha256(
+        json.dumps([float(v) for v in pg_vec], separators=(",", ":")).encode("utf-8")
     ).hexdigest()
+    # Pinned server readback has slight float32 roundtrip tolerance difference
+    readback_vec = tuple(v + 1e-6 for v in pg_vec)
 
     points = [
         {
@@ -529,7 +530,7 @@ def test_parse_stage_response_accepts_normalized_float32_server_equivalent_vecto
                 "content_checksum": sample_generation.chunks[0].content_checksum,
                 "content_digest": sample_generation.content_digest(),
                 "embedding_configuration_id": dense_index.embedding_configuration.id,
-                "vector_digest": readback_digest,
+                "vector_digest": pg_digest,
             },
         }
     ]
