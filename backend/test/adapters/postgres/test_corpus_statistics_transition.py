@@ -472,7 +472,8 @@ class CorpusTransitionHarness:
         return self
 
     def finish_first_child(self, prepared) -> None:
-        pass
+        with pytest.raises(StaleGenerationError):
+            self.store.commit_corpus_transition([(self.gen1_b, self.receipt1)])
 
     def active_snapshot(self) -> str:
         try:
