@@ -143,8 +143,8 @@ try {
             if (-not (Test-Path -LiteralPath $report -PathType Leaf)) { throw "RUNTIME_REPORT_MISSING: $Name" }
             return $report
         }
-        $reports.dense_hybrid = Invoke-RetrievalTest 'dense_hybrid' 'backend/runtime_test/test_dense_hybrid_search.py' 'ann_recall or decoy'
-        $reports.reranking = Invoke-RetrievalTest 'reranking' 'backend/runtime_test/test_reranking_evidence.py' 'invariant or budget or isolation'
+        $reports.dense_hybrid = Invoke-RetrievalTest 'dense_hybrid' 'backend/runtime_test/test_dense_hybrid_search.py' ''
+        $reports.reranking = Invoke-RetrievalTest 'reranking' 'backend/runtime_test/test_reranking_evidence.py' ''
         $reports.query_understanding = Invoke-RetrievalTest 'query_understanding' 'backend/runtime_test/test_query_understanding.py' ''
         $reports.recovery = Invoke-RetrievalTest 'recovery' 'backend/runtime_test/test_retrieval_v3_recovery.py' ''
     } else {

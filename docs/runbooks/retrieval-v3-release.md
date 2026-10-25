@@ -38,7 +38,7 @@ if (-not $cfAccount -or -not $cfToken) {
 # 2. Kiểm tra trạng thái migration cơ sở dữ liệu và kết nối trực tiếp PostgreSQL & Qdrant
 python -m alembic current
 python -c "from knora.infrastructure.database import engine; conn = engine.connect(); conn.close(); print('PostgreSQL live connection: OK')"
-python -c "import urllib.request; from knora.infrastructure.settings import Settings; s = Settings(); q_url = s.lexical_qdrant_url or s.qdrant_url; resp = urllib.request.urlopen(f'{q_url}/healthz', timeout=5); print('Qdrant live cluster: OK' if resp.status == 200 else 'Qdrant failed')"
+python -c "import urllib.request; from knora.infrastructure.settings import Settings; s = Settings(); q_url = getattr(s, 'lexical_qdrant_url', None) or getattr(s, 'qdrant_url', None); resp = urllib.request.urlopen(f'{q_url}/healthz', timeout=5) if q_url else None; print('Qdrant live cluster: OK' if resp and resp.status == 200 else 'Qdrant failed / unconfigured')"
 
 # 3. Kiểm tra tiến trình reindex ở chế độ dry-run (trần pool 100 candidates)
 python -m knora.adapters.cli.reindex_search --workspace-id <TARGET_WORKSPACE_ID> --dry-run

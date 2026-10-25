@@ -171,11 +171,27 @@ def validate_approval(dataset: ReleaseDataset, approval: dict[str, object]) -> N
         and approval.get("dataset_version") == dataset.version
     ):
         raise DatasetContractError("Owner approval missing or invalid for release dataset")
-    if "dataset_sha256" in approval and approval["dataset_sha256"] != dataset.dataset_sha256:
-        appr_sha = approval["dataset_sha256"]
+    appr_sha = approval.get("dataset_sha256")
+    if not appr_sha or not isinstance(appr_sha, str):
+        raise DatasetContractError("Approval missing required dataset_sha256 checksum")
+    if appr_sha != dataset.dataset_sha256:
         raise DatasetContractError(
             f"Approval dataset_sha256 mismatch: {appr_sha} != {dataset.dataset_sha256}"
         )
+
+
+def load_development_sample_dataset() -> ReleaseDataset:
+    """Loads fallback unsealed development release samples for local testing only."""
+    cases = _SAMPLE_RELEASE_CASES
+    raw_payload = json.dumps(
+        [asdict(c) for c in cases], sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+    dataset_hash = hashlib.sha256(raw_payload).hexdigest()
+    return ReleaseDataset(
+        version="pdf_retrieval_release_v1",
+        cases=cases,
+        dataset_sha256=dataset_hash,
+    )
 
 
 def load_release_dataset(

@@ -215,7 +215,10 @@ def test_release_loader_rejects_manifest_hash_mismatch(tmp_path: Path) -> None:
 
 
 def test_validate_approval_checks_owner_and_version() -> None:
-    from evals.datasets.pdf_retrieval_release_v1 import validate_approval
+    from evals.datasets.pdf_retrieval_release_v1 import (
+        load_development_sample_dataset,
+        validate_approval,
+    )
 
     dataset = load_release_dataset()
     valid_approval = {
@@ -229,6 +232,33 @@ def test_validate_approval_checks_owner_and_version() -> None:
     with pytest.raises(DatasetContractError, match="Owner approval missing"):
         validate_approval(dataset, {"status": "pending"})
 
+    # Missing dataset_sha256 must be rejected (F16)
+    with pytest.raises(
+        DatasetContractError, match="Approval missing required dataset_sha256 checksum"
+    ):
+        validate_approval(
+            dataset,
+            {
+                "status": "approved",
+                "owner": "NhiBuaa",
+                "dataset_version": dataset.version,
+            },
+        )
+
+    # Empty dataset_sha256 must be rejected (F16)
+    with pytest.raises(
+        DatasetContractError, match="Approval missing required dataset_sha256 checksum"
+    ):
+        validate_approval(
+            dataset,
+            {
+                "status": "approved",
+                "owner": "NhiBuaa",
+                "dataset_version": dataset.version,
+                "dataset_sha256": "",
+            },
+        )
+
     with pytest.raises(DatasetContractError, match="Approval dataset_sha256 mismatch"):
         validate_approval(
             dataset,
@@ -239,6 +269,10 @@ def test_validate_approval_checks_owner_and_version() -> None:
                 "dataset_sha256": "wrong" * 16,
             },
         )
+
+    dev_sample = load_development_sample_dataset()
+    assert dev_sample.version == "pdf_retrieval_release_v1"
+    assert len(dev_sample.cases) >= 4
 
 
 def test_explicit_path_still_requires_manifest_and_approval(tmp_path: Path) -> None:
