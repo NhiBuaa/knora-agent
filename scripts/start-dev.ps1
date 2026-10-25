@@ -302,6 +302,31 @@ if (-not $PreflightOnly) {
         $writer.WriteLine("TIMESTAMP=$([DateTime]::UtcNow.ToString('o'))")
         $writer.Flush()
     } catch {
+        [Console]::Error.WriteLine("DEV_RESERVATION_PATH:$reservationPath")
+        [Console]::Error.WriteLine("DEV_RESERVATION_RUNBOOK:docs/runbooks/local-development.md#recovery-triage-preserve-retained-data")
+        try {
+            if ([IO.File]::Exists($reservationPath)) {
+                $lines = [IO.File]::ReadAllLines($reservationPath)
+                $ownerPid = $null
+                $ownerTs = $null
+                foreach ($line in $lines) {
+                    if ($line -match '^PID=(\d+)$') {
+                        $parsedPid = 0
+                        if ([int]::TryParse($Matches[1], [ref]$parsedPid) -and $parsedPid -gt 0) {
+                            $ownerPid = $parsedPid.ToString()
+                        }
+                    }
+                    elseif ($line -match '^TIMESTAMP=(.+)$') {
+                        $parsedTs = [DateTime]::MinValue
+                        if ([DateTime]::TryParse($Matches[1], [System.Globalization.CultureInfo]::InvariantCulture, [System.Globalization.DateTimeStyles]::RoundtripKind, [ref]$parsedTs)) {
+                            $ownerTs = $Matches[1]
+                        }
+                    }
+                }
+                if ($ownerPid) { [Console]::Error.WriteLine("DEV_RESERVATION_OWNER_PID:$ownerPid") }
+                if ($ownerTs) { [Console]::Error.WriteLine("DEV_RESERVATION_TIMESTAMP:$ownerTs") }
+            }
+        } catch { }
         Fail "DEV_PROJECT_RESERVED:$composeProject"
     }
 }

@@ -99,7 +99,7 @@ export function UploadDocumentDialog({
           <Button
             variant="secondary"
             disabled={busy}
-            className="min-h-[30px] rounded-[7px] !border-border px-[13px] py-[7px] text-xs leading-[15px] !text-action-text"
+            className="min-h-[30px] rounded-[7px] !border-border px-[13px] py-[7px] text-xs leading-[15px] !text-action-text max-[769px]:min-h-[44px] max-[769px]:px-4 pointer-coarse:min-h-[44px] pointer-coarse:px-4"
             onClick={() => picker.current?.click()}
           >
             Choose file
@@ -129,7 +129,7 @@ export function UploadDocumentDialog({
                 variant="secondary"
                 aria-label="Remove file"
                 disabled={busy}
-                className="min-h-[30px] !border-border px-2.5 py-[7px] text-xs leading-[15px] text-text-muted"
+                className="min-h-[30px] !border-border px-2.5 py-[7px] text-xs leading-[15px] text-text-muted max-[769px]:min-h-[44px] max-[769px]:min-w-[44px] pointer-coarse:min-h-[44px] pointer-coarse:min-w-[44px]"
                 onClick={() => {
                   onFile(null);
                   if (picker.current) picker.current.value = "";
@@ -162,7 +162,7 @@ export function UploadDocumentDialog({
             variant="secondary"
             onClick={onClose}
             disabled={busy}
-            className="h-[38px] min-h-[38px] !border-border px-4 py-0 text-[13px]"
+            className="min-h-[38px] !border-border px-4 py-0 text-[13px] max-[769px]:min-h-[44px] pointer-coarse:min-h-[44px]"
           >
             Cancel
           </Button>
@@ -170,7 +170,7 @@ export function UploadDocumentDialog({
             type="submit"
             disabled={!file || busy}
             loading={busy}
-            className="h-[38px] min-h-[38px] px-3 py-0 text-[13px]"
+            className="min-h-[38px] px-3 py-0 text-[13px] max-[769px]:min-h-[44px] pointer-coarse:min-h-[44px]"
           >
             <span aria-hidden="true">↑</span>
             Upload document

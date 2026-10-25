@@ -27,3 +27,4 @@ class IngestionResult:
     chunking_configuration_id: str
     embedding_configuration_id: str
     chunk_count: int
+    document_archived: bool = False
