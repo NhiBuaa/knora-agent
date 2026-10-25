@@ -158,7 +158,8 @@ def _validate_answer_group_completeness(
 
 
 _SECTION_REF_PATTERN = re.compile(
-    r"(?<!\w)(?:chương|phần|mục|điều|khoản|chapter|section|article)\s+[0-9a-zA-Z._-]+(?!\w)",
+    r"(?<!\w)(?:chương|phần|mục|điều|khoản|chapter|section|article)\s+"
+    r"(?:\d+(?:[._-]\d+)*|[ivxlcdm]+)(?!\w)",
     re.IGNORECASE,
 )
 
@@ -321,7 +322,57 @@ def _find_uncited_sentences(answer: str) -> list[str]:
     return uncited
 
 
-def _validate_citation_alignment(
+def _grounding_text(text: str) -> str:
+    text = unicodedata.normalize("NFKC", text).casefold()
+    text = re.sub(r"\\([^\w\s])", r"\1", text)
+    text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
+    return re.sub(r"\bchuong(?=\s+\d)", "chương", text)
+
+
+def _section_count_support(statement: str, source: str) -> bool | None:
+    labels = r"chương|phần|mục|chapter|section"
+    count = re.fullmatch(
+        rf"(?:(?:tổng cộng|tổng số)\s+)?(?:báo cáo\s+)?(?:được\s+)?(?:(?:gợi ý|đề xuất)\s+)?"
+        rf"(?:(?:trình bày|bao gồm|gồm|có)\s+)?(?P<count>\d+)\s+(?P<label>{labels})[.!?]?",
+        statement.strip(),
+    ) or re.fullmatch(
+        rf"(?:tổng số|số lượng|số)\s+(?P<label>{labels})\s+"
+        rf"(?:được\s+)?(?:(?:gợi ý|đề xuất)\s+)?(?:là\s+)?(?P<count>\d+)[.!?]?",
+        statement.strip(),
+    )
+    if count is None:
+        return None
+    label, expected = count["label"], count["count"].lstrip("0") or "0"
+    if any(
+        not any(re.search(rf"\b{neg}\b", clause) for neg in _NEGATION_WORDS)
+        and re.search(
+            rf"\b(?:gồm|có|bao gồm|trình bày)\s+{expected}\s+{re.escape(label)}\b", clause
+        )
+        is not None
+        for clause in re.split(r"[.;\n]", source)
+    ):
+        return True
+    members = list(
+        re.finditer(
+            rf"^\s*(?:[-*•]\s*)?{re.escape(label)}\s+(\d+)\s*[–—:.-]\s*\S.+$",
+            source,
+            re.MULTILINE,
+        )
+    )
+    if members:
+        # Count the complete ordered list; its largest identifier alone is not a total.
+        return (
+            bool(source[members[-1].end() :].strip())
+            and expected == str(len(members))
+            and all(
+                (member[1].lstrip("0") or "0") == str(index)
+                for index, member in enumerate(members, start=1)
+            )
+        )
+    return False
+
+
+def _validate_cited_statement(
     answer: str,
     alias_to_candidate: Mapping[str, Any],
     *,
@@ -366,11 +417,16 @@ def _validate_citation_alignment(
         if marker not in alias_to_candidate:
             continue
         cand = alias_to_candidate[marker]
-        cand_content = unicodedata.normalize("NFKC", cand.content).casefold()
-        cand_heading = unicodedata.normalize("NFKC", " ".join(cand.heading_path)).casefold()
+        cand_content = _grounding_text(cand.content)
+        cand_heading = _grounding_text(" ".join(cand.heading_path))
         cand_full = f"{cand_heading} {cand_content}"
 
-        norm_seg = unicodedata.normalize("NFKC", seg_text).casefold()
+        norm_seg = _grounding_text(seg_text)
+        count_support = _section_count_support(norm_seg, cand_content)
+        if count_support is False:
+            _invalid()
+        if count_support is True:
+            continue
 
         # 1. Section references inside segment must match candidate heading/content
         seg_sections = _SECTION_REF_PATTERN.findall(norm_seg)
@@ -583,6 +639,55 @@ def _validate_citation_alignment(
                     break
             if not has_2gram and len(matched_words) < 2:
                 _invalid()
+
+
+def _validate_citation_alignment(
+    answer: str,
+    alias_to_candidate: Mapping[str, Any],
+    *,
+    is_multi_group: bool = False,
+) -> None:
+    matches = list(MARKER_PATTERN.finditer(answer))
+    cursor = 0
+    index = 0
+    while index < len(matches):
+        first = matches[index]
+        text = answer[cursor : first.start()]
+        group = [first.group(1)]
+        end = first.end()
+        index += 1
+        while index < len(matches) and re.fullmatch(
+            r"[\s.,;:!?]*", answer[end : matches[index].start()]
+        ):
+            group.append(matches[index].group(1))
+            end = matches[index].end()
+            index += 1
+        statements = [
+            s.strip() for s in re.split(r"\n+|(?<=[.!?])\s+", text) if re.search(r"\w", s)
+        ]
+        if not statements:
+            _invalid()
+        for statement in statements:
+            # A unique citation can enclose blocks; every statement still needs source support.
+            for alias in group:
+                if alias not in alias_to_candidate:
+                    _invalid()
+                try:
+                    _validate_cited_statement(
+                        f"{statement} [[{alias}]]",
+                        {alias: alias_to_candidate[alias]},
+                        is_multi_group=is_multi_group,
+                    )
+                except KnoraError as exc:
+                    if exc.code != "GENERATION_OUTPUT_INVALID":
+                        raise
+                else:
+                    break
+            else:
+                _invalid()
+        cursor = end
+    if re.search(r"\w", answer[cursor:]):
+        _invalid()
 
 
 def validate_generation(

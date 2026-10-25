@@ -338,3 +338,117 @@ def test_r6_f14_statement_support_rejection_and_acceptance() -> None:
         res_period, available_evidence_ids=available, alias_to_candidate=alias_map
     )
     assert val_period.parsed_markers == ("E1",)
+
+
+OUTLINE_SOURCE = """Mục lục của báo cáo:
+- Chương 1 – Giới thiệu (Introduction)
+- Chương 2 – Thiết kế (Design)
+- Chuong 3 – Kết luận (Conclusion)
+- Tài liệu tham khảo, phụ lục.
+"""
+
+
+@pytest.mark.parametrize(
+    ("text", "source"),
+    [
+        ("Báo cáo được gợi ý trình bày **3 chương** [[E1]]", OUTLINE_SOURCE),
+        ("Tổng số chương được đề xuất là 3. [[E1]]", OUTLINE_SOURCE),
+        ("3 chương [[E1]]", OUTLINE_SOURCE),
+        ("Tổng cộng 3 chương [[E1]]", OUTLINE_SOURCE),
+        (
+            "Báo cáo gồm 5 chương [[E1]]",
+            "Báo cáo gồm 5 chương.\n- Chương 1 – Giới thiệu\n- Chương 2 – Thiết kế",
+        ),
+    ],
+)
+def test_outline_count_is_grounded_in_complete_numbered_members(text: str, source: str) -> None:
+    result = GenerationResult("ANSWER", text, ("E1",), None)
+    assert validate_generation(
+        result,
+        available_evidence_ids=("E1",),
+        alias_to_candidate={"E1": _make_cand("outline", source)},
+    ).parsed_markers == ("E1",)
+
+
+@pytest.mark.parametrize(
+    ("text", "source"),
+    [
+        ("Báo cáo được gợi ý trình bày 2 chương [[E1]]", OUTLINE_SOURCE),
+        ("3 chương [[E1]]", OUTLINE_SOURCE.replace("- Chương 2 – Thiết kế (Design)\n", "")),
+        ("3 chương [[E1]]", "Báo cáo có 3 trang; Chương 1 – Giới thiệu."),
+        ("2 chương [[E1]]", "- Chương 1 – Giới thiệu\n- Chương 2 – Thiết kế"),
+        ("Báo cáo bắt buộc trình bày 3 chương [[E1]]", OUTLINE_SOURCE),
+        ("Báo cáo không có 3 chương [[E1]]", OUTLINE_SOURCE),
+        ("999999999999999999999999 chương [[E1]]", OUTLINE_SOURCE),
+    ],
+)
+def test_outline_count_rejects_wrong_incomplete_or_invented_claims(text, source) -> None:
+    with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+        validate_generation(
+            GenerationResult("ANSWER", text, ("E1",), None),
+            available_evidence_ids=("E1",),
+            alias_to_candidate={"E1": _make_cand("outline", source)},
+        )
+
+
+def test_composed_outline_preserves_group_citation_validation() -> None:
+    from knora.providers.generation import GenerationEvidence
+    from knora.providers.openai_compatible.answer_blocks import compose_answer
+
+    payload = {
+        "decision": "ANSWER",
+        "before": [
+            {
+                "text": "Báo cáo được gợi ý trình bày 3 chương.",
+                "bold": "3 chương",
+                "support": ["E1"],
+            }
+        ],
+        "items": [
+            {"text": "Chương 1 – Giới thiệu (Introduction)", "support": ["E1"]},
+            {"text": "Chương 2 – Thiết kế (Design)", "support": ["E1"]},
+            {"text": "Chương 3 – Kết luận (Conclusion)", "support": ["E1"]},
+        ],
+        "after": [{"text": "Tổng số chương được đề xuất là 3.", "bold": None, "support": ["E1"]}],
+        "refusal_reason": None,
+    }
+    answer, cited = compose_answer(payload, (GenerationEvidence("E1", OUTLINE_SOURCE),))
+    validate_generation(
+        GenerationResult("ANSWER", answer, cited, None),
+        available_evidence_ids=("E1",),
+        alias_to_candidate={"E1": _make_cand("outline", OUTLINE_SOURCE)},
+    )
+
+
+@pytest.mark.parametrize("bad_claim", [False, True])
+def test_enclosing_citation_group_checks_every_statement_against_its_sources(bad_claim) -> None:
+    text = "Đổi trả 7 ngày.\n\nPhí vận chuyển 30 đồng.\n\nĐổi trả 7 ngày. [[E1]] [[E2]]"
+    if bad_claim:
+        text = text.replace("Phí vận chuyển 30 đồng", "Phí vận chuyển 7 đồng")
+    result = GenerationResult("ANSWER", text, ("E1", "E2"), None)
+    mapping = {
+        "E1": _make_cand("returns", "Đổi trả 7 ngày."),
+        "E2": _make_cand("fee", "Phí vận chuyển 30 đồng."),
+    }
+    if bad_claim:
+        with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+            validate_generation(
+                result, available_evidence_ids=tuple(mapping), alias_to_candidate=mapping
+            )
+    else:
+        validate_generation(
+            result, available_evidence_ids=tuple(mapping), alias_to_candidate=mapping
+        )
+
+
+def test_factual_text_after_last_citation_remains_uncited() -> None:
+    with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+        validate_generation(
+            GenerationResult(
+                "ANSWER", "Đổi trả 7 ngày [[E1]]. Phí vận chuyển 30 đồng.", ("E1",), None
+            ),
+            available_evidence_ids=("E1",),
+            alias_to_candidate={
+                "E1": _make_cand("both", "Đổi trả 7 ngày. Phí vận chuyển 30 đồng.")
+            },
+        )
