@@ -73,12 +73,12 @@
 
 | Stage / PR | Nhánh Git | Đường dẫn Worktree | Commit HEAD hiện hành |
 |---|---|---|---|
-| **S3** (PR #216) | `feat/retrieval-v3-document-understanding` | `C:\Developer\Projects\knora-agent-worktree\feat-retrieval-v3-document-understanding` | `b5632c9215ba05be6cebf473c52e6fca78e100f0` |
+| **S3** (PR #216) | `feat/retrieval-v3-document-understanding` | `C:\Developer\Projects\knora-agent-worktree\feat-retrieval-v3-document-understanding` | `b5632c926c4273daee65e13de65d52c4183886cd` |
 | **S4** (PR #217) | `feat/retrieval-v3-dense-hybrid-search` | `C:\Developer\Projects\knora-agent-worktree\feat-retrieval-v3-dense-hybrid-search` | `e5683b82aecbe506f91bfe3cb56862992f24e864` |
 | **S5** (PR #218) | `feat/retrieval-v3-sequential-dependence-ranking`| `C:\Developer\Projects\knora-agent-worktree\feat-retrieval-v3-sequential-dependence-ranking`| `6cf6fdcb8fc2d29cdd7e05fa9c4358f69264a63c` |
 | **S6** (PR #219) | `feat/retrieval-v3-reranking-evidence` | `C:\Developer\Projects\knora-agent-worktree\feat-retrieval-v3-reranking-evidence` | `cf84f937062f50a36e67fe57e27bbdb92218e080` |
 | **S7** (PR #220) | `feat/retrieval-v3-query-understanding-coverage` | `C:\Developer\Projects\knora-agent-worktree\feat-retrieval-v3-query-understanding-coverage` | `a24d759fb042c74b78346505ed26b8fa251aa34c` |
-| **S8** (PR #221) | `feat/retrieval-v3-integrated-release` | `C:\Developer\Projects\knora-agent-worktree\feat-retrieval-v3-integrated-release` | 7074a66670bc117d46f1deab23af5bf85c7892f9 |
+| **S8** (PR #221) | `feat/retrieval-v3-integrated-release` | `C:\Developer\Projects\knora-agent-worktree\feat-retrieval-v3-integrated-release` | 21ddc2c7f19d46aa288e94009736c68008ef3d6f |
 
 ---
 
