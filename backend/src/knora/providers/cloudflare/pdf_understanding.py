@@ -53,7 +53,9 @@ class CloudflarePdfUnderstandingProvider:
         self._client = client or httpx.Client(timeout=timeout_seconds)
         self._owns_client = client is None
 
-    def convert_to_markdown(self, file_bytes: bytes) -> CloudflareToMarkdownResponse:
+    def convert_to_markdown(
+        self, file_bytes: bytes, timeout: float | None = None
+    ) -> CloudflareToMarkdownResponse:
         """Call Cloudflare /ai/tomarkdown endpoint with multipart/form-data."""
         headers = {"Authorization": f"Bearer {self._api_token}"}
         files = {"files": ("document.pdf", file_bytes, "application/pdf")}
@@ -65,6 +67,7 @@ class CloudflarePdfUnderstandingProvider:
                 headers=headers,
                 files=files,
                 data=data,
+                timeout=timeout,
             )
             response.raise_for_status()
             payload = response.json()
@@ -171,6 +174,7 @@ class CloudflarePdfUnderstandingProvider:
         self,
         image_bytes: bytes,
         instruction: str = DEFAULT_OCR_INSTRUCTION,
+        timeout: float | None = None,
     ) -> CloudflareVisionOcrResponse:
         """Call Cloudflare Workers AI vision model for selective OCR."""
         headers = {"Authorization": f"Bearer {self._api_token}"}
@@ -187,6 +191,7 @@ class CloudflarePdfUnderstandingProvider:
                 headers=headers,
                 data=body,
                 files=files,
+                timeout=timeout,
             )
             response.raise_for_status()
             payload = response.json()
@@ -201,6 +206,12 @@ class CloudflarePdfUnderstandingProvider:
                     conf = None
             request_id = response.headers.get("cf-ray") or response.headers.get("x-request-id")
             return CloudflareVisionOcrResponse(text=text, confidence=conf, request_id=request_id)
+        except httpx.TimeoutException as error:
+            raise PdfExtractionError(
+                "PDF_RESOURCE_LIMIT_EXCEEDED",
+                reason="TIMEOUT",
+                retryable=True,
+            ) from error
         except httpx.HTTPStatusError as error:
             status_code = error.response.status_code
             if status_code == 429:
