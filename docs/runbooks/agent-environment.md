@@ -12,6 +12,9 @@ Keycloak and synthetic Mailpit realm. No worker is started: Markdown ingestion i
 synchronous; PDF jobs and submitted Turns do not reach terminal results on their own.
 Deterministic providers prove structure, not answer quality or real email delivery.
 
+> [!NOTE]
+> This browser verification harness does not load the shared local `.env` or invoke live AI providers. Do not evaluate AI provider behavior or generation quality using this deterministic smoke environment; for day-to-day development with Cloudflare or Ollama providers, see [local development](local-development.md) and [worktree environment sharing](local-development.md#referencing-a-shared-env-from-an-isolated-git-worktree).
+
 ## Launch
 
 Run PowerShell from an isolated checkout of the intended commit. Required tools are
@@ -24,8 +27,26 @@ git rev-parse HEAD
 docker version --format '{{.Server.Version}}'
 node --version
 npm --version
-Test-Path frontend/node_modules/@playwright/test/cli.js
+./scripts/prepare-figma-e2e.ps1 -CheckFrontendOnly
 ```
+
+### Frontend dependency containment pre-check (`-CheckFrontendOnly`)
+
+Before running Playwright directly or starting browser verification, run `-CheckFrontendOnly` to verify that frontend dependencies and the Playwright CLI are physically contained inside the owned worktree and match the lockfile:
+
+```powershell
+./scripts/prepare-figma-e2e.ps1 -CheckFrontendOnly
+```
+
+Result codes:
+- `FIGMA_FRONTEND_OK`: The frontend directory is physically contained within the repository. All three scoped packages (`@playwright/test`, `playwright`, `playwright-core`) are physically contained under `frontend` (either in `frontend/node_modules` or through valid internal package links declared in `package-lock.json`), the CLI belongs to `@playwright/test`, and declared package specs and installed package versions match the lockfile nodes.
+- `FIGMA_FRONTEND_UNAVAILABLE`: Node executable is missing, or `package.json`, `package-lock.json`, or required package installations are missing.
+- `FIGMA_FRONTEND_OWNERSHIP_REJECTED`: The frontend directory escapes the repository, or `node_modules`, resolved packages, internal link targets, or the CLI path escape the owned frontend directory (e.g. symlinks/junctions pointing to sibling worktrees or external directories).
+- `FIGMA_FRONTEND_LOCK_MISMATCH`: Declared dependency specs, package names, or installed versions do not agree with the lockfile nodes.
+- `FIGMA_FRONTEND_METADATA_INVALID`: Package metadata or lockfile JSON is malformed, missing required edges, or has invalid types.
+
+> [!NOTE]
+> `-CheckFrontendOnly` is a scoped pre-check verifying physical containment and lockfile metadata matching specifically for the three Playwright runner packages (`@playwright/test`, `playwright`, `playwright-core`) and the CLI. It does not audit the entire npm dependency tree or Chromium binaries, does not protect against post-check filesystem modifications by external background daemons, and does not replace runtime browser readiness verification. It is mutually exclusive with `-CheckConfigurationOnly` and `-Run`.
 
 Missing prerequisites are blockers: report them; installation, model downloads and
 credential/provider setup require separate authorization. Reusing already installed,
@@ -119,7 +140,8 @@ OTP's separate launcher and `playwright.figma-otp.config.ts` support only the le
 Use installed Playwright directly; no MCP/browser plugin or extra CLI is required.
 From the repository root, the following existing journeys cover UI login, Workspace
 creation, synchronous Markdown ingestion, document archive/restore/deletion-request,
-and Workspace/Conversation read-only boundaries. They do not call an AI provider:
+Workspace/Conversation read-only boundaries, and question/answer clipboard copy with
+canonical citation links. They do not call an AI provider:
 
 Run the Doctor commands above at the beginning of this block, before Playwright:
 
@@ -138,6 +160,23 @@ try {
     Remove-Item Env:FIGMA_TEST_PROJECT,Env:FIGMA_TEST_MODE,Env:PLAYWRIGHT_JUNIT_OUTPUT_NAME -ErrorAction SilentlyContinue
 }
 ```
+
+### Message copy verification journey
+
+To verify question and answer copy interactions with real browser clipboard reads
+under isolated execution, use `scripts/run-copy-runtime-verification.ps1` or run
+`figma-conversation-copy.spec.ts` inside `-Run`:
+
+```powershell
+./scripts/run-copy-runtime-verification.ps1 -ProjectSuffix 'copy01'
+```
+
+This verifies:
+
+1. Question copy captures verbatim text without internal markers.
+2. Authoritative answer copy converts validated citations into canonical application markdown links (`routes.document(...)`).
+3. Touch tap, pointer click, and keyboard triggers (`Space` and `Enter`) cycle the accessible SVG icon state.
+4. Controlled clipboard denial displays the error state without unhandled exceptions.
 
 Use accessible roles/labels from the Feature Map, not visual coordinates or guessed
 selectors. Playwright starts the real frontend on 3300 and refuses to reuse an existing

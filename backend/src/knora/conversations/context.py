@@ -97,7 +97,7 @@ def _is_validated_turn(turn: TurnView, workspace_id: str) -> bool:
         return (
             result.decision == "REFUSAL"
             and result.answer is None
-            and result.refusal_reason == "INSUFFICIENT_EVIDENCE"
+            and result.refusal_reason in {"INSUFFICIENT_EVIDENCE", "CLARIFICATION_REQUIRED"}
             and not result.citations
         )
     return False
@@ -120,7 +120,12 @@ def _serialize_transcript(turns: tuple[TurnView, ...]) -> str:
 
 
 def _retrieval_query(turns: tuple[TurnView, ...], question: str) -> str:
-    if not turns or not _has_reference_cue(question):
+    has_clarification_predecessor = (
+        bool(turns)
+        and turns[-1].result is not None
+        and turns[-1].result.refusal_reason == "CLARIFICATION_REQUIRED"
+    )
+    if not turns or (not _has_reference_cue(question) and not has_clarification_predecessor):
         return question
 
     # Keep a reference chain anchored at the nearest independent question. Older topics

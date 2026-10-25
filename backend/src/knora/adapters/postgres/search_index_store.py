@@ -96,13 +96,24 @@ class PostgresSearchIndexStore:
             for tok in tokens:
                 freqs[tok] = freqs.get(tok, 0) + 1
 
+        content_checksum = hashlib.sha256(
+            "".join(
+                f"{chunk.content}:{getattr(chunk, 'content_checksum', '')}" for chunk in chunks
+            ).encode("utf-8")
+        ).hexdigest()
+
+        bound_stats_digest = hashlib.sha256(
+            f"{stats_digest}:{membership_digest}:{content_checksum}".encode()
+        ).hexdigest()
+
         stats = CorpusStatistics(
             total_tokens=max(1, total_tokens),
             total_chunks=len(chunks),
             unigram_frequencies=freqs,
             average_chunk_length=total_tokens / len(chunks) if chunks else 0.0,
-            statistics_digest=stats_digest,
-            snapshot_id=f"snap-{membership_digest[:16]}",
+            statistics_digest=bound_stats_digest,
+            snapshot_id=f"snap-{membership_digest[:8]}-{content_checksum[:8]}",
+            base_statistics_digest=stats_digest,
         )
         _CORPUS_STATS_CACHE[cache_key] = stats
         return stats
@@ -511,6 +522,35 @@ class PostgresSearchIndexStore:
                 "corpus transition requires receipts for all active documents in corpus; "
                 f"missing: {missing}"
             )
+
+        is_cold_activation = not active_doc_ids
+        if is_cold_activation:
+            staged_doc_ids = set(
+                session.scalars(
+                    select(DocumentTable.id)
+                    .join(LexicalHeadTable, LexicalHeadTable.document_id == DocumentTable.id)
+                    .join(
+                        LexicalGenerationTable,
+                        LexicalHeadTable.desired_generation_id == LexicalGenerationTable.id,
+                    )
+                    .where(
+                        DocumentTable.workspace_id == workspace_id,
+                        DocumentTable.archived.is_(False),
+                        LexicalGenerationTable.profile_digest == target_profile_digest,
+                    )
+                ).all()
+            )
+            if staged_doc_ids and submitted_doc_ids != staged_doc_ids:
+                missing = staged_doc_ids - submitted_doc_ids
+                if missing:
+                    raise StaleGenerationError(
+                        "corpus transition requires receipts for all staged documents in corpus; "
+                        f"missing: {missing}"
+                    )
+                extra = submitted_doc_ids - staged_doc_ids
+                raise StaleGenerationError(
+                    f"corpus transition contains unexpected unstaged documents; extra: {extra}"
+                )
 
         for generation, receipt in items:
             receipt.validate(generation)

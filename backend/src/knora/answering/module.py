@@ -409,6 +409,7 @@ class AnswerQuestion:
                 if corpus_stats.statistics_digest is None or (
                     expected_digest is not None
                     and corpus_stats.statistics_digest != expected_digest
+                    and getattr(corpus_stats, "base_statistics_digest", None) != expected_digest
                 ):
                     raise KnoraError("CORPUS_STATISTICS_UNAVAILABLE")
 
@@ -1115,25 +1116,9 @@ class AnswerQuestion:
             latency_ms=((ended_at if ended_at is not None else self._clock()) - started) * 1000,
             branch_observations=branch_observations,
             conversation_turn_id=command.turn_id,
-            trace_schema_version=3
-            if (
-                lexical
-                or retrieval_configuration.strategy in {"dense-only", "hybrid"}
-                or bool(retrieval_configuration.fusion_policy_id)
-                or bool(retrieval_configuration.sdm_policy_id)
-                or bool(retrieval_configuration.reranking_policy_id)
-                or (bool(retrieval_configuration.id) and retrieval_configuration.id.endswith("-v3"))
-            )
-            else 2,
+            trace_schema_version=3 if (lexical or retrieval_configuration.is_v3_retrieval) else 2,
             branch_observation_schema_version=2
-            if (
-                lexical
-                or retrieval_configuration.strategy in {"dense-only", "hybrid"}
-                or bool(retrieval_configuration.fusion_policy_id)
-                or bool(retrieval_configuration.sdm_policy_id)
-                or bool(retrieval_configuration.reranking_policy_id)
-                or (bool(retrieval_configuration.id) and retrieval_configuration.id.endswith("-v3"))
-            )
+            if (lexical or retrieval_configuration.is_v3_retrieval)
             else 1,
         )
 

@@ -1233,6 +1233,8 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
         )
         if source_object is None:
             raise KnoraError("PERSISTENCE_OPERATION_FAILED")
+        document = session.get(DocumentTable, job.document_id)
+        document_archived = bool(document.archived) if document is not None else False
         return PdfSubmissionResult(
             ingestion_job_id=job.id,
             submission_outcome=submission_outcome,
@@ -1240,6 +1242,7 @@ class PostgresPdfSubmissionStore(PdfSubmissionStore):
             document_id=job.document_id,
             document_version_id=job.target_document_version_id,
             retained_object_key=source_object.object_key,
+            document_archived=document_archived,
         )
 
     @staticmethod

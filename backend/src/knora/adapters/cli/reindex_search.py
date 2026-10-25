@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -68,7 +69,11 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def load_profile(profile_file: Path | None = None) -> LexicalProfile:
+def load_profile(
+    profile_file: Path | None = None,
+    workspace_id: str | None = None,
+    session_factory=None,
+) -> LexicalProfile:
     if profile_file is not None:
         if not profile_file.exists():
             raise ValueError(f"profile file not found: {profile_file}")
@@ -92,6 +97,69 @@ def load_profile(profile_file: Path | None = None) -> LexicalProfile:
         return population.profile
     if configuration.strategy in ("dense-only", "hybrid", "bm25-only"):
         lexical_policy_id = configuration.lexical_policy_id or "lexical-bm25-v1"
+        if workspace_id is not None:
+            sf = session_factory or SessionFactory
+            try:
+                with sf() as session:
+                    docs = session.scalars(
+                        select(DocumentTable)
+                        .where(
+                            DocumentTable.workspace_id == workspace_id,
+                            DocumentTable.archived.is_(False),
+                            DocumentTable.current_document_version_id.is_not(None),
+                        )
+                        .order_by(DocumentTable.id)
+                    ).all()
+                    corpus_docs = []
+                    for doc in docs:
+                        ver = session.get(DocumentVersionTable, doc.current_document_version_id)
+                        if ver is None:
+                            continue
+                        cs = session.scalar(
+                            select(ChunkSetTable)
+                            .where(
+                                ChunkSetTable.document_version_id == ver.id,
+                                ChunkSetTable.status == "completed",
+                            )
+                            .order_by(ChunkSetTable.id.desc())
+                        )
+                        if cs is None:
+                            continue
+                        chunks = session.scalars(
+                            select(ChunkTable)
+                            .where(ChunkTable.chunk_set_id == cs.id)
+                            .order_by(ChunkTable.ordinal)
+                        ).all()
+                        if not chunks:
+                            continue
+                        source_sha = (
+                            ver.raw_sha256 or hashlib.sha256(doc.id.encode("utf-8")).hexdigest()
+                        )
+                        corpus_docs.append(
+                            (
+                                source_sha,
+                                [
+                                    (
+                                        c.content_checksum,
+                                        c.token_count if c.token_count and c.token_count > 0 else 1,
+                                    )
+                                    for c in chunks
+                                ],
+                            )
+                        )
+                    if corpus_docs:
+                        from knora.ingestion.lexical_population import CorpusStatisticsSnapshot
+
+                        snapshot = CorpusStatisticsSnapshot.build(
+                            population_id=lexical_policy_id,
+                            documents=corpus_docs,
+                        )
+                        return snapshot.profile
+            except Exception:
+                pass
+        empty_digest = hashlib.sha256(
+            f"dynamic-corpus-{workspace_id or 'default'}-{lexical_policy_id}".encode()
+        ).hexdigest()
         return LexicalProfile(
             id=lexical_policy_id,
             tokenizer="tiktoken",
@@ -99,7 +167,7 @@ def load_profile(profile_file: Path | None = None) -> LexicalProfile:
             k1=1.2,
             b=0.75,
             avg_len=256.0,
-            statistics_digest="0" * 64,
+            statistics_digest=empty_digest,
         )
     raise ValueError("reindex requires a reviewed lexical population profile or explicit profile")
 
@@ -114,7 +182,7 @@ def run_reindex(
 ) -> dict[str, int | str | bool]:
 
     if profile is None:
-        profile = load_profile()
+        profile = load_profile(workspace_id=workspace_id)
 
     profile_digest = profile.digest()
 
@@ -406,7 +474,7 @@ def main() -> int:
     args = build_parser().parse_args()
 
     try:
-        profile = load_profile(args.profile_file)
+        profile = load_profile(args.profile_file, workspace_id=args.workspace_id)
         result = run_reindex(
             workspace_id=args.workspace_id,
             dry_run=args.dry_run,

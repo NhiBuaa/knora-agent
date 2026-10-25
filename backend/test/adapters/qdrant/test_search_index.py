@@ -675,3 +675,34 @@ def test_parse_response_with_score_kind_preserves_contract() -> None:
     assert len(dbsf_res) == 1
     assert dbsf_res[0]["score"] == 0.89
     assert dbsf_res[0]["score_kind"] == "dbsf"
+
+
+def test_vectors_equivalent_rejects_degenerate_and_corrupted() -> None:
+    # All zeros / degenerate vectors
+    expected_tiny = [1e-6] + [0.0] * 767
+    actual_zero = [0.0] * 768
+    assert not QdrantSearchIndex._vectors_equivalent(actual_zero, expected_tiny)
+    assert not QdrantSearchIndex._vectors_equivalent(actual_zero, actual_zero)
+
+    # Opposite direction
+    v1 = [1.0] + [0.0] * 767
+    v2 = [-1.0] + [0.0] * 767
+    assert not QdrantSearchIndex._vectors_equivalent(v1, v2)
+
+    # Norm / magnitude mismatch
+    v3 = [1.0] + [0.0] * 767
+    v4 = [1.05] + [0.0] * 767
+    assert not QdrantSearchIndex._vectors_equivalent(v3, v4)
+
+    # Non-finite values
+    v_nan = [float("nan")] + [0.0] * 767
+    assert not QdrantSearchIndex._vectors_equivalent(v_nan, v1)
+    assert not QdrantSearchIndex._vectors_equivalent(v1, v_nan)
+
+    # Length mismatch
+    assert not QdrantSearchIndex._vectors_equivalent([1.0] * 10, [1.0] * 11)
+
+    # Valid normalized unit vector with float32 roundtrip error within tolerance
+    norm_vec = [1.0 / math.sqrt(768)] * 768
+    slight_diff = [(1.0 / math.sqrt(768)) + 1e-6] * 768
+    assert QdrantSearchIndex._vectors_equivalent(norm_vec, slight_diff)

@@ -79,6 +79,27 @@ class MockSession:
         params = statement.compile().params
         if model is DocumentTable:
             ws_id = params.get("workspace_id_1")
+            target_profile_digest = params.get("profile_digest_1")
+            if target_profile_digest:
+                doc_ids = sorted(
+                    [
+                        r.id
+                        for (m, _), r in self.rows.items()
+                        if m is DocumentTable
+                        and r.workspace_id == ws_id
+                        and not r.archived
+                        and self.heads.get(r.id)
+                        and self.heads[r.id].desired_generation_id
+                        and self.rows.get(
+                            (LexicalGenerationTable, self.heads[r.id].desired_generation_id)
+                        )
+                        and self.rows[
+                            (LexicalGenerationTable, self.heads[r.id].desired_generation_id)
+                        ].profile_digest
+                        == target_profile_digest
+                    ]
+                )
+                return MockScalarResult(doc_ids)
             doc_ids = sorted(
                 [
                     r.id
@@ -431,7 +452,7 @@ def test_read_corpus_statistics_transition_and_revocation() -> None:
     profile_a = ctx["profile_a"]
     # 1. Read initial statistics before transition
     stats_a = store.read_corpus_statistics("workspace-1", profile_a.id)
-    assert stats_a.statistics_digest == profile_a.statistics_digest
+    assert stats_a.base_statistics_digest == profile_a.statistics_digest
     assert stats_a.total_chunks == 2
     assert stats_a.total_tokens > 0
 
@@ -468,7 +489,7 @@ def test_read_corpus_statistics_transition_and_revocation() -> None:
 
     # During staging, reader still returns stats for profile A
     stats_during = store.read_corpus_statistics("workspace-1", profile_a.id)
-    assert stats_during.statistics_digest == profile_a.statistics_digest
+    assert stats_during.base_statistics_digest == profile_a.statistics_digest
 
     # Commit transition atomically
     receipt1 = StageReceipt("gen-1-b", 1, gen1_b.content_digest())
@@ -477,7 +498,8 @@ def test_read_corpus_statistics_transition_and_revocation() -> None:
 
     # Reader now returns stats for profile B
     stats_after = store.read_corpus_statistics("workspace-1", profile_b.id)
-    assert stats_after.statistics_digest == profile_b.statistics_digest
+    assert stats_after.base_statistics_digest == profile_b.statistics_digest
+    assert stats_after.statistics_digest != stats_a.statistics_digest
 
     # Revoke documents causes read_corpus_statistics to fail closed
     store.revoke(workspace_id="workspace-1", document_id="doc-1")
@@ -635,3 +657,27 @@ def test_statistics_follow_serving_snapshot_not_process_cache(
     statistics_case.activate_two_member_snapshot()
     new = statistics_case.read_worker_a()
     assert old.statistics_digest != new.statistics_digest
+
+
+def test_cold_corpus_transition_requires_every_staged_document_receipt() -> None:
+    store, session, ctx = build_harness()
+    # Reset active_generation_id for both documents to simulate cold workspace
+    ctx["head1"].active_generation_id = None
+    ctx["head2"].active_generation_id = None
+    ctx["row1_a"].status = "requested"
+    ctx["row2_a"].status = "requested"
+
+    gen1 = ctx["gen1_a"]
+    gen2 = ctx["gen2_a"]
+    receipt1 = StageReceipt(gen1.generation_id, 1, gen1.content_digest())
+    receipt2 = StageReceipt(gen2.generation_id, 1, gen2.content_digest())
+
+    # Committing only one staged doc during cold activation must fail
+    with pytest.raises(StaleGenerationError, match="all staged documents in corpus"):
+        store.commit_corpus_transition([(gen1, receipt1)])
+
+    # Committing all staged docs succeeds atomically
+    store.commit_corpus_transition([(gen1, receipt1), (gen2, receipt2)])
+    active = store.read_active_generations("workspace-1", ctx["profile_a"].id)
+    assert len(active) == 2
+    assert {g.document_id for g in active} == {"doc-1", "doc-2"}

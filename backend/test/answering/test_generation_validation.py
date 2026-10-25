@@ -260,6 +260,37 @@ def test_r6_f14_statement_support_rejection_and_acceptance() -> None:
             res_compound, available_evidence_ids=available, alias_to_candidate=alias_map
         )
 
+    # Negative 6: Swapped multi-number facts ("Phí 7 đồng; thời hạn 30 ngày [[E2]].") -> MUST REJECT
+    cand_multi = _make_cand("c_multi", "Phí vận chuyển 30 đồng; thời hạn đổi trả 7 ngày.")
+    alias_map_multi = {"E2": cand_multi}
+    available_multi = ("E2",)
+    res_multi_swapped = GenerationResult(
+        decision="ANSWER",
+        answer="Phí vận chuyển 7 đồng; thời hạn đổi trả 30 ngày [[E2]].",
+        cited_evidence_ids=("E2",),
+        refusal_reason=None,
+    )
+    with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+        validate_generation(
+            res_multi_swapped,
+            available_evidence_ids=available_multi,
+            alias_to_candidate=alias_map_multi,
+        )
+
+    # Positive: Multi-number facts supported -> MUST PASS
+    res_multi_correct = GenerationResult(
+        decision="ANSWER",
+        answer="Phí vận chuyển 30 đồng; thời hạn đổi trả 7 ngày [[E2]].",
+        cited_evidence_ids=("E2",),
+        refusal_reason=None,
+    )
+    val_multi = validate_generation(
+        res_multi_correct,
+        available_evidence_ids=available_multi,
+        alias_to_candidate=alias_map_multi,
+    )
+    assert val_multi.parsed_markers == ("E2",)
+
     # Positive 1: Exact supported claim -> MUST PASS
     res_exact = GenerationResult(
         decision="ANSWER",

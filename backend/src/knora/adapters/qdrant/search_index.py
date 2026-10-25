@@ -68,30 +68,37 @@ class QdrantSearchIndex:
         abs_tolerance: float = 1e-4,
         cosine_tolerance: float = 1e-4,
     ) -> bool:
-        if len(actual) != len(expected):
+        if len(actual) != len(expected) or not actual:
             return False
         dot = 0.0
-        norm_a = 0.0
-        norm_e = 0.0
+        norm_a_sq = 0.0
+        norm_e_sq = 0.0
         max_diff = 0.0
         for a, e in zip(actual, expected, strict=True):
             a_f = float(a)
             e_f = float(e)
+            if not math.isfinite(a_f) or not math.isfinite(e_f):
+                return False
             dot += a_f * e_f
-            norm_a += a_f * a_f
-            norm_e += e_f * e_f
+            norm_a_sq += a_f * a_f
+            norm_e_sq += e_f * e_f
             diff = abs(a_f - e_f)
             if diff > max_diff:
                 max_diff = diff
 
-        if max_diff <= abs_tolerance:
-            return True
-
-        if norm_a <= 0.0 or norm_e <= 0.0:
+        norm_a = math.sqrt(norm_a_sq)
+        norm_e = math.sqrt(norm_e_sq)
+        if norm_a <= 1e-7 or norm_e <= 1e-7:
             return False
 
-        cos_sim = dot / (math.sqrt(norm_a) * math.sqrt(norm_e))
-        return cos_sim >= 1.0 - cosine_tolerance
+        if abs(norm_a - norm_e) / norm_e > 1e-3:
+            return False
+
+        cos_sim = dot / (norm_a * norm_e)
+        if cos_sim < 1.0 - cosine_tolerance:
+            return False
+
+        return max_diff <= abs_tolerance
 
     def _document(self, text: str) -> dict[str, Any]:
         options: dict[str, Any] = {

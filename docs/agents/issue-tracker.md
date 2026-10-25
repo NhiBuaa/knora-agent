@@ -7,7 +7,7 @@ Specifications and plans use the repository locations below.
 
 - Infer the repository from `git remote -v` when running inside this checkout.
 - Create one issue per vertical slice with `gh issue create --title "..." --body "..."`.
-- Read an issue and its discussion with `gh issue view <number> --comments`.
+- Read an issue summary and metadata first with `gh issue view <number> --json title,body,state,labels,url`. Inspect discussion and approval comments targetedly when needed (`gh issue view <number> --comments` or API queries) rather than dumping all comments by default.
 - Apply or remove labels with `gh issue edit <number> --add-label "..."` or `--remove-label "..."`.
 - Do not close or modify a parent issue while publishing child tickets.
 - Use the `ready-for-agent` label only after its triage meaning has been approved.

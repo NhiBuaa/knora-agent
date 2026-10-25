@@ -141,6 +141,7 @@ class PdfSubmissionResult:
     document_id: str
     document_version_id: str
     retained_object_key: str
+    document_archived: bool = False
 
 
 @dataclass(frozen=True, slots=True)
