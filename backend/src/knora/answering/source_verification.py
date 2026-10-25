@@ -286,10 +286,10 @@ def read_canonical_source_scope(
             reason="multiple authorized sources possible",
         )
 
-    if store is None or snapshot is None:
+    if store is None or not snapshot:
         return CanonicalScopeReadResult(
             outcome="UNVERIFIED",
-            reason="canonical store and snapshot are required for verification",
+            reason="canonical store and non-empty snapshot are required for verification",
         )
 
     if hasattr(store, "read_canonical_chunks_for_scope"):
@@ -304,7 +304,7 @@ def read_canonical_source_scope(
                 anchors=tuple(c.chunk_id for c in matching),
             )
 
-    if complete_catalog is not None:
+    if complete_catalog is not None and snapshot:
         cat_lower = [c.casefold() for c in complete_catalog]
         if target_item.casefold() not in cat_lower:
             return CanonicalScopeReadResult(

@@ -139,17 +139,17 @@ class PostgresAnsweringStore(AnsweringStore):
                     ),
                 )
             )
-            if isinstance(snapshot, (tuple, list)):
-                cset_ids = [
-                    getattr(item, "chunk_set_id", None)
-                    for item in snapshot
-                    if getattr(item, "chunk_set_id", None)
-                ]
-                if cset_ids:
-                    statement = statement.where(ChunkSetTable.id.in_(cset_ids))
-                else:
-                    return []
-            statement = statement.order_by(ChunkTable.ordinal.asc()).offset(cursor).limit(limit)
+            if not isinstance(snapshot, (tuple, list)) or not snapshot:
+                return []
+            cset_ids = [
+                getattr(item, "chunk_set_id", None)
+                for item in snapshot
+                if getattr(item, "chunk_set_id", None)
+            ]
+            if not cset_ids:
+                return []
+            statement = statement.where(ChunkSetTable.id.in_(cset_ids))
+            statement = statement.order_by(ChunkTable.ordinal.asc())
             rows = session.execute(statement).all()
             pattern = re.compile(
                 rf"(?<![0-9A-Za-zÀ-ỹ]){re.escape(term)}(?![0-9A-Za-zÀ-ỹ])", re.IGNORECASE
@@ -159,6 +159,7 @@ class PostgresAnsweringStore(AnsweringStore):
                 headings = " ".join(chunk.heading_path) if chunk.heading_path else ""
                 if pattern.search(chunk.content) or pattern.search(headings):
                     filtered_rows.append((doc, ver, cs, chunk))
+            paged_rows = filtered_rows[cursor : cursor + limit]
             return [
                 RetrievalCandidate(
                     document_id=document.id,
@@ -183,7 +184,7 @@ class PostgresAnsweringStore(AnsweringStore):
                     start_offset=chunk.start_offset,
                     end_offset=chunk.end_offset,
                 )
-                for document, version, chunk_set, chunk in filtered_rows
+                for document, version, chunk_set, chunk in paged_rows
             ]
 
     def _revalidate_lexical_trace(self, session: Session, trace: QuestionTraceRecord) -> None:
@@ -1109,3 +1110,6 @@ class PostgresAnsweringStore(AnsweringStore):
         except (KnoraError, TypeError, ValueError):
             return False
         return True
+
+    def has_complete_scope_proof(self, workspace_id: str, snapshot: object) -> bool:
+        return bool(isinstance(snapshot, (tuple, list)) and snapshot)
