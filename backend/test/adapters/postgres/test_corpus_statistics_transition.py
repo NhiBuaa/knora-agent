@@ -100,15 +100,25 @@ class MockSession:
                     ]
                 )
                 return MockScalarResult(doc_ids)
+            has_active_filter = "active_generation_id" in str(statement)
+            if has_active_filter:
+                doc_ids = sorted(
+                    [
+                        r.id
+                        for (m, _), r in self.rows.items()
+                        if m is DocumentTable
+                        and r.workspace_id == ws_id
+                        and not r.archived
+                        and self.heads.get(r.id)
+                        and self.heads[r.id].active_generation_id
+                    ]
+                )
+                return MockScalarResult(doc_ids)
             doc_ids = sorted(
                 [
                     r.id
                     for (m, _), r in self.rows.items()
-                    if m is DocumentTable
-                    and r.workspace_id == ws_id
-                    and not r.archived
-                    and self.heads.get(r.id)
-                    and self.heads[r.id].active_generation_id
+                    if m is DocumentTable and r.workspace_id == ws_id and not r.archived
                 ]
             )
             return MockScalarResult(doc_ids)
@@ -545,7 +555,7 @@ def test_cold_corpus_transition_requires_every_staged_document_receipt() -> None
     receipt2 = StageReceipt(gen2.generation_id, 1, gen2.content_digest())
 
     # Committing only one staged doc during cold activation must fail
-    with pytest.raises(StaleGenerationError, match="all staged documents in corpus"):
+    with pytest.raises(StaleGenerationError, match="all canonical documents in corpus"):
         store.commit_corpus_transition([(gen1, receipt1)])
 
     # Committing all staged docs succeeds atomically
