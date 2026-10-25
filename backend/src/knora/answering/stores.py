@@ -53,13 +53,11 @@ class RetrievalConfiguration:
 
     @property
     def is_v3_retrieval(self) -> bool:
-        return (
-            bool(self.sdm_policy_id)
-            or bool(self.reranking_policy_id)
-            or self.strategy in {"dense-only", "hybrid"}
-            or bool(self.fusion_policy_id)
-            or (bool(self.id) and self.id.endswith("-v3"))
-        )
+        if bool(self.id) and self.id.endswith("-v3"):
+            return True
+        if self.fusion_policy_id == "dbsf-v1":
+            return True
+        return bool(self.sdm_policy_id) or bool(self.reranking_policy_id)
 
     @classmethod
     def bm25_diagnostic_v1(cls) -> "RetrievalConfiguration":

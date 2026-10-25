@@ -1,8 +1,9 @@
+import re
 from contextlib import contextmanager
 from dataclasses import replace
 from uuid import uuid4
 
-from sqlalchemy import and_, case, exists, func, or_, select
+from sqlalchemy import String, and_, case, exists, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -116,23 +117,29 @@ class PostgresAnsweringStore(AnsweringStore):
     ) -> list[RetrievalCandidate]:
         if not target_item or not target_item.strip():
             return []
+        if snapshot is None:
+            return []
         term = target_item.strip()
         with self._session_factory() as session:
             statement = (
                 select(DocumentTable, DocumentVersionTable, ChunkSetTable, ChunkTable)
-                .join(DocumentVersionTable, DocumentVersionTable.document_id == DocumentTable.id)
+                .join(
+                    DocumentVersionTable,
+                    DocumentVersionTable.id == DocumentTable.current_document_version_id,
+                )
                 .join(ChunkSetTable, ChunkSetTable.document_version_id == DocumentVersionTable.id)
                 .join(ChunkTable, ChunkTable.chunk_set_id == ChunkSetTable.id)
                 .where(
                     DocumentTable.workspace_id == workspace_id,
                     DocumentTable.archived.is_(False),
+                    ChunkSetTable.status == "completed",
                     or_(
                         ChunkTable.content.ilike(f"%{term}%"),
-                        func.array_to_string(ChunkTable.heading_path, " ").ilike(f"%{term}%"),
+                        func.cast(ChunkTable.heading_path, String).ilike(f"%{term}%"),
                     ),
                 )
             )
-            if snapshot is not None and isinstance(snapshot, (tuple, list)):
+            if isinstance(snapshot, (tuple, list)):
                 cset_ids = [
                     getattr(item, "chunk_set_id", None)
                     for item in snapshot
@@ -140,8 +147,18 @@ class PostgresAnsweringStore(AnsweringStore):
                 ]
                 if cset_ids:
                     statement = statement.where(ChunkSetTable.id.in_(cset_ids))
+                else:
+                    return []
             statement = statement.order_by(ChunkTable.ordinal.asc()).offset(cursor).limit(limit)
             rows = session.execute(statement).all()
+            pattern = re.compile(
+                rf"(?<![0-9A-Za-zÀ-ỹ]){re.escape(term)}(?![0-9A-Za-zÀ-ỹ])", re.IGNORECASE
+            )
+            filtered_rows = []
+            for doc, ver, cs, chunk in rows:
+                headings = " ".join(chunk.heading_path) if chunk.heading_path else ""
+                if pattern.search(chunk.content) or pattern.search(headings):
+                    filtered_rows.append((doc, ver, cs, chunk))
             return [
                 RetrievalCandidate(
                     document_id=document.id,
@@ -166,13 +183,13 @@ class PostgresAnsweringStore(AnsweringStore):
                     start_offset=chunk.start_offset,
                     end_offset=chunk.end_offset,
                 )
-                for document, version, chunk_set, chunk in rows
+                for document, version, chunk_set, chunk in filtered_rows
             ]
 
     def _revalidate_lexical_trace(self, session: Session, trace: QuestionTraceRecord) -> None:
         if trace.trace_schema_version != 3:
             return
-        if trace.decision == "REFUSAL" and trace.generation_status == "not_called":
+        if trace.decision == "REFUSAL" and trace.refusal_reason == "CLARIFICATION_REQUIRED":
             return
         try:
             retrieval = trace.provider_metadata["retrieval"]

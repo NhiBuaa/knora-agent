@@ -402,6 +402,48 @@ def _validate_citation_alignment(
             if not _matches_word_boundary(u, cand_full):
                 _invalid()
 
+        # 3b. Number-unit pairing check (F14: prevents fact swapping like "Phí 7 đồng; 30 ngày")
+        num_unit_pairs = re.findall(r"\b(\d+(?:[.,]\d+)?)\s*([a-zA-ZÀ-ỹ]+)\b", norm_seg)
+        for num, unit in num_unit_pairs:
+            if unit in _UNIT_WORDS:
+                if num == "7" and unit in {"ngày", "ngay", "day", "days"}:
+                    if not any(
+                        x in cand_full
+                        for x in [
+                            "7 ngày",
+                            "bảy ngày",
+                            "7 day",
+                            "7 days",
+                            "1 tuần",
+                            "một tuần",
+                            "1 week",
+                            "one week",
+                        ]
+                    ):
+                        _invalid()
+                elif num == "1" and unit in {"tuần", "tuan", "week", "weeks"}:
+                    if not any(
+                        x in cand_full
+                        for x in [
+                            "1 tuần",
+                            "một tuần",
+                            "1 week",
+                            "one week",
+                            "7 ngày",
+                            "bảy ngày",
+                            "7 day",
+                            "7 days",
+                        ]
+                    ):
+                        _invalid()
+                else:
+                    pattern = (
+                        rf"\b{re.escape(num)}\s*(?:\([^\)]*\)\s*)?(?:\w+\s+)?"
+                        rf"{re.escape(unit)}\b"
+                    )
+                    if not re.search(pattern, cand_full):
+                        _invalid()
+
         # 4. Polarity/negation check: ungrounded negation or dropped negation on critical terms
         seg_negs = [w for w in re.findall(r"\b\w+\b", norm_seg) if w in _NEGATION_WORDS]
         cand_negs = [w for w in re.findall(r"\b\w+\b", cand_full) if w in _NEGATION_WORDS]
