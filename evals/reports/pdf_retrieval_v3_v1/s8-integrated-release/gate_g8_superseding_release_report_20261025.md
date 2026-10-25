@@ -78,7 +78,7 @@
 | **S5** (PR #218) | `feat/retrieval-v3-sequential-dependence-ranking`| `C:\Developer\Projects\knora-agent-worktree\feat-retrieval-v3-sequential-dependence-ranking`| `d123feb74fb1cc425353c64e7ebefba31a7d439c` |
 | **S6** (PR #219) | `feat/retrieval-v3-reranking-evidence` | `C:\Developer\Projects\knora-agent-worktree\feat-retrieval-v3-reranking-evidence` | `7fb1795ae982db8200f1118f52263dfa258b46e8` |
 | **S7** (PR #220) | `feat/retrieval-v3-query-understanding-coverage` | `C:\Developer\Projects\knora-agent-worktree\feat-retrieval-v3-query-understanding-coverage` | `cdc372769b70b82599a5a5fe66094cfa4cf4c4e8` |
-| **S8** (PR #221) | `feat/retrieval-v3-integrated-release` | `C:\Developer\Projects\knora-agent-worktree\feat-retrieval-v3-integrated-release` | `[sẽ ghi nhận sau commit]` |
+| **S8** (PR #221) | `feat/retrieval-v3-integrated-release` | `C:\Developer\Projects\knora-agent-worktree\feat-retrieval-v3-integrated-release` | ``b933d37905d4df48ee4dd0df92b0c36b150c266f`` |
 
 ---
 
