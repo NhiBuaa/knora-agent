@@ -17,6 +17,48 @@ ROOT = Path(__file__).resolve().parents[3]
 POWERSHELL = shutil.which("pwsh") or shutil.which("powershell")
 
 
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell guard runner unavailable")
+@pytest.mark.parametrize(
+    "variable", ["COMPOSE_PROJECT_NAME", "FIGMA_E2E_PASSWORD", "M5_E2E_TOKEN", "KEYCLOAK_PORT"]
+)
+def test_copy_preflight_rejects_conflicts_without_logging_values(
+    tmp_path: Path, variable: str
+) -> None:
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    shutil.copy(ROOT / "scripts/run-copy-runtime-verification.ps1", scripts)
+    (scripts / "prepare-figma-e2e.ps1").write_text(
+        "Set-Content -LiteralPath (Join-Path $PSScriptRoot 'launched') -Value 'unexpected'\n"
+    )
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if not re.match(r"^(COMPOSE_PROJECT_NAME|FIGMA_E2E_|M5_E2E_|KEYCLOAK_PORT)", key, re.I)
+    }
+    secret = "synthetic-preflight-value-do-not-log"
+    result = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-NonInteractive",
+            "-File",
+            str(scripts / "run-copy-runtime-verification.ps1"),
+        ],
+        cwd=tmp_path,
+        env={**environment, variable: secret},
+        capture_output=True,
+        text=True,
+        timeout=15,
+    )
+    output = result.stdout + result.stderr
+    assert result.returncode != 0
+    assert "AMBIENT_CONFLICT_DETECTED" in output
+    assert variable in output
+    assert secret not in output, "Preflight exposed a conflicting variable value"
+    assert not (scripts / "launched").exists()
+    assert not (tmp_path / "frontend").exists()
+
+
 @pytest.fixture
 def disposable_runner(tmp_path: Path):
     """Real launcher/OS reservation; replace only Docker, HTTP and realm mutation."""
