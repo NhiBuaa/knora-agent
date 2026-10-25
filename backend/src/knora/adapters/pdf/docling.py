@@ -579,20 +579,21 @@ def _child_docling_extract(
                         updated_detected_tables.append(dt)
                 detected_tables = updated_detected_tables
 
+            detected_spans = {(t.start_offset, t.end_offset) for t in detected_tables}
             text_tables = DoclingTextExtractor._extract_tables_from_blocks_static(
-                page_idx, assembled_blocks
+                page_idx,
+                [
+                    b
+                    for b in assembled_blocks
+                    if (b.start_offset, b.end_offset) not in detected_spans
+                ],
             )
+            # A positioned table's serialized block is already represented by its cells.
             all_tables = tuple(
-                detected_tables
-                + [
-                    t
-                    for t in text_tables
-                    if not any(
-                        abs(t.bbox.top - dt.bbox.top) < 4.0
-                        for dt in detected_tables
-                        if dt.bbox and t.bbox
-                    )
-                ]
+                replace(table, table_id=f"p{page_idx}_t{idx}")
+                for idx, table in enumerate(
+                    sorted(detected_tables + text_tables, key=lambda t: t.start_offset), start=1
+                )
             )
 
             image_records: list[tuple[int, float, bytes]] = []
