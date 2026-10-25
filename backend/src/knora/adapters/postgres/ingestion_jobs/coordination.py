@@ -191,6 +191,10 @@ class PostgresIngestionJobCoordinationStore:
     def _resolve_extraction_configuration(
         parser_configuration_id: str,
     ) -> PdfExtractionConfiguration:
+        if parser_configuration_id == "pdf-parser-docling-native-cloudflare-v2":
+            from knora.adapters.pdf.docling import DoclingExtractionConfiguration
+
+            return DoclingExtractionConfiguration.cloudflare_native_v2()
         if parser_configuration_id == "pdf-parser-docling-native-cloudflare-v1":
             from knora.adapters.pdf.docling import DoclingExtractionConfiguration
 

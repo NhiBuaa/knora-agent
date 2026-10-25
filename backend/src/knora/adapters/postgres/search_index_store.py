@@ -89,12 +89,30 @@ class PostgresSearchIndexStore:
             )
 
         freqs: dict[str, int] = {}
+        ordered_pair_freqs: dict[tuple[str, str], int] = {}
+        window_pair_freqs: dict[tuple[str, str], int] = {}
         total_tokens = 0
+        window_size = 8
         for chunk in chunks:
+            expected_checksum = getattr(chunk, "content_checksum", None)
+            if expected_checksum:
+                actual_checksum = hashlib.sha256(chunk.content.encode("utf-8")).hexdigest()
+                if actual_checksum != expected_checksum:
+                    raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+
             tokens = tokenize_lexical_text(chunk.content)
             total_tokens += len(tokens)
             for tok in tokens:
                 freqs[tok] = freqs.get(tok, 0) + 1
+            for i in range(len(tokens) - 1):
+                pair = (tokens[i], tokens[i + 1])
+                ordered_pair_freqs[pair] = ordered_pair_freqs.get(pair, 0) + 1
+            for i in range(len(tokens)):
+                t1 = tokens[i]
+                for j in range(i + 1, min(len(tokens), i + window_size)):
+                    t2 = tokens[j]
+                    upair = (t1, t2) if t1 <= t2 else (t2, t1)
+                    window_pair_freqs[upair] = window_pair_freqs.get(upair, 0) + 1
 
         content_checksum = hashlib.sha256(
             "".join(
@@ -114,6 +132,8 @@ class PostgresSearchIndexStore:
             statistics_digest=bound_stats_digest,
             snapshot_id=f"snap-{membership_digest[:8]}-{content_checksum[:8]}",
             base_statistics_digest=stats_digest,
+            ordered_pair_frequencies=ordered_pair_freqs,
+            window_pair_frequencies=window_pair_freqs,
         )
         _CORPUS_STATS_CACHE[cache_key] = stats
         return stats
@@ -525,31 +545,24 @@ class PostgresSearchIndexStore:
 
         is_cold_activation = not active_doc_ids
         if is_cold_activation:
-            staged_doc_ids = set(
+            canonical_doc_ids = set(
                 session.scalars(
-                    select(DocumentTable.id)
-                    .join(LexicalHeadTable, LexicalHeadTable.document_id == DocumentTable.id)
-                    .join(
-                        LexicalGenerationTable,
-                        LexicalHeadTable.desired_generation_id == LexicalGenerationTable.id,
-                    )
-                    .where(
+                    select(DocumentTable.id).where(
                         DocumentTable.workspace_id == workspace_id,
                         DocumentTable.archived.is_(False),
-                        LexicalGenerationTable.profile_digest == target_profile_digest,
                     )
                 ).all()
             )
-            if staged_doc_ids and submitted_doc_ids != staged_doc_ids:
-                missing = staged_doc_ids - submitted_doc_ids
+            if canonical_doc_ids and submitted_doc_ids != canonical_doc_ids:
+                missing = canonical_doc_ids - submitted_doc_ids
                 if missing:
                     raise StaleGenerationError(
-                        "corpus transition requires receipts for all staged documents in corpus; "
-                        f"missing: {missing}"
+                        "cold corpus activation requires receipts for all canonical "
+                        f"documents in corpus; missing: {missing}"
                     )
-                extra = submitted_doc_ids - staged_doc_ids
+                extra = submitted_doc_ids - canonical_doc_ids
                 raise StaleGenerationError(
-                    f"corpus transition contains unexpected unstaged documents; extra: {extra}"
+                    f"cold corpus activation contains unexpected documents; extra: {extra}"
                 )
 
         for generation, receipt in items:

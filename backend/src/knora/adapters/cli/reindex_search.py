@@ -155,19 +155,15 @@ def load_profile(
                             documents=corpus_docs,
                         )
                         return snapshot.profile
-            except Exception:
-                pass
-        empty_digest = hashlib.sha256(
-            f"dynamic-corpus-{workspace_id or 'default'}-{lexical_policy_id}".encode()
-        ).hexdigest()
-        return LexicalProfile(
-            id=lexical_policy_id,
-            tokenizer="tiktoken",
-            tokenizer_version="cl100k_base",
-            k1=1.2,
-            b=0.75,
-            avg_len=256.0,
-            statistics_digest=empty_digest,
+                    raise ValueError(
+                        f"cannot build profile from empty corpus for {lexical_policy_id}"
+                    )
+            except Exception as exc:
+                raise ValueError(
+                    f"failed to load corpus profile for {lexical_policy_id}: {exc}"
+                ) from exc
+        raise ValueError(
+            "reindex requires a reviewed lexical population profile or non-empty corpus"
         )
     raise ValueError("reindex requires a reviewed lexical population profile or explicit profile")
 

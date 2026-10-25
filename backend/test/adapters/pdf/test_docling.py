@@ -560,9 +560,9 @@ def test_r2_n02_identity_and_configuration_isolation() -> None:
     docling_sub = PdfSubmissionConfiguration.docling_native(embedding_configuration=embed_cfg)
 
     # 1. Submission IDs must match docling native, not pypdf
-    assert docling_sub.parser_configuration_id == "pdf-parser-docling-native-cloudflare-v1"
-    assert docling_sub.chunking_configuration.id == "chunking-docling-native-cf-v1"
-    assert docling_sub.chunking_configuration.parser_version == "docling-native-cf-v1"
+    assert docling_sub.parser_configuration_id == "pdf-parser-docling-native-cloudflare-v2"
+    assert docling_sub.chunking_configuration.id == "chunking-docling-native-cf-v2"
+    assert docling_sub.chunking_configuration.parser_version == "docling-native-cf-v2"
 
     # 2. DoclingTextExtractor rejects pypdf configuration
     from knora.ingestion.pdf import PdfExtractionConfiguration
@@ -576,10 +576,15 @@ def test_r2_n02_identity_and_configuration_isolation() -> None:
 
     # 3. Coordination store resolves docling native correctly
     resolved = PostgresIngestionJobCoordinationStore._resolve_extraction_configuration(
-        "pdf-parser-docling-native-cloudflare-v1"
+        "pdf-parser-docling-native-cloudflare-v2"
     )
     assert isinstance(resolved, DoclingExtractionConfiguration)
-    assert resolved.parser_version == "docling-native-cf-v1"
+    assert resolved.parser_version == "docling-native-cf-v2"
+    resolved_v1 = PostgresIngestionJobCoordinationStore._resolve_extraction_configuration(
+        "pdf-parser-docling-native-cloudflare-v1"
+    )
+    assert isinstance(resolved_v1, DoclingExtractionConfiguration)
+    assert resolved_v1.parser_version == "docling-native-cf-v1"
 
     # 4. Coordination store rejects unknown parser ID
     with pytest.raises(CoordinationInvariantError):
