@@ -176,10 +176,13 @@ _SECTION_WORDS = {
 _SYNONYM_PAIRS: tuple[tuple[str, str], ...] = (
     ("khách hàng", "người mua"),
     ("khách hàng", "người tiêu dùng"),
+    ("khách hàng", "khách"),
     ("thời hạn", "thời gian"),
     ("đổi trả", "hoàn trả"),
     ("đổi trả", "trả hàng"),
-    ("bảo hành", "bảo trì"),
+    ("hoàn tiền", "tiền hoàn lại"),
+    ("hoàn tiền", "nhận lại tiền"),
+    ("được hoàn tiền", "nhận được tiền hoàn lại"),
     ("chi phí", "giá cả"),
     ("chi phí", "giá"),
 )
@@ -243,6 +246,7 @@ _FRAMING_WORDS = {
     "matching",
     "result",
     "found",
+    "nhận",
 }
 
 _STOPWORDS = {
@@ -481,7 +485,7 @@ def _validate_citation_alignment(
         ]
         if any(re.search(p, norm_seg) for p in filler_patterns):
             cand_words = set(re.findall(r"\w+", cand_content)) - _STOPWORDS
-            cand_words = {w for w in cand_words if len(w) >= 2 and not w.isdigit()}
+            cand_words = {w for w in cand_words if not w.isdigit()}
             seg_substantive = [
                 w for w in re.findall(r"\w+", norm_seg) if w not in _STOPWORDS and not w.isdigit()
             ]
@@ -502,10 +506,10 @@ def _validate_citation_alignment(
                         cand_words.add(w)
 
         # Split segment into individual statements/clauses
-        statements = [s.strip() for s in re.split(r"[;\n]|(?<=[.!?])\s+", seg_text) if s.strip()]
+        statements = [s.strip() for s in re.split(r"[,;\n]|(?<=[.!?])\s+", seg_text) if s.strip()]
         cand_clauses = [
             c.strip()
-            for c in re.split(r"[;\n]|(?<=[.!?])\s+|(?:\s*,\s*(?:và|hoặc)\s*)", cand_full)
+            for c in re.split(r"[,;\n]|(?<=[.!?])\s+|(?:\s*,\s*(?:và|hoặc)\s*)", cand_full)
             if c.strip()
         ]
         for stmt in statements:
@@ -551,7 +555,8 @@ def _validate_citation_alignment(
                                     c_words.update(re.findall(r"\w+", b))
                                 if b in clause:
                                     c_words.update(re.findall(r"\w+", a))
-                            if stmt_content_words & c_words:
+                            diff = stmt_content_words - c_words
+                            if not diff:
                                 matched_clause = True
                                 break
                     if not matched_clause and stmt_content_words:

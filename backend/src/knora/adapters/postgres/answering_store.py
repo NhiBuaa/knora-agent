@@ -149,7 +149,7 @@ class PostgresAnsweringStore(AnsweringStore):
             if not cset_ids:
                 return []
             statement = statement.where(ChunkSetTable.id.in_(cset_ids))
-            statement = statement.order_by(ChunkTable.ordinal.asc())
+            statement = statement.order_by(ChunkTable.ordinal.asc()).limit(1000)
             rows = session.execute(statement).all()
             pattern = re.compile(
                 rf"(?<![0-9A-Za-zÀ-ỹ]){re.escape(term)}(?![0-9A-Za-zÀ-ỹ])", re.IGNORECASE
@@ -1112,4 +1112,43 @@ class PostgresAnsweringStore(AnsweringStore):
         return True
 
     def has_complete_scope_proof(self, workspace_id: str, snapshot: object) -> bool:
-        return bool(isinstance(snapshot, (tuple, list)) and snapshot)
+        if not isinstance(snapshot, (tuple, list)) or not snapshot:
+            return False
+        try:
+            with self._sessions.begin() as session:
+                canonical_doc_ids = set(
+                    session.scalars(
+                        select(DocumentTable.id).where(
+                            DocumentTable.workspace_id == workspace_id,
+                            DocumentTable.archived.is_(False),
+                        )
+                    ).all()
+                )
+                if not canonical_doc_ids:
+                    return False
+                snapshot_doc_ids = {
+                    getattr(item, "document_id", None)
+                    for item in snapshot
+                    if getattr(item, "document_id", None)
+                }
+                if not snapshot_doc_ids:
+                    cset_ids = [
+                        getattr(item, "chunk_set_id", None)
+                        for item in snapshot
+                        if getattr(item, "chunk_set_id", None)
+                    ]
+                    if cset_ids:
+                        docs_from_cs = set(
+                            session.scalars(
+                                select(DocumentVersionTable.document_id)
+                                .join(
+                                    ChunkSetTable,
+                                    ChunkSetTable.document_version_id == DocumentVersionTable.id,
+                                )
+                                .where(ChunkSetTable.id.in_(cset_ids))
+                            ).all()
+                        )
+                        snapshot_doc_ids = docs_from_cs
+                return bool(snapshot_doc_ids and canonical_doc_ids.issubset(snapshot_doc_ids))
+        except Exception:
+            return False
