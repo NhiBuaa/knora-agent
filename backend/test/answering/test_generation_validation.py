@@ -235,6 +235,31 @@ def test_r6_f14_statement_support_rejection_and_acceptance() -> None:
             res_swapped, available_evidence_ids=available, alias_to_candidate=alias_map
         )
 
+    # Negative 4: Ungrounded claim ("Đổi trả miễn phí trong 7 ngày [[E1]].") -> MUST REJECT
+    res_free = GenerationResult(
+        decision="ANSWER",
+        answer="Đổi trả miễn phí trong 7 ngày [[E1]].",
+        cited_evidence_ids=("E1",),
+        refusal_reason=None,
+    )
+    with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+        validate_generation(
+            res_free, available_evidence_ids=available, alias_to_candidate=alias_map
+        )
+
+    # Negative 5: Compound statement with alien clause
+    # ("Đổi trả 7 ngày; Sao Hỏa có sự sống [[E1]].") -> MUST REJECT
+    res_compound = GenerationResult(
+        decision="ANSWER",
+        answer="Đổi trả 7 ngày; Sao Hỏa có sự sống [[E1]].",
+        cited_evidence_ids=("E1",),
+        refusal_reason=None,
+    )
+    with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+        validate_generation(
+            res_compound, available_evidence_ids=available, alias_to_candidate=alias_map
+        )
+
     # Positive 1: Exact supported claim -> MUST PASS
     res_exact = GenerationResult(
         decision="ANSWER",
@@ -270,3 +295,15 @@ def test_r6_f14_statement_support_rejection_and_acceptance() -> None:
         res_concise, available_evidence_ids=available, alias_to_candidate=alias_map
     )
     assert val_concise.parsed_markers == ("E1",)
+
+    # Positive 4: Citation after period ("7 ngày. [[E1]]") -> MUST PASS
+    res_period = GenerationResult(
+        decision="ANSWER",
+        answer="7 ngày. [[E1]]",
+        cited_evidence_ids=("E1",),
+        refusal_reason=None,
+    )
+    val_period = validate_generation(
+        res_period, available_evidence_ids=available, alias_to_candidate=alias_map
+    )
+    assert val_period.parsed_markers == ("E1",)

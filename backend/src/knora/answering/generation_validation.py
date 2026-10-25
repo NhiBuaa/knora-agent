@@ -209,6 +209,30 @@ _UNIT_WORDS = {
 }
 
 _NEGATION_WORDS = {"không", "chưa", "chẳng", "not", "never"}
+_FRAMING_WORDS = {
+    "thời",
+    "hạn",
+    "thời gian",
+    "quy",
+    "định",
+    "chính",
+    "sách",
+    "áp",
+    "dụng",
+    "chi",
+    "tiết",
+    "thông",
+    "tin",
+    "vòng",
+    "khoảng",
+    "mức",
+    "nội",
+    "dung",
+    "match",
+    "matching",
+    "result",
+    "found",
+}
 
 _STOPWORDS = {
     "và",
@@ -411,19 +435,38 @@ def _validate_citation_alignment(
             if not any(w in cand_words for w in seg_substantive):
                 _invalid()
 
-        # 6. Substantive facts check:
+        # 6. Substantive facts & statement-level support check (F14 / D5):
         cand_words = set(re.findall(r"\w+", cand_full)) - _STOPWORDS
         cand_words = {w for w in cand_words if len(w) >= 2 and not w.isdigit()}
+
+        # Split segment into individual statements/clauses
+        statements = [s.strip() for s in re.split(r"[;\n]|(?<=[.!?])\s+", seg_text) if s.strip()]
+        for stmt in statements:
+            norm_stmt = unicodedata.normalize("NFKC", stmt).casefold()
+            stmt_words = [
+                w for w in re.findall(r"\w+", norm_stmt) if w not in _STOPWORDS and not w.isdigit()
+            ]
+            non_unit_stmt = [w for w in stmt_words if w not in _UNIT_WORDS]
+            if non_unit_stmt:
+                matched_stmt = [w for w in non_unit_stmt if w in cand_words]
+                if not matched_stmt:
+                    _invalid()
+                # Ungrounded substantive claims (e.g. "miễn phí", "sao hỏa", "phí vận chuyển")
+                unsupported_stmt = [
+                    w for w in non_unit_stmt if w not in cand_words and w not in _FRAMING_WORDS
+                ]
+                if unsupported_stmt:
+                    _invalid()
+
         seg_words = [
             w for w in re.findall(r"\w+", norm_seg) if w not in _STOPWORDS and not w.isdigit()
         ]
         non_unit_seg = [w for w in seg_words if w not in _UNIT_WORDS]
-
-        # If claim contains substantive non-unit terms (e.g. "phí vận chuyển", "sao hỏa"),
-        # they must be grounded
         if non_unit_seg:
-            matched_non_unit = [w for w in non_unit_seg if w in cand_words]
-            if not matched_non_unit:
+            unsupported_seg = [
+                w for w in non_unit_seg if w not in cand_words and w not in _FRAMING_WORDS
+            ]
+            if unsupported_seg:
                 _invalid()
 
         if is_multi_group and not seg_numbers:
@@ -450,7 +493,7 @@ def validate_generation(
         if (
             result.answer is not None
             or result.cited_evidence_ids != ()
-            or result.refusal_reason != "INSUFFICIENT_EVIDENCE"
+            or result.refusal_reason not in {"INSUFFICIENT_EVIDENCE", "CLARIFICATION_REQUIRED"}
         ):
             _invalid()
         return ValidatedGeneration(result=result, parsed_markers=())

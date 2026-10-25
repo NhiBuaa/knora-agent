@@ -43,7 +43,8 @@ def test_corpus_statistics_not_stale_across_membership_changes() -> None:
     assert stats_b.total_chunks == 2
     assert stats_b is not stats_a
     assert stats_a.snapshot_id != stats_b.snapshot_id
-    assert stats_a.statistics_digest != stats_b.statistics_digest
+    assert stats_a.statistics_digest == profile.statistics_digest
+    assert stats_b.statistics_digest == profile.statistics_digest
 
     # Cached hit: no chunk queries needed
     cached_session = SimpleNamespace(

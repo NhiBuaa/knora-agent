@@ -176,8 +176,8 @@ class NativeQdrantSearchIndex:
                 raise ProjectionResponseError("Qdrant collection configuration is incompatible")
 
             if (
-                "distance" in dense_params
-                and str(dense_params.get("distance")).lower()
+                "distance" not in dense_params
+                or str(dense_params.get("distance")).lower()
                 != str(expected_dense.get("distance")).lower()
             ):
                 raise ProjectionResponseError("Qdrant collection configuration is incompatible")
@@ -186,13 +186,14 @@ class NativeQdrantSearchIndex:
             if datatype is not None and datatype not in ("float32", None):
                 raise ProjectionResponseError("Qdrant collection configuration is incompatible")
 
-            if dense_params.get("on_disk") is False:
+            if dense_params.get("on_disk") is not True:
                 raise ProjectionResponseError("Qdrant collection configuration is incompatible")
 
             hnsw = dense_params.get("hnsw_config")
-
-            if isinstance(hnsw, dict) and (
-                hnsw.get("m", 16) < 16 or hnsw.get("ef_construct", 100) < 100
+            if (
+                not isinstance(hnsw, dict)
+                or hnsw.get("m", 0) < 16
+                or hnsw.get("ef_construct", 0) < 100
             ):
                 raise ProjectionResponseError("Qdrant collection configuration is incompatible")
 

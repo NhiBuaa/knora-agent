@@ -51,6 +51,16 @@ class RetrievalConfiguration:
             if self.fusion_policy_id is None:
                 raise ValueError("hybrid retrieval requires a fusion policy")
 
+    @property
+    def is_v3_retrieval(self) -> bool:
+        return (
+            bool(self.sdm_policy_id)
+            or bool(self.reranking_policy_id)
+            or self.strategy in {"dense-only", "hybrid"}
+            or bool(self.fusion_policy_id)
+            or (bool(self.id) and self.id.endswith("-v3"))
+        )
+
     @classmethod
     def bm25_diagnostic_v1(cls) -> "RetrievalConfiguration":
         """Offline composition only; no deployment selector or calibrated acceptance claim."""
@@ -465,6 +475,16 @@ class AnsweringStore(Protocol):
     ) -> object | None: ...
 
     def persist_trace(self, trace: QuestionTraceRecord) -> str: ...
+
+    def read_canonical_chunks_for_scope(
+        self,
+        workspace_id: str,
+        target_item: str,
+        snapshot: object,
+        *,
+        cursor: int = 0,
+        limit: int = 1024,
+    ) -> list[RetrievalCandidate]: ...
 
     def read_conversation_result(
         self, workspace_id: str, turn_id: str

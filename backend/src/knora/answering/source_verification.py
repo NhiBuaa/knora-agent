@@ -57,6 +57,7 @@ async def verify_missing_sources(
     *,
     all_known_candidates: Sequence[RetrievalCandidate] | None = None,
     known_section_catalog: Sequence[str] | None = None,
+    snapshot: Any | None = None,
 ) -> SourceVerificationResult:
     """Executes a single finite recovery pass to verify missing required subquestions."""
     if not missing_subquestions:
@@ -85,6 +86,52 @@ async def verify_missing_sources(
         # Extract section constraints
         section_spans = [s.text for s in sq.protected_spans if s.category == "section"]
         query_text = section_spans[0] if section_spans else sq.text
+
+        if (
+            store is not None
+            and hasattr(store, "read_canonical_chunks_for_scope")
+            and snapshot is not None
+        ):
+            canon_res = read_canonical_source_scope(
+                store=store,
+                workspace_id=workspace_id,
+                target_item=query_text,
+                snapshot=snapshot,
+                complete_catalog=known_section_catalog,
+            )
+            if canon_res.outcome == "FOUND":
+                outcomes.append(
+                    GroupVerificationOutcome(
+                        group_id=sq.id,
+                        status="found",
+                        recovered_chunk_ids=tuple(c.chunk_id for c in canon_res.recovered_chunks),
+                        reason=f"Recovered {len(canon_res.recovered_chunks)} chunks",
+                        checked_sections=tuple(section_spans),
+                    )
+                )
+                all_recovered.extend(canon_res.recovered_chunks)
+                known_cids.update(c.chunk_id for c in canon_res.recovered_chunks)
+                continue
+            elif canon_res.outcome == "VERIFIED_ABSENT":
+                outcomes.append(
+                    GroupVerificationOutcome(
+                        group_id=sq.id,
+                        status="verified_absent",
+                        reason=canon_res.reason,
+                        checked_sections=tuple(section_spans),
+                    )
+                )
+                continue
+            elif canon_res.outcome == "AMBIGUOUS":
+                outcomes.append(
+                    GroupVerificationOutcome(
+                        group_id=sq.id,
+                        status="ambiguous",
+                        reason=canon_res.reason,
+                        checked_sections=tuple(section_spans),
+                    )
+                )
+                continue
 
         try:
             # Execute targeted BM25 lookup (0 query embeddings)
@@ -239,19 +286,17 @@ def read_canonical_source_scope(
             reason="multiple authorized sources possible",
         )
 
-    if complete_catalog is not None:
-        cat_lower = [c.casefold() for c in complete_catalog]
-        if target_item.casefold() not in cat_lower:
-            return CanonicalScopeReadResult(
-                outcome="VERIFIED_ABSENT",
-                reason=f"{target_item} is absent from complete catalog",
-            )
+    if store is None or snapshot is None:
+        return CanonicalScopeReadResult(
+            outcome="UNVERIFIED",
+            reason="canonical store and snapshot are required for verification",
+        )
 
-    if store is not None and hasattr(store, "read_canonical_chunks_for_scope"):
+    if hasattr(store, "read_canonical_chunks_for_scope"):
         matching = store.read_canonical_chunks_for_scope(
             workspace_id, target_item, snapshot, cursor=cursor, limit=limits
         )
-        if matching:
+        if isinstance(matching, (list, tuple)) and matching:
             return CanonicalScopeReadResult(
                 outcome="FOUND",
                 recovered_chunks=tuple(matching),
@@ -259,7 +304,19 @@ def read_canonical_source_scope(
                 anchors=tuple(c.chunk_id for c in matching),
             )
 
+    if complete_catalog is not None:
+        cat_lower = [c.casefold() for c in complete_catalog]
+        if target_item.casefold() not in cat_lower:
+            return CanonicalScopeReadResult(
+                outcome="VERIFIED_ABSENT",
+                reason=f"{target_item} is absent from complete catalog",
+            )
+        return CanonicalScopeReadResult(
+            outcome="UNVERIFIED",
+            reason=f"{target_item} in catalog but not found in canonical chunks",
+        )
+
     return CanonicalScopeReadResult(
         outcome="UNVERIFIED",
-        reason="canonical scope unverified",
+        reason="canonical scope unverified without complete catalog",
     )

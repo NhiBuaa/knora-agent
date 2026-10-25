@@ -193,17 +193,42 @@ def test_r6_f13_read_canonical_source_scope_outcomes() -> None:
     )
     assert two_authorized_possible_sources.outcome == "AMBIGUOUS"
 
-    # Case 3: Complete catalog without Chapter 5 returns VERIFIED_ABSENT
-    complete_scope_without_chapter5 = read_canonical_source_scope(
+    # Case 3: Store or snapshot missing returns UNVERIFIED (Q6/F13 safety)
+    store_missing = read_canonical_source_scope(
         store=None,
+        workspace_id="ws-1",
+        target_item="Chương 5",
+        snapshot="snap-1",
+        complete_catalog=["Chương 1", "Chương 2", "Chương 3", "Chương 4"],
+    )
+    assert store_missing.outcome == "UNVERIFIED"
+
+    snapshot_missing = read_canonical_source_scope(
+        store=_FakeStore([]),
         workspace_id="ws-1",
         target_item="Chương 5",
         snapshot=None,
         complete_catalog=["Chương 1", "Chương 2", "Chương 3", "Chương 4"],
     )
+    assert snapshot_missing.outcome == "UNVERIFIED"
+
+    # Case 4: Complete scope checked against PG store under snapshot returns VERIFIED_ABSENT
+    class _FakePgEmptyScopeStore:
+        def read_canonical_chunks_for_scope(
+            self, workspace_id, target_item, snapshot, cursor=0, limit=1024
+        ):
+            return []
+
+    complete_scope_without_chapter5 = read_canonical_source_scope(
+        store=_FakePgEmptyScopeStore(),
+        workspace_id="ws-1",
+        target_item="Chương 5",
+        snapshot="snap-1",
+        complete_catalog=["Chương 1", "Chương 2", "Chương 3", "Chương 4"],
+    )
     assert complete_scope_without_chapter5.outcome == "VERIFIED_ABSENT"
 
-    # Case 4: Top-K empty but PG has Chapter 5 returns FOUND
+    # Case 5: Top-K empty but PG has Chapter 5 returns FOUND
     class _FakePgScopeStore:
         def read_canonical_chunks_for_scope(
             self, workspace_id, target_item, snapshot, cursor=0, limit=1024
@@ -214,7 +239,7 @@ def test_r6_f13_read_canonical_source_scope_outcomes() -> None:
         store=_FakePgScopeStore(),
         workspace_id="ws-1",
         target_item="Chương 5",
-        snapshot=None,
+        snapshot="snap-1",
     )
     assert topk_empty_but_pg_has_chapter5.outcome == "FOUND"
     assert len(topk_empty_but_pg_has_chapter5.recovered_chunks) == 1

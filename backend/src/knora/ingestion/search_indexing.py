@@ -337,17 +337,16 @@ class LexicalIndexHandler:
                 ):
                     raise LexicalGenerationError("authoritative text checksum is invalid")
 
-            if self._lexical_population is not None:
-                self._lexical_population.validate_document(
-                    work.source_sha256,
-                    tuple(
-                        texts[chunk.chunk_id]
-                        for chunk in sorted(generation.chunks, key=lambda c: c.ordinal)
-                    ),
-                    generation.lexical_profile,
-                )
-            elif not generation.lexical_profile.id.startswith("corpus-dynamic"):
-                raise LexicalGenerationError("verified lexical population is required")
+            if self._lexical_population is None:
+                raise LexicalGenerationError("lexical population is required")
+            self._lexical_population.validate_document(
+                work.source_sha256,
+                tuple(
+                    texts[chunk.chunk_id]
+                    for chunk in sorted(generation.chunks, key=lambda c: c.ordinal)
+                ),
+                generation.lexical_profile,
+            )
 
             chunk_vectors = dict(loaded.chunk_vectors) if loaded.chunk_vectors is not None else None
 
