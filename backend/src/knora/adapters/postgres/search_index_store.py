@@ -35,7 +35,7 @@ from knora.ingestion.search_indexing import (
     StaleGenerationError,
 )
 
-_CORPUS_STATS_CACHE: dict[tuple[str, str], CorpusStatistics] = {}
+_CORPUS_STATS_CACHE: dict[tuple[str, str, str, str], CorpusStatistics] = {}
 
 
 class PostgresSearchIndexStore:
@@ -73,7 +73,7 @@ class PostgresSearchIndexStore:
             f"{g.chunk_set_id}:{getattr(g, 'document_version_id', '')}" for g in generations
         ]
         membership_digest = hashlib.sha256("".join(membership_items).encode("utf-8")).hexdigest()
-        cache_key = (workspace_id, lexical_policy_id, membership_digest)
+        cache_key = (workspace_id, lexical_policy_id, membership_digest, stats_digest)
 
         if cache_key in _CORPUS_STATS_CACHE:
             return _CORPUS_STATS_CACHE[cache_key]
@@ -96,16 +96,12 @@ class PostgresSearchIndexStore:
             for tok in tokens:
                 freqs[tok] = freqs.get(tok, 0) + 1
 
-        computed_digest = hashlib.sha256(
-            f"{stats_digest}:{membership_digest}:{total_tokens}".encode()
-        ).hexdigest()
-
         stats = CorpusStatistics(
             total_tokens=max(1, total_tokens),
             total_chunks=len(chunks),
             unigram_frequencies=freqs,
             average_chunk_length=total_tokens / len(chunks) if chunks else 0.0,
-            statistics_digest=computed_digest,
+            statistics_digest=stats_digest,
             snapshot_id=f"snap-{membership_digest[:16]}",
         )
         _CORPUS_STATS_CACHE[cache_key] = stats
