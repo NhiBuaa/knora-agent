@@ -67,6 +67,7 @@ class QdrantSearchIndex:
         *,
         abs_tolerance: float = 1e-4,
         cosine_tolerance: float = 1e-4,
+        allow_normalized: bool = False,
     ) -> bool:
         if len(actual) != len(expected) or not actual:
             return False
@@ -91,14 +92,22 @@ class QdrantSearchIndex:
         if norm_a <= 1e-7 or norm_e <= 1e-7:
             return False
 
-        if abs(norm_a - norm_e) / norm_e > 1e-3:
-            return False
-
         cos_sim = dot / (norm_a * norm_e)
         if cos_sim < 1.0 - cosine_tolerance:
             return False
 
-        return max_diff <= abs_tolerance
+        # Direct coordinate match for unnormalized raw vectors
+        if max_diff <= abs_tolerance and abs(norm_a - norm_e) / norm_e <= 1e-3:
+            return True
+
+        # Normalized readback (Qdrant Cosine metric produces unit vectors)
+        if allow_normalized and abs(norm_a - 1.0) <= 1e-3:
+            max_norm_diff = max(
+                abs(float(a) - float(e) / norm_e) for a, e in zip(actual, expected, strict=True)
+            )
+            return max_norm_diff <= abs_tolerance or cos_sim >= 1.0 - cosine_tolerance
+
+        return False
 
     def _document(self, text: str) -> dict[str, Any]:
         options: dict[str, Any] = {
@@ -356,7 +365,14 @@ class QdrantSearchIndex:
                             "persisted chunk missing from expected chunk vectors"
                         )
                     expected_pg_vec = expected_chunk_vectors[chunk_match.chunk_id]
-                    if not self._vectors_equivalent(dense_vec, expected_pg_vec):
+                    is_cosine = (
+                        self.embedding_configuration is not None
+                        and getattr(self.embedding_configuration, "distance", "Cosine").lower()
+                        == "cosine"
+                    )
+                    if not self._vectors_equivalent(
+                        dense_vec, expected_pg_vec, allow_normalized=is_cosine
+                    ):
                         raise ProjectionResponseError(
                             "persisted dense vector differs from expected PG vector"
                         )

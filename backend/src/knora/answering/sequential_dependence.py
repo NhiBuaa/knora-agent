@@ -35,6 +35,8 @@ class CorpusStatistics:
     statistics_digest: str | None = None
     snapshot_id: str | None = None
     base_statistics_digest: str | None = None
+    ordered_pair_frequencies: Mapping[tuple[str, str], int] = field(default_factory=dict)
+    window_pair_frequencies: Mapping[tuple[str, str], int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.total_tokens <= 0:
@@ -104,6 +106,13 @@ class SequentialDependenceScorer:
         return 1.0 / (self.corpus_stats.total_tokens + 1.0)
 
     def _background_ordered_prob(self, t1: str, t2: str) -> float:
+        if self.corpus_stats and self.corpus_stats.ordered_pair_frequencies:
+            cf = self.corpus_stats.ordered_pair_frequencies.get((t1, t2), 0)
+            if cf > 0:
+                total_pairs = max(
+                    1, self.corpus_stats.total_tokens - self.corpus_stats.total_chunks
+                )
+                return cf / total_pairs
         p1 = self._background_unigram_prob(t1)
         p2 = self._background_unigram_prob(t2)
         prod = p1 * p2
@@ -113,6 +122,12 @@ class SequentialDependenceScorer:
         return floor
 
     def _background_unordered_prob(self, t1: str, t2: str) -> float:
+        if self.corpus_stats and self.corpus_stats.window_pair_frequencies:
+            pair = (t1, t2) if t1 <= t2 else (t2, t1)
+            cf = self.corpus_stats.window_pair_frequencies.get(pair, 0)
+            if cf > 0:
+                total_windows = max(1, self.corpus_stats.total_tokens)
+                return cf / total_windows
         p_ind = self._background_ordered_prob(t1, t2)
         w = float(self.config.window_size)
         if p_ind > 0.0:

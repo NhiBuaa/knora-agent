@@ -280,7 +280,6 @@ def _child_docling_extract(
             native_text = (page.extract_text() or "").strip()
             page_images = list(getattr(page, "images", []))
             has_images = len(page_images) > 0
-            has_native = len(native_text) >= configuration.minimum_extracted_characters
 
             detected_tables: list[CanonicalTable] = []
             table_y_set: set[float] = set()
@@ -388,7 +387,6 @@ def _child_docling_extract(
                     groups.append(current_group)
 
                 heading_stack: list[str] = []
-                search_offset = 0
                 for g_idx, group in enumerate(groups, start=1):
                     lines_dict: dict[float, list[tuple[str, float]]] = {}
                     for it in group:
@@ -424,15 +422,6 @@ def _child_docling_extract(
                         bottom=round(bottom, 2),
                     )
 
-                    start = native_text.find(block_text, search_offset)
-                    if start == -1:
-                        first_line = assembled_lines[0] if assembled_lines else block_text
-                        start = native_text.find(first_line, search_offset)
-                    if start == -1:
-                        start = search_offset
-                    end = start + len(block_text)
-                    search_offset = end
-
                     block_type = BlockType.PARAGRAPH
                     heading_level = None
                     heading_match = re.match(r"^(#{1,6})\s+(.*)$", block_text)
@@ -448,8 +437,8 @@ def _child_docling_extract(
                             block_id=f"p{page_idx}_b{g_idx}",
                             page_number=page_idx,
                             block_type=block_type,
-                            start_offset=start,
-                            end_offset=end,
+                            start_offset=0,
+                            end_offset=len(block_text),
                             text=block_text,
                             heading_level=heading_level,
                             heading_path=tuple(heading_stack),
@@ -461,35 +450,79 @@ def _child_docling_extract(
 
             table_blocks: list[CanonicalBlock] = []
             for t_idx, dt in enumerate(detected_tables, start=1):
-                if dt.start_offset is not None and dt.end_offset is not None:
-                    table_blocks.append(
-                        CanonicalBlock(
-                            block_id=f"p{page_idx}_tb{t_idx}",
-                            page_number=page_idx,
-                            block_type=BlockType.TABLE,
-                            start_offset=dt.start_offset,
-                            end_offset=dt.end_offset,
-                            text=native_text[dt.start_offset : dt.end_offset],
-                            bbox=dt.bbox,
-                            source_origin=SourceOrigin.NATIVE_TEXT,
-                            confidence=None,
-                        )
+                tbl_text = serialize_table_to_markdown(dt)
+                table_blocks.append(
+                    CanonicalBlock(
+                        block_id=f"p{page_idx}_tb{t_idx}",
+                        page_number=page_idx,
+                        block_type=BlockType.TABLE,
+                        start_offset=0,
+                        end_offset=len(tbl_text),
+                        text=tbl_text,
+                        bbox=dt.bbox,
+                        source_origin=SourceOrigin.NATIVE_TEXT,
+                        confidence=None,
                     )
+                )
 
             all_page_blocks = prose_blocks + table_blocks
             if not all_page_blocks and native_text:
                 all_page_blocks = DoclingTextExtractor._parse_page_blocks_static(
                     page_idx, native_text, SourceOrigin.NATIVE_TEXT
                 )
+                assembled_blocks = all_page_blocks
+                assembled_page_text = native_text
             else:
-                all_page_blocks.sort(key=lambda b: (b.bbox.top if b.bbox else 0.0, b.start_offset))
-                all_page_blocks = [
-                    replace(b, block_id=f"p{page_idx}_b{idx}")
-                    for idx, b in enumerate(all_page_blocks, start=1)
-                ]
+                all_page_blocks.sort(
+                    key=lambda b: (
+                        b.bbox.top if b.bbox else 0.0,
+                        b.bbox.left if b.bbox else 0.0,
+                    )
+                )
+                assembled_blocks = []
+                text_parts = []
+                current_offset = 0
+                for idx, b in enumerate(all_page_blocks, start=1):
+                    if text_parts:
+                        current_offset += 2
+                    start = current_offset
+                    end = start + len(b.text)
+                    current_offset = end
+                    text_parts.append(b.text)
+                    assembled_blocks.append(
+                        replace(
+                            b,
+                            block_id=f"p{page_idx}_b{idx}",
+                            start_offset=start,
+                            end_offset=end,
+                        )
+                    )
+                assembled_page_text = "\n\n".join(text_parts)
+
+                updated_detected_tables: list[CanonicalTable] = []
+                for dt in detected_tables:
+                    matching_block = next(
+                        (
+                            ab
+                            for ab in assembled_blocks
+                            if ab.block_type == BlockType.TABLE and ab.bbox == dt.bbox
+                        ),
+                        None,
+                    )
+                    if matching_block is not None:
+                        updated_detected_tables.append(
+                            replace(
+                                dt,
+                                start_offset=matching_block.start_offset,
+                                end_offset=matching_block.end_offset,
+                            )
+                        )
+                    else:
+                        updated_detected_tables.append(dt)
+                detected_tables = updated_detected_tables
 
             text_tables = DoclingTextExtractor._extract_tables_from_blocks_static(
-                page_idx, all_page_blocks
+                page_idx, assembled_blocks
             )
             all_tables = tuple(
                 detected_tables
@@ -511,18 +544,20 @@ def _child_docling_extract(
                     img_y = image_items[img_idx][2]
                 image_records.append((img_idx, img_y, img.data))
 
+            page_text_for_page = assembled_page_text if assembled_page_text else native_text
+            child_has_native = len(page_text_for_page) >= configuration.minimum_extracted_characters
             child_page = _DoclingChildPage(
                 page_number=page_idx,
-                native_text=native_text,
-                blocks=tuple(all_page_blocks),
+                native_text=page_text_for_page,
+                blocks=tuple(assembled_blocks),
                 tables=all_tables,
                 images=tuple(image_records),
-                is_complete=(has_native and not has_images),
+                is_complete=(child_has_native and not has_images),
                 status="COMPLETE"
-                if (has_native and not has_images)
+                if (child_has_native and not has_images)
                 else ("INCOMPLETE" if has_images else "EMPTY"),
                 reason=None
-                if (has_native and not has_images)
+                if (child_has_native and not has_images)
                 else ("UNPROCESSED_PAGE_IMAGES" if has_images else None),
                 width=page_width,
                 height=page_height,
@@ -596,29 +631,13 @@ class DoclingTextExtractor:
         timeout = configuration.extraction_timeout_seconds
 
         def check_limits() -> None:
+
             if cancellation is not None and getattr(cancellation, "is_cancelled", lambda: False)():
                 raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="CANCELLED")
+
             if time.monotonic() - start_time > timeout:
                 raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="TIMEOUT")
-            if configuration.extractor_memory_bytes is not None:
-                try:
-                    import psutil
 
-                    rss = psutil.Process().memory_info().rss
-                except ImportError as exc:
-                    raise PdfExtractionError(
-                        "PDF_RESOURCE_LIMIT_EXCEEDED", reason="CAPABILITY_UNAVAILABLE"
-                    ) from exc
-                except (OSError, Exception) as exc:
-                    raise PdfExtractionError(
-                        "PDF_RESOURCE_LIMIT_EXCEEDED", reason="CAPABILITY_UNAVAILABLE"
-                    ) from exc
-                if rss > configuration.extractor_memory_bytes:
-                    raise PdfExtractionError(
-                        "PDF_RESOURCE_LIMIT_EXCEEDED", reason="EXTRACTOR_MEMORY"
-                    )
-
-        check_limits()
         path, raw_source_hash, raw_bytes = self._copy_to_temporary_file(
             stream, configuration.max_raw_bytes
         )
@@ -691,14 +710,12 @@ class DoclingTextExtractor:
                                             "PDF_RESOURCE_LIMIT_EXCEEDED", reason="TIMEOUT"
                                         )
                                     check_limits()
+                                    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
                                     try:
-                                        with concurrent.futures.ThreadPoolExecutor(
-                                            max_workers=1
-                                        ) as executor:
-                                            future = executor.submit(
-                                                self._cf_provider.ocr_page_image, img_data
-                                            )
-                                            resp = future.result(timeout=max(0.001, remaining))
+                                        future = executor.submit(
+                                            self._cf_provider.ocr_page_image, img_data
+                                        )
+                                        resp = future.result(timeout=max(0.001, remaining))
                                         check_limits()
                                         t = resp.text.strip()
                                         if t:
@@ -713,6 +730,8 @@ class DoclingTextExtractor:
                                         raise
                                     except Exception:
                                         all_ocr_success = False
+                                    finally:
+                                        executor.shutdown(wait=False, cancel_futures=True)
 
                                 elements: list[
                                     tuple[
@@ -867,8 +886,18 @@ class DoclingTextExtractor:
                     retryable=True,
                 )
 
+            remaining = timeout - (time.monotonic() - start_time)
+            if remaining <= 0:
+                raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="TIMEOUT")
             check_limits()
-            conversion = self._cf_provider.convert_to_markdown(raw_bytes)
+            executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+            try:
+                future = executor.submit(self._cf_provider.convert_to_markdown, raw_bytes)
+                conversion = future.result(timeout=max(0.001, remaining))
+            except concurrent.futures.TimeoutError as exc:
+                raise PdfExtractionError("PDF_RESOURCE_LIMIT_EXCEEDED", reason="TIMEOUT") from exc
+            finally:
+                executor.shutdown(wait=False, cancel_futures=True)
             check_limits()
             if conversion.format == "error":
                 raise PdfExtractionError(
