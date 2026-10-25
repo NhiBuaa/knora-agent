@@ -173,6 +173,17 @@ _SECTION_WORDS = {
     "article",
 }
 
+_SYNONYM_PAIRS: tuple[tuple[str, str], ...] = (
+    ("khách hàng", "người mua"),
+    ("khách hàng", "người tiêu dùng"),
+    ("thời hạn", "thời gian"),
+    ("đổi trả", "hoàn trả"),
+    ("đổi trả", "trả hàng"),
+    ("bảo hành", "bảo trì"),
+    ("chi phí", "giá cả"),
+    ("chi phí", "giá"),
+)
+
 _UNIT_WORDS = {
     "ngày",
     "ngay",
@@ -480,9 +491,23 @@ def _validate_citation_alignment(
         # 6. Substantive facts & statement-level support check (F14 / D5):
         cand_words = set(re.findall(r"\w+", cand_full)) - _STOPWORDS
         cand_words = {w for w in cand_words if len(w) >= 2 and not w.isdigit()}
+        for a, b in _SYNONYM_PAIRS:
+            if a in cand_full:
+                for w in re.findall(r"\w+", b):
+                    if w not in _STOPWORDS and not w.isdigit():
+                        cand_words.add(w)
+            if b in cand_full:
+                for w in re.findall(r"\w+", a):
+                    if w not in _STOPWORDS and not w.isdigit():
+                        cand_words.add(w)
 
         # Split segment into individual statements/clauses
         statements = [s.strip() for s in re.split(r"[;\n]|(?<=[.!?])\s+", seg_text) if s.strip()]
+        cand_clauses = [
+            c.strip()
+            for c in re.split(r"[;\n]|(?<=[.!?])\s+|(?:\s*,\s*(?:và|hoặc)\s*)", cand_full)
+            if c.strip()
+        ]
         for stmt in statements:
             norm_stmt = unicodedata.normalize("NFKC", stmt).casefold()
             stmt_words = [
@@ -499,6 +524,38 @@ def _validate_citation_alignment(
                 ]
                 if unsupported_stmt:
                     _invalid()
+
+            stmt_pairs = re.findall(r"\b(\d+(?:[.,]\d+)?)\s*([a-zA-ZÀ-ỹ]+)\b", norm_stmt)
+            if stmt_pairs:
+                stmt_content_words = {
+                    w
+                    for w in re.findall(r"\w+", norm_stmt)
+                    if w not in _STOPWORDS
+                    and not w.isdigit()
+                    and w not in _UNIT_WORDS
+                    and w not in _FRAMING_WORDS
+                }
+                for num, unit in stmt_pairs:
+                    num_pattern = rf"\b{re.escape(num)}\b"
+                    if num == "1" and unit in {"tuần", "tuan", "week", "weeks"}:
+                        num_pattern = r"\b(?:1|7)\b"
+                    elif num == "7" and unit in {"ngày", "ngay", "day", "days"}:
+                        num_pattern = r"\b(?:7|1)\b"
+
+                    matched_clause = False
+                    for clause in cand_clauses:
+                        if re.search(num_pattern, clause):
+                            c_words = set(re.findall(r"\w+", clause))
+                            for a, b in _SYNONYM_PAIRS:
+                                if a in clause:
+                                    c_words.update(re.findall(r"\w+", b))
+                                if b in clause:
+                                    c_words.update(re.findall(r"\w+", a))
+                            if stmt_content_words & c_words:
+                                matched_clause = True
+                                break
+                    if not matched_clause and stmt_content_words:
+                        _invalid()
 
         seg_words = [
             w for w in re.findall(r"\w+", norm_seg) if w not in _STOPWORDS and not w.isdigit()
