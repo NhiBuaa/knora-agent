@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import re
 from dataclasses import dataclass
 
@@ -178,26 +179,52 @@ class CloudflarePdfUnderstandingProvider:
     ) -> CloudflareVisionOcrResponse:
         """Call Cloudflare Workers AI vision model for selective OCR."""
         headers = {"Authorization": f"Bearer {self._api_token}"}
-        # Model accepts image bytes and prompt/instruction
+        mime = "application/octet-stream"
+        if image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+            mime = "image/png"
+        elif image_bytes.startswith(b"\xff\xd8\xff"):
+            mime = "image/jpeg"
+        elif image_bytes.startswith((b"GIF87a", b"GIF89a")):
+            mime = "image/gif"
+        elif image_bytes.startswith(b"RIFF") and image_bytes[8:12] == b"WEBP":
+            mime = "image/webp"
         body = {
-            "prompt": instruction,
+            "task": "query",
+            "question": instruction,
+            "image": f"data:{mime};base64," + base64.b64encode(image_bytes).decode("ascii"),
+            "reasoning": False,
             "max_tokens": 2048,
         }
-        files = {"image": ("page.png", image_bytes, "image/png")}
 
         try:
             response = self._client.post(
                 self._ocr_url,
                 headers=headers,
-                data=body,
-                files=files,
+                json=body,
                 timeout=timeout,
             )
             response.raise_for_status()
             payload = response.json()
-            result = payload.get("result", {})
-            # Responses vary by vision model (description, response, text)
-            text = result.get("response") or result.get("description") or result.get("text") or ""
+            if not isinstance(payload, dict) or payload.get("success") is not True:
+                raise PdfExtractionError(
+                    "PDF_EXTRACTOR_UNAVAILABLE", reason="CLOUDFLARE_MALFORMED_OUTPUT"
+                )
+            result = payload.get("result")
+            if not isinstance(result, dict) or result.get("finish_reason") == "length":
+                raise PdfExtractionError(
+                    "PDF_EXTRACTOR_UNAVAILABLE", reason="CLOUDFLARE_MALFORMED_OUTPUT"
+                )
+            text = (
+                result.get("answer")
+                or result.get("response")
+                or result.get("description")
+                or result.get("text")
+                or ""
+            )
+            if not isinstance(text, str):
+                raise PdfExtractionError(
+                    "PDF_EXTRACTOR_UNAVAILABLE", reason="CLOUDFLARE_MALFORMED_OUTPUT"
+                )
             conf = result.get("confidence")
             if conf is not None:
                 try:
@@ -223,8 +250,10 @@ class CloudflarePdfUnderstandingProvider:
             raise PdfExtractionError(
                 "PDF_EXTRACTOR_UNAVAILABLE",
                 reason=f"CLOUDFLARE_HTTP_{status_code}",
-                retryable=True,
+                retryable=status_code >= 500 or status_code == 408,
             ) from error
+        except PdfExtractionError:
+            raise
         except Exception as error:
             raise PdfExtractionError(
                 "PDF_EXTRACTOR_UNAVAILABLE",
