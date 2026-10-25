@@ -172,7 +172,8 @@ class QdrantSearchIndex:
             and generation.lexical_profile.digest() != self.profile.digest()
         ):
             raise LexicalGenerationError("generation profile differs from index profile")
-        if not 1 <= len(generation.chunks) <= 64:
+        # Frozen profiles retain their single-batch contract; dynamic transport splits batches.
+        if not generation.chunks or (self.profile is not None and len(generation.chunks) > 64):
             raise LexicalGenerationError("native staging requires one batch of at most 64 points")
 
     def _point_payload(
