@@ -7,7 +7,7 @@
 
 # Exact tracked migrations (55 files)
 
-# Exact tracked backend src files (185 files)
+# Exact tracked backend src files (190 files)
 
 # Exact 16 sibling force-include resources (16 files)
 
@@ -105,6 +105,7 @@
 !backend/src/knora/adapters/http/tools.py
 !backend/src/knora/adapters/http/workspaces.py
 !backend/src/knora/adapters/langchain/embedding.py
+!backend/src/knora/adapters/langchain/generation.py
 !backend/src/knora/adapters/object_store/__init__.py
 !backend/src/knora/adapters/object_store/filesystem.py
 !backend/src/knora/adapters/object_store/inventory.py
@@ -159,6 +160,8 @@
 !backend/src/knora/answering/lexical.py
 !backend/src/knora/answering/module.py
 !backend/src/knora/answering/reembedding_v2.py
+!backend/src/knora/answering/reranking.py
+!backend/src/knora/answering/reranking_configuration.py
 !backend/src/knora/answering/retrieval_configuration.py
 !backend/src/knora/answering/retrieval_v2.py
 !backend/src/knora/answering/sequential_dependence.py
@@ -223,6 +226,7 @@
 !backend/src/knora/providers/cloudflare/__init__.py
 !backend/src/knora/providers/cloudflare/embedding.py
 !backend/src/knora/providers/cloudflare/pdf_understanding.py
+!backend/src/knora/providers/cloudflare/reranking.py
 !backend/src/knora/providers/demo.py
 !backend/src/knora/providers/deterministic/__init__.py
 !backend/src/knora/providers/deterministic/embedding.py
@@ -241,6 +245,7 @@
 !backend/src/knora/providers/prompts/builder.py
 !backend/src/knora/providers/prompts/policy.py
 !backend/src/knora/providers/prompts/versioning.py
+!backend/src/knora/providers/reranking.py
 !backend/src/knora/providers/structured_generation.py
 !backend/src/knora/tools/__init__.py
 !backend/src/knora/tools/capabilities.py
