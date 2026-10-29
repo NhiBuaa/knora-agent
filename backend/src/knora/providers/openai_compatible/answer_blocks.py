@@ -1,5 +1,6 @@
 """Private Cloudflare output; public answers retain the existing Markdown contract."""
 
+import re
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -101,10 +102,15 @@ def compose_answer(
             text = _line(block.text)
             if block.bold is not None:
                 phrase = block.bold.strip()
-                emphasis = _line(phrase)
-                if block.text.strip().count(phrase) != 1:
+                occurrences = list(
+                    re.finditer(re.escape(phrase), block.text.strip(), re.IGNORECASE)
+                )
+                if len(occurrences) != 1:
                     _invalid()
-                before, _, after = block.text.strip().partition(phrase)
+                match = occurrences[0]
+                literal = block.text.strip()
+                before, after = literal[: match.start()], literal[match.end() :]
+                emphasis = _line(match[0])
                 text = f"{_escape(before)}**{emphasis}**{_escape(after)}"
             texts.append(text)
         aliases.append(list(dict.fromkeys(references)))

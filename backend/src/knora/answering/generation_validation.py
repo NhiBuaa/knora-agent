@@ -326,6 +326,7 @@ def _grounding_text(text: str) -> str:
     text = unicodedata.normalize("NFKC", text).casefold()
     text = re.sub(r"\\([^\w\s])", r"\1", text)
     text = re.sub(r"\*\*(.*?)\*\*", r"\1", text)
+    text = re.sub(r"\b(?:vào\s+)?ngày\s+(?=\d{1,2}/\d{1,2}/\d{4}\b)", "", text)
     return re.sub(r"\bchuong(?=\s+\d)", "chương", text)
 
 
@@ -424,6 +425,9 @@ def _validate_cited_statement(
         cand_full = f"{cand_heading} {cand_content}"
 
         norm_seg = _grounding_text(seg_text)
+        for date in re.findall(r"\b\d{1,2}/\d{1,2}/\d{4}\b", norm_seg):
+            if not _matches_word_boundary(date, cand_full):
+                _invalid()
         count_support = _section_count_support(norm_seg, cand_content)
         if count_support is False:
             _invalid()

@@ -628,10 +628,14 @@ class AnswerQuestion:
             GenerationEvidence(evidence_id=alias, content=candidate.content)
             for alias, candidate in alias_to_candidate.items()
         )
-        generation = await self._generation_provider.generate(
-            question=generation_question,
-            evidence=generation_evidence,
-        )
+        try:
+            async with asyncio.timeout_at(generation_deadline):
+                generation = await self._generation_provider.generate(
+                    question=generation_question,
+                    evidence=generation_evidence,
+                )
+        except TimeoutError:
+            raise KnoraError("PROVIDER_REQUEST_FAILED") from None
         generation_ended = self._clock()
         phase_timings = self._phase_timings(
             started=started,
@@ -1093,7 +1097,7 @@ class AnswerQuestion:
             if len(generation_attempts) > 1:
                 metadata = provider_metadata["generation"]
                 metadata["repair_policy"] = {
-                    "id": "retrieval-v3-grounded-repair-v1",
+                    "id": "retrieval-v3-grounded-repair-v2",
                     "max_attempts": 3,
                     "generation_deadline_seconds": 90,
                 }

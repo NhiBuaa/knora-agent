@@ -83,7 +83,12 @@ class OpenAICompatibleGenerationProvider:
             response = await self._complete(prompt)
             payload, choice, structured = self._decode(response)
             if cloudflare:
-                answer, cited_ids = compose_answer(structured, evidence)
+                try:
+                    answer, cited_ids = compose_answer(structured, evidence)
+                except KnoraError as error:
+                    if error.code != "GENERATION_OUTPUT_INVALID" or repair:
+                        raise
+                    return await self.repair_generation(question=question, evidence=evidence)
             else:
                 answer = structured["answer"]
                 cited_ids = tuple(structured["cited_evidence_ids"])

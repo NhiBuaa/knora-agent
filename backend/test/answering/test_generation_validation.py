@@ -348,6 +348,34 @@ OUTLINE_SOURCE = """Mục lục của báo cáo:
 """
 
 
+@pytest.mark.parametrize("date", ["25/08/2024", "08/25/2024", "25/08/2025"])
+def test_calendar_date_framing_preserves_the_complete_source_date(date) -> None:
+    result = GenerationResult(
+        "ANSWER", f"Hướng dẫn này được cập nhật lần cuối vào ngày **{date}**. [[E1]]", ("E1",), None
+    )
+    kwargs = dict(
+        available_evidence_ids=("E1",),
+        alias_to_candidate={"E1": _make_cand("date", "Hướng dẫn. Cập nhật lần cuối: 25/08/2024")},
+    )
+    if date == "25/08/2024":
+        validate_generation(result, **kwargs)
+    else:
+        with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+            validate_generation(result, **kwargs)
+
+
+def test_numbered_section_conditions_do_not_become_number_unit_pairs() -> None:
+    source = (
+        "Nếu ở quy mô nhỏ thì chương 3 và chương 4 có thể được gộp chung với nhau thành "
+        "một chương, tùy vào độ dài nội dung của báo cáo."
+    )
+    validate_generation(
+        GenerationResult("ANSWER", source + " [[E1]]", ("E1",), None),
+        available_evidence_ids=("E1",),
+        alias_to_candidate={"E1": _make_cand("conditions", source)},
+    )
+
+
 @pytest.mark.parametrize(
     ("text", "source"),
     [
