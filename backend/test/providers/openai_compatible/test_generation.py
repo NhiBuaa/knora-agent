@@ -11,6 +11,73 @@ from knora.providers.openai_compatible.generation import OpenAICompatibleGenerat
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("failure", [None, "wrapped", "foreign_alias", "length"])
+async def test_cloudflare_120b_json_object_keeps_strict_grounded_validation(failure):
+    requests = []
+
+    async def endpoint(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        content = json.dumps(
+            {
+                "decision": "ANSWER",
+                "before": [
+                    {"text": "7 days.", "support": ["E2" if failure == "foreign_alias" else "E1"]}
+                ],
+                "items": [],
+                "after": [],
+                "refusal_reason": None,
+            }
+        )
+        if failure == "wrapped":
+            content = "<|channel|>final " + content
+        return httpx.Response(
+            200,
+            json={
+                "model": "@cf/openai/gpt-oss-120b",
+                "choices": [
+                    {
+                        "finish_reason": "length" if failure == "length" else "stop",
+                        "message": {"content": content},
+                    }
+                ],
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
+        provider = OpenAICompatibleGenerationProvider(
+            base_url="https://provider.example/v1",
+            api_key="secret-canary",
+            model="@cf/openai/gpt-oss-120b",
+            provider_identity="cloudflare-workers-ai",
+            input_cost_per_million_tokens=None,
+            output_cost_per_million_tokens=None,
+            pricing_version=None,
+            max_tokens=2048,
+            direct_json_schema=True,
+            grounded_answers=True,
+            client=client,
+        )
+        if failure:
+            with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+                await provider.generate(
+                    question="How long?", evidence=(GenerationEvidence("E1", "7 days."),)
+                )
+        else:
+            result = await provider.generate(
+                question="How long?", evidence=(GenerationEvidence("E1", "7 days."),)
+            )
+            assert result.answer_projection.statements[0].text == "7 days."
+            assert result.model == "@cf/openai/gpt-oss-120b"
+            assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v23:json-object-v1"
+    assert len(requests) == 1
+    assert requests[0]["response_format"] == {"type": "json_object"}
+    assert requests[0]["max_tokens"] == 2048
+    assert requests[0]["reasoning_effort"] == "low"
+    assert '"required"' in requests[0]["messages"][0]["content"]
+
+
+@pytest.mark.asyncio
 async def test_cloudflare_repair_uses_versioned_prompt_and_same_source_schema():
     requests = []
 
