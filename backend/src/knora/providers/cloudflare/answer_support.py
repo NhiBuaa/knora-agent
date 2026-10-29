@@ -53,6 +53,8 @@ ONLY against its listed aliases. Supported paraphrases, translations, concise an
 explicit equivalent unit conversions are allowed. Word overlap alone is not support. Negation
 in an unrelated source sentence does not negate a claim. Contradictions, swapped relations,
 invented advice and unsupported clauses are CONTRADICTED or UNKNOWN, never SUPPORTED.
+Preserve modality: recommended or optional is not mandatory or forbidden. Turning
+"should not" into "must not" is unsupported unless the source separately prohibits it.
 For support, select the smallest sufficient complete quotes by quote_id from the evidence.
 Do not transcribe source text or calculate offsets: the server resolves these immutable IDs
 back to exact source quotes and Unicode half-open offsets. Use ENTAILMENT, EXPLICIT_CONVERSION
@@ -61,7 +63,11 @@ For EACH required group, ANSWERED requires supported statements answering ALL pa
 question. A heading, topic mention or promise of detail is MISSING. UNKNOWN when uncertain.
 Inspect the full question too, including compound questions and follow-up context.
 Echo answer_digest and snapshot_digest EXACTLY, one verdict per statement and required group.
-Empty refs are permitted only for non-supported verdicts. Never rewrite or select answer text."""
+Empty refs are permitted only for non-supported verdicts. Never rewrite or select answer text.
+Output shape (replace example values with the actual request IDs, digests and verdicts):
+{"answer_digest":"request answer_digest","snapshot_digest":"request snapshot_digest",
+"statements":[{"id":"S1","verdict":"SUPPORTED","source_refs":[{"quote_id":"E1:Q1",
+"reason":"ENTAILMENT"}]}],"groups":[{"id":"G1","verdict":"ANSWERED","statement_ids":["S1"]}]}"""
 
 
 def _quotes(content: str) -> list[dict]:

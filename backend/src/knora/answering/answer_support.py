@@ -13,7 +13,7 @@ from knora.domain.errors import KnoraError
 from knora.providers.generation import AnswerProjection, AnswerStatement, GenerationEvidence
 
 POLICY_ID = "answer-support-verification-v3-r4-v1"
-PROMPT_ID = "cloudflare-gpt-oss-answer-support-v1"
+PROMPT_ID = "cloudflare-gpt-oss-answer-support-v2"
 
 
 def required_answer_groups(groups: tuple[tuple[str, str], ...]) -> tuple[tuple[str, str], ...]:
