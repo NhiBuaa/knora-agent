@@ -33,11 +33,32 @@ async function forward(request: Request, context: Context) {
       { detail: "Authentication required" },
       { status: 401 },
     );
+
+  const expectedIssuer = request.headers.get("x-knora-expected-issuer");
+  const expectedSubject = request.headers.get("x-knora-expected-subject");
+  const composerPost =
+    request.method === "POST" &&
+    /^\/v1\/workspaces\/[^/]+\/conversations(?:\/[^/]+\/turns)?\/?$/.test(
+      normalizedPath,
+    );
+  if (
+    (composerPost || expectedIssuer !== null || expectedSubject !== null) &&
+    (expectedIssuer !== session.issuer || expectedSubject !== session.subject)
+  ) {
+    return NextResponse.json(
+      { detail: "SESSION_IDENTITY_MISMATCH" },
+      { status: 401, headers: { "cache-control": "no-store" } },
+    );
+  }
+
   const base = process.env.KNORA_API_URL ?? "http://localhost:8000";
   const headers = new Headers(request.headers);
   headers.set("authorization", `Bearer ${session.accessToken}`);
   headers.delete("host");
   headers.delete("cookie");
+  headers.delete("x-knora-expected-issuer");
+  headers.delete("x-knora-expected-subject");
+
   const response = await fetch(
     `${base}${targetPath}${new URL(request.url).search}`,
     {
