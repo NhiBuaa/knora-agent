@@ -1,4 +1,4 @@
-"""One verification-only Cloudflare call per attempt; the application owns recovery."""
+"""Verify quote support and claim entailment; the application owns recovery."""
 
 import asyncio
 import json
