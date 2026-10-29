@@ -179,6 +179,13 @@ async def generate_with_recovery(
             feedback = {k: v for k, v in observation.items() if k != "provider"}
             if isinstance(feedback.get("verdict"), dict):
                 verdict = feedback["verdict"]
+                failed_id = feedback.get("failed_id")
+                feedback["failed_source_quotes"] = [
+                    {"alias": ref["alias"], "quote": ref["exact_quote"]}
+                    for statement in verdict.get("statements", [])
+                    if statement.get("id") == failed_id
+                    for ref in statement.get("source_refs", [])
+                ]
                 feedback["verdict"] = {
                     "statements": [
                         {"id": s.get("id"), "verdict": s.get("verdict")}

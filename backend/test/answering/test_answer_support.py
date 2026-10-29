@@ -562,3 +562,23 @@ async def test_verifier_failures_distinguish_wire_repair_from_answer_repair(defe
     assert caught.value.observation["failure"] == want
     assert captured[0].definition.version.endswith(":recovery-v1")
     assert "recovery_feedback" in json.loads(captured[0].messages[1]["content"])
+
+
+@pytest.mark.parametrize(
+    "question,parts",
+    [
+        (
+            "Phần thiết kế cơ sở dữ liệu cần mô tả những thông tin nào "
+            "và dùng sơ đồ gì để minh họa?",
+            2,
+        ),
+        ("Cần lưu những trường nào và sử dụng định dạng nào?", 2),
+        ("Có cần sơ đồ không và giải thích những quan hệ nào?", 2),
+        ("What are frontend and backend?", 1),
+        ("Liệt kê font chữ và cỡ chữ.", 1),
+    ],
+)
+def test_each_coordinated_request_gets_independent_coverage(question, parts):
+    from knora.answering.answer_support import required_answer_groups
+
+    assert len(required_answer_groups((("G1", question),))) == parts
