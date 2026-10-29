@@ -1676,3 +1676,28 @@ Prompt ngắn (gói bàn giao kèm full commit R6 thực tế):
 > Tiếp tục #153 theo R6 §16 trong `docs/plans/2026-10-22-retrieval-v3-review-remediation.md`, worktree `C:/Developer/Projects/knora-agent-worktree/docs-retrieval-v3-acceptance-remediation`; đọc exact revision bàn giao cùng R5 đã duyệt ở #153 comment6381910609 và D1–D8. Dùng executing-plans, xử lý R6-0→7 tại đúng owner S3–S8, cascade #216→#221; đóng15ID còn mở, kiểm17regression và đủ32dispositions/G3–G8. Tự sửa/test/CI/runtime/review tới đủ bằng chứng nghiệm thu; không làm lại S2, sửa gold để pass, chạy local AI hoặc phát sinh phí. Không trần tổng AI/RC/vòng sửa, tránh lãng phí; quyền/resources/dependencies theo plan, chỉ gom hỏi khi thật sự vượt phạm vi đã duyệt. Ghi evidence đúngHEAD ở #153/PR, giao một packet cuối; chưa merge/deploy/đóng Issue.
 
 **Tự kiểm R6:**15ID chưa đạt đều có owner, production counterexample, cách sửa trong hợp đồng R5, negative/positive và exit;17regression giữ đúng nghĩa. Các thiếu sót cũ không bị rút thành chỉ sửa assertion/RSS check/JSON digest/regex/JUnit. Hai OS, full-member PG, real Qdrant/CF, held-out roles/dependencies và six-PR CI có gate riêng. Không thêm giới hạn tổng lượt hoặc authority/evaluation store mới; không tuyên bố các tasks đã thực hiện khi mới soạn checklist.
+
+## 17. Điều chỉnh D5 — Phục hồi có kiểm chứng trong 90 giây
+
+### 17.1 Nguồn duyệt và phạm vi
+
+Nền kế hoạch: §16 tại `f706bf7c7e039ecd229dc767bb17a113cd5f562f`; giữ nguyên lịch sử R5/R6 và D1–D8 ngoài delta này. Nguồn duyệt là chính hội thoại tiếp tục Issue #153: owner trả lời **“Duyệt thiết kế và triển khai phục hồi trong 90 giây”** cho câu hỏi `call_f5cbe3b7910d495189746d3bd6914c98`. Chưa có URL phê duyệt GitHub riêng. Owner cũng đã duyệt chi phí AI hợp lý, verifier tối đa 60 giây trong tổng 90 giây, và thử 120B có điều kiện; mặc định giữ 20B tới khi có đủ bằng chứng qualification. Những quyết định mới này thay ràng buộc $0/Free-only và số lượt D5 cũ trong phạm vi sửa lỗi này; Cloudflare-only vẫn bắt buộc.
+
+### 17.2 Hợp đồng thực hiện
+
+- Một deadline monotonic 90 giây cho cả request, bao gồm retrieval, generation, verification và recovery; không reset ở từng vòng. Mỗi verifier call tối đa 60 giây và bị chặn bởi thời gian tổng còn lại.
+- Đường thành công giữ một lần sinh và một lần kiểm chứng. Không trần số lượt tùy ý. Chỉ gọi thêm khi có lỗi định dạng hoặc nhận định thiếu hỗ trợ nguồn cùng phản hồi sửa cụ thể. Không gọi lại khi cùng candidate đã bị bác hoặc cùng failure fingerprint tái diễn không có tiến triển.
+- Lỗi JSON/schema/alias của generation: dùng grounded repair versioned, nhận feedback dạng dữ liệu không tin cậy; giữ renderer, schema, evidence aliases và source snapshot. Không dùng legacy repair schema cho V3.
+- Lỗi envelope/identifier/quote của verifier: sửa verification format trên cùng candidate, không sinh lại đáp án không cần thiết. UNKNOWN/CONTRADICTED/MISSING hoặc local fact check không đạt: sửa đáp án từ cùng nguồn rồi yêu cầu proof mới.
+- Mọi final ANSWER phải qua local structural checks và source proof, group coverage, digest/offset/alias/cardinality checks. Không chuyển đáp án lỗi thành fake refusal/absence. REFUSAL thông thường không cần verifier; sau một candidate ANSWER lỗi, repair không được dùng REFUSAL để né kiểm chứng.
+- PG snapshot revalidation trước và sau mỗi external call và trước delivery. Auth/provenance/provider unavailable/quota/timeout không retry vô ích; fail closed. PostgreSQL vẫn authoritative; Qdrant derived; không local inference/weights.
+- Lưu audit từng logical call: phase, elapsed time, request ID/model/prompt version/finish reason/usage khi provider trả, candidate/failure digest, disposition. Lưu trace kể cả generation chưa parse được hoặc deadline bị hủy; không log secrets hay raw toàn bộ nguồn vào telemetry. Metadata thiếu phải ghi thiếu, không suy chi phí bằng 0.
+
+### 17.3 Các bước triển khai và kiểm chứng
+
+1. S7: bổ sung test đỏ qua `AnswerQuestion.execute` và provider MockTransport: malformed generation -> grounded repair -> supported proof; semantic rejection -> corrected answer -> fresh proof; malformed verifier -> verification-only correction; repeat failure/no-progress; auth/provenance/unavailable; deadline tổng không reset; canceled/invalid generation trace.
+2. S7: mở rộng provider repair/verification với optional feedback, version prompt riêng; bổ sung safe failed-completion observation. Giữ legacy v21 bytes và legacy callers. Tích hợp recovery vào application orchestration, không bypass validation/fences.
+3. Chạy focused tests, suite answering/providers/conversations/persistence phù hợp, formatter + lint. Kiểm tra proof readback bằng conversation/evaluation readers, không sửa gold để pass.
+4. Cascade commit S7 sang S8, chạy lại suite chịu ảnh hưởng trên đúng SHA. Restart runtime S8 graceful theo runbook, giữ root .env và dữ liệu dev.
+5. Kiểm chứng worker thật bằng các câu hỏi khác nhau, câu nối tiếp, compound/list/count và các trường hợp đã lỗi; đối chiếu PG trace/proof/attempts. Chỉ chạy bổ sung khi có lỗi cần tái hiện hoặc rủi ro cần xác minh. Báo code/local/CI/runtime/quality riêng; bộ câu này không thay nghiệm thu toàn bộ G3–G8.
+6. Ghi revision triển khai, evidence và phần chưa đạt tại Issue #153/PR #220–#221. Không merge main, deploy, đóng Issue hoặc tự ghi owner acceptance.
