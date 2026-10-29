@@ -281,3 +281,92 @@ def test_grounded_schema_has_no_model_selected_emphasis():
     assert prompt.definition.version == "cloudflare-gpt-oss-cited-answer-v23"
     assert "bold" not in str(prompt.definition.schema)
     assert "null" not in str(prompt.definition.schema["$defs"]["_Statement"])
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", [None, "length", "null", "malformed"])
+async def test_verifier_transport_is_bounded_and_retains_invalid_completion_evidence(failure):
+    import json
+
+    import httpx
+
+    from knora.answering.answer_support import AnswerSupportFailure
+    from knora.providers.openai_compatible.generation import OpenAICompatibleGenerationProvider
+
+    answer, projection, evidence, _ = case()
+    requests = []
+
+    async def endpoint(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        assert body["temperature"] == 0
+        assert body["max_tokens"] == 2048
+        payload = json.loads(body["messages"][1]["content"])
+        wire = {
+            "answer_digest": projection.answer_digest,
+            "snapshot_digest": "snapshot",
+            "statements": [
+                {
+                    "id": "S1",
+                    "verdict": "SUPPORTED",
+                    "source_refs": [
+                        {"quote_id": payload["evidence"][0]["quote_id"], "reason": "ENTAILMENT"}
+                    ],
+                }
+            ],
+            "groups": [{"id": "G1", "verdict": "ANSWERED", "statement_ids": ["S1"]}],
+        }
+        return httpx.Response(
+            200,
+            json={
+                "id": "provider-receipt",
+                "choices": [
+                    {
+                        "finish_reason": "length" if failure == "length" else "stop",
+                        "message": {
+                            "content": None
+                            if failure in {"length", "null"}
+                            else ("{broken" if failure == "malformed" else json.dumps(wire))
+                        },
+                    }
+                ],
+                "usage": {"completion_tokens": 2048 if failure == "length" else 180},
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
+        provider = OpenAICompatibleGenerationProvider(
+            base_url="https://provider.example/v1",
+            api_key="secret-canary",
+            model="@cf/openai/gpt-oss-20b",
+            provider_identity="cloudflare-workers-ai",
+            input_cost_per_million_tokens=None,
+            output_cost_per_million_tokens=None,
+            pricing_version=None,
+            max_tokens=2048,
+            direct_json_schema=True,
+            client=client,
+        )
+        kwargs = dict(
+            question="Sơ đồ có bắt buộc không?",
+            groups=(("G1", "Sơ đồ có bắt buộc không?"),),
+            answer=answer,
+            answer_projection=projection,
+            evidence=evidence,
+            snapshot_digest="snapshot",
+        )
+        verifier = provider.build_answer_support_verifier()
+        if failure:
+            with pytest.raises(AnswerSupportFailure) as caught:
+                await verifier.verify(**kwargs)
+            observation = caught.value.observation
+            assert observation["failure"] == "invalid_verifier_completion"
+            assert observation["provider"]["provider_request_id"] == "provider-receipt"
+            assert observation["provider"]["finish_reason"] == (
+                "length" if failure == "length" else "stop"
+            )
+            assert "secret-canary" not in json.dumps(observation)
+        else:
+            proof, _ = await verifier.verify(**kwargs)
+            assert proof.answer_digest == projection.answer_digest
+    assert len(requests) == 1

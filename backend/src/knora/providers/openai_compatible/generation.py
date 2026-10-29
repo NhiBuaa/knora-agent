@@ -160,10 +160,11 @@ class OpenAICompatibleGenerationProvider:
         if self._max_tokens is not None:
             request_body["max_tokens"] = self._max_tokens
         if prompt.definition.version in {
-            "cloudflare-gpt-oss-answer-support-v1",
+            "cloudflare-gpt-oss-answer-support-v2",
             "cloudflare-gpt-oss-cited-answer-v23",
         }:
             request_body["reasoning_effort"] = "low"
+            request_body["temperature"] = 0
         response = await self._client.post(
             self._url, headers={"Authorization": f"Bearer {self._api_key}"}, json=request_body
         )
@@ -189,8 +190,20 @@ class OpenAICompatibleGenerationProvider:
         if self._client is None:
             self._client = httpx.AsyncClient(timeout=self._timeout_seconds)
         response = await self._complete(prompt)
-        payload, choice, structured = self._decode(response)
-        return structured, self._metadata(response, payload, choice, prompt.definition.version)
+        metadata = {"provider": self._provider_identity, "model": self._model}
+        try:
+            payload = response.json()
+            choice = payload["choices"][0]
+            metadata = self._metadata(response, payload, choice, prompt.definition.version)
+            _, _, structured = self._decode(response)
+        except (KnoraError, IndexError, KeyError, TypeError, ValueError):
+            from knora.answering.answer_support import AnswerSupportFailure
+
+            raise AnswerSupportFailure(
+                "GENERATION_OUTPUT_INVALID",
+                {"failure": "invalid_verifier_completion", "provider": metadata},
+            ) from None
+        return structured, metadata
 
     def _decode(self, response: httpx.Response) -> tuple[dict, dict, object]:
         payload = response.json()
