@@ -196,6 +196,80 @@ class EmailOtpResetFlowIT {
     }
 
     @Test
+    void rememberMeCheckboxMatrix() throws Exception {
+        String sentinel = "SENTINEL_SECRET_PASSWORD_12345";
+        record Case(
+                Map<String, Object> login, Map<String, Object> message, boolean expectedChecked) {}
+
+        List<Case> cases =
+                List.of(
+                        // hintremember on không password -> unchecked
+                        new Case(Map.of("username", "alice", "rememberMe", "on"), null, false),
+                        // password sentinel + on -> checked
+                        new Case(
+                                Map.of(
+                                        "username",
+                                        "alice",
+                                        "password",
+                                        sentinel,
+                                        "rememberMe",
+                                        "on"),
+                                null,
+                                true),
+                        // password sentinel không remember -> unchecked
+                        new Case(Map.of("username", "alice", "password", sentinel), null, false),
+                        // empty password + on -> checked
+                        new Case(
+                                Map.of("username", "alice", "password", "", "rememberMe", "on"),
+                                null,
+                                true),
+                        // malformed off -> unchecked
+                        new Case(
+                                Map.of(
+                                        "username",
+                                        "alice",
+                                        "password",
+                                        sentinel,
+                                        "rememberMe",
+                                        "off"),
+                                null,
+                                false),
+                        // global error account disabled + password + on -> checked
+                        new Case(
+                                Map.of(
+                                        "username",
+                                        "alice",
+                                        "password",
+                                        sentinel,
+                                        "rememberMe",
+                                        "on"),
+                                Map.of("type", "error", "summary", "Account disabled"),
+                                true));
+
+        for (var c : cases) {
+            var data = templateData();
+            var realm = new HashMap<>((Map<String, Object>) data.get("realm"));
+            realm.put("rememberMe", true);
+            data.put("realm", realm);
+            data.put("login", c.login());
+            if (c.message() != null) {
+                data.put("message", c.message());
+            }
+            String html = render("login", "login.ftl", data);
+            assertFalse(
+                    html.contains(sentinel), "Sentinel password must never appear in HTML output");
+            assertTrue(
+                    html.contains("name=\"rememberMe\""),
+                    "Remember Me checkbox must be present in HTML");
+            boolean isChecked = html.contains("checked");
+            assertEquals(
+                    c.expectedChecked(),
+                    isChecked,
+                    "Checkbox checked state mismatch for case: " + c.login());
+        }
+    }
+
+    @Test
     void offlineCompletedInfoFailsClosedWithoutSafeConfiguredAppOrigin() throws Exception {
         var checks = new ArrayList<org.junit.jupiter.api.function.Executable>();
         for (String baseUrl :
