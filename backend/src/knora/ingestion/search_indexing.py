@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from math import isfinite
@@ -273,6 +274,63 @@ class LexicalIndexPort(Protocol):
         chunk_texts: Mapping[str, str],
         chunk_vectors: Mapping[str, tuple[float, ...] | list[float]] | None = None,
     ) -> StageReceipt: ...
+
+
+class DynamicSearchIndexStore(Protocol):
+    def dynamic_workspace_ids(self, embedding_configuration_id: str) -> tuple[str, ...]: ...
+
+    def prepare_dynamic_corpus(
+        self, workspace_id: str, lexical_policy_id: str, embedding_configuration_id: str
+    ) -> tuple[LexicalIndexInput, ...]: ...
+
+    def commit_corpus_transition(
+        self, items: tuple[tuple[LexicalGeneration, StageReceipt], ...]
+    ) -> None: ...
+
+
+class DynamicSearchIndexHandler:
+    """Rebuild dynamic projections between ingestion jobs, using retained vectors only."""
+
+    def __init__(
+        self,
+        *,
+        store: DynamicSearchIndexStore,
+        index: LexicalIndexPort,
+        lexical_policy_id: str,
+        embedding_configuration_id: str,
+    ) -> None:
+        self._store = store
+        self._index = index
+        self._policy_id = lexical_policy_id
+        self._embedding_id = embedding_configuration_id
+
+    def reconcile_workspace(self, workspace_id: str) -> int:
+        inputs = self._store.prepare_dynamic_corpus(
+            workspace_id, self._policy_id, self._embedding_id
+        )
+        if not inputs:
+            return 0
+        receipts = tuple(
+            (
+                item.generation,
+                self._index.stage_generation(
+                    item.generation, dict(item.chunk_texts), dict(item.chunk_vectors or ())
+                ),
+            )
+            for item in inputs
+        )
+        self._store.commit_corpus_transition(receipts)
+        return len(receipts)
+
+    def run_once(self) -> None:
+        for workspace_id in self._store.dynamic_workspace_ids(self._embedding_id):
+            try:
+                self.reconcile_workspace(workspace_id)
+            except Exception as error:
+                # Pending PG requests survive retries; one workspace cannot starve the others.
+                logging.getLogger(__name__).warning(
+                    "SEARCH_PROJECTION_RETRY error_type=%s", type(error).__name__
+                )
 
 
 class LexicalIndexHandler:
