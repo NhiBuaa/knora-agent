@@ -26,6 +26,7 @@ from knora.adapters.postgres.tables import (
     RetrievalV2CutoverTable,
 )
 from knora.adapters.qdrant.native_search_index import NativeQdrantSearchIndex
+from knora.answering.answer_support import validate_trace_support
 from knora.answering.excerpt import citation_excerpt
 from knora.answering.generation_validation import validate_generation
 from knora.answering.interface import CitationProjection, QuestionResult
@@ -188,7 +189,7 @@ class PostgresAnsweringStore(AnsweringStore):
             ]
 
     def _revalidate_lexical_trace(self, session: Session, trace: QuestionTraceRecord) -> None:
-        if trace.trace_schema_version != 3:
+        if trace.trace_schema_version not in {3, 4}:
             return
         if trace.decision == "REFUSAL" and trace.refusal_reason == "CLARIFICATION_REQUIRED":
             return
@@ -219,6 +220,20 @@ class PostgresAnsweringStore(AnsweringStore):
         self._revalidate_lexical_population(
             session, trace.workspace_id, generations[0].lexical_policy_id, generations
         )
+        if (
+            trace.trace_schema_version == 4
+            and trace.validation_outcome == "valid"
+            and trace.decision == "ANSWER"
+        ):
+            rows = session.execute(
+                select(ChunkTable.id, ChunkTable.content, ChunkTable.content_checksum).where(
+                    ChunkTable.id.in_(trace.alias_mapping.values()),
+                    ChunkTable.chunk_set_id.in_([g.chunk_set_id for g in generations]),
+                )
+            ).all()
+            validate_trace_support(
+                trace, {cid: (content, checksum) for cid, content, checksum in rows}
+            )
 
     def require_lexical_corpus(
         self, workspace_id: str, lexical_policy_id: str | None = None
@@ -985,6 +1000,11 @@ class PostgresAnsweringStore(AnsweringStore):
                 return None
             if not self._trace_is_recoverable(trace):
                 return None
+            if trace.trace_schema_version == 4:
+                try:
+                    self._revalidate_lexical_trace(session, trace)
+                except KnoraError:
+                    return None
             if trace.decision == "REFUSAL":
                 return QuestionResult(
                     decision="REFUSAL",

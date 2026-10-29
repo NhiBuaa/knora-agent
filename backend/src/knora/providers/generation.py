@@ -3,6 +3,21 @@ from typing import Protocol
 
 
 @dataclass(frozen=True, slots=True)
+class AnswerStatement:
+    id: str
+    text: str
+    start: int
+    end: int
+    aliases: tuple[str, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class AnswerProjection:
+    answer_digest: str
+    statements: tuple[AnswerStatement, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class GenerationEvidence:
     evidence_id: str
     content: str
@@ -21,6 +36,7 @@ class GenerationResult:
     provider_request_id: str | None = None
     usage: dict[str, int] = field(default_factory=dict)
     cost: dict[str, str] = field(default_factory=dict)
+    answer_projection: AnswerProjection | None = None
 
 
 class GenerationProvider(Protocol):

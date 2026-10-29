@@ -8,7 +8,7 @@ from knora.providers.generation import (
     GenerationEvidence,
     GenerationResult,
 )
-from knora.providers.openai_compatible.answer_blocks import compose_answer
+from knora.providers.openai_compatible.answer_blocks import compose_answer_projection
 from knora.providers.prompts.builder import BuiltPrompt, build_prompt
 from knora.providers.prompts.policy import (
     CLOUDFLARE_PROMPT_VERSION as CLOUDFLARE_PROMPT_VERSION,
@@ -33,6 +33,7 @@ class OpenAICompatibleGenerationProvider:
         provider_identity: str = "openai-compatible",
         max_tokens: int | None = None,
         direct_json_schema: bool = False,
+        grounded_answers: bool = False,
     ) -> None:
         self._url = f"{base_url.rstrip('/')}/chat/completions"
         self._api_key = api_key
@@ -46,6 +47,7 @@ class OpenAICompatibleGenerationProvider:
         self._provider_identity = provider_identity
         self._max_tokens = max_tokens
         self._direct_json_schema = direct_json_schema
+        self._grounded_answers = grounded_answers
 
     async def generate(
         self,
@@ -75,20 +77,20 @@ class OpenAICompatibleGenerationProvider:
             prompt = build_prompt(
                 "cloudflare-answer-repair"
                 if repair
-                else ("cloudflare-answer" if cloudflare else "generic"),
+                else (
+                    "cloudflare-grounded-answer"
+                    if cloudflare and self._grounded_answers
+                    else ("cloudflare-answer" if cloudflare else "generic")
+                ),
                 question=question,
                 evidence=evidence,
             )
             version = prompt.definition.version
             response = await self._complete(prompt)
             payload, choice, structured = self._decode(response)
+            projection = None
             if cloudflare:
-                try:
-                    answer, cited_ids = compose_answer(structured, evidence)
-                except KnoraError as error:
-                    if error.code != "GENERATION_OUTPUT_INVALID" or repair:
-                        raise
-                    return await self.repair_generation(question=question, evidence=evidence)
+                answer, cited_ids, projection = compose_answer_projection(structured, evidence)
             else:
                 answer = structured["answer"]
                 cited_ids = tuple(structured["cited_evidence_ids"])
@@ -123,6 +125,7 @@ class OpenAICompatibleGenerationProvider:
                 provider_request_id=response.headers.get("x-request-id") or payload.get("id"),
                 usage=usage,
                 cost=cost,
+                answer_projection=projection,
             )
         except httpx.HTTPError:
             raise KnoraError("PROVIDER_REQUEST_FAILED") from None
@@ -148,11 +151,38 @@ class OpenAICompatibleGenerationProvider:
         }
         if self._max_tokens is not None:
             request_body["max_tokens"] = self._max_tokens
+        if prompt.definition.version in {
+            "cloudflare-gpt-oss-answer-support-v1",
+            "cloudflare-gpt-oss-cited-answer-v22",
+        }:
+            request_body["reasoning_effort"] = "low"
         response = await self._client.post(
             self._url, headers={"Authorization": f"Bearer {self._api_key}"}, json=request_body
         )
         response.raise_for_status()
         return response
+
+    def build_answer_support_verifier(self):
+        from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+        if (
+            self._provider_identity != "cloudflare-workers-ai"
+            or self._model != "@cf/openai/gpt-oss-20b"
+        ):
+            return None
+        return CloudflareAnswerSupportVerifier(self.complete_answer_support)
+
+    async def complete_answer_support(self, prompt: BuiltPrompt) -> tuple[object, dict]:
+        if (
+            self._provider_identity != "cloudflare-workers-ai"
+            or self._model != "@cf/openai/gpt-oss-20b"
+        ):
+            raise KnoraError("PROVIDER_REQUEST_FAILED")
+        if self._client is None:
+            self._client = httpx.AsyncClient(timeout=self._timeout_seconds)
+        response = await self._complete(prompt)
+        payload, choice, structured = self._decode(response)
+        return structured, self._metadata(response, payload, choice, prompt.definition.version)
 
     def _decode(self, response: httpx.Response) -> tuple[dict, dict, object]:
         payload = response.json()

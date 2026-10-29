@@ -118,7 +118,9 @@ async def test_adapter_matches_accepted_main_baseline(case: dict, with_context: 
         user["current_question" if ollama else "question"] = expected_question
         messages[1]["content"] = json.dumps(user, ensure_ascii=False)
     assert requests == [expected_request]
-    assert json.loads(json.dumps(asdict(result))) == case["result"]
+    public_result = asdict(result)
+    public_result.pop("answer_projection")
+    assert json.loads(json.dumps(public_result)) == case["result"]
     assert result.decision == case["output"]["decision"]
     if result.decision == "ANSWER":
         assert result.answer == "Hai nguồn — “trích dẫn”. [[E1]] [[E2]]"

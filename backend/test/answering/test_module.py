@@ -295,7 +295,7 @@ class CandidateStore(EmptyStore):
         return self.candidates
 
 
-def generation_repair_case(generator, *, v3=True, stale=False):
+def generation_repair_case(generator, *, v3=True, stale=False, verifier=None):
     from knora.answering.stores import BranchObservation, LexicalGeneration, RetrievalResult
 
     config = replace(
@@ -353,6 +353,7 @@ def generation_repair_case(generator, *, v3=True, stale=False):
     return store, AnswerQuestion(
         embedding_provider=None,
         generation_provider=generator,
+        answer_support_verifier=verifier,
         store=store,
         embedding_configuration=None,
         retrieval_configuration=config,
@@ -398,100 +399,155 @@ class RepairGenerator:
         )
 
 
-@pytest.mark.asyncio
-async def test_v3_repairs_invalid_answer_with_same_sources_and_one_audited_trace():
-    generator = RepairGenerator()
-    store, service = generation_repair_case(generator)
-    result = await service.execute(
-        QuestionCommand(workspace_id="workspace-a", question="Đổi trả trong bao nhiêu ngày?"),
-        WorkspacePrincipal(workspace_id="workspace-a", key_id="test"),
-    )
-    assert result.answer == "Đổi trả trong 7 ngày. [[E1]]"
-    assert result.citations[0].document_version_id == "version-1"
-    assert len(store.traces) == 1
-    metadata = store.traces[0].provider_metadata["generation"]
-    assert metadata["usage"]["total_tokens"] == 15
-    assert [a["validation_outcome"] for a in metadata["attempts"]] == ["invalid", "valid"]
-    assert generator.calls == [generator.calls[0], generator.calls[0]]
+class ProjectedGenerator(RepairGenerator):
+    async def generate(self, *, question, evidence):
+        from knora.providers.openai_compatible.answer_blocks import compose_answer_projection
 
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "repair,expected,calls",
-    [
-        ("invalid", "GENERATION_OUTPUT_INVALID", 3),
-        ("refusal", "GENERATION_OUTPUT_INVALID", 3),
-        ("network", "PROVIDER_REQUEST_FAILED", 2),
-    ],
-)
-async def test_v3_repair_cannot_publish_invalid_answer_or_mask_error(repair, expected, calls):
-    generator = RepairGenerator(repair)
-    store, service = generation_repair_case(generator)
-    with pytest.raises(KnoraError, match=expected):
-        await service.execute(
-            QuestionCommand(workspace_id="workspace-a", question="Đổi trả trong bao nhiêu ngày?"),
-            WorkspacePrincipal(workspace_id="workspace-a", key_id="test"),
+        self.calls.append((question, evidence))
+        answer, cited, projection = compose_answer_projection(
+            {
+                "decision": "ANSWER",
+                "before": [
+                    {
+                        "text": "La période de retour est de 7 jours.",
+                        "bold": None,
+                        "support": ["E1"],
+                    }
+                ],
+                "items": [],
+                "after": [],
+                "refusal_reason": None,
+            },
+            evidence,
         )
-    assert len(generator.calls) == calls
-    assert len(store.traces) == 1
-    assert store.traces[0].validation_outcome == "invalid"
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "v3,stale,error",
-    [
-        (False, False, "GENERATION_OUTPUT_INVALID"),
-        (True, True, "RETRIEVAL_PROVENANCE_INVALID"),
-    ],
-)
-async def test_repair_respects_legacy_single_call_and_source_snapshot(v3, stale, error):
-    generator = RepairGenerator(invalid_alias=not v3)
-    _, service = generation_repair_case(generator, v3=v3, stale=stale)
-    with pytest.raises(KnoraError, match=error):
-        await service.execute(
-            QuestionCommand(workspace_id="workspace-a", question="Đổi trả trong bao nhiêu ngày?"),
-            WorkspacePrincipal(workspace_id="workspace-a", key_id="test"),
+        return GenerationResult(
+            "ANSWER",
+            answer,
+            cited,
+            None,
+            provider="cloudflare-workers-ai",
+            answer_projection=projection,
         )
-    assert len(generator.calls) == 1
+
+
+class SupportVerifier:
+    def __init__(self, outcome="supported"):
+        self.outcome = outcome
+        self.calls = []
+
+    async def verify(self, **kwargs):
+        from knora.answering.answer_support import validate_support
+
+        self.calls.append(kwargs)
+        if self.outcome == "unavailable":
+            raise KnoraError("PROVIDER_REQUEST_FAILED")
+        quote = kwargs["evidence"][0].content
+        verdict = {
+            "answer_digest": kwargs["answer_projection"].answer_digest,
+            "snapshot_digest": kwargs["snapshot_digest"],
+            "statements": [
+                {
+                    "id": "S1",
+                    "verdict": "SUPPORTED" if self.outcome == "supported" else "UNKNOWN",
+                    "source_refs": [
+                        {
+                            "alias": "E1",
+                            "exact_quote": quote,
+                            "start": 0,
+                            "end": len(quote),
+                            "reason": "ENTAILMENT",
+                        }
+                    ],
+                }
+            ],
+            "groups": [
+                {"id": gid, "verdict": "ANSWERED", "statement_ids": ["S1"]}
+                for gid, _ in kwargs["groups"]
+            ],
+        }
+        return validate_support(
+            verdict,
+            answer=kwargs["answer"],
+            projection=kwargs["answer_projection"],
+            evidence=kwargs["evidence"],
+            snapshot_digest=kwargs["snapshot_digest"],
+            group_ids=tuple(g[0] for g in kwargs["groups"]),
+        ), {"provider": "cloudflare-workers-ai"}
 
 
 @pytest.mark.asyncio
-async def test_v3_valid_first_answer_does_not_call_repair():
-    class ValidGenerator(RepairGenerator):
-        async def generate(self, **kwargs):
-            return await self.repair_generation(**kwargs)
+async def test_v3_supported_paraphrase_uses_one_generation_and_one_verification():
+    from knora.answering.answer_support import validate_trace_support
 
-    generator = ValidGenerator()
-    store, service = generation_repair_case(generator)
+    generator, verifier = ProjectedGenerator(), SupportVerifier()
+    store, service = generation_repair_case(generator, verifier=verifier)
     result = await service.execute(
         QuestionCommand(workspace_id="workspace-a", question="Đổi trả trong bao nhiêu ngày?"),
         WorkspacePrincipal(workspace_id="workspace-a", key_id="test"),
     )
     assert result.decision == "ANSWER"
-    assert len(generator.calls) == 1
-    assert "attempts" not in store.traces[0].provider_metadata["generation"]
+    assert len(generator.calls) == len(verifier.calls) == 1
+    trace = store.traces[0]
+    assert trace.trace_schema_version == 4
+    assert trace.provider_metadata["answer_support"]["status"] == "supported"
+    assert "attempts" not in trace.provider_metadata["generation"]
+    candidate = trace.alias_mapping["E1"]
+    checksum = trace.provider_metadata["answer_support"]["snapshot_binding"]["sources"][0][
+        "content_checksum"
+    ]
+    validate_trace_support(trace, {candidate: ("Đổi trả trong 7 ngày.", checksum)})
+    with pytest.raises(KnoraError):
+        validate_trace_support(trace, {candidate: ("Đổi trả trong 70 ngày.", "changed")})
 
 
 @pytest.mark.asyncio
-async def test_repair_timeout_is_operational_error_with_no_answer(monkeypatch):
-    class SlowGenerator(RepairGenerator):
-        async def repair_generation(self, **kwargs):
-            await asyncio.sleep(1)
-            return await super().repair_generation(**kwargs)
-
-    timeout = asyncio.timeout
-    monkeypatch.setattr(asyncio, "timeout", lambda _: timeout(0))
-    generator = SlowGenerator()
-    store, service = generation_repair_case(generator)
-    with pytest.raises(KnoraError, match="PROVIDER_REQUEST_FAILED"):
+@pytest.mark.parametrize(
+    "outcome,error",
+    [("unknown", "GENERATION_OUTPUT_INVALID"), ("unavailable", "PROVIDER_REQUEST_FAILED")],
+)
+async def test_v3_unverified_answer_is_not_published_or_repaired(outcome, error):
+    generator, verifier = ProjectedGenerator(), SupportVerifier(outcome)
+    store, service = generation_repair_case(generator, verifier=verifier)
+    with pytest.raises(KnoraError, match=error):
         await service.execute(
             QuestionCommand(workspace_id="workspace-a", question="Đổi trả trong bao nhiêu ngày?"),
             WorkspacePrincipal(workspace_id="workspace-a", key_id="test"),
         )
-    assert len(store.traces) == 1
-    attempt = store.traces[0].provider_metadata["generation"]["attempts"][-1]
-    assert attempt == {"validation_outcome": "error", "error_code": "PROVIDER_REQUEST_FAILED"}
+    assert len(generator.calls) == len(verifier.calls) == 1
+    assert len(store.traces) == 1 and store.traces[0].validation_outcome == "invalid"
+    assert store.traces[0].provider_metadata["answer_support"]["status"] == (
+        "invalid" if outcome == "unknown" else "unavailable"
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "v3,stale,error",
+    [(False, False, "GENERATION_OUTPUT_INVALID"), (True, True, "RETRIEVAL_PROVENANCE_INVALID")],
+)
+async def test_legacy_validation_and_v3_snapshot_fence(v3, stale, error):
+    generator, verifier = ProjectedGenerator(), SupportVerifier()
+    if not v3:
+        generator = RepairGenerator(invalid_alias=True)
+    _, service = generation_repair_case(generator, v3=v3, stale=stale, verifier=verifier)
+    with pytest.raises(KnoraError, match=error):
+        await service.execute(
+            QuestionCommand(workspace_id="workspace-a", question="Đổi trả trong bao nhiêu ngày?"),
+            WorkspacePrincipal(workspace_id="workspace-a", key_id="test"),
+        )
+    assert len(generator.calls) == 1 and not verifier.calls
+
+
+@pytest.mark.asyncio
+async def test_v3_missing_projection_or_verifier_fails_closed_without_repair():
+    generator = RepairGenerator()
+    store, service = generation_repair_case(generator)
+    with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+        await service.execute(
+            QuestionCommand(workspace_id="workspace-a", question="Đổi trả trong bao nhiêu ngày?"),
+            WorkspacePrincipal(workspace_id="workspace-a", key_id="test"),
+        )
+    assert len(generator.calls) == 1 and store.traces[0].validation_outcome == "invalid"
 
 
 @pytest.mark.asyncio

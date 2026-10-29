@@ -10,7 +10,13 @@ from knora.providers.prompts import policy
 from knora.providers.prompts.versioning import PromptDefinition
 from knora.providers.structured_generation import STRUCTURED_RESULT_SCHEMA
 
-Profile = Literal["generic", "ollama", "cloudflare-answer", "cloudflare-answer-repair"]
+Profile = Literal[
+    "generic",
+    "ollama",
+    "cloudflare-answer",
+    "cloudflare-answer-repair",
+    "cloudflare-grounded-answer",
+]
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,10 +47,23 @@ def build_prompt(
             version = f"ollama-gpt-oss-low-schema-v3:{version}"
             system += policy.OLLAMA_GPT_OSS_SUFFIX
             system += "\nRequired response JSON schema:\n" + json.dumps(schema, sort_keys=True)
-    elif profile in {"cloudflare-answer", "cloudflare-answer-repair"}:
+    elif profile in {"cloudflare-answer", "cloudflare-answer-repair", "cloudflare-grounded-answer"}:
         version = policy.CLOUDFLARE_PROMPT_VERSION
         system = policy.CLOUDFLARE_SYSTEM_PROMPT
         schema = ANSWER_BLOCK_SCHEMA
+        if profile == "cloudflare-grounded-answer":
+            version = "cloudflare-gpt-oss-cited-answer-v22"
+            system += (
+                "\nAnswer only the requested facts. Each before paragraph, item and after "
+                "paragraph "
+                "is checked separately against its own support aliases: include every source "
+                "needed for ALL its clauses, even when an alias already supports another item. "
+                "Introductory and concluding paragraphs are optional. Use after=[] unless the "
+                "question requires an additional distinct source-backed fact. Do not add a "
+                "generic summary, benefit, recommendation, or restatement merely to conclude. "
+                "Preserve source conditions, exceptions and whether a statement is required, "
+                "recommended, optional or an example. Answer every aspect of the question."
+            )
         if profile == "cloudflare-answer-repair":
             version = f"retrieval-v3-grounded-repair-v2:{version}"
             system += (
