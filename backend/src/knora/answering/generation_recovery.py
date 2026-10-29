@@ -3,7 +3,7 @@
 import asyncio
 import json
 from collections.abc import Callable
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 
 from knora.answering.answer_support import (
     AnswerSupportFailure,
@@ -15,6 +15,7 @@ from knora.answering.answer_support import (
 from knora.answering.generation_validation import ValidatedGeneration, validate_generation_structure
 from knora.domain.errors import KnoraError
 from knora.providers.generation import GenerationEvidence, GenerationProvider, GenerationResult
+from knora.providers.openai_compatible.answer_blocks import compose_grounded_answer
 
 
 @dataclass
@@ -51,6 +52,7 @@ async def generate_with_recovery(
     verify_feedback = None
     rejected_answers = set()
     failures = set()
+    pruned = None
     phase = "generation"
     while True:
         revalidate()
@@ -59,27 +61,32 @@ async def generate_with_recovery(
         started = loop.time()
         try:
             if phase != "verification":
-                state.generation = None
-                generation = (
-                    await provider.generate(question=question, evidence=evidence)
-                    if phase == "generation"
-                    else await repair(question=question, evidence=evidence, feedback=feedback)
-                )
+                if phase == "prune":
+                    generation = pruned
+                    attempt["operation"] = "remove_rejected_statements"
+                else:
+                    state.generation = None
+                    generation = (
+                        await provider.generate(question=question, evidence=evidence)
+                        if phase == "generation"
+                        else await repair(question=question, evidence=evidence, feedback=feedback)
+                    )
                 state.generation = generation
-                attempt["provider"] = {
-                    k: v
-                    for k, v in asdict(generation).items()
-                    if k
-                    in {
-                        "provider",
-                        "model",
-                        "prompt_version",
-                        "finish_reason",
-                        "provider_request_id",
-                        "usage",
-                        "cost",
+                if phase != "prune":
+                    attempt["provider"] = {
+                        k: v
+                        for k, v in asdict(generation).items()
+                        if k
+                        in {
+                            "provider",
+                            "model",
+                            "prompt_version",
+                            "finish_reason",
+                            "provider_request_id",
+                            "usage",
+                            "cost",
+                        }
                     }
-                }
                 revalidate()
                 if phase == "repair" and generation.provider != "cloudflare-workers-ai":
                     state.stop_reason = "repair_provider_mismatch"
@@ -211,6 +218,37 @@ async def generate_with_recovery(
             if state.generation is not None:
                 rejected_answers.add(digest(state.generation.answer))
                 feedback["previous_answer"] = state.generation.answer
+                if observation.get("failure") == "unsupported_answer":
+                    rejected_ids = {
+                        s["id"]
+                        for s in observation.get("verdict", {}).get("statements", [])
+                        if s.get("verdict") in {"UNKNOWN", "CONTRADICTED"}
+                    } | {observation.get("failed_id")}
+                    statements = state.generation.answer_projection.statements
+                    retained = [s for s in statements if s.id not in rejected_ids]
+                    if 0 < len(retained) < len(statements):
+                        # Deletion supplies no proof: recheck ALL groups on the new digest.
+                        answer, aliases, projection = compose_grounded_answer(
+                            {
+                                "decision": "ANSWER",
+                                "before": [
+                                    {"text": s.text, "support": list(s.aliases)} for s in retained
+                                ],
+                                "items": [],
+                                "after": [],
+                                "refusal_reason": None,
+                            },
+                            evidence,
+                        )
+                        pruned = replace(
+                            state.generation,
+                            answer=answer,
+                            cited_evidence_ids=aliases,
+                            answer_projection=projection,
+                        )
+                        verify_feedback = None
+                        phase = "prune"
+                        continue
             verify_feedback = None
             phase = "repair"
         finally:

@@ -1873,3 +1873,80 @@ async def test_v3_recovery_has_no_arbitrary_two_call_ceiling():
     assert result.decision == "ANSWER" and len(verifier.calls) == 4
     assert len(generator.calls) == 1
     assert len(store.traces[0].provider_metadata["generation_recovery"]["attempts"]) == 5
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("final_outcome", ["supported", "unavailable"])
+async def test_v3_unsupported_extra_statement_is_removed_then_entire_answer_reverified(
+    final_outcome,
+):
+    from knora.answering.answer_support import AnswerSupportFailure
+    from knora.providers.openai_compatible.answer_blocks import compose_grounded_answer
+
+    class ExtraClaim(RecoverableGenerator):
+        async def generate(self, *, question, evidence):
+            self.calls.append((question, evidence))
+            answer, aliases, projection = compose_grounded_answer(
+                {
+                    "decision": "ANSWER",
+                    "before": [
+                        {"text": "Đổi trả trong 7 ngày.", "support": ["E1"]},
+                        {"text": "Luôn được miễn phí vận chuyển.", "support": ["E1"]},
+                    ],
+                    "items": [],
+                    "after": [],
+                    "refusal_reason": None,
+                },
+                evidence,
+            )
+            return GenerationResult(
+                "ANSWER",
+                answer,
+                aliases,
+                None,
+                provider="cloudflare-workers-ai",
+                answer_projection=projection,
+            )
+
+    class RejectExtra(SupportVerifier):
+        async def verify(self, **kwargs):
+            if not self.calls:
+                self.calls.append(kwargs)
+                raise AnswerSupportFailure(
+                    "GENERATION_OUTPUT_INVALID",
+                    {
+                        "failure": "unsupported_answer",
+                        "failed_id": "S2",
+                        "verdict": {
+                            "statements": [
+                                {"id": "S1", "verdict": "SUPPORTED", "source_refs": []},
+                                {"id": "S2", "verdict": "UNKNOWN", "source_refs": []},
+                            ],
+                            "groups": [],
+                        },
+                    },
+                )
+            return await super().verify(**kwargs)
+
+    generator, verifier = ExtraClaim(), RejectExtra(final_outcome)
+    if final_outcome == "unavailable":
+        store, service = generation_repair_case(generator, verifier=verifier)
+        with pytest.raises(KnoraError, match="PROVIDER_REQUEST_FAILED"):
+            await service.execute(
+                QuestionCommand(
+                    workspace_id="workspace-a", question="Đổi trả trong bao nhiêu ngày?"
+                ),
+                WorkspacePrincipal(workspace_id="workspace-a", key_id="test"),
+            )
+        assert len(generator.calls) == 1 and len(verifier.calls) == 2
+        assert store.traces[0].validation_outcome == "invalid"
+        return
+    result, store = await run_recovery_case(generator, verifier)
+    assert result.answer == "Đổi trả trong **7 ngày**. [[E1]]"
+    assert len(generator.calls) == 1 and not generator.feedback
+    assert len(verifier.calls) == 2
+    assert (
+        verifier.calls[0]["answer_projection"].answer_digest
+        != verifier.calls[1]["answer_projection"].answer_digest
+    )
+    assert store.traces[0].provider_metadata["answer_support"]["status"] == "supported"
