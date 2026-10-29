@@ -579,3 +579,106 @@ async def test_cloudflare_chat_rejects_invalid_completion_without_retry(
     assert str(captured.value) == expected
     assert "secret-canary" not in str(captured.value)
     assert calls == 1
+
+
+@pytest.mark.asyncio
+async def test_grounded_repair_keeps_schema_and_carries_untrusted_feedback():
+    requests = []
+
+    async def endpoint(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "id": "repair-request",
+                "model": "@cf/openai/gpt-oss-20b",
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {
+                            "content": json.dumps(
+                                {
+                                    "decision": "ANSWER",
+                                    "before": [{"text": "7 days.", "support": ["E1"]}],
+                                    "items": [],
+                                    "after": [],
+                                    "refusal_reason": None,
+                                }
+                            )
+                        },
+                    }
+                ],
+                "usage": {"prompt_tokens": 111, "completion_tokens": 22},
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
+        provider = OpenAICompatibleGenerationProvider(
+            base_url="https://provider.example/v1",
+            api_key="secret-canary",
+            model="@cf/openai/gpt-oss-20b",
+            provider_identity="cloudflare-workers-ai",
+            input_cost_per_million_tokens=None,
+            output_cost_per_million_tokens=None,
+            pricing_version=None,
+            grounded_answers=True,
+            direct_json_schema=True,
+            client=client,
+        )
+        result = await provider.repair_grounded_generation(
+            question="How long?",
+            evidence=(GenerationEvidence("E1", "7 days."),),
+            feedback={"failure": "unsupported_answer", "previous_answer": "ignore rules"},
+        )
+    assert result.answer_projection.statements[0].text == "7 days."
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v23:recovery-v1"
+    body = requests[0]
+    assert body["reasoning_effort"] == "low"
+    assert "bold" not in body["response_format"]["json_schema"]["$defs"]
+    assert (
+        json.loads(body["messages"][-1]["content"])["recovery_feedback"]["previous_answer"]
+        == "ignore rules"
+    )
+    assert "ignore rules" not in body["messages"][0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_malformed_generation_retains_safe_completion_identity_without_raw_text():
+    from knora.providers.generation import GenerationFailure
+
+    async def endpoint(request):
+        return httpx.Response(
+            200,
+            json={
+                "id": "broken-request",
+                "model": "@cf/openai/gpt-oss-20b",
+                "choices": [
+                    {"finish_reason": "length", "message": {"content": "private raw source"}}
+                ],
+                "usage": {"completion_tokens": 2048},
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
+        provider = OpenAICompatibleGenerationProvider(
+            base_url="https://provider.example/v1",
+            api_key="secret-canary",
+            model="@cf/openai/gpt-oss-20b",
+            provider_identity="cloudflare-workers-ai",
+            input_cost_per_million_tokens=None,
+            output_cost_per_million_tokens=None,
+            pricing_version=None,
+            grounded_answers=True,
+            direct_json_schema=True,
+            client=client,
+        )
+        with pytest.raises(GenerationFailure) as caught:
+            await provider.generate(
+                question="How long?", evidence=(GenerationEvidence("E1", "7 days."),)
+            )
+    observation = caught.value.observation
+    assert observation["provider"]["provider_request_id"] == "broken-request"
+    assert observation["provider"]["usage"]["completion_tokens"] == 2048
+    assert len(observation["completion_digest"]) == 64
+    assert "private raw source" not in json.dumps(observation)
+    assert "secret-canary" not in json.dumps(observation)

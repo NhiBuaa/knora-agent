@@ -87,6 +87,7 @@ class AnswerSupportVerifier(Protocol):
         answer_projection: AnswerProjection,
         evidence: tuple[GenerationEvidence, ...],
         snapshot_digest: str,
+        feedback: dict | None = None,
     ) -> tuple[AnswerSupportProof, dict]: ...
 
 
@@ -157,6 +158,8 @@ def validate_support(
     group_ids: tuple[str, ...],
 ) -> AnswerSupportProof:
     validate_projection(answer, projection, evidence)
+    failure = "invalid_verifier_proof"
+    failed_id = None
     try:
         verdict = SupportVerdict.model_validate(payload)
         if (
@@ -171,6 +174,10 @@ def validate_support(
             raise ValueError
         sources = {e.evidence_id: e.content for e in evidence}
         for item in verdict.statements:
+            failed_id = item.id
+            failure = (
+                "unsupported_answer" if item.verdict != "SUPPORTED" else "invalid_verifier_proof"
+            )
             if item.verdict != "SUPPORTED" or not item.source_refs:
                 raise ValueError
             for ref in item.source_refs:
@@ -180,14 +187,21 @@ def validate_support(
                     or sources[ref.alias][ref.start : ref.end] != ref.exact_quote
                 ):
                     raise ValueError
+            failure = "unsupported_answer"
             _validate_explicit_facts(
                 statements[item.id].text, "\n".join(ref.exact_quote for ref in item.source_refs)
             )
+        failure = "invalid_verifier_proof"
+        failed_id = None
         if len(verdict.groups) != len(group_ids) or {g.id for g in verdict.groups} != set(
             group_ids
         ):
             raise ValueError
         for group in verdict.groups:
+            failed_id = group.id
+            failure = (
+                "unsupported_answer" if group.verdict != "ANSWERED" else "invalid_verifier_proof"
+            )
             if (
                 group.verdict != "ANSWERED"
                 or not group.statement_ids
@@ -199,7 +213,13 @@ def validate_support(
             projection.answer_digest, snapshot_digest, verdict.model_dump_json()
         )
     except (ValidationError, KeyError, TypeError, ValueError):
-        raise KnoraError("GENERATION_OUTPUT_INVALID") from None
+        raise AnswerSupportFailure(
+            "GENERATION_OUTPUT_INVALID",
+            {
+                "failure": failure,
+                "failed_id": failed_id,
+            },
+        ) from None
 
 
 def _validate_explicit_facts(statement: str, source: str) -> None:

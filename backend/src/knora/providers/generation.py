@@ -1,6 +1,14 @@
 from dataclasses import dataclass, field
 from typing import Protocol
 
+from knora.domain.errors import KnoraError
+
+
+class GenerationFailure(KnoraError):
+    def __init__(self, code: str, observation: dict) -> None:
+        super().__init__(code)
+        self.observation = observation
+
 
 @dataclass(frozen=True, slots=True)
 class AnswerStatement:

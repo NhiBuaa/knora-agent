@@ -362,7 +362,11 @@ For the conversation-approved paid Retrieval V3 verification, set
 running `start-dev.ps1`. This selects 120B for both generation and source verification;
 the default remains 20B. 120B uses versioned JSON Object prompts with the full schema
 in the system message and strict server validation of shape, aliases and source proof.
-Malformed output is rejected; there is no rewrite, regeneration or provider fallback.
+Malformed output remains rejected. Owner-approved Retrieval V3 recovery can correct generation
+or verifier format, or regenerate an unsupported answer from the same source snapshot with
+specific feedback. It stops on repeated failed content, provider unavailability or deadline;
+there is no provider fallback and no unverified final answer. Per-call safe observations are in
+`QuestionTrace.provider_metadata.generation_recovery`; malformed generation also retains a trace.
 The verifier remains capped at 60 seconds within the 90-second question pipeline.
 Changing this variable requires restarting the full launcher and checking fresh trace
 model/prompt identities. Paid AI use requires its own authorization; the Issue #153
@@ -724,7 +728,6 @@ and loads through PowerShell's `Add-Type`; it requires no additional dependency.
 Use `-ApiPort`, `-FrontendPort`, `-PostgresPort`, `-PythonExe`, `-OllamaBaseUrl`, `-EnvFile`, `-DatabaseName`, or `-NoBrowser` when a temporary local override is required. Process/command values take precedence over root `.env` where the launcher exposes an override.
 
 An explicit `-FrontendPort` also sets the local `KEYCLOAK_REDIRECT_URI` and `NEXT_PUBLIC_APP_ORIGIN` to that port. The Keycloak client must allow the resulting exact callback URI (for example `http://127.0.0.1:3001/api/auth/callback`); changing the app port does not change Keycloak's redirect allowlist.
-
 
 ## Referencing a shared `.env` from an isolated Git worktree
 

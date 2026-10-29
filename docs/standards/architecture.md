@@ -24,7 +24,7 @@ These rules are normative for Knora unless superseded by an approved Standard or
   clients and non-OIDC integrations.
 - Workspace endpoints must execute authorization in this order:
   `validate credential → create principal → authorize workspace → authorize capability → lookup
-  resource or begin side effect`. Authorization failures must stop before resource lookup or side
+resource or begin side effect`. Authorization failures must stop before resource lookup or side
   effects. Bearer principals fail closed when the required capability is absent. Legacy API-key
   principals retain their existing Workspace-scoped compatibility behavior.
 - M5 capabilities are `documents:read` for document and ingestion-job projections,
@@ -66,8 +66,14 @@ These rules are normative for Knora unless superseded by an approved Standard or
   Backend-only account/token settings select fixed native Qwen3 0.6B embedding and GPT-OSS 20B
   generation by default. Explicit `KNORA_CLOUDFLARE_GENERATION_MODEL=@cf/openai/gpt-oss-120b`
   selects Cloudflare-hosted 120B for generation and verification after runtime qualification.
-  This model selection preserves source validation and the one-generation/one-verification
-  limit; it does not authorize local inference. The immutable Cloudflare embedding profile is
+  This model selection preserves source validation and the shared 90-second request deadline;
+  it does not authorize local inference. Retrieval V3 may recover malformed generation or
+  verification and unsupported answers with specific diagnostic feedback inside that deadline.
+  A verification attempt has at most 60 seconds, bounded by the request's remaining time.
+  Successful answers still require a fresh source proof; repeated rejected candidates or
+  unchanged failures stop recovery. Availability, quota, authorization and provenance failures
+  fail closed. Each call is audited; no arbitrary call-count ceiling replaces the time budget.
+  The immutable Cloudflare embedding profile is
   `embedding-cloudflare-qwen3-06b-v1` at 1024 dimensions, separate from both Ollama's
   digest-bound 1024-dimensional profile and historical 1536-dimensional profiles.
 - Knora uses `1536` dimensions, PostgreSQL `vector(1536)` and cosine distance. Approved immutable
@@ -423,8 +429,8 @@ These rules are normative for Knora unless superseded by an approved Standard or
   response; the same key with a different fingerprint returns `IDEMPOTENCY_KEY_CONFLICT`. Atomic
   insert or a unique database constraint protects concurrent requests.
 - The content fingerprint is exactly `(workspace_id, canonical_source_key, raw_sha256,
-  parser_config_version_id, normalizer_config_version_id, chunking_config_version_id,
-  embedding_config_version_id)`. Filename, upload timestamp and object key are excluded. Immutable
+parser_config_version_id, normalizer_config_version_id, chunking_config_version_id,
+embedding_config_version_id)`. Filename, upload timestamp and object key are excluded. Immutable
   configuration version IDs are mandatory; mutable configuration blobs and model names alone are
   not valid identities.
 - Document Version deduplication is distinct from request idempotency and processing generation:
@@ -507,7 +513,7 @@ These rules are normative for Knora unless superseded by an approved Standard or
 - Object Lifecycle Work dispatch is PostgreSQL polling, not a new broker. It atomically claims
   eligible `queued` or due `retry_scheduled` work using `FOR UPDATE SKIP LOCKED` (or equivalent),
   a lease/fencing capability and operation-ID replay. Its only transitions are `queued ->
-  processing -> retry_scheduled | succeeded | failed`. Object Lifecycle Retry Policy V1 permits
+processing -> retry_scheduled | succeeded | failed`. Object Lifecycle Retry Policy V1 permits
   four total attempts with full-jitter windows of 5 seconds, 30 seconds and 2 minutes. Duplicate
   delivery or replay returns the one durable operation result without creating another attempt or
   external effect; failure changes only lifecycle work, metrics and alerts.
@@ -651,7 +657,7 @@ These rules are normative for Knora unless superseded by an approved Standard or
 - PDF Chunk Sets do not cross physical page boundaries in Milestone 2. The normalized page text is
   split into deterministic paragraph/block units and packed toward `target_tokens = 500` with at
   most `overlap_tokens = 75`, preferring complete blocks. Only a block exceeding `max_tokens =
-  650` may be hard-split with deterministic token windows, and overlap must not cause a Chunk to
+650` may be hard-split with deterministic token windows, and overlap must not cause a Chunk to
   exceed `max_tokens`.
 - PDF chunk token counts use normalized text and record the tokenizer name and exact version in
   the immutable Chunking Configuration. Every PDF Chunk records `page_number`, `chunk_ordinal`,
@@ -866,7 +872,7 @@ These rules are normative for Knora unless superseded by an approved Standard or
   `source_key#ordinal` reference becomes canonical only when scoped by the corpus manifest's
   `chunk_set_provenance_id`; it is not globally canonical. Before scoring, the evaluator verifies
   that the exactly correlated trace candidate's exact `(source_key, persisted Document Version UUID,
-  persisted Chunk Set UUID)` triple equals one binding entry, then projects candidates to the
+persisted Chunk Set UUID)` triple equals one binding entry, then projects candidates to the
   provenance-scoped identity. The trace/evaluation reader must project Document Version UUID; if
   it cannot, it must establish an equivalent mandatory reader-side verified source → Document
   Version → Chunk Set relation. Version verification may not be omitted. Unknown source,

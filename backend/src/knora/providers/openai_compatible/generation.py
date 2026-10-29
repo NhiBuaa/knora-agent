@@ -1,11 +1,13 @@
 import json
 from decimal import Decimal
+from hashlib import sha256
 
 import httpx
 
 from knora.domain.errors import KnoraError
 from knora.providers.generation import (
     GenerationEvidence,
+    GenerationFailure,
     GenerationResult,
 )
 from knora.providers.openai_compatible.answer_blocks import (
@@ -19,6 +21,18 @@ from knora.providers.prompts.policy import (
 from knora.providers.prompts.policy import (
     CLOUDFLARE_SYSTEM_PROMPT as CLOUDFLARE_SYSTEM_PROMPT,
 )
+
+
+def _completion_digest(response: httpx.Response | None) -> str | None:
+    if response is None:
+        return None
+    try:
+        content = response.json()["choices"][0]["message"]["content"]
+        if isinstance(content, str):
+            return sha256(content.encode("utf-8")).hexdigest()
+    except (IndexError, KeyError, TypeError, ValueError):
+        pass
+    return sha256(response.content).hexdigest()
 
 
 class OpenAICompatibleGenerationProvider:
@@ -71,10 +85,17 @@ class OpenAICompatibleGenerationProvider:
         return await self._generate(question=question, evidence=evidence, repair=True)
 
     async def _generate(
-        self, *, question: str, evidence: tuple[GenerationEvidence, ...], repair: bool
+        self,
+        *,
+        question: str,
+        evidence: tuple[GenerationEvidence, ...],
+        repair: bool,
+        recovery_feedback: dict | None = None,
     ) -> GenerationResult:
         if self._client is None:
             self._client = httpx.AsyncClient(timeout=self._timeout_seconds)
+        response = None
+        metadata = {"provider": self._provider_identity, "model": self._model}
         try:
             cloudflare = self._provider_identity == "cloudflare-workers-ai"
             prompt = build_prompt(
@@ -87,10 +108,14 @@ class OpenAICompatibleGenerationProvider:
                 ),
                 question=question,
                 evidence=evidence,
+                recovery_feedback=recovery_feedback,
             )
             prompt = self._prepare_prompt(prompt)
             version = prompt.definition.version
             response = await self._complete(prompt)
+            payload = response.json()
+            choice = payload["choices"][0]
+            metadata = self._metadata(response, payload, choice, version)
             payload, choice, structured = self._decode(response)
             projection = None
             if cloudflare:
@@ -138,11 +163,38 @@ class OpenAICompatibleGenerationProvider:
             )
         except httpx.HTTPError:
             raise KnoraError("PROVIDER_REQUEST_FAILED") from None
-        except (IndexError, KeyError, TypeError, ValueError, json.JSONDecodeError):
-            raise KnoraError("GENERATION_OUTPUT_INVALID") from None
+        except (KnoraError, AttributeError, IndexError, KeyError, TypeError, ValueError) as error:
+            if isinstance(error, KnoraError) and error.code != "GENERATION_OUTPUT_INVALID":
+                raise
+            raise GenerationFailure(
+                "GENERATION_OUTPUT_INVALID",
+                {
+                    "failure": "invalid_generation_completion",
+                    "provider": metadata,
+                    "completion_digest": _completion_digest(response),
+                },
+            ) from None
+
+    async def repair_grounded_generation(
+        self,
+        *,
+        question: str,
+        evidence: tuple[GenerationEvidence, ...],
+        feedback: dict,
+    ) -> GenerationResult:
+        if self._provider_identity != "cloudflare-workers-ai" or not self._grounded_answers:
+            raise KnoraError("GENERATION_OUTPUT_INVALID")
+        return await self._generate(
+            question=question,
+            evidence=evidence,
+            repair=False,
+            recovery_feedback=feedback,
+        )
 
     def _prepare_prompt(self, prompt: BuiltPrompt) -> BuiltPrompt:
-        if self._model != "@cf/openai/gpt-oss-120b" or prompt.definition.version not in {
+        if self._model != "@cf/openai/gpt-oss-120b" or prompt.definition.version.removesuffix(
+            ":recovery-v1"
+        ) not in {
             "cloudflare-gpt-oss-cited-answer-v23",
             "cloudflare-gpt-oss-answer-support-v3",
         }:
@@ -185,7 +237,9 @@ class OpenAICompatibleGenerationProvider:
             request_body["response_format"] = {"type": "json_object"}
         if self._max_tokens is not None:
             request_body["max_tokens"] = self._max_tokens
-        if prompt.definition.version.removesuffix(":json-object-v1") in {
+        if prompt.definition.version.removesuffix(":json-object-v1").removesuffix(
+            ":recovery-v1"
+        ) in {
             "cloudflare-gpt-oss-answer-support-v3",
             "cloudflare-gpt-oss-cited-answer-v23",
         }:
@@ -223,12 +277,16 @@ class OpenAICompatibleGenerationProvider:
             choice = payload["choices"][0]
             metadata = self._metadata(response, payload, choice, prompt.definition.version)
             _, _, structured = self._decode(response)
-        except (KnoraError, IndexError, KeyError, TypeError, ValueError):
+        except (KnoraError, AttributeError, IndexError, KeyError, TypeError, ValueError):
             from knora.answering.answer_support import AnswerSupportFailure
 
             raise AnswerSupportFailure(
                 "GENERATION_OUTPUT_INVALID",
-                {"failure": "invalid_verifier_completion", "provider": metadata},
+                {
+                    "failure": "invalid_verifier_completion",
+                    "provider": metadata,
+                    "completion_digest": _completion_digest(response),
+                },
             ) from None
         return structured, metadata
 
