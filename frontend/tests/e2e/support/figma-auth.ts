@@ -1,10 +1,13 @@
 import { execFileSync } from "node:child_process";
 import { expect, type Page } from "@playwright/test";
 
+import realm from "../../../../test/fixtures/keycloak/figma-realm.json";
 import {
   figmaEnvironment,
   validateFigmaEnvironment,
 } from "./figma-environment";
+
+type RealmUser = { username: string; credentials?: Array<{ value: string }> };
 
 export function assertFigmaServiceOwnership() {
   const environment = validateFigmaEnvironment(figmaEnvironment());
@@ -87,4 +90,33 @@ export async function captureIdentity(page: Page, path: string) {
     mask: masks,
     maskColor: "#ffffff",
   });
+}
+
+export async function signInFigmaUser(
+  page: Page,
+  identity: "m5-user" | "m5-other-workspace" | "m5-no-operator",
+  rememberMe = false,
+): Promise<void> {
+  const users = (realm as { users: RealmUser[] }).users;
+  const user = users.find((u) => u.username === identity);
+  if (!user || !user.credentials?.[0]?.value) {
+    throw new Error(
+      `Synthetic identity ${identity} not found in figma-realm.json`,
+    );
+  }
+  await openFigmaLogin(page);
+  await page.locator("#username").fill(user.username);
+  await page.locator("#password").fill(user.credentials[0].value);
+  const checkbox = page.locator("#rememberMe");
+  if (rememberMe) {
+    await checkbox.check();
+  } else {
+    await checkbox.uncheck();
+  }
+  await page.locator("#kc-login").click();
+  await page.waitForURL(/\/workspaces(?:\/[^?]+)?$/);
+  const sessionRes = await page.request.get("/api/auth/session");
+  expect(sessionRes.ok()).toBe(true);
+  const body = (await sessionRes.json()) as { session: unknown };
+  expect(body.session).not.toBeNull();
 }
