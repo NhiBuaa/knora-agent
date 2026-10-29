@@ -8,7 +8,10 @@ from knora.providers.generation import (
     GenerationEvidence,
     GenerationResult,
 )
-from knora.providers.openai_compatible.answer_blocks import compose_answer_projection
+from knora.providers.openai_compatible.answer_blocks import (
+    compose_answer_projection,
+    compose_grounded_answer,
+)
 from knora.providers.prompts.builder import BuiltPrompt, build_prompt
 from knora.providers.prompts.policy import (
     CLOUDFLARE_PROMPT_VERSION as CLOUDFLARE_PROMPT_VERSION,
@@ -90,7 +93,12 @@ class OpenAICompatibleGenerationProvider:
             payload, choice, structured = self._decode(response)
             projection = None
             if cloudflare:
-                answer, cited_ids, projection = compose_answer_projection(structured, evidence)
+                composer = (
+                    compose_grounded_answer
+                    if self._grounded_answers and not repair
+                    else compose_answer_projection
+                )
+                answer, cited_ids, projection = composer(structured, evidence)
             else:
                 answer = structured["answer"]
                 cited_ids = tuple(structured["cited_evidence_ids"])
@@ -153,7 +161,7 @@ class OpenAICompatibleGenerationProvider:
             request_body["max_tokens"] = self._max_tokens
         if prompt.definition.version in {
             "cloudflare-gpt-oss-answer-support-v1",
-            "cloudflare-gpt-oss-cited-answer-v22",
+            "cloudflare-gpt-oss-cited-answer-v23",
         }:
             request_body["reasoning_effort"] = "low"
         response = await self._client.post(

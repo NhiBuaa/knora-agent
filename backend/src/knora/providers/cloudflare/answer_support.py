@@ -111,19 +111,41 @@ class CloudflareAnswerSupportVerifier:
             {"role": "system", "content": _SYSTEM},
             {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
         ]
-        if sum(len(_TOKENIZER.encode(m["content"])) for m in messages) + 32 > 8192:
+        schema = _WireVerdict.model_json_schema()
+        input_tokens = (
+            len(
+                _TOKENIZER.encode(
+                    json.dumps(
+                        {"messages": messages, "response_format": schema}, ensure_ascii=False
+                    )
+                )
+            )
+            + 32
+        )
+        if input_tokens > 8192:
             raise KnoraError("PROVIDER_REQUEST_FAILED")
         prompt = BuiltPrompt(
-            PromptDefinition(
-                PROMPT_ID, _SYSTEM, _WireVerdict.model_json_schema(), "answer-support-v1"
-            ),
+            PromptDefinition(PROMPT_ID, _SYSTEM, schema, "answer-support-v1"),
             messages,
         )
+        started = asyncio.get_running_loop().time()
         try:
-            async with asyncio.timeout(15):
+            async with asyncio.timeout(60):
                 raw, metadata = await self._complete(prompt)
         except (TimeoutError, httpx.HTTPError):
             raise KnoraError("PROVIDER_REQUEST_FAILED") from None
+        metadata = {
+            **metadata,
+            "latency_ms": (asyncio.get_running_loop().time() - started) * 1000,
+            "input_tokens_estimate": input_tokens,
+            "limits": {
+                "verification_seconds": 60,
+                "pipeline_seconds": 90,
+                "input_tokens": 8192,
+                "output_tokens": 2048,
+                "max_calls": 1,
+            },
+        }
         try:
             wire = _WireVerdict.model_validate(raw)
             expanded = wire.model_dump()
@@ -133,7 +155,10 @@ class CloudflareAnswerSupportVerifier:
                     for ref in statement["source_refs"]
                 ]
         except (ValueError, TypeError, KeyError):
-            raise KnoraError("GENERATION_OUTPUT_INVALID") from None
+            raise AnswerSupportFailure(
+                "GENERATION_OUTPUT_INVALID",
+                {"failure": "invalid_verifier_envelope", "provider": metadata},
+            ) from None
         try:
             proof = validate_support(
                 expanded,
