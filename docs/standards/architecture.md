@@ -64,8 +64,8 @@ resource or begin side effect`. Authorization failures must stop before resource
   abstraction.
 - Cloudflare Workers AI uses the existing independent provider contracts with no fallback.
   Backend-only account/token settings select fixed native Qwen3 0.6B embedding and GPT-OSS 20B
-  generation by default. Explicit `KNORA_CLOUDFLARE_GENERATION_MODEL=@cf/openai/gpt-oss-120b`
-  selects Cloudflare-hosted 120B for generation and verification after runtime qualification.
+  generation. The 120B diagnostic transport is not application-qualified; bootstrap retains
+  the 20B model restriction until a separately verified model selection is approved.
   This model selection preserves source validation and the shared 90-second request deadline;
   it does not authorize local inference. Retrieval V3 may recover malformed generation or
   verification and unsupported answers with specific diagnostic feedback inside that deadline.
@@ -73,6 +73,8 @@ resource or begin side effect`. Authorization failures must stop before resource
   Successful answers still require a fresh source proof; repeated rejected candidates or
   unchanged failures stop recovery. Availability, quota, authorization and provenance failures
   fail closed. Each call is audited; no arbitrary call-count ceiling replaces the time budget.
+  Unsupported extra statements may be removed before full re-verification on the new answer
+  digest. Deletion never establishes source support or coverage of required question parts.
   The immutable Cloudflare embedding profile is
   `embedding-cloudflare-qwen3-06b-v1` at 1024 dimensions, separate from both Ollama's
   digest-bound 1024-dimensional profile and historical 1536-dimensional profiles.
