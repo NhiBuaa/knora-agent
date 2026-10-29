@@ -88,6 +88,7 @@ class OpenAICompatibleGenerationProvider:
                 question=question,
                 evidence=evidence,
             )
+            prompt = self._prepare_prompt(prompt)
             version = prompt.definition.version
             response = await self._complete(prompt)
             payload, choice, structured = self._decode(response)
@@ -140,6 +141,29 @@ class OpenAICompatibleGenerationProvider:
         except (IndexError, KeyError, TypeError, ValueError, json.JSONDecodeError):
             raise KnoraError("GENERATION_OUTPUT_INVALID") from None
 
+    def _prepare_prompt(self, prompt: BuiltPrompt) -> BuiltPrompt:
+        if self._model != "@cf/openai/gpt-oss-120b" or prompt.definition.version not in {
+            "cloudflare-gpt-oss-cited-answer-v23",
+            "cloudflare-gpt-oss-answer-support-v3",
+        }:
+            return prompt
+        from knora.providers.prompts.versioning import PromptDefinition
+
+        # 120B's schema decoder can emit Harmony tokens; validate JSON locally instead.
+        system = prompt.definition.system_prompt + (
+            "\nRequired JSON Schema (return a matching JSON object, no extra fields):\n"
+            + json.dumps(prompt.definition.schema, ensure_ascii=False)
+        )
+        return BuiltPrompt(
+            PromptDefinition(
+                prompt.definition.version + ":json-object-v1",
+                system,
+                prompt.definition.schema,
+                prompt.definition.serializer_id,
+            ),
+            [{"role": "system", "content": system}, *prompt.messages[1:]],
+        )
+
     async def _complete(self, prompt: BuiltPrompt) -> httpx.Response:
         request_body = {
             "model": self._model,
@@ -157,9 +181,11 @@ class OpenAICompatibleGenerationProvider:
                 ),
             },
         }
+        if prompt.definition.version.endswith(":json-object-v1"):
+            request_body["response_format"] = {"type": "json_object"}
         if self._max_tokens is not None:
             request_body["max_tokens"] = self._max_tokens
-        if prompt.definition.version in {
+        if prompt.definition.version.removesuffix(":json-object-v1") in {
             "cloudflare-gpt-oss-answer-support-v3",
             "cloudflare-gpt-oss-cited-answer-v23",
         }:
@@ -174,21 +200,22 @@ class OpenAICompatibleGenerationProvider:
     def build_answer_support_verifier(self):
         from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
 
-        if (
-            self._provider_identity != "cloudflare-workers-ai"
-            or self._model != "@cf/openai/gpt-oss-20b"
-        ):
+        if self._provider_identity != "cloudflare-workers-ai" or self._model not in {
+            "@cf/openai/gpt-oss-20b",
+            "@cf/openai/gpt-oss-120b",
+        }:
             return None
         return CloudflareAnswerSupportVerifier(self.complete_answer_support)
 
     async def complete_answer_support(self, prompt: BuiltPrompt) -> tuple[object, dict]:
-        if (
-            self._provider_identity != "cloudflare-workers-ai"
-            or self._model != "@cf/openai/gpt-oss-20b"
-        ):
+        if self._provider_identity != "cloudflare-workers-ai" or self._model not in {
+            "@cf/openai/gpt-oss-20b",
+            "@cf/openai/gpt-oss-120b",
+        }:
             raise KnoraError("PROVIDER_REQUEST_FAILED")
         if self._client is None:
             self._client = httpx.AsyncClient(timeout=self._timeout_seconds)
+        prompt = self._prepare_prompt(prompt)
         response = await self._complete(prompt)
         metadata = {"provider": self._provider_identity, "model": self._model}
         try:

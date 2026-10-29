@@ -241,7 +241,10 @@ def _build_selected_generation(runtime_settings: Settings, choice: str) -> Gener
     if choice in {"cloudflare-workers-ai", "cloudflare"}:
         account_id, api_token = _cloudflare_credentials(runtime_settings)
 
-        if runtime_settings.cloudflare_generation_model != "@cf/openai/gpt-oss-20b":
+        if runtime_settings.cloudflare_generation_model not in {
+            "@cf/openai/gpt-oss-20b",
+            "@cf/openai/gpt-oss-120b",
+        }:
             raise ValueError(
                 "invalid provider configuration: unsupported Cloudflare generation model"
             )

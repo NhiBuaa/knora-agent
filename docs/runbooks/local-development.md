@@ -357,6 +357,18 @@ the parent environment. Submit a new Turn and verify its server trace records th
 selected provider/model/profile, then inspect facts, citations and refusal. Old
 Turns remain unchanged. Successful preflight does not certify answer quality.
 
+For the conversation-approved paid Retrieval V3 verification, set
+`KNORA_CLOUDFLARE_GENERATION_MODEL=@cf/openai/gpt-oss-120b` in the launch process before
+running `start-dev.ps1`. This selects 120B for both generation and source verification;
+the default remains 20B. 120B uses versioned JSON Object prompts with the full schema
+in the system message and strict server validation of shape, aliases and source proof.
+Malformed output is rejected; there is no rewrite, regeneration or provider fallback.
+The verifier remains capped at 60 seconds within the 90-second question pipeline.
+Changing this variable requires restarting the full launcher and checking fresh trace
+model/prompt identities. Paid AI use requires its own authorization; the Issue #153
+owner granted reasonable paid use and conditional 120B integration in the Codex
+conversation on 2026-10-29. This is not release acceptance or deployment approval.
+
 ### Re-index a retained corpus for Cloudflare
 
 Only the operator of an isolated, quiesced target corpus should run this workflow.

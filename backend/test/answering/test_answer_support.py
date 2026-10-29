@@ -347,7 +347,10 @@ def test_grounded_schema_has_no_model_selected_emphasis():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("failure", [None, "length", "null", "malformed"])
-async def test_verifier_transport_is_bounded_and_retains_invalid_completion_evidence(failure):
+@pytest.mark.parametrize("model", ["@cf/openai/gpt-oss-20b", "@cf/openai/gpt-oss-120b"])
+async def test_verifier_transport_is_bounded_and_retains_invalid_completion_evidence(
+    failure, model
+):
     import json
 
     import httpx
@@ -361,6 +364,12 @@ async def test_verifier_transport_is_bounded_and_retains_invalid_completion_evid
     async def endpoint(request):
         body = json.loads(request.content)
         requests.append(body)
+        assert body["model"] == model
+        if model == "@cf/openai/gpt-oss-120b":
+            assert body["response_format"] == {"type": "json_object"}
+            assert "Required JSON Schema" in body["messages"][0]["content"]
+        else:
+            assert body["response_format"]["type"] == "json_schema"
         assert body["temperature"] == 0
         assert body["max_tokens"] == 2048
         payload = json.loads(body["messages"][1]["content"])
@@ -400,7 +409,7 @@ async def test_verifier_transport_is_bounded_and_retains_invalid_completion_evid
         provider = OpenAICompatibleGenerationProvider(
             base_url="https://provider.example/v1",
             api_key="secret-canary",
-            model="@cf/openai/gpt-oss-20b",
+            model=model,
             provider_identity="cloudflare-workers-ai",
             input_cost_per_million_tokens=None,
             output_cost_per_million_tokens=None,

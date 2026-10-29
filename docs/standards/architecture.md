@@ -64,7 +64,10 @@ These rules are normative for Knora unless superseded by an approved Standard or
   abstraction.
 - Cloudflare Workers AI uses the existing independent provider contracts with no fallback.
   Backend-only account/token settings select fixed native Qwen3 0.6B embedding and GPT-OSS 20B
-  generation. The immutable Cloudflare embedding profile is
+  generation by default. Explicit `KNORA_CLOUDFLARE_GENERATION_MODEL=@cf/openai/gpt-oss-120b`
+  selects Cloudflare-hosted 120B for generation and verification after runtime qualification.
+  This model selection preserves source validation and the one-generation/one-verification
+  limit; it does not authorize local inference. The immutable Cloudflare embedding profile is
   `embedding-cloudflare-qwen3-06b-v1` at 1024 dimensions, separate from both Ollama's
   digest-bound 1024-dimensional profile and historical 1536-dimensional profiles.
 - Knora uses `1536` dimensions, PostgreSQL `vector(1536)` and cosine distance. Approved immutable
