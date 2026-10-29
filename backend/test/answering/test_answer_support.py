@@ -468,6 +468,11 @@ def test_provable_fact_mismatch_cannot_be_overridden_by_model(claim, source, val
             "Ứng dụng phải phục vụ 1000 người dùng. Ví dụ: giao diện đăng nhập.",
             True,
         ),
+        (
+            "Không bắt buộc mọi đề tài phải phục vụ 1000 người dùng.",
+            "Ví dụ: Ứng dụng phải phục vụ 1000 người dùng.",
+            True,
+        ),
     ],
 )
 def test_layout_counters_and_missing_example_values_cannot_prove_a_claim(claim, source, valid):
