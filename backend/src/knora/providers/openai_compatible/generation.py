@@ -194,7 +194,7 @@ class OpenAICompatibleGenerationProvider:
     def _prepare_prompt(self, prompt: BuiltPrompt) -> BuiltPrompt:
         if self._model != "@cf/openai/gpt-oss-120b" or prompt.definition.version.removesuffix(
             ":recovery-v1"
-        ) not in {
+        ).removesuffix(":recovery-v2") not in {
             "cloudflare-gpt-oss-cited-answer-v23",
             "cloudflare-gpt-oss-answer-support-v3",
         }:
@@ -239,7 +239,7 @@ class OpenAICompatibleGenerationProvider:
             request_body["max_tokens"] = self._max_tokens
         if prompt.definition.version.removesuffix(":json-object-v1").removesuffix(
             ":recovery-v1"
-        ) in {
+        ).removesuffix(":recovery-v2") in {
             "cloudflare-gpt-oss-answer-support-v3",
             "cloudflare-gpt-oss-cited-answer-v23",
         }:
