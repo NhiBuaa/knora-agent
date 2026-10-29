@@ -3,6 +3,7 @@
 import hashlib
 import json
 import re
+from collections.abc import Callable
 from dataclasses import asdict, dataclass
 from decimal import Decimal
 from typing import Literal, Protocol
@@ -89,6 +90,7 @@ class AnswerSupportVerifier(Protocol):
         evidence: tuple[GenerationEvidence, ...],
         snapshot_digest: str,
         feedback: dict | None = None,
+        revalidate: Callable[[], None] | None = None,
     ) -> tuple[AnswerSupportProof, dict]: ...
 
 
@@ -236,6 +238,50 @@ def _validate_explicit_facts(statement: str, source: str) -> None:
                 "prohibited" if force in {"không được", "must not"} else "discouraged"
             )
         return result
+
+    modal = r"\b(?:bắt buộc|phải|required|mandatory|must)\b"
+    example = r"\b(?:ví dụ|for example|example)\s*:\s*[^.!?]+[.!?]?"
+    if re.search(modal, statement, re.IGNORECASE) and not re.search(
+        r"\b(?:ví dụ|example)\b", statement, re.IGNORECASE
+    ):
+        examples = " ".join(re.findall(example, source, re.IGNORECASE))
+        outside_examples = re.sub(example, "", source, flags=re.IGNORECASE)
+        for number in re.findall(r"\b\d+\b", statement):
+            token = rf"\b{number}\b"
+            if re.search(token, examples) and not re.search(token, outside_examples):
+                raise ValueError
+
+    # A source's pagination proves its own extent, never a requirement on another work.
+    pagination = r"\b(?:trang|pages?)\s+\d+\s*(?:/|of)\s*\d+\b"
+    substantive = re.sub(pagination, "", source, flags=re.IGNORECASE)
+    if re.search(pagination, source, re.IGNORECASE) and re.search(modal, statement, re.IGNORECASE):
+        for quantity in re.findall(r"\b(\d+)\s*(?:trang|pages?)\b", statement, re.IGNORECASE):
+            if not re.search(
+                rf"\b{quantity}\s*(?:trang|pages?)\b|\b(?:trang|pages?)\s+{quantity}\b",
+                substantive,
+                re.IGNORECASE,
+            ) and not re.search(
+                r"\b(?:không|một|hai|ba|bốn|năm|sáu|bảy|tám|chín|mười|mươi|trăm|nghìn|"
+                r"zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|"
+                r"thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|"
+                r"thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)\s+"
+                r"(?:trang|pages?)\b",
+                substantive,
+                re.IGNORECASE,
+            ):
+                raise ValueError
+
+    def figure_labels(text):
+        names = {"hình": "figure", "figure": "figure", "bảng": "table", "table": "table"}
+        return {
+            (names[kind], number)
+            for kind, number in re.findall(
+                r"\b(hình|figure|bảng|table)\s+(\d+(?:\.\d+)+)\b", text.casefold()
+            )
+        }
+
+    if not figure_labels(statement) <= figure_labels(source):
+        raise ValueError
 
     # Compare the same explicit action, never a prohibition elsewhere in the source.
     source_requirements = negative_requirements(source)

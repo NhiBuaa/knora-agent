@@ -196,7 +196,9 @@ class OpenAICompatibleGenerationProvider:
             ":recovery-v1"
         ).removesuffix(":recovery-v2") not in {
             "cloudflare-gpt-oss-cited-answer-v23",
+            "cloudflare-gpt-oss-cited-answer-v24",
             "cloudflare-gpt-oss-answer-support-v3",
+            "cloudflare-gpt-oss-source-entailment-v1",
         }:
             return prompt
         from knora.providers.prompts.versioning import PromptDefinition
@@ -242,8 +244,20 @@ class OpenAICompatibleGenerationProvider:
         ).removesuffix(":recovery-v2") in {
             "cloudflare-gpt-oss-answer-support-v3",
             "cloudflare-gpt-oss-cited-answer-v23",
+            "cloudflare-gpt-oss-cited-answer-v24",
+            "cloudflare-gpt-oss-source-entailment-v1",
         }:
-            request_body["reasoning_effort"] = "low"
+            request_body["reasoning_effort"] = (
+                "medium"
+                if prompt.definition.version.removesuffix(":json-object-v1").removesuffix(
+                    ":recovery-v2"
+                )
+                in {
+                    "cloudflare-gpt-oss-cited-answer-v24",
+                    "cloudflare-gpt-oss-source-entailment-v1",
+                }
+                else "low"
+            )
             request_body["temperature"] = 0
         response = await self._client.post(
             self._url, headers={"Authorization": f"Bearer {self._api_key}"}, json=request_body

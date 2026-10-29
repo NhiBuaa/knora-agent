@@ -511,7 +511,7 @@ async def test_bootstrap_cloudflare_cap_reaches_wire_without_extra_generation() 
         "reasoning_effort",
         "temperature",
     }
-    assert seen[0]["reasoning_effort"] == "low"
+    assert seen[0]["reasoning_effort"] == "medium"
     assert seen[0]["temperature"] == 0
     assert seen[0]["model"] == "@cf/openai/gpt-oss-20b"
     assert "Preserve conditions, exceptions" in seen[0]["messages"][0]["content"]
@@ -520,4 +520,4 @@ async def test_bootstrap_cloudflare_cap_reaches_wire_without_extra_generation() 
         "json_schema": GROUNDED_ANSWER_SCHEMA,
     }
     assert result.decision == "REFUSAL"
-    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v23"
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v24"

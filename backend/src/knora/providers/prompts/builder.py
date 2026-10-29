@@ -56,7 +56,7 @@ def build_prompt(
         system = policy.CLOUDFLARE_SYSTEM_PROMPT
         schema = ANSWER_BLOCK_SCHEMA
         if profile == "cloudflare-grounded-answer":
-            version = "cloudflare-gpt-oss-cited-answer-v23"
+            version = "cloudflare-gpt-oss-cited-answer-v24"
             schema = GROUNDED_ANSWER_SCHEMA
             system = (
                 "Answer the current question only from the supplied evidence, in the question's "
@@ -70,6 +70,12 @@ def build_prompt(
                 "Answer every part of the question. Preserve conditions, exceptions, quantities, "
                 "dates, names and whether something is required, recommended, optional or only "
                 "an example. Use short, clear statements and keep list members in source order. "
+                "Keep source subjects separate: page counters describe only the document "
+                "itself, never a requirement for the work described. Examples are illustrative, "
+                "not universal requirements. A section-specific limit does not apply to the "
+                "whole work. A question can presuppose a rule absent from the evidence; in "
+                "that case use REFUSAL with INSUFFICIENT_EVIDENCE, never guess from layout "
+                "metadata or nearby examples. "
                 "Use items for distinct members, paragraphs for prose. For how-many questions "
                 "state the proven total once, then list the evidenced members when available. "
                 "A selected subset is not a proven total: disclose incomplete member evidence. "
