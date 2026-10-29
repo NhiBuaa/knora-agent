@@ -22,8 +22,8 @@ def required_answer_groups(groups: tuple[tuple[str, str], ...]) -> tuple[tuple[s
     separator = re.compile(
         r"(?:[,;?]\s*(?:(?:và|and)\s+)?|\s+(?:và|and)\s+)"
         r"(?=(?:cần|phải|bao|những|gồm|khi|ở|tại|vì|ai|có|dùng|sử dụng|trình bày|"
-        r"mô tả|giải thích|lựa chọn|chọn|what|how|when|where|why|"
-        r"which|who|must|should|is|are|do|does|can)\b)",
+        r"mô tả|giải thích|lựa chọn|chọn|(?:được\s+)?đánh số|what|how|when|where|why|"
+        r"which|who|must|should|is|are|do|does|can|numbered)\b)",
         re.IGNORECASE,
     )
     result = []
