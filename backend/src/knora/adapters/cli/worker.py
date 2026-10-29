@@ -205,9 +205,6 @@ async def run_worker(
                 result = await asyncio.to_thread(
                     application.state.ingestion_worker.run_once, worker_id
                 )
-                if once:
-                    return False
-
                 if dev_watch:
                     # Recheck synchronously at the safe job boundary so a busy worker never
                     # claims another job after code has changed but before the watcher wakes.
@@ -218,6 +215,12 @@ async def run_worker(
                     if restart_requested.is_set():
                         print("WORKER_DRAINED_FOR_RESTART", flush=True)
                         return True
+
+                maintenance = getattr(application.state, "search_index_maintenance", None)
+                if maintenance is not None:
+                    await asyncio.to_thread(maintenance.run_once)
+                if once:
+                    return False
 
                 if isinstance(result, NoEligibleJob):
                     if dev_watch:
