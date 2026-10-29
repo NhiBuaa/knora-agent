@@ -51,6 +51,9 @@ The runbook's `live account logout and forced sign-in at 1440` case in
 `figma-ui-interactions.spec.ts` checks native login, logout and a fresh authorization
 transaction without business writes. `figma-identity.spec.ts` has the broader identity
 journeys, including native registration and test-mail password reset.
+Session persistence and bounded renewal journeys are covered in
+`frontend/tests/e2e/session-persistence.spec.ts`, exercising native Remember Me,
+accelerated idle/absolute limits, and account recovery without polluting default smoke profiles.
 Success requires the owned Workspace UI/session and correct logout behavior, not just
 Keycloak's form or `/api/auth/session` returning 200.
 

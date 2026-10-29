@@ -161,6 +161,26 @@ try {
 }
 ```
 
+### Session persistence verification journey
+
+To verify native Remember Me, bounded renewals, accelerated limits and draft recovery on the disposable runtime without expanding default smoke profiles, select `session-persistence.spec.ts` via `$env:FIGMA_TEST_MATCH`:
+
+```powershell
+try {
+    ./scripts/prepare-figma-e2e.ps1 -Project $project -Run {
+        param($project, $composeArgs)
+        $env:FIGMA_TEST_PROJECT = $project
+        $env:FIGMA_TEST_MODE = 'application'
+        $env:FIGMA_TEST_MATCH = 'session-persistence.spec.ts'
+        $env:PLAYWRIGHT_JUNIT_OUTPUT_NAME = Join-Path $runRoot 'session-persistence.xml'
+        node frontend/node_modules/@playwright/test/cli.js test --config frontend/playwright.figma.config.ts --reporter list,junit --output "$runRoot/results"
+        if ($LASTEXITCODE -ne 0) { throw 'Session persistence journey failed; preserve evidence' }
+    }
+} finally {
+    Remove-Item Env:FIGMA_TEST_PROJECT,Env:FIGMA_TEST_MODE,Env:FIGMA_TEST_MATCH,Env:PLAYWRIGHT_JUNIT_OUTPUT_NAME -ErrorAction SilentlyContinue
+}
+```
+
 ### Message copy verification journey
 
 To verify question and answer copy interactions with real browser clipboard reads
