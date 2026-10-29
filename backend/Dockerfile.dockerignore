@@ -150,6 +150,7 @@
 !backend/src/knora/adapters/qdrant/native_search_index.py
 !backend/src/knora/adapters/qdrant/search_index.py
 !backend/src/knora/answering/__init__.py
+!backend/src/knora/answering/answer_support.py
 !backend/src/knora/answering/calibration_independence_v2.py
 !backend/src/knora/answering/calibration_v2.py
 !backend/src/knora/answering/corpus_cutover_v2.py
@@ -157,6 +158,7 @@
 !backend/src/knora/answering/evidence_closure_v2.py
 !backend/src/knora/answering/evidence_support.py
 !backend/src/knora/answering/excerpt.py
+!backend/src/knora/answering/generation_recovery.py
 !backend/src/knora/answering/generation_validation.py
 !backend/src/knora/answering/interface.py
 !backend/src/knora/answering/lexical.py
@@ -230,6 +232,7 @@
 !backend/src/knora/main.py
 !backend/src/knora/providers/__init__.py
 !backend/src/knora/providers/cloudflare/__init__.py
+!backend/src/knora/providers/cloudflare/answer_support.py
 !backend/src/knora/providers/cloudflare/embedding.py
 !backend/src/knora/providers/cloudflare/pdf_understanding.py
 !backend/src/knora/providers/cloudflare/reranking.py
