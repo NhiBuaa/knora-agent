@@ -7,21 +7,30 @@ vi.mock("@/lib/operator/api", async (importOriginal) => {
 });
 
 import { proxyOperatorPath } from "@/app/api/operator/_proxy";
-import { getSession } from "@/lib/auth/session";
+import { getSession, KnoraSession } from "@/lib/auth/session";
 import { forwardOperatorRequest } from "@/lib/operator/api";
+
+const baseSession: KnoraSession = {
+  policyVersion: 1,
+  rememberMe: false,
+  sessionStartedAt: 1_800_000_000,
+  sessionExpiresAt: 1_800_000_000 + 28_800,
+  issuer: "https://id.example/realm",
+  subject: "operator-1",
+  accessToken: "oidc-access-token",
+  refreshToken: "oidc-refresh-token",
+  sessionId: "session-uuid",
+  workspaceIds: [],
+  capabilities: ["operator:read"],
+  expiresAt: 1_800_000_300,
+  refreshExpiresAt: 1_800_001_800,
+};
 
 describe("operator OIDC BFF authentication", () => {
   afterEach(() => vi.resetAllMocks());
 
   it("uses a backend-authorized owner Workspace rather than token Workspace claims", async () => {
-    vi.mocked(getSession).mockResolvedValue({
-      issuer: "https://id.example/realm",
-      subject: "operator-1",
-      accessToken: "oidc-access-token",
-      workspaceIds: [],
-      capabilities: ["operator:read"],
-      expiresAt: 1_800_000_000,
-    });
+    vi.mocked(getSession).mockResolvedValue(baseSession);
     vi.mocked(forwardOperatorRequest).mockResolvedValue(
       new Response("{}", { status: 200 }),
     );
@@ -54,12 +63,8 @@ describe("operator OIDC BFF authentication", () => {
 
   it("denies a session without operator capability before attempting an operator request", async () => {
     vi.mocked(getSession).mockResolvedValue({
-      issuer: "https://id.example/realm",
-      subject: "operator-1",
-      accessToken: "oidc-access-token",
-      workspaceIds: [],
+      ...baseSession,
       capabilities: [],
-      expiresAt: 1_800_000_000,
     });
 
     const response = await proxyOperatorPath(

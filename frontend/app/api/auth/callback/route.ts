@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   clearAuthorizationTransactionCookie,
+  clearLegacySessionCookie,
   decodeAuthorizationTransaction,
   encodeSession,
   exchangeCode,
@@ -65,8 +66,14 @@ export async function GET(request: Request) {
       // The OIDC code was already exchanged. Keep the session for a retry.
     }
     const response = NextResponse.redirect(new URL(destination, origin));
-    const cookie = sessionCookie(value, session.refreshExpiresAt);
+    const cookie = sessionCookie(value, session);
     response.cookies.set(cookie.name, cookie.value, cookie.options as never);
+    const legacyCookie = clearLegacySessionCookie();
+    response.cookies.set(
+      legacyCookie.name,
+      legacyCookie.value,
+      legacyCookie.options as never,
+    );
     if (selectedWorkspaceId) {
       const selected = preferenceCookie(
         await encodePreference(selectedWorkspaceId, {
@@ -100,23 +107,35 @@ export async function GET(request: Request) {
 }
 
 function failedAuthorization(request: Request) {
-  let origin = new URL(request.url).origin;
-  try {
-    const configured = new URL(process.env.KEYCLOAK_REDIRECT_URI ?? "");
-    if (
-      ["http:", "https:"].includes(configured.protocol) &&
-      !configured.username &&
-      !configured.password &&
-      configured.pathname === "/api/auth/callback" &&
-      !configured.search &&
-      !configured.hash
-    )
-      origin = configured.origin;
-  } catch {
-    // Without public callback configuration, retain the request origin.
-  }
+  const origin = callbackOrigin(request);
   const response = NextResponse.redirect(new URL("/auth/failed", origin));
-  const cookie = clearAuthorizationTransactionCookie();
-  response.cookies.set(cookie.name, cookie.value, cookie.options as never);
+  const transactionCookie = clearAuthorizationTransactionCookie();
+  response.cookies.set(
+    transactionCookie.name,
+    transactionCookie.value,
+    transactionCookie.options as never,
+  );
   return response;
+}
+
+function callbackOrigin(request: Request): string {
+  const configured = process.env.KEYCLOAK_REDIRECT_URI;
+  if (configured) {
+    try {
+      const url = new URL(configured);
+      if (
+        ["http:", "https:"].includes(url.protocol) &&
+        !url.username &&
+        !url.password &&
+        url.pathname === "/api/auth/callback" &&
+        !url.search &&
+        !url.hash
+      ) {
+        return url.origin;
+      }
+    } catch {
+      // Fall through to request origin
+    }
+  }
+  return new URL(request.url).origin;
 }

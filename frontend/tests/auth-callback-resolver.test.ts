@@ -17,18 +17,35 @@ vi.mock("@/lib/auth/session", () => ({
     nonce: "nonce",
   })),
   exchangeCode: vi.fn(async () => ({
+    policyVersion: 1,
+    rememberMe: false,
+    sessionStartedAt: 1800000000,
+    sessionExpiresAt: 1800000000 + 28800,
     issuer: "https://id.example/realm",
     subject: "alice",
     accessToken: "server-token",
+    refreshToken: "server-refresh",
+    sessionId: "session-uuid",
     workspaceIds: [],
     capabilities: [],
-    expiresAt: 2000000000,
+    expiresAt: 1800000300,
+    refreshExpiresAt: 1800001800,
   })),
   encodeSession: vi.fn(async () => "signed-session"),
   sessionCookie: vi.fn(() => ({
-    name: "knora_session",
+    name: "knora_session_v2",
     value: "signed-session",
     options: { httpOnly: true, path: "/" },
+  })),
+  clearSessionCookie: vi.fn(() => ({
+    name: "knora_session_v2",
+    value: "",
+    options: { maxAge: 0, path: "/" },
+  })),
+  clearLegacySessionCookie: vi.fn(() => ({
+    name: "knora_session",
+    value: "",
+    options: { maxAge: 0, path: "/" },
   })),
   clearAuthorizationTransactionCookie: vi.fn(() => ({
     name: "knora_oidc_transaction",
@@ -104,7 +121,7 @@ describe("safe browser callback failures", () => {
       );
       expect(response.cookies.get("knora_oidc_transaction")?.value).toBe("");
       expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
-      expect(response.cookies.get("knora_session")).toBeUndefined();
+      expect(response.cookies.get("knora_session_v2")).toBeUndefined();
       expect(exchangeCode).not.toHaveBeenCalled();
       expect(resolveCurrentWorkspace).not.toHaveBeenCalled();
     },
@@ -196,6 +213,6 @@ describe("OIDC callback Workspace resolution", () => {
     expect(response.headers.get("location")).toBe(
       "https://app.example/workspaces?retry=1",
     );
-    expect(response.headers.get("set-cookie")).toContain("knora_session=");
+    expect(response.headers.get("set-cookie")).toContain("knora_session_v2=");
   });
 });

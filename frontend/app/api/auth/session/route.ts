@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/auth/session";
+
 export async function GET() {
   let session;
   try {
@@ -18,6 +19,7 @@ export async function GET() {
   return NextResponse.json(
     {
       session: {
+        issuer: session.issuer,
         subject: session.subject,
         workspaceIds: session.workspaceIds,
         capabilities: session.capabilities,

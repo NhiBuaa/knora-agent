@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import {
+  clearLegacySessionCookie,
   clearSessionCookie,
   decodeSession,
+  LEGACY_SESSION_COOKIE_NAME,
   SESSION_COOKIE_NAME,
 } from "@/lib/auth/session";
 import { invalidateSession } from "@/lib/auth/session-refresh";
@@ -22,12 +24,16 @@ export async function POST(request: Request) {
       { error: "CROSS_ORIGIN_REQUEST" },
       { status: 403 },
     );
-  const sessionValue = request.headers
-    .get("cookie")
-    ?.split(";")
-    .map((value) => value.trim())
-    .find((value) => value.startsWith(`${SESSION_COOKIE_NAME}=`))
-    ?.slice(SESSION_COOKIE_NAME.length + 1);
+  const cookieHeader = request.headers.get("cookie") ?? "";
+  const cookiePairs = cookieHeader.split(";").map((value) => value.trim());
+  const sessionValue =
+    cookiePairs
+      .find((value) => value.startsWith(`${SESSION_COOKIE_NAME}=`))
+      ?.slice(SESSION_COOKIE_NAME.length + 1) ??
+    cookiePairs
+      .find((value) => value.startsWith(`${LEGACY_SESSION_COOKIE_NAME}=`))
+      ?.slice(LEGACY_SESSION_COOKIE_NAME.length + 1);
+
   const session = await decodeSession(sessionValue);
   invalidateSession(session);
   let destination = logoutDestination(expectedOrigin);
@@ -60,6 +66,12 @@ export async function POST(request: Request) {
   const response = NextResponse.redirect(destination, 303);
   const cookie = clearSessionCookie();
   response.cookies.set(cookie.name, cookie.value, cookie.options as never);
+  const legacyCookie = clearLegacySessionCookie();
+  response.cookies.set(
+    legacyCookie.name,
+    legacyCookie.value,
+    legacyCookie.options as never,
+  );
   const preference = clearPreferenceCookie();
   response.cookies.set(
     preference.name,

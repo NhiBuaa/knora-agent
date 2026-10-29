@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { forwardOperatorRequest } from "../../lib/operator/api";
 import { proxyOperatorPath } from "../../app/api/operator/_proxy";
-import { getSession } from "../../lib/auth/session";
+import { getSession, KnoraSession } from "../../lib/auth/session";
 import { decodePreference } from "../../lib/auth/workspace-preference";
 import { cookies } from "next/headers";
 
@@ -14,13 +14,20 @@ vi.mock("next/headers", () => ({
   cookies: vi.fn().mockResolvedValue({ get: () => ({ value: "signed-hint" }) }),
 }));
 
-const session = {
+const session: KnoraSession = {
   issuer: "https://identity.example/realm",
   subject: "owner-1",
   accessToken: "secret-token",
   workspaceIds: [],
   capabilities: ["operator:read"],
-  expiresAt: 9999999999,
+  policyVersion: 1,
+  rememberMe: false,
+  sessionStartedAt: 1_800_000_000,
+  sessionExpiresAt: 1_800_000_000 + 28_800,
+  refreshToken: "secret-refresh",
+  sessionId: "session-uuid",
+  expiresAt: 1_800_000_300,
+  refreshExpiresAt: 1_800_001_800,
 };
 
 beforeEach(() => vi.clearAllMocks());
