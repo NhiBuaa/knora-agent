@@ -240,10 +240,13 @@ def _validate_explicit_facts(statement: str, source: str) -> None:
         return result
 
     modal = r"\b(?:bắt buộc|phải|required|mandatory|must)\b"
+    positive_requirement = any(
+        not re.search(r"\b(?:không|not)\b[^.!?;]*$", statement[: m.start()], re.IGNORECASE)
+        and not re.match(r"\s+not\b", statement[m.end() :], re.IGNORECASE)
+        for m in re.finditer(modal, statement, re.IGNORECASE)
+    )
     example = r"\b(?:ví dụ|for example|example)\s*:\s*[^.!?]+[.!?]?"
-    if re.search(modal, statement, re.IGNORECASE) and not re.search(
-        r"\b(?:ví dụ|example)\b", statement, re.IGNORECASE
-    ):
+    if positive_requirement and not re.search(r"\b(?:ví dụ|example)\b", statement, re.IGNORECASE):
         examples = " ".join(re.findall(example, source, re.IGNORECASE))
         outside_examples = re.sub(example, "", source, flags=re.IGNORECASE)
         for number in re.findall(r"\b\d+\b", statement):
@@ -254,7 +257,7 @@ def _validate_explicit_facts(statement: str, source: str) -> None:
     # A source's pagination proves its own extent, never a requirement on another work.
     pagination = r"\b(?:trang|pages?)\s+\d+\s*(?:/|of)\s*\d+\b"
     substantive = re.sub(pagination, "", source, flags=re.IGNORECASE)
-    if re.search(pagination, source, re.IGNORECASE) and re.search(modal, statement, re.IGNORECASE):
+    if re.search(pagination, source, re.IGNORECASE) and positive_requirement:
         for quantity in re.findall(r"\b(\d+)\s*(?:trang|pages?)\b", statement, re.IGNORECASE):
             if not re.search(
                 rf"\b{quantity}\s*(?:trang|pages?)\b|\b(?:trang|pages?)\s+{quantity}\b",
