@@ -61,13 +61,80 @@ async def test_cloudflare_repair_uses_versioned_prompt_and_same_source_schema():
         initial = await provider.generate(question="Bao nhiêu ngày?", evidence=evidence)
         repaired = await provider.repair_generation(question="Bao nhiêu ngày?", evidence=evidence)
     assert initial.prompt_version == "cloudflare-gpt-oss-cited-answer-v21"
-    assert repaired.prompt_version.startswith("retrieval-v3-grounded-repair-v1:")
+    assert repaired.prompt_version.startswith("retrieval-v3-grounded-repair-v2:")
     assert requests[0]["messages"][1] == requests[1]["messages"][1]
     assert requests[0]["response_format"] == requests[1]["response_format"]
     assert requests[0]["messages"][0] != requests[1]["messages"][0]
     assert repaired.answer == "Đổi trả trong 7 ngày. [[E1]]"
     assert repaired.usage == {"total_tokens": 12}
     assert repaired.cost == {}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["schema", "length", "permanent", "transport"])
+async def test_cloudflare_initial_format_failure_uses_one_source_repair(failure):
+    requests = []
+
+    async def endpoint(request):
+        requests.append(json.loads(request.content))
+        if failure == "transport":
+            return httpx.Response(503)
+        valid = len(requests) > 1 and failure != "permanent"
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "length" if failure == "length" and not valid else "stop",
+                        "message": {
+                            "content": json.dumps(
+                                {
+                                    "decision": "ANSWER",
+                                    "before": [
+                                        {"text": "Đổi trả 7 ngày.", "bold": None, "support": ["E1"]}
+                                    ],
+                                    "items": [],
+                                    "after": [],
+                                    "refusal_reason": None,
+                                }
+                                if valid
+                                else {"decision": "ANSWER"}
+                            )
+                        },
+                    }
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
+        provider = OpenAICompatibleGenerationProvider(
+            base_url="https://provider.example/v1",
+            api_key="test",
+            model="test",
+            input_cost_per_million_tokens=None,
+            output_cost_per_million_tokens=None,
+            pricing_version=None,
+            client=client,
+            provider_identity="cloudflare-workers-ai",
+        )
+        if failure in {"permanent", "transport", "length"}:
+            expected = (
+                "PROVIDER_REQUEST_FAILED" if failure == "transport" else "GENERATION_OUTPUT_INVALID"
+            )
+            with pytest.raises(KnoraError, match=expected):
+                await provider.generate(
+                    question="Bao nhiêu ngày?",
+                    evidence=(GenerationEvidence("E1", "Đổi trả 7 ngày."),),
+                )
+        else:
+            result = await provider.generate(
+                question="Bao nhiêu ngày?", evidence=(GenerationEvidence("E1", "Đổi trả 7 ngày."),)
+            )
+            assert result.answer == "Đổi trả 7 ngày. [[E1]]"
+            assert result.prompt_version.startswith("retrieval-v3-grounded-repair-v2:")
+    assert len(requests) == (1 if failure in {"transport", "length"} else 2)
+    if len(requests) == 2:
+        assert requests[0]["messages"][1] == requests[1]["messages"][1]
 
 
 @pytest.mark.asyncio
