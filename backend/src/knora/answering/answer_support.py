@@ -111,7 +111,12 @@ def validate_projection(
         invalid()
     cursor = 0
     available = {e.evidence_id for e in evidence}
+    referenced = {a for s in projection.statements for a in s.aliases}
+    if set(re.findall(r"\[\[(E[1-9][0-9]*)\]\]", answer)) != referenced:
+        invalid()
     for index, statement in enumerate(projection.statements, 1):
+        if not statement.text.strip():
+            invalid()
         if statement.id != f"S{index}" or not cursor <= statement.start < statement.end <= len(
             answer
         ):

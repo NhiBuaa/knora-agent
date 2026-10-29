@@ -247,3 +247,33 @@ def test_verification_retains_each_coordinated_question(question, parts):
 
     groups = required_answer_groups((("sub_1", question),))
     assert len(groups) == parts
+
+
+def test_grounded_renderer_owns_formatting_and_preserves_singleton_fact():
+    from knora.providers.openai_compatible.answer_blocks import compose_grounded_answer
+
+    evidence = (GenerationEvidence("E1", "Không chụp IDE. Copy và định dạng mã nguồn."),)
+    payload = {
+        "decision": "ANSWER",
+        "before": [{"text": "Không chụp màn hình IDE.", "support": ["E1"]}],
+        "items": [{"text": "Copy mã nguồn\nvà định dạng văn bản.", "support": ["E1"]}],
+        "after": [],
+        "refusal_reason": None,
+    }
+    answer, cited, projection = compose_grounded_answer(payload, evidence)
+    assert answer == "Không chụp màn hình IDE.\n\nCopy mã nguồn và định dạng văn bản. [[E1]]"
+    assert cited == ("E1",)
+    assert [s.text for s in projection.statements] == [
+        "Không chụp màn hình IDE.",
+        "Copy mã nguồn và định dạng văn bản.",
+    ]
+    validate_projection(answer, projection, evidence)
+
+
+def test_grounded_schema_has_no_model_selected_emphasis():
+    from knora.providers.prompts.builder import build_prompt
+
+    prompt = build_prompt("cloudflare-grounded-answer", question="Bao nhiêu chương?", evidence=())
+    assert prompt.definition.version == "cloudflare-gpt-oss-cited-answer-v23"
+    assert "bold" not in str(prompt.definition.schema)
+    assert "null" not in str(prompt.definition.schema["$defs"]["_Statement"])

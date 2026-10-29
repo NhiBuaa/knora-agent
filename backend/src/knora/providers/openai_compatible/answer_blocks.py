@@ -38,6 +38,40 @@ class _Result(_Model):
 ANSWER_BLOCK_SCHEMA = _Result.model_json_schema()
 
 
+class _GroundedResult(_Model):
+    decision: Literal["ANSWER", "REFUSAL"]
+    before: list[_Statement]
+    items: list[_Statement]
+    after: list[_Statement]
+    refusal_reason: Literal["INSUFFICIENT_EVIDENCE"] | None
+
+
+GROUNDED_ANSWER_SCHEMA = _GroundedResult.model_json_schema()
+
+
+def compose_grounded_answer(payload: object, evidence: tuple[GenerationEvidence, ...]):
+    try:
+        result = _GroundedResult.model_validate(payload)
+    except ValidationError:
+        raise KnoraError("GENERATION_OUTPUT_INVALID") from None
+    data = result.model_dump()
+    for field in ("before", "items", "after"):
+        for statement in data[field]:
+            statement["text"] = " ".join(statement["text"].split())
+    # A singleton is prose. Rendering cannot change or discard the generated fact/support.
+    if len(data["items"]) == 1:
+        data["before"].extend(data["items"])
+        data["items"] = []
+    for statement in (*data["before"], *data["after"]):
+        statement["bold"] = None
+    if data["before"]:
+        first = data["before"][0]
+        number_unit = re.search(r"\b\d+(?:[.,]\d+)?\s+[^\W\d_]+\b", first["text"])
+        if number_unit and first["text"].count(number_unit[0]) == 1:
+            first["bold"] = number_unit[0]
+    return compose_answer_projection(data, evidence)
+
+
 def _invalid() -> None:
     raise KnoraError("GENERATION_OUTPUT_INVALID")
 
