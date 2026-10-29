@@ -112,6 +112,18 @@ class CloudflareAnswerSupportVerifier:
             {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
         ]
         schema = _WireVerdict.model_json_schema()
+        # Constrain copied identifiers in the provider grammar, then verify them locally too.
+        properties = schema["properties"]
+        properties["answer_digest"]["enum"] = [answer_projection.answer_digest]
+        properties["snapshot_digest"]["enum"] = [snapshot_digest]
+        statement_ids = [s.id for s in answer_projection.statements]
+        definitions = schema["$defs"]
+        definitions["_Reference"]["properties"]["quote_id"]["enum"] = list(quotes)
+        definitions["_Statement"]["properties"]["id"]["enum"] = statement_ids
+        definitions["GroupVerdict"]["properties"]["id"]["enum"] = [key for key, _ in groups]
+        definitions["GroupVerdict"]["properties"]["statement_ids"]["items"]["enum"] = statement_ids
+        for key, count in (("statements", len(statement_ids)), ("groups", len(groups))):
+            properties[key].update(minItems=count, maxItems=count)
         input_tokens = (
             len(
                 _TOKENIZER.encode(

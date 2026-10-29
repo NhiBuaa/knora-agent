@@ -141,6 +141,10 @@ async def test_cloudflare_wire_references_resolve_to_exact_unicode_source(defect
 
     async def complete(prompt):
         calls.append(prompt)
+        assert prompt.definition.schema["properties"]["answer_digest"]["enum"] == [
+            projection.answer_digest
+        ]
+        assert prompt.definition.schema["properties"]["snapshot_digest"]["enum"] == ["snapshot"]
         if defect == "timeout":
             raise TimeoutError
         data = json.loads(prompt.messages[1]["content"])
