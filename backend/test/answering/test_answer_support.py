@@ -334,8 +334,11 @@ async def test_quote_selection_does_not_override_independent_claim_entailment(en
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("defect", ["missing", "duplicate", "foreign", "timeout", "stale"])
+@pytest.mark.parametrize(
+    "defect", ["missing", "duplicate", "foreign", "timeout", "stale", "cancel"]
+)
 async def test_entailment_cannot_deliver_an_incomplete_proof_or_cross_snapshot(defect):
+    import asyncio
     import json
 
     from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
@@ -347,6 +350,8 @@ async def test_entailment_cannot_deliver_an_incomplete_proof_or_cross_snapshot(d
         data = json.loads(prompt.messages[1]["content"])
         calls.append(data)
         if "checks" in data:
+            if defect == "cancel":
+                raise asyncio.CancelledError
             if defect == "timeout":
                 raise TimeoutError
             items = [
@@ -374,18 +379,18 @@ async def test_entailment_cannot_deliver_an_incomplete_proof_or_cross_snapshot(d
                 }
             ],
             "groups": [{"id": "G1", "verdict": "ANSWERED", "statement_ids": ["S1"]}],
-        }, {}
+        }, {"provider_request_id": "completed-quote-selection"}
 
     def revalidate():
         if defect == "stale":
             raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
 
     with pytest.raises(
-        KnoraError,
+        asyncio.CancelledError if defect == "cancel" else KnoraError,
         match={"timeout": "PROVIDER_REQUEST_FAILED", "stale": "LEXICAL_RETRIEVAL_UNAVAILABLE"}.get(
-            defect, "GENERATION_OUTPUT_INVALID"
+            defect, None if defect == "cancel" else "GENERATION_OUTPUT_INVALID"
         ),
-    ):
+    ) as caught:
         await CloudflareAnswerSupportVerifier(complete).verify(
             question="Required?",
             groups=(("G1", "Required?"),),
@@ -396,6 +401,10 @@ async def test_entailment_cannot_deliver_an_incomplete_proof_or_cross_snapshot(d
             revalidate=revalidate,
         )
     assert len(calls) == (1 if defect == "stale" else 2)
+    if defect == "cancel":
+        assert caught.value.observation["provider"]["provider_request_id"] == (
+            "completed-quote-selection"
+        )
 
 
 def test_each_list_item_retains_own_support_despite_coalesced_markers():

@@ -1795,7 +1795,11 @@ async def test_v3_recovery_uses_original_request_deadline_and_records_cancellati
                         "completion_digest": "first-wire",
                     },
                 )
-            await asyncio.Event().wait()
+            try:
+                await asyncio.Event().wait()
+            except asyncio.CancelledError as error:
+                error.observation = {"provider": {"provider_request_id": "completed-selection"}}
+                raise
 
     generator, verifier = RecoverableGenerator(), SlowVerifier()
     store, service = generation_repair_case(generator, verifier=verifier)
@@ -1807,6 +1811,9 @@ async def test_v3_recovery_uses_original_request_deadline_and_records_cancellati
     assert len(verifier.calls) == 2
     audit = store.traces[0].provider_metadata["generation_recovery"]
     assert audit["attempts"][-1]["status"] == "cancelled"
+    assert audit["attempts"][-1]["observation"]["provider"]["provider_request_id"] == (
+        "completed-selection"
+    )
     assert audit["stop_reason"] == "cancelled_or_deadline"
     assert store.traces[0].validation_outcome == "invalid"
 
