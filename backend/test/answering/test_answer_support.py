@@ -59,6 +59,68 @@ def test_translated_paraphrase_is_valid_with_exact_source_proof():
 
 
 @pytest.mark.parametrize(
+    "source,claim,valid",
+    [
+        ("Không\nnên xuất dữ liệu riêng tư.", "Không được xuất dữ liệu riêng tư.", False),
+        ("Không được xóa nguồn. Không nên xuất dữ liệu.", "Không được xuất dữ liệu.", False),
+        ("You should not share passwords.", "You must not share passwords.", False),
+        ("Không nên xuất dữ liệu.", "Không nên xuất dữ liệu.", True),
+        ("Không được xuất dữ liệu.", "Không được xuất dữ liệu.", True),
+        ("You must not share passwords.", "You must not share passwords.", True),
+        (
+            "Không nên xuất dữ liệu. Quy định bảo mật: Không được xuất dữ liệu.",
+            "Không được xuất dữ liệu.",
+            True,
+        ),
+    ],
+)
+def test_model_cannot_strengthen_recommendation_about_same_action(source, claim, valid):
+    evidence = (GenerationEvidence("E1", source),)
+    answer, _, projection = compose_answer_projection(
+        {
+            "decision": "ANSWER",
+            "before": [{"text": claim, "support": ["E1"], "bold": None}],
+            "items": [],
+            "after": [],
+            "refusal_reason": None,
+        },
+        evidence,
+    )
+    verdict = {
+        "answer_digest": projection.answer_digest,
+        "snapshot_digest": "snapshot",
+        "statements": [
+            {
+                "id": "S1",
+                "verdict": "SUPPORTED",
+                "source_refs": [
+                    {
+                        "alias": "E1",
+                        "exact_quote": source,
+                        "start": 0,
+                        "end": len(source),
+                        "reason": "ENTAILMENT",
+                    }
+                ],
+            }
+        ],
+        "groups": [{"id": "G1", "verdict": "ANSWERED", "statement_ids": ["S1"]}],
+    }
+    kwargs = dict(
+        answer=answer,
+        projection=projection,
+        evidence=evidence,
+        snapshot_digest="snapshot",
+        group_ids=("G1",),
+    )
+    if valid:
+        validate_support(verdict, **kwargs)
+    else:
+        with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+            validate_support(verdict, **kwargs)
+
+
+@pytest.mark.parametrize(
     "defect",
     [
         "unknown",

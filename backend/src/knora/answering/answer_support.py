@@ -205,6 +205,23 @@ def validate_support(
 def _validate_explicit_facts(statement: str, source: str) -> None:
     """Reject provable mismatches only; uncertain relations remain the verifier's task."""
 
+    def negative_requirements(text):
+        result = {}
+        normalized = " ".join(text.casefold().split())
+        for force, action in re.findall(
+            r"\b(không nên|không được|should not|must not)\s+([^.!?;]+)", normalized
+        ):
+            result.setdefault(action.strip(), set()).add(
+                "prohibited" if force in {"không được", "must not"} else "discouraged"
+            )
+        return result
+
+    # Compare the same explicit action, never a prohibition elsewhere in the source.
+    source_requirements = negative_requirements(source)
+    for action, forces in negative_requirements(statement).items():
+        if "prohibited" in forces and source_requirements.get(action) == {"discouraged"}:
+            raise ValueError
+
     def tuples(text):
         units = {
             "days": ("day", 1),
