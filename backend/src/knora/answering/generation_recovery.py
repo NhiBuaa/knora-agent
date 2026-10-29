@@ -150,8 +150,12 @@ async def generate_with_recovery(
             attempt["status"] = "supported"
             state.stop_reason = "supported"
             return generation, validated
-        except asyncio.CancelledError:
+        except asyncio.CancelledError as error:
             attempt["status"] = "cancelled"
+            if observation := getattr(error, "observation", None):
+                attempt["observation"] = observation
+                if state.support is not None:
+                    state.support.update(observation)
             state.stop_reason = "cancelled_or_deadline"
             raise
         except KnoraError as error:

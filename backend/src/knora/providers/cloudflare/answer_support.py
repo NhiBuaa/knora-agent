@@ -310,11 +310,26 @@ class CloudflareAnswerSupportVerifier:
             ),
             messages,
         )
+        metadata["limits"]["calls_per_attempt"] = 2
+        metadata["entailment"] = {
+            "prompt_version": prompt.definition.version,
+            "status": "started",
+            "input_tokens_estimate": input_tokens + 32,
+        }
         started = asyncio.get_running_loop().time()
         try:
             async with asyncio.timeout(60):
                 raw, check_metadata = await self._complete(prompt)
+        except asyncio.CancelledError as error:
+            metadata["entailment"].update(
+                status="cancelled", latency_ms=(asyncio.get_running_loop().time() - started) * 1000
+            )
+            error.observation = {"failure": "entailment_cancelled", "provider": metadata}
+            raise
         except (TimeoutError, httpx.HTTPError):
+            metadata["entailment"].update(
+                status="failed", latency_ms=(asyncio.get_running_loop().time() - started) * 1000
+            )
             raise AnswerSupportFailure(
                 "PROVIDER_REQUEST_FAILED",
                 {"failure": "entailment_unavailable", "provider": metadata},
@@ -326,8 +341,8 @@ class CloudflareAnswerSupportVerifier:
             ) from None
         if revalidate is not None:
             revalidate()
-        metadata["limits"]["calls_per_attempt"] = 2
         metadata["entailment"] = {
+            "status": "completed",
             "provider": check_metadata,
             "latency_ms": (asyncio.get_running_loop().time() - started) * 1000,
             "input_tokens_estimate": input_tokens + 32,
