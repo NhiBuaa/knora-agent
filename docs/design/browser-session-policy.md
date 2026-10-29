@@ -181,8 +181,10 @@ Trong `ConversationViewState`, thêm một recovery promise và cờ kiểm tra 
 5. Cùng identity: gọi đúng một GET lịch sử hiện hành; draft mới chưa có Conversation thì
    GET Workspace để kiểm tra quyền. Sau GET thành công mới mở khóa/resume pending Turn
    poll. Giữ draft, creationKey, submitKey. Không `router.refresh()` làm mất nháp.
-6. Generation/mounted guard bao mọi bước và finally; response cũ không tắt busy của lượt
-   mới. History403 là mất quyền, khóa gửi và báo lỗi; không coi đăng nhập lại sẽ cấp quyền.
+6. Generation/mounted guard bao response state. Promise/checking slot được giải phóng
+   bằng recovery run token riêng, kể cả requireAuthentication vừa tăng generation do401;
+   response cũ không tắt busy của lượt mới. History403 là mất quyền, khóa gửi và báo lỗi;
+   không coi đăng nhập lại sẽ cấp quyền.
 
 Probe browser không đóng được race cookie đổi ngay trước POST. Vì vậy hai POST của
 composer (create Conversation và submit Turn) luôn thêm:
@@ -214,6 +216,8 @@ project/container/port và snapshot. Không gắn Apply vào daily startup.
   Không chỉnh offline settings, OTP, SMTP, roles, flows, redirect hoặc client khác.
 - Snapshot projection trước và desired, target, client UUID, mapper ID/nội dung và
   trạng thái có/không của từng attribute; không toàn realm, không secret.
+  Mapper mới được cấp UUID trước snapshot và POST chính ID đó, để rollback sau partial
+  failure vẫn nhận đúng mapper thuộc lượt này; mapper đã đúng thì giữ ID hiện hữu.
 - Read-again trước từng write và so projection dự kiến; dùng maintenance window độc
   quyền cho target vì REST không có atomic CAS nhiều đối tượng. Mất exclusivity →dừng.
 - Provider phải được build/nạp trước Apply. Từ chối conflict mapper cùng tên/provider,

@@ -221,7 +221,11 @@ param(
   claim.name trùng hoặc provider id trùng. Không tự sửa scope dùng chung.
 - [ ] Snapshot schema `knora-session-policy-snapshot-v1`: target/baseUrl/realm/project,
   clientUuid; before/after realm projection; before/after ba managed attributes có cờ
-  `present`; mapper before/model và after/model/ID; completedSteps. Snapshot tạo mới
+  `present`; mapper before/model và after/model/ID; completedSteps. Nếu mapper chưa có,
+  tạo UUID bằng `[guid]::NewGuid().ToString()` **trước snapshot**, lưu after/model/id rồi
+  gửi chính ID đó trong POST mapper. Keycloak26.3.3 giữ ID được cấp; readback phải khớp ID.
+  Mapper đã có đúng shape thì giữ ID hiện hữu; khác shape là conflict.
+  Snapshot tạo mới
   độc quyền bằng FileMode.CreateNew. Journal progress `.progress.json` cạnh snapshot,
   chỉ enum bước+UTC+verified projection, không HTTP body/admin token.
 - [ ] Mutate mapper→client→realm, readback mỗi bước, cuối readback toàn projection;
@@ -372,7 +376,11 @@ if ((composerPost || expectedIssuer !== null || expectedSubject !== null) &&
   `needsIdentityCheck` ref, generation token và trạng thái checking/identityChanged.
   `blur/hidden` đặt needsIdentityCheck; visible+focus enqueue một callback0ms và consume
   flag trước network. Trong authRequired vẫn chờ lần return/Retry, không vòng tự gọi.
-  Return cùng promise khi duplicate. Cleanup listeners/timer/AbortController khi unmount.
+  Return cùng promise khi duplicate. Dùng **run token riêng** để xác định promise nào
+  đang sở hữu recoveryInFlight/checking; không dùng authenticationGeneration để giữ/xóa
+  promise, vì requireAuthentication() tự tăng generation khi chính probe nhận401/null.
+  Cleanup listeners/timer/AbortController khi unmount. Khóa submit đồng bộ qua ref trước
+  fetch, không chỉ chờ setState render lại.
 - [ ] `recoverSession()` có flow cố định dưới đây; test toàn bộ nhánh trước khi mở gửi:
 
 ```text
@@ -389,7 +397,8 @@ GET /api/auth/session no-store
      403 -> permission message; locked; no automatic retry
      other failure -> keep draft+keys; Retry
      success -> update authoritative history; unlock; resume pending poll; no POST
-finally: only own current generation clears own busy/promise
+finally: if recovery run token still owns the in-flight slot, clear that slot/checking;
+         do not unlock authentication here; never clear a newer run's busy state
 ```
 
 - [ ] Mismatch401 từ mutation cũng kích hoạt một identity probe để phát hiện account đổi
@@ -406,7 +415,8 @@ finally: only own current generation clears own busy/promise
  503; history403; stale-probe/history/poll/POST response không unfreeze hoặc refill nháp;
   unmount; two return episodes đúng2probes; no request khi idle/hidden; no storage writes
   chứa nháp; recovery+Retry concurrent singleflight; explicit submit sau recovery dùng
-  keys cũ; copy/archived/scroll/composer vẫn đúng.
+  keys cũ; probe null/401→requireAuthentication tăng generation→promise vẫn được clear→
+  Retry sau signin tạo GET mới và recover thành công; copy/archived/scroll/composer vẫn đúng.
 - [ ] Run từ frontend:
 
 ```powershell
@@ -432,9 +442,13 @@ export async function withAcceleratedSessionPolicy<T>(
 ```
 
   Helper gọi ownership check hiện hữu trước mutation; chỉ figma project selected và exact
-  issuer8380, không8180/3000. Save projection memory, PUT allowlist normal idle10/max30,
-  remembered idle20/max60/access5, client realm timeouts0; verify readback; `finally`
-  restore production projection và verify. Không exposed API/production env knob mới.
+  issuer8380, không8180/3000. Save realm projection và trạng thái present/value của
+  `knora-web.attributes["access.token.lifespan"]` trong memory. PUT realm normal idle10/max30,
+  remembered idle20/max60/access5, client realm timeouts0; merge riêng client attribute
+  `access.token.lifespan="5"` vào map hiện tại vì client ưu tiên hơn realm. Verify readback
+  **cả realm và client** trước gọi run. `finally` restore chính xác realm projection và
+  client attribute value hoặc trạng thái absent ban đầu, giữ mọi key khác, verify cả hai.
+  Bất kỳ restore/readback lỗi thì test fail và dừng lượt. Không exposed API/production env knob mới.
   Chỉ helper test được đổi giá trị gia tốc; script managed luôn fixed policy thật.
 - [ ] Thêm vào `support/figma-auth.ts` hàm
   `signInFigmaUser(page:Page,identity:"m5-user"|"m5-other-workspace"|"m5-no-operator",rememberMe=false):Promise<void>`.

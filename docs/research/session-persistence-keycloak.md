@@ -215,6 +215,13 @@ Không coi HTTP 204 riêng lẻ là đã đúng. Khi rollback chỉ phục hồi
 migration sau khi so sánh trạng thái hiện tại còn khớp giá trị migration đã ghi; có drift thì
 dừng để tránh ghi đè thay đổi của owner khác.
 
+Có thể tạo UUID mapper ở phía script trước snapshot rồi gửi trong representation:
+`RepresentationToModel.toModel` giữ rep.id, `ClientAdapter.addProtocolMapper` dùng ID
+được cấp khi khác null. Điều này cho snapshot biết đúng ID để kiểm rollback dù API tạo
+mapper thành công nhưng lượt chạy mất trước khi ghi receipt.
+[RepresentationToModel26.3.3](https://github.com/keycloak/keycloak/blob/26.3.3/server-spi-private/src/main/java/org/keycloak/models/utils/RepresentationToModel.java#L912-L919),
+[ClientAdapter26.3.3](https://github.com/keycloak/keycloak/blob/26.3.3/model/jpa/src/main/java/org/keycloak/models/jpa/ClientAdapter.java#L397-L412).
+
 Người dùng đã chấp nhận một lần đăng nhập lại để bỏ toàn bộ cookie cũ. Thiết kế BFF vì vậy
 có thể từ chối JWE/HS256 cũ không có policy version mới; không cần migration nội dung cookie.
 Đây là quyết định trong hội thoại, không phải hành vi native của Keycloak. Rollback cũng
