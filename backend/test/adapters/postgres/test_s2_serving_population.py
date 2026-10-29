@@ -57,6 +57,8 @@ def test_all_serving_checkpoints_require_the_exact_population(
             trace = SimpleNamespace(
                 trace_schema_version=3,
                 workspace_id="workspace",
+                decision="ANSWER",
+                refusal_reason=None,
                 provider_metadata={
                     "retrieval": {
                         "mode": "bm25-only",
