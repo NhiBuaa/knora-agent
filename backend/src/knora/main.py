@@ -99,7 +99,11 @@ from knora.ingestion.operational_observability import (
 )
 from knora.ingestion.pdf import PdfExtractionConfiguration, PdfTextExtractor
 from knora.ingestion.processing import DocumentProcessor
-from knora.ingestion.search_indexing import DerivationJobHandler, LexicalIndexHandler
+from knora.ingestion.search_indexing import (
+    DerivationJobHandler,
+    DynamicSearchIndexHandler,
+    LexicalIndexHandler,
+)
 from knora.providers.cloudflare.pdf_understanding import CloudflarePdfUnderstandingProvider
 from knora.providers.embedding import EmbeddingConfiguration
 from knora.tools import (
@@ -362,6 +366,22 @@ def create_app(
         timing=AttemptTimingV1.standard(),
         retry_policy=RetryPolicyV1(SystemRandomSource()),
         runner=FixedCapacityThreadAttemptRunner(max_concurrency=1),
+    )
+    application.state.search_index_maintenance = (
+        DynamicSearchIndexHandler(
+            store=PostgresSearchIndexStore(SessionFactory),
+            index=lexical_index,
+            lexical_policy_id=deployed_retrieval_configuration.lexical_policy_id
+            or "lexical-bm25-v1",
+            embedding_configuration_id=selected_embedding_configuration.id,
+        )
+        if lexical_index is not None
+        and lexical_population is None
+        and (
+            deployed_retrieval_configuration.strategy == "dense-only"
+            or deployed_retrieval_configuration.fusion_policy_id == "dbsf-v1"
+        )
+        else None
     )
     application.state.dataset_service = DatasetService(
         store=PostgresDatasetStore(SessionFactory),
