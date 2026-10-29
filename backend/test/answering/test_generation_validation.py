@@ -376,6 +376,63 @@ def test_numbered_section_conditions_do_not_become_number_unit_pairs() -> None:
     )
 
 
+def test_complete_source_sentence_survives_pdf_line_wrapping() -> None:
+    source = (
+        "Nếu ở quy mô nhỏ (tiểu luận) thì một số chương có thể được gộp chung với nhau, "
+        "ví dụ chương 3 và chương 4\n(thậm chí cả chương 5) có thể được gộp chung với nhau "
+        "thành một chương, tùy vào độ dài nội dung của báo cáo."
+    )
+    validate_generation(
+        GenerationResult("ANSWER", source.replace("\n", " ") + " [[E1]]", ("E1",), None),
+        available_evidence_ids=("E1",),
+        alias_to_candidate={"E1": _make_cand("conditions", source)},
+    )
+
+
+@pytest.mark.parametrize("fault", ["other-document", "wrong-count", "invented-force"])
+def test_derived_count_does_not_borrow_unrelated_topics_or_force(fault) -> None:
+    from dataclasses import replace
+
+    topic = "bắt buộc" if fault == "invented-force" else "dự án phần mềm"
+    mapping = {
+        "E1": _make_cand("outline", OUTLINE_SOURCE),
+        "E2": _make_cand("topic", f"Báo cáo {topic}."),
+    }
+    if fault == "other-document":
+        mapping["E2"] = replace(mapping["E2"], document_version_id="different-version")
+    total = 9 if fault == "wrong-count" else 3
+    result = GenerationResult(
+        "ANSWER",
+        f"Báo cáo {topic} được gợi ý gồm {total} chương. [[E1]] [[E2]]",
+        ("E1", "E2"),
+        None,
+    )
+    with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+        validate_generation(
+            result, available_evidence_ids=tuple(mapping), alias_to_candidate=mapping
+        )
+
+
+@pytest.mark.parametrize("topic", ["dự án phần mềm", "sao hỏa", "bắt buộc"])
+def test_derived_count_topic_must_be_supported_by_the_same_document(topic) -> None:
+    mapping = {
+        "E1": _make_cand("outline", OUTLINE_SOURCE),
+        "E2": _make_cand("topic", "Mục lục gợi ý dành cho đề tài dự án phần mềm."),
+    }
+    result = GenerationResult(
+        "ANSWER", f"Báo cáo {topic} được gợi ý gồm 3 chương. [[E1]] [[E2]]", ("E1", "E2"), None
+    )
+    if topic == "dự án phần mềm":
+        validate_generation(
+            result, available_evidence_ids=tuple(mapping), alias_to_candidate=mapping
+        )
+    else:
+        with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+            validate_generation(
+                result, available_evidence_ids=tuple(mapping), alias_to_candidate=mapping
+            )
+
+
 @pytest.mark.parametrize(
     ("text", "source"),
     [

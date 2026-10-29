@@ -330,8 +330,18 @@ def _grounding_text(text: str) -> str:
     return re.sub(r"\bchuong(?=\s+\d)", "chương", text)
 
 
-def _section_count_support(statement: str, source: str) -> bool | None:
+def _section_count_support(statement: str, source: str, context: str = "") -> bool | None:
     labels = r"chương|phần|mục|chapter|section"
+    subject = re.match(r"^báo cáo\s+(.+?)\s+được\s+(?:gợi ý|đề xuất)\s+", statement)
+    if subject:
+        topic = subject[1]
+        topic_words = re.findall(r"\w+", topic)
+        topic_pattern = r"\b" + r"\W+(?:\w+\W+)*?".join(map(re.escape, topic_words)) + r"\b"
+        if set(topic_words) & (
+            _NEGATION_WORDS | {"bắt", "phải", "luôn", "chỉ", "duy", "mọi"}
+        ) or not re.search(topic_pattern, context or source):
+            return False
+        statement = "báo cáo được gợi ý " + statement[subject.end() :]
     count = re.fullmatch(
         rf"(?:(?:tổng cộng|tổng số)\s+)?(?:báo cáo\s+)?(?:được\s+)?(?:(?:gợi ý|đề xuất)\s+)?"
         rf"(?:(?:trình bày|bao gồm|gồm|có|chia thành)\s+)?"
@@ -380,6 +390,7 @@ def _validate_cited_statement(
     alias_to_candidate: Mapping[str, Any],
     *,
     is_multi_group: bool = False,
+    count_context: str = "",
 ) -> None:
     # 0. Check uncited factual sentences in body
     for sent in _find_uncited_sentences(answer):
@@ -428,7 +439,7 @@ def _validate_cited_statement(
         for date in re.findall(r"\b\d{1,2}/\d{1,2}/\d{4}\b", norm_seg):
             if not _matches_word_boundary(date, cand_full):
                 _invalid()
-        count_support = _section_count_support(norm_seg, cand_content)
+        count_support = _section_count_support(norm_seg, cand_content, count_context)
         if count_support is False:
             _invalid()
         if count_support is True:
@@ -608,7 +619,11 @@ def _validate_cited_statement(
                     elif num == "7" and unit in {"ngày", "ngay", "day", "days"}:
                         num_pattern = r"\b(?:7|1)\b"
 
-                    matched_clause = False
+                    # PDF line wraps must not break a literally supported numeric clause.
+                    matched_clause = _matches_word_boundary(
+                        re.sub(r"\s+", " ", norm_stmt).removeprefix("- "),
+                        re.sub(r"\s+", " ", cand_full),
+                    )
                     for clause in cand_clauses:
                         if re.search(num_pattern, clause):
                             c_words = set(re.findall(r"\w+", clause))
@@ -693,6 +708,15 @@ def _validate_citation_alignment(
                         f"{statement} [[{alias}]]",
                         {alias: alias_to_candidate[alias]},
                         is_multi_group=is_multi_group,
+                        count_context="\n".join(
+                            _grounding_text(alias_to_candidate[other].content)
+                            for other in group
+                            if other in alias_to_candidate
+                            and getattr(alias_to_candidate[alias], "document_version_id", None)
+                            is not None
+                            and getattr(alias_to_candidate[other], "document_version_id", None)
+                            == alias_to_candidate[alias].document_version_id
+                        ),
                     )
                 except KnoraError as exc:
                     if exc.code != "GENERATION_OUTPUT_INVALID":
