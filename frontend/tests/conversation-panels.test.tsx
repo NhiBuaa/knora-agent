@@ -550,7 +550,16 @@ describe("Conversation panel interactions", () => {
           ),
         ),
     );
-    render(<ConversationView workspaceId="w" conversation={conversation} />);
+    render(
+      <ConversationView
+        workspaceId="w"
+        conversation={conversation}
+        identityScope={{
+          issuer: "https://id.example/realms/knora",
+          subject: "user-1",
+        }}
+      />,
+    );
     await screen.findByRole("heading", {
       name: "Grounded answers from your workspace",
     });
@@ -675,7 +684,16 @@ describe("Conversation panel interactions", () => {
               ),
         ),
       );
-      render(<ConversationView workspaceId="w" conversation={conversation} />);
+      render(
+        <ConversationView
+          workspaceId="w"
+          conversation={conversation}
+          identityScope={{
+            issuer: "https://id.example/realms/knora",
+            subject: "user-1",
+          }}
+        />,
+      );
       await screen.findByText(answered.result.answer);
       fireEvent.change(screen.getByLabelText("Question"), {
         target: { value: "New question" },

@@ -40,11 +40,7 @@ export default async function ConversationsPage({
         archived={archived}
         workspaceArchived={workspace.archived}
         workspaceRevision={workspace.revision}
-        identityScope={
-          session.issuer
-            ? { issuer: session.issuer, subject: session.subject }
-            : undefined
-        }
+        identityScope={{ issuer: session.issuer, subject: session.subject }}
       />
     );
   } catch {

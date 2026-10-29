@@ -50,11 +50,7 @@ export default async function ConversationPage({
         }
         initialConversations={conversations.items}
         nextCursor={conversations.next_cursor}
-        identityScope={
-          session.issuer
-            ? { issuer: session.issuer, subject: session.subject }
-            : undefined
-        }
+        identityScope={{ issuer: session.issuer, subject: session.subject }}
       />
     );
   } catch {
