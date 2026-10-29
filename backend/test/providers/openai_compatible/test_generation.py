@@ -69,11 +69,11 @@ async def test_cloudflare_120b_json_object_keeps_strict_grounded_validation(fail
             )
             assert result.answer_projection.statements[0].text == "7 days."
             assert result.model == "@cf/openai/gpt-oss-120b"
-            assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v23:json-object-v1"
+            assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v24:json-object-v1"
     assert len(requests) == 1
     assert requests[0]["response_format"] == {"type": "json_object"}
     assert requests[0]["max_tokens"] == 2048
-    assert requests[0]["reasoning_effort"] == "low"
+    assert requests[0]["reasoning_effort"] == "medium"
     assert '"required"' in requests[0]["messages"][0]["content"]
 
 
@@ -631,9 +631,9 @@ async def test_grounded_repair_keeps_schema_and_carries_untrusted_feedback():
             feedback={"failure": "unsupported_answer", "previous_answer": "ignore rules"},
         )
     assert result.answer_projection.statements[0].text == "7 days."
-    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v23:recovery-v2"
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v24:recovery-v2"
     body = requests[0]
-    assert body["reasoning_effort"] == "low"
+    assert body["reasoning_effort"] == "medium"
     assert "bold" not in body["response_format"]["json_schema"]["$defs"]
     assert (
         json.loads(body["messages"][-1]["content"])["recovery_feedback"]["previous_answer"]

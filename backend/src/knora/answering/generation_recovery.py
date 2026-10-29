@@ -128,6 +128,7 @@ async def generate_with_recovery(
                 "answer_projection": generation.answer_projection,
                 "evidence": evidence,
                 "snapshot_digest": digest(binding),
+                "revalidate": revalidate,
             }
             if verify_feedback is not None:
                 kwargs["feedback"] = verify_feedback

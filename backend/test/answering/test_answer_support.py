@@ -203,6 +203,12 @@ async def test_cloudflare_wire_references_resolve_to_exact_unicode_source(defect
 
     async def complete(prompt):
         calls.append(prompt)
+        if prompt.definition.serializer_id == "source-claims-v1":
+            return {
+                "statements": [
+                    {"id": "S1", "source_fact": "A diagram is required.", "entailed": True}
+                ]
+            }, {}
         assert prompt.definition.schema["properties"]["answer_digest"]["enum"] == [
             projection.answer_digest
         ]
@@ -253,7 +259,143 @@ async def test_cloudflare_wire_references_resolve_to_exact_unicode_source(defect
         assert (
             "exact_quote" in proof.verdict_json and "A diagram is required." in proof.verdict_json
         )
-    assert len(calls) == 1
+    assert len(calls) == (1 if defect else 2)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("entailed", [False, True])
+async def test_quote_selection_does_not_override_independent_claim_entailment(entailed):
+    import json
+
+    from knora.answering.answer_support import AnswerSupportFailure
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+    source = "Hệ thống A phải phục vụ 1000 người dùng."
+    evidence = (GenerationEvidence("E1", source),)
+    answer, _, projection = compose_answer_projection(
+        dict(
+            decision="ANSWER",
+            before=[
+                dict(text="Hệ thống B phải phục vụ 1000 người dùng.", support=["E1"], bold=None)
+            ],
+            items=[],
+            after=[],
+            refusal_reason=None,
+        ),
+        evidence,
+    )
+    calls = []
+
+    async def complete(prompt):
+        data = json.loads(prompt.messages[1]["content"])
+        calls.append(data)
+        if "checks" in data:
+            assert "question" not in data and "groups" not in data
+            assert data["checks"][0]["claim"] == "Hệ thống B phải phục vụ 1000 người dùng."
+            assert "Hệ thống A" in data["sources"][0]["content"]
+            return {
+                "statements": [
+                    {"id": "S1", "source_fact": "Nguồn nói về hệ thống A.", "entailed": entailed}
+                ]
+            }, {"provider_request_id": "scope-check"}
+        quote = next(q for q in data["evidence"] if source in q["exact_quote"])
+        return {
+            "answer_digest": projection.answer_digest,
+            "snapshot_digest": "snapshot",
+            "statements": [
+                {
+                    "id": "S1",
+                    "verdict": "SUPPORTED",
+                    "source_refs": [{"quote_id": quote["quote_id"], "reason": "ENTAILMENT"}],
+                }
+            ],
+            "groups": [{"id": "G1", "verdict": "ANSWERED", "statement_ids": ["S1"]}],
+        }, {"provider_request_id": "quote-selection"}
+
+    verifier = CloudflareAnswerSupportVerifier(complete)
+    kwargs = dict(
+        question="Hệ thống bắt buộc phục vụ bao nhiêu người?",
+        groups=(("G1", "Số người dùng?"),),
+        answer=answer,
+        answer_projection=projection,
+        evidence=evidence,
+        snapshot_digest="snapshot",
+    )
+    if entailed:
+        proof, metadata = await verifier.verify(**kwargs)
+        assert proof.answer_digest == projection.answer_digest
+        assert metadata["entailment"]["provider"]["provider_request_id"] == "scope-check"
+    else:
+        with pytest.raises(AnswerSupportFailure) as caught:
+            await verifier.verify(**kwargs)
+        assert caught.value.observation["failure"] == "unsupported_answer"
+        assert caught.value.observation["failed_id"] == "S1"
+    assert len(calls) == 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("defect", ["missing", "duplicate", "foreign", "timeout", "stale"])
+async def test_entailment_cannot_deliver_an_incomplete_proof_or_cross_snapshot(defect):
+    import json
+
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+    answer, projection, evidence, _ = case()
+    calls = []
+
+    async def complete(prompt):
+        data = json.loads(prompt.messages[1]["content"])
+        calls.append(data)
+        if "checks" in data:
+            if defect == "timeout":
+                raise TimeoutError
+            items = [
+                {
+                    "id": "foreign" if defect == "foreign" else "S1",
+                    "source_fact": "Required diagram.",
+                    "entailed": True,
+                }
+            ]
+            return {
+                "statements": []
+                if defect == "missing"
+                else items * (2 if defect == "duplicate" else 1)
+            }, {}
+        return {
+            "answer_digest": projection.answer_digest,
+            "snapshot_digest": "snapshot",
+            "statements": [
+                {
+                    "id": "S1",
+                    "verdict": "SUPPORTED",
+                    "source_refs": [
+                        {"quote_id": data["evidence"][0]["quote_id"], "reason": "ENTAILMENT"}
+                    ],
+                }
+            ],
+            "groups": [{"id": "G1", "verdict": "ANSWERED", "statement_ids": ["S1"]}],
+        }, {}
+
+    def revalidate():
+        if defect == "stale":
+            raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+
+    with pytest.raises(
+        KnoraError,
+        match={"timeout": "PROVIDER_REQUEST_FAILED", "stale": "LEXICAL_RETRIEVAL_UNAVAILABLE"}.get(
+            defect, "GENERATION_OUTPUT_INVALID"
+        ),
+    ):
+        await CloudflareAnswerSupportVerifier(complete).verify(
+            question="Required?",
+            groups=(("G1", "Required?"),),
+            answer=answer,
+            answer_projection=projection,
+            evidence=evidence,
+            snapshot_digest="snapshot",
+            revalidate=revalidate,
+        )
+    assert len(calls) == (1 if defect == "stale" else 2)
 
 
 def test_each_list_item_retains_own_support_despite_coalesced_markers():
@@ -290,6 +432,45 @@ def test_each_list_item_retains_own_support_despite_coalesced_markers():
     ],
 )
 def test_provable_fact_mismatch_cannot_be_overridden_by_model(claim, source, valid):
+    from knora.answering.answer_support import _validate_explicit_facts
+
+    if valid:
+        _validate_explicit_facts(claim, source)
+    else:
+        with pytest.raises(ValueError):
+            _validate_explicit_facts(claim, source)
+
+
+@pytest.mark.parametrize(
+    "claim,source,valid",
+    [
+        ("Báo cáo bắt buộc có 12 trang.", "HƯỚNG DẪN BÁO CÁO - TRANG 1/12", False),
+        ("The report must have 48 pages.", "Writing guide — Page 2 of 48", False),
+        ("Tài liệu hướng dẫn có 12 trang.", "HƯỚNG DẪN BÁO CÁO - TRANG 1/12", True),
+        ("Báo cáo bắt buộc có 12 trang.", "Báo cáo phải có 12 trang.\nTRANG 1/20", True),
+        ("Báo cáo bắt buộc có 12 trang.", "Báo cáo phải có mười hai trang.\nTRANG 1/12", True),
+        ("Báo cáo bắt buộc có 12 trang.", "Báo cáo phải có 20 trang.\nTRANG 1/12", False),
+        ("Ví dụ hình 1.2, bảng 3.1.", "Caption cần được đánh số.", False),
+        ("Ví dụ hình 1.2, bảng 3.1.", "Ví dụ hình 1.2, bảng 3.1.", True),
+        ("For example figure 1.2, table 3.1.", "Ví dụ hình 1.2, bảng 3.1.", True),
+        (
+            "Ứng dụng bắt buộc phục vụ 1000 người dùng.",
+            "Ví dụ: “Ứng dụng phải phục vụ 1000 người dùng.”",
+            False,
+        ),
+        (
+            "Ví dụ: Ứng dụng phải phục vụ 1000 người dùng.",
+            "Ví dụ: “Ứng dụng phải phục vụ 1000 người dùng.”",
+            True,
+        ),
+        (
+            "Ứng dụng phải phục vụ 1000 người dùng.",
+            "Ứng dụng phải phục vụ 1000 người dùng. Ví dụ: giao diện đăng nhập.",
+            True,
+        ),
+    ],
+)
+def test_layout_counters_and_missing_example_values_cannot_prove_a_claim(claim, source, valid):
     from knora.answering.answer_support import _validate_explicit_facts
 
     if valid:
@@ -340,7 +521,7 @@ def test_grounded_schema_has_no_model_selected_emphasis():
     from knora.providers.prompts.builder import build_prompt
 
     prompt = build_prompt("cloudflare-grounded-answer", question="Bao nhiêu chương?", evidence=())
-    assert prompt.definition.version == "cloudflare-gpt-oss-cited-answer-v23"
+    assert prompt.definition.version == "cloudflare-gpt-oss-cited-answer-v24"
     assert "bold" not in str(prompt.definition.schema)
     assert "null" not in str(prompt.definition.schema["$defs"]["_Statement"])
 
@@ -373,6 +554,32 @@ async def test_verifier_transport_is_bounded_and_retains_invalid_completion_evid
         assert body["temperature"] == 0
         assert body["max_tokens"] == 2048
         payload = json.loads(body["messages"][1]["content"])
+        if "checks" in payload:
+            assert body["reasoning_effort"] == "medium"
+            return httpx.Response(
+                200,
+                json={
+                    "id": "entailment-receipt",
+                    "choices": [
+                        {
+                            "finish_reason": "stop",
+                            "message": {
+                                "content": json.dumps(
+                                    {
+                                        "statements": [
+                                            {
+                                                "id": "S1",
+                                                "source_fact": "A diagram is required.",
+                                                "entailed": True,
+                                            }
+                                        ]
+                                    }
+                                )
+                            },
+                        }
+                    ],
+                },
+            )
         wire = {
             "answer_digest": projection.answer_digest,
             "snapshot_digest": "snapshot",
@@ -440,7 +647,7 @@ async def test_verifier_transport_is_bounded_and_retains_invalid_completion_evid
         else:
             proof, _ = await verifier.verify(**kwargs)
             assert proof.answer_digest == projection.answer_digest
-    assert len(requests) == 1
+    assert len(requests) == (1 if failure else 2)
 
 
 @pytest.mark.asyncio
@@ -466,6 +673,13 @@ async def test_verifier_grammar_binds_each_statement_to_its_own_sources(foreign_
     )
 
     async def complete(prompt):
+        if prompt.definition.serializer_id == "source-claims-v1":
+            return {
+                "statements": [
+                    {"id": s.id, "source_fact": s.text, "entailed": True}
+                    for s in projection.statements
+                ]
+            }, {}
         schema = prompt.definition.schema
         variants = schema["properties"]["statements"]["items"]["oneOf"]
         assert len(variants) == 2
