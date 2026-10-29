@@ -1,12 +1,13 @@
 """Private Cloudflare output; public answers retain the existing Markdown contract."""
 
 import re
+from hashlib import sha256
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from knora.domain.errors import KnoraError
-from knora.providers.generation import GenerationEvidence
+from knora.providers.generation import AnswerProjection, AnswerStatement, GenerationEvidence
 
 
 class _Model(BaseModel):
@@ -65,6 +66,14 @@ def compose_answer(
     payload: object,
     evidence: tuple[GenerationEvidence, ...],
 ) -> tuple[str | None, tuple[str, ...]]:
+    answer, cited, _ = compose_answer_projection(payload, evidence)
+    return answer, cited
+
+
+def compose_answer_projection(
+    payload: object,
+    evidence: tuple[GenerationEvidence, ...],
+) -> tuple[str | None, tuple[str, ...], AnswerProjection | None]:
     try:
         result = _Result.model_validate(payload)
     except ValidationError:
@@ -77,7 +86,7 @@ def compose_answer(
             or result.refusal_reason != "INSUFFICIENT_EVIDENCE"
         ):
             _invalid()
-        return None, ()
+        return None, (), None
     if not (result.before or result.items or result.after) or result.refusal_reason is not None:
         _invalid()
 
@@ -91,12 +100,28 @@ def compose_answer(
     available_ids = {entry.evidence_id for entry in evidence}
     texts: list[str] = []
     aliases: list[list[str]] = []
+    spans: list[list[tuple[str, int, int, tuple[str, ...]]]] = []
     for block in blocks:
         if isinstance(block, _List):
             references = []
+            lines = []
+            block_spans = []
+            offset = 0
             for item in block.items:
                 references.extend(_references(item.support, available_ids))
-            texts.append("\n".join(f"- {_line(item.text)}" for item in block.items))
+                line = f"- {_line(item.text)}"
+                block_spans.append(
+                    (
+                        item.text.strip(),
+                        offset,
+                        offset + len(line),
+                        tuple(dict.fromkeys(item.support)),
+                    )
+                )
+                lines.append(line)
+                offset += len(line) + 1
+            texts.append("\n".join(lines))
+            spans.append(block_spans)
         else:
             references = _references(block.support, available_ids)
             text = _line(block.text)
@@ -113,6 +138,7 @@ def compose_answer(
                 emphasis = _line(match[0])
                 text = f"{_escape(before)}**{emphasis}**{_escape(after)}"
             texts.append(text)
+            spans.append([(block.text.strip(), 0, len(text), tuple(references))])
         aliases.append(list(dict.fromkeys(references)))
 
     # Keep every source and the accepted unique-alias contract when sources recur.
@@ -133,4 +159,19 @@ def compose_answer(
         texts[end] += separator + " ".join(f"[[{alias}]]" for alias in group)
         cited.extend(group)
         start = end + 1
-    return "\n\n".join(texts), tuple(cited)
+    answer = "\n\n".join(texts)
+    statements = []
+    offset = 0
+    for text, block_spans in zip(texts, spans, strict=True):
+        for literal, start, end, support in block_spans:
+            statements.append(
+                AnswerStatement(
+                    f"S{len(statements) + 1}", literal, offset + start, offset + end, support
+                )
+            )
+        offset += len(text) + 2
+    return (
+        answer,
+        tuple(cited),
+        AnswerProjection(sha256(answer.encode("utf-8")).hexdigest(), tuple(statements)),
+    )

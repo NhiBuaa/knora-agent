@@ -72,7 +72,7 @@ async def test_cloudflare_repair_uses_versioned_prompt_and_same_source_schema():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("failure", ["schema", "length", "permanent", "transport"])
-async def test_cloudflare_initial_format_failure_uses_one_source_repair(failure):
+async def test_cloudflare_initial_format_failure_never_regenerates(failure):
     requests = []
 
     async def endpoint(request):
@@ -117,24 +117,14 @@ async def test_cloudflare_initial_format_failure_uses_one_source_repair(failure)
             client=client,
             provider_identity="cloudflare-workers-ai",
         )
-        if failure in {"permanent", "transport", "length"}:
-            expected = (
-                "PROVIDER_REQUEST_FAILED" if failure == "transport" else "GENERATION_OUTPUT_INVALID"
-            )
-            with pytest.raises(KnoraError, match=expected):
-                await provider.generate(
-                    question="Bao nhiêu ngày?",
-                    evidence=(GenerationEvidence("E1", "Đổi trả 7 ngày."),),
-                )
-        else:
-            result = await provider.generate(
+        expected = (
+            "PROVIDER_REQUEST_FAILED" if failure == "transport" else "GENERATION_OUTPUT_INVALID"
+        )
+        with pytest.raises(KnoraError, match=expected):
+            await provider.generate(
                 question="Bao nhiêu ngày?", evidence=(GenerationEvidence("E1", "Đổi trả 7 ngày."),)
             )
-            assert result.answer == "Đổi trả 7 ngày. [[E1]]"
-            assert result.prompt_version.startswith("retrieval-v3-grounded-repair-v2:")
-    assert len(requests) == (1 if failure in {"transport", "length"} else 2)
-    if len(requests) == 2:
-        assert requests[0]["messages"][1] == requests[1]["messages"][1]
+    assert len(requests) == 1
 
 
 @pytest.mark.asyncio

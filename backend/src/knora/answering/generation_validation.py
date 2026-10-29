@@ -738,6 +738,24 @@ def validate_generation(
     alias_to_candidate: Mapping[str, Any] | None = None,
     is_v3: bool = True,
 ) -> ValidatedGeneration:
+    validated = validate_generation_structure(result, available_evidence_ids=available_evidence_ids)
+    if result.decision == "REFUSAL":
+        return validated
+    if alias_to_candidate and (required_subquestions is not None or is_v3):
+        is_multi = bool(required_subquestions and len(required_subquestions) > 1)
+        _validate_citation_alignment(result.answer, alias_to_candidate, is_multi_group=is_multi)
+    if required_subquestions and len(required_subquestions) > 1:
+        _validate_answer_group_completeness(
+            result.answer, required_subquestions, alias_to_candidate or {}, validated.parsed_markers
+        )
+    return validated
+
+
+def validate_generation_structure(
+    result: GenerationResult,
+    *,
+    available_evidence_ids: tuple[str, ...],
+) -> ValidatedGeneration:
     if result.decision == "REFUSAL":
         if (
             result.answer is not None
@@ -766,18 +784,6 @@ def validate_generation(
         _invalid()
     if result.cited_evidence_ids != markers:
         _invalid()
-
-    if alias_to_candidate and (required_subquestions is not None or is_v3):
-        is_multi = bool(required_subquestions and len(required_subquestions) > 1)
-        _validate_citation_alignment(result.answer, alias_to_candidate, is_multi_group=is_multi)
-
-    if required_subquestions and len(required_subquestions) > 1:
-        _validate_answer_group_completeness(
-            result.answer,
-            required_subquestions,
-            alias_to_candidate or {},
-            markers,
-        )
 
     return ValidatedGeneration(result=result, parsed_markers=markers)
 

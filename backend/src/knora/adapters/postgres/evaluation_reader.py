@@ -522,6 +522,99 @@ class PostgresEvaluationReader:
         except (KnoraError, ValueError, TypeError, KeyError, AttributeError, StopIteration) as exc:
             raise LookupError("evaluation lexical trace provenance is invalid") from exc
 
+    def _read_answer_support_trace(self, session, trace, workspace_id):
+        from knora.adapters.postgres.answering_store import PostgresAnsweringStore
+
+        try:
+            if trace.workspace_id != workspace_id or trace.branch_observation_schema_version != 2:
+                raise ValueError("invalid verified trace identity")
+            store = PostgresAnsweringStore(
+                self._session_factory, lexical_population=self._lexical_population
+            )
+            store._revalidate_lexical_trace(session, trace)
+            invalid = self._include_invalid_generation and trace.validation_outcome == "invalid"
+            if not invalid and not store._trace_is_recoverable(trace):
+                raise ValueError("unverified answer")
+            decisions = trace.candidate_decisions
+            ids = [d["chunk_id"] for d in decisions]
+            rows = session.execute(
+                select(ChunkTable, DocumentTable, DocumentVersionTable, ChunkSetTable)
+                .join(ChunkSetTable, ChunkSetTable.id == ChunkTable.chunk_set_id)
+                .join(
+                    DocumentVersionTable,
+                    DocumentVersionTable.id == ChunkSetTable.document_version_id,
+                )
+                .join(DocumentTable, DocumentTable.id == DocumentVersionTable.document_id)
+                .where(ChunkTable.id.in_(ids), DocumentTable.workspace_id == workspace_id)
+            ).all()
+            chunks = {c.id: (c, d, v, cs) for c, d, v, cs in rows}
+            if len(chunks) != len(ids) or tuple(ids) != tuple(trace.retrieved_chunk_ids):
+                raise ValueError("candidate provenance mismatch")
+            candidates = []
+            snapshots = trace.provider_metadata["retrieval"]["lexical_generations"]
+            membership = {
+                (g["document_id"], g["document_version_id"], g["chunk_set_id"]) for g in snapshots
+            }
+            for decision in decisions:
+                c, d, v, cs = chunks[decision["chunk_id"]]
+                if (d.id, v.id, cs.id) not in membership or d.archived:
+                    raise ValueError("candidate outside authorized snapshot")
+                candidates.append(
+                    EvaluationCandidateProjection(
+                        chunk_id=c.id,
+                        document_version_id=v.id,
+                        chunk_set_id=cs.id,
+                        source_key=d.source_key,
+                        chunk_ordinal=c.ordinal,
+                        workspace_id=d.workspace_id,
+                        content=c.content,
+                        start_line=c.start_line,
+                        end_line=c.end_line,
+                        final_rank=decision["final_rank"],
+                        fusion_score=decision["fusion_score"],
+                        final_decision=decision["final_decision"],
+                        decision_reason=decision.get("decision_reason"),
+                        vector_contribution=decision.get("vector_contribution"),
+                        fts_contribution=decision.get("fts_contribution"),
+                        bm25_contribution=decision.get("bm25_contribution"),
+                        raw_sha256=v.raw_sha256,
+                        parser_configuration_id=cs.parser_configuration_id,
+                        normalizer_configuration_id=cs.normalizer_configuration_id,
+                        chunking_configuration_id=cs.chunking_configuration_id,
+                        page_start=c.page_start,
+                        page_end=c.page_end,
+                        start_offset=c.start_offset,
+                        end_offset=c.end_offset,
+                        content_checksum=c.content_checksum,
+                        document_id=d.id,
+                        token_count=c.token_count,
+                    )
+                )
+            return EvaluationTraceProjection(
+                trace_id=trace.id,
+                workspace_id=workspace_id,
+                retrieval_configuration_id=trace.retrieval_configuration_id,
+                embedding_configuration_id=trace.embedding_configuration_id,
+                candidates=tuple(candidates),
+                alias_mapping=dict(trace.alias_mapping),
+                provider_metadata=dict(trace.provider_metadata),
+                retrieval_latency_ms=_retrieval_latency(trace.provider_metadata),
+                trace_schema_version=4,
+                branch_observation_schema_version=2,
+                fusion_policy_version=trace.fusion_policy_version,
+                embedding_set_ids=tuple(trace.embedding_set_ids),
+                chunk_set_ids=tuple(trace.chunk_set_ids),
+                candidate_decisions=tuple(decisions),
+                branch_observations=tuple(trace.branch_observations),
+                decision=trace.decision,
+                answer=trace.answer,
+                refusal_reason=trace.refusal_reason,
+                parsed_markers=tuple(trace.parsed_markers),
+                validation_outcome=trace.validation_outcome,
+            )
+        except (KnoraError, ValueError, TypeError, KeyError, AttributeError) as exc:
+            raise LookupError("evaluation answer-support trace provenance is invalid") from exc
+
     def read_trace(self, *, trace_id: str, workspace_id: str) -> EvaluationTraceProjection:
         with self._session_factory() as session:
             if self._lexical_population is not None:
@@ -534,6 +627,8 @@ class PostgresEvaluationReader:
             )
             if trace is None:
                 raise LookupError("evaluation trace not found")
+            if trace.trace_schema_version == 4:
+                return self._read_answer_support_trace(session, trace, workspace_id)
             if trace.trace_schema_version == 3:
                 return self._read_bm25_trace(session, trace, workspace_id)
             _validate_trace_metadata(trace)
