@@ -468,3 +468,46 @@ def test_source_proven_count_allows_repeated_matching_unit(text) -> None:
         alias_to_candidate={"E1": _make_cand("outline", OUTLINE_SOURCE)},
         is_v3=True,
     )
+
+
+@pytest.mark.parametrize("heading", ["", "**Các chương của báo cáo bao gồm:**\n\n"])
+@pytest.mark.parametrize("label", ["Chuong", "Chương"])
+def test_followup_outline_normalizes_source_labels_and_list_framing(heading, label) -> None:
+    text = (
+        heading
+        + "- Chương 1 – Giới thiệu \\(Introduction\\)\n"
+        + "- Chương 2 – Thiết kế \\(Design\\)\n"
+        + f"- {label} 3 – Kết luận \\(Conclusion\\)\n\n[[E1]]"
+    )
+    validate_generation(
+        GenerationResult("ANSWER", text, ("E1",), None),
+        available_evidence_ids=("E1",),
+        alias_to_candidate={"E1": _make_cand("outline", OUTLINE_SOURCE)},
+    )
+
+
+def test_followup_outline_natural_count_lead_is_source_proven() -> None:
+    validate_generation(
+        GenerationResult("ANSWER", "Báo cáo được chia thành 3 chương: [[E1]]", ("E1",), None),
+        available_evidence_ids=("E1",),
+        alias_to_candidate={"E1": _make_cand("outline", OUTLINE_SOURCE)},
+    )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "**Các chương của báo cáo bao gồm:** [[E1]]",
+        "**Các chương bắt buộc của báo cáo bao gồm:**\n- Chương 1 – Giới thiệu [[E1]]",
+        "**Các chương của báo cáo bao gồm:**\n- Chương 9 – Sao hỏa [[E1]]",
+        "Báo cáo được chia thành 9 chương: [[E1]]",
+        "**Các chương của báo cáo bao gồm:**\n- Chuong 3 – Kết luận miễn phí [[E1]]",
+    ],
+)
+def test_outline_framing_does_not_hide_unsupported_facts(text) -> None:
+    with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+        validate_generation(
+            GenerationResult("ANSWER", text, ("E1",), None),
+            available_evidence_ids=("E1",),
+            alias_to_candidate={"E1": _make_cand("outline", OUTLINE_SOURCE)},
+        )

@@ -333,7 +333,8 @@ def _section_count_support(statement: str, source: str) -> bool | None:
     labels = r"chương|phần|mục|chapter|section"
     count = re.fullmatch(
         rf"(?:(?:tổng cộng|tổng số)\s+)?(?:báo cáo\s+)?(?:được\s+)?(?:(?:gợi ý|đề xuất)\s+)?"
-        rf"(?:(?:trình bày|bao gồm|gồm|có)\s+)?(?P<count>\d+)\s+(?P<label>{labels})[.!?]?",
+        rf"(?:(?:trình bày|bao gồm|gồm|có|chia thành)\s+)?"
+        rf"(?P<count>\d+)\s+(?P<label>{labels})[.!?]?",
         statement.strip(),
     ) or re.fullmatch(
         rf"(?:tổng số|số lượng|số)\s+(?P<label>{labels})\s+"
@@ -570,7 +571,7 @@ def _validate_cited_statement(
             if c.strip()
         ]
         for stmt in statements:
-            norm_stmt = unicodedata.normalize("NFKC", stmt).casefold()
+            norm_stmt = _grounding_text(stmt)
             stmt_words = [
                 w for w in re.findall(r"\w+", norm_stmt) if w not in _STOPWORDS and not w.isdigit()
             ]
@@ -668,7 +669,17 @@ def _validate_citation_alignment(
         ]
         if not statements:
             _invalid()
-        for statement in statements:
+        for statement_index, statement in enumerate(statements):
+            heading = re.fullmatch(
+                r"(?:các|những)\s+(?P<label>chương|phần|mục)"
+                r"(?:\s+của\s+báo cáo)?\s+(?:bao gồm|gồm)\s*:",
+                _grounding_text(statement),
+            )
+            if heading and statement_index + 1 < len(statements):
+                next_statement = _grounding_text(statements[statement_index + 1])
+                if re.match(rf"^-\s+{heading['label']}\s+\d+\b", next_statement):
+                    # A structural list lead asserts no fact; all list members are checked below.
+                    continue
             # A unique citation can enclose blocks; every statement still needs source support.
             for alias in group:
                 if alias not in alias_to_candidate:
