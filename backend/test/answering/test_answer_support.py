@@ -514,3 +514,51 @@ async def test_verifier_grammar_binds_each_statement_to_its_own_sources(foreign_
     else:
         proof, _ = await verifier.verify(**kwargs)
         assert proof.answer_digest == projection.answer_digest
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "defect,want", [("digest", "invalid_verifier_proof"), ("unknown", "unsupported_answer")]
+)
+async def test_verifier_failures_distinguish_wire_repair_from_answer_repair(defect, want):
+    import json
+
+    from knora.answering.answer_support import AnswerSupportFailure
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+    answer, projection, evidence, _ = case()
+    captured = []
+
+    async def complete(prompt):
+        captured.append(prompt)
+        data = json.loads(prompt.messages[1]["content"])
+        wire = {
+            "answer_digest": "wrong" if defect == "digest" else projection.answer_digest,
+            "snapshot_digest": "snapshot",
+            "statements": [
+                {
+                    "id": "S1",
+                    "verdict": "UNKNOWN" if defect == "unknown" else "SUPPORTED",
+                    "source_refs": [
+                        {"quote_id": data["evidence"][0]["quote_id"], "reason": "ENTAILMENT"}
+                    ],
+                }
+            ],
+            "groups": [{"id": "G1", "verdict": "ANSWERED", "statement_ids": ["S1"]}],
+        }
+        return wire, {"provider": "cloudflare-workers-ai"}
+
+    verifier = CloudflareAnswerSupportVerifier(complete)
+    with pytest.raises(AnswerSupportFailure) as caught:
+        await verifier.verify(
+            question="Is a diagram required?",
+            groups=(("G1", "Is a diagram required?"),),
+            answer=answer,
+            answer_projection=projection,
+            evidence=evidence,
+            snapshot_digest="snapshot",
+            feedback={"failure": "invalid_verifier_envelope"},
+        )
+    assert caught.value.observation["failure"] == want
+    assert captured[0].definition.version.endswith(":recovery-v1")
+    assert "recovery_feedback" in json.loads(captured[0].messages[1]["content"])

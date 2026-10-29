@@ -1584,3 +1584,292 @@ async def test_vector_cardinality_and_finiteness_enforcement() -> None:
             WorkspacePrincipal(workspace_id="ws-1", key_id="key-1"),
         )
     assert exc_info.value.code == "EMBEDDING_DIMENSION_MISMATCH"
+
+
+class RecoverableGenerator(ProjectedGenerator):
+    def __init__(self, *, malformed=False, repeat=False, refusal=False):
+        super().__init__()
+        self.malformed, self.repeat, self.refusal = malformed, repeat, refusal
+        self.feedback = []
+
+    async def generate(self, **kwargs):
+        if self.malformed:
+            from knora.providers.generation import GenerationFailure
+
+            self.calls.append(kwargs)
+            raise GenerationFailure(
+                "GENERATION_OUTPUT_INVALID",
+                {
+                    "failure": "invalid_generation_completion",
+                    "completion_digest": "bad-json",
+                    "provider": {
+                        "provider": "cloudflare-workers-ai",
+                        "provider_request_id": "bad-1",
+                    },
+                },
+            )
+        return await super().generate(**kwargs)
+
+    async def repair_grounded_generation(self, *, question, evidence, feedback):
+        self.feedback.append(feedback)
+        result = await ProjectedGenerator.generate(self, question=question, evidence=evidence)
+        if self.refusal:
+            return replace(
+                result,
+                decision="REFUSAL",
+                answer=None,
+                cited_evidence_ids=(),
+                answer_projection=None,
+                refusal_reason="INSUFFICIENT_EVIDENCE",
+            )
+        if self.repeat:
+            return result
+        from knora.providers.openai_compatible.answer_blocks import compose_grounded_answer
+
+        answer, aliases, projection = compose_grounded_answer(
+            {
+                "decision": "ANSWER",
+                "before": [{"text": "Đổi trả trong 7 ngày.", "support": ["E1"]}],
+                "items": [],
+                "after": [],
+                "refusal_reason": None,
+            },
+            evidence,
+        )
+        return replace(
+            result, answer=answer, cited_evidence_ids=aliases, answer_projection=projection
+        )
+
+
+class RecoverableVerifier(SupportVerifier):
+    def __init__(self, *, malformed=False):
+        super().__init__()
+        self.malformed = malformed
+
+    async def verify(self, **kwargs):
+        from knora.answering.answer_support import AnswerSupportFailure
+
+        if not self.calls:
+            self.calls.append(kwargs)
+            raise AnswerSupportFailure(
+                "GENERATION_OUTPUT_INVALID",
+                {"failure": "invalid_verifier_envelope", "completion_digest": "wire-1"}
+                if self.malformed
+                else {
+                    "verdict": {
+                        "statements": [{"id": "S1", "verdict": "UNKNOWN", "source_refs": []}],
+                        "groups": [{"id": "question", "verdict": "MISSING", "statement_ids": []}],
+                    }
+                },
+            )
+        return await super().verify(**kwargs)
+
+
+async def run_recovery_case(generator, verifier):
+    store, service = generation_repair_case(generator, verifier=verifier)
+    result = await service.execute(
+        QuestionCommand(workspace_id="workspace-a", question="Đổi trả trong bao nhiêu ngày?"),
+        WorkspacePrincipal(workspace_id="workspace-a", key_id="test"),
+    )
+    return result, store
+
+
+@pytest.mark.asyncio
+async def test_v3_malformed_generation_is_repaired_and_proof_is_persisted():
+    from knora.answering.answer_support import validate_trace_support
+
+    generator, verifier = RecoverableGenerator(malformed=True), SupportVerifier()
+    result, store = await run_recovery_case(generator, verifier)
+    assert result.answer == "Đổi trả trong **7 ngày**. [[E1]]"
+    audit = store.traces[0].provider_metadata["generation_recovery"]
+    assert [a["phase"] for a in audit["attempts"]] == ["generation", "repair", "verification"]
+    assert audit["attempts"][0]["observation"]["provider"]["provider_request_id"] == "bad-1"
+    assert generator.feedback[0]["failure"] == "invalid_generation_completion"
+    trace = store.traces[0]
+    source = trace.provider_metadata["answer_support"]["snapshot_binding"]["sources"][0]
+    validate_trace_support(
+        trace, {trace.alias_mapping["E1"]: ("Đổi trả trong 7 ngày.", source["content_checksum"])}
+    )
+
+
+@pytest.mark.asyncio
+async def test_v3_semantic_rejection_gets_corrected_answer_and_fresh_proof():
+    generator, verifier = RecoverableGenerator(), RecoverableVerifier()
+    result, store = await run_recovery_case(generator, verifier)
+    assert result.answer == "Đổi trả trong **7 ngày**. [[E1]]"
+    assert (
+        verifier.calls[0]["answer_projection"].answer_digest
+        != verifier.calls[1]["answer_projection"].answer_digest
+    )
+    assert generator.feedback[0]["verdict"]["statements"][0]["verdict"] == "UNKNOWN"
+    assert store.traces[0].provider_metadata["answer_support"]["status"] == "supported"
+
+
+@pytest.mark.asyncio
+async def test_v3_verifier_format_repair_keeps_same_candidate():
+    generator, verifier = RecoverableGenerator(), RecoverableVerifier(malformed=True)
+    result, store = await run_recovery_case(generator, verifier)
+    assert result.decision == "ANSWER"
+    assert len(generator.calls) == 1 and not generator.feedback
+    assert verifier.calls[0]["answer"] == verifier.calls[1]["answer"]
+    assert verifier.calls[1]["feedback"]["failure"] == "invalid_verifier_envelope"
+    assert len(store.traces[0].provider_metadata["generation_recovery"]["attempts"]) == 3
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("refusal", [False, True])
+async def test_v3_repair_cannot_repeat_rejected_candidate_or_hide_as_refusal(refusal):
+    generator, verifier = RecoverableGenerator(repeat=True, refusal=refusal), RecoverableVerifier()
+    store, service = generation_repair_case(generator, verifier=verifier)
+    with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+        await service.execute(
+            QuestionCommand(workspace_id="workspace-a", question="Đổi trả trong bao nhiêu ngày?"),
+            WorkspacePrincipal(workspace_id="workspace-a", key_id="test"),
+        )
+    assert len(generator.calls) == 2 and len(verifier.calls) == 1
+    assert store.traces[0].validation_outcome == "invalid"
+
+
+@pytest.mark.asyncio
+async def test_v3_unavailable_provider_is_not_retried_with_recovery_enabled():
+    generator, verifier = RecoverableGenerator(), SupportVerifier("unavailable")
+    store, service = generation_repair_case(generator, verifier=verifier)
+    with pytest.raises(KnoraError, match="PROVIDER_REQUEST_FAILED"):
+        await service.execute(
+            QuestionCommand(workspace_id="workspace-a", question="Đổi trả trong bao nhiêu ngày?"),
+            WorkspacePrincipal(workspace_id="workspace-a", key_id="test"),
+        )
+    assert len(generator.calls) == 1 and not generator.feedback
+    assert store.traces[0].validation_outcome == "invalid"
+
+
+@pytest.mark.asyncio
+async def test_v3_repeated_malformed_verifier_stops_without_regeneration():
+    from knora.answering.answer_support import AnswerSupportFailure
+
+    class BrokenVerifier(SupportVerifier):
+        async def verify(self, **kwargs):
+            self.calls.append(kwargs)
+            raise AnswerSupportFailure(
+                "GENERATION_OUTPUT_INVALID",
+                {
+                    "failure": "invalid_verifier_envelope",
+                    "completion_digest": "same-wire",
+                    "provider": {"provider_request_id": str(len(self.calls))},
+                },
+            )
+
+    generator, verifier = RecoverableGenerator(), BrokenVerifier()
+    store, service = generation_repair_case(generator, verifier=verifier)
+    with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+        await service.execute(
+            QuestionCommand(workspace_id="workspace-a", question="Đổi trả trong bao nhiêu ngày?"),
+            WorkspacePrincipal(workspace_id="workspace-a", key_id="test"),
+        )
+    assert len(verifier.calls) == 2 and len(generator.calls) == 1
+    assert (
+        store.traces[0].provider_metadata["generation_recovery"]["stop_reason"]
+        == "repeated_failure"
+    )
+
+
+@pytest.mark.asyncio
+async def test_v3_recovery_uses_original_request_deadline_and_records_cancellation(monkeypatch):
+    from knora.answering.answer_support import AnswerSupportFailure
+
+    timeout = asyncio.timeout
+    monkeypatch.setattr(
+        asyncio, "timeout", lambda seconds: timeout(0.1 if seconds == 90 else seconds)
+    )
+
+    class SlowVerifier(SupportVerifier):
+        async def verify(self, **kwargs):
+            self.calls.append(kwargs)
+            if len(self.calls) == 1:
+                # Consume the first request's budget; the recovery must not start a new one.
+                await asyncio.sleep(0.06)
+                raise AnswerSupportFailure(
+                    "GENERATION_OUTPUT_INVALID",
+                    {
+                        "failure": "invalid_verifier_envelope",
+                        "completion_digest": "first-wire",
+                    },
+                )
+            await asyncio.Event().wait()
+
+    generator, verifier = RecoverableGenerator(), SlowVerifier()
+    store, service = generation_repair_case(generator, verifier=verifier)
+    with pytest.raises(KnoraError, match="PROVIDER_REQUEST_FAILED"):
+        await service.execute(
+            QuestionCommand(workspace_id="workspace-a", question="Đổi trả trong bao nhiêu ngày?"),
+            WorkspacePrincipal(workspace_id="workspace-a", key_id="test"),
+        )
+    assert len(verifier.calls) == 2
+    audit = store.traces[0].provider_metadata["generation_recovery"]
+    assert audit["attempts"][-1]["status"] == "cancelled"
+    assert audit["stop_reason"] == "cancelled_or_deadline"
+    assert store.traces[0].validation_outcome == "invalid"
+
+
+@pytest.mark.asyncio
+async def test_v3_generation_parse_failure_always_has_invalid_trace():
+    class BrokenGenerator(RecoverableGenerator):
+        async def repair_grounded_generation(self, **kwargs):
+            return await self.generate(question=kwargs["question"], evidence=kwargs["evidence"])
+
+    generator = BrokenGenerator(malformed=True)
+    store, service = generation_repair_case(generator, verifier=SupportVerifier())
+    with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+        await service.execute(
+            QuestionCommand(workspace_id="workspace-a", question="Đổi trả trong bao nhiêu ngày?"),
+            WorkspacePrincipal(workspace_id="workspace-a", key_id="test"),
+        )
+    assert len(store.traces) == 1
+    assert store.traces[0].generation_status == "failed"
+    assert store.traces[0].validation_outcome == "invalid"
+    assert store.traces[0].answer is None
+
+
+@pytest.mark.asyncio
+async def test_v3_snapshot_change_during_repair_prevents_verification():
+    generator, verifier = RecoverableGenerator(), RecoverableVerifier()
+    store, service = generation_repair_case(generator, verifier=verifier)
+    original_revalidate = store.revalidate_lexical_snapshot
+
+    def fence(*args):
+        original_revalidate(*args)
+        if len(generator.calls) > 1:
+            raise KnoraError("RETRIEVAL_PROVENANCE_INVALID")
+
+    store.revalidate_lexical_snapshot = fence
+    with pytest.raises(KnoraError, match="RETRIEVAL_PROVENANCE_INVALID"):
+        await service.execute(
+            QuestionCommand(workspace_id="workspace-a", question="Đổi trả trong bao nhiêu ngày?"),
+            WorkspacePrincipal(workspace_id="workspace-a", key_id="test"),
+        )
+    assert len(generator.calls) == 2 and len(verifier.calls) == 1
+    assert store.traces[0].validation_outcome == "invalid"
+
+
+@pytest.mark.asyncio
+async def test_v3_recovery_has_no_arbitrary_two_call_ceiling():
+    from knora.answering.answer_support import AnswerSupportFailure
+
+    class SeveralFormats(SupportVerifier):
+        async def verify(self, **kwargs):
+            if len(self.calls) < 3:
+                self.calls.append(kwargs)
+                raise AnswerSupportFailure(
+                    "GENERATION_OUTPUT_INVALID",
+                    {
+                        "failure": "invalid_verifier_envelope",
+                        "completion_digest": f"wire-{len(self.calls)}",
+                    },
+                )
+            return await super().verify(**kwargs)
+
+    generator, verifier = RecoverableGenerator(), SeveralFormats()
+    result, store = await run_recovery_case(generator, verifier)
+    assert result.decision == "ANSWER" and len(verifier.calls) == 4
+    assert len(generator.calls) == 1
+    assert len(store.traces[0].provider_metadata["generation_recovery"]["attempts"]) == 5

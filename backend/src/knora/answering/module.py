@@ -1,25 +1,17 @@
 import asyncio
-import json
 from collections.abc import AsyncIterator, Callable, Sequence
 from dataclasses import asdict
 from math import isfinite
 from time import get_clock_info, perf_counter
 from uuid import uuid4
 
-from knora.answering.answer_support import (
-    AnswerSupportFailure,
-    AnswerSupportVerifier,
-    digest,
-    proof_observation,
-    required_answer_groups,
-    validate_support,
-)
+from knora.answering.answer_support import AnswerSupportVerifier, required_answer_groups
 from knora.answering.evidence import EvidenceSelection, select_evidence
 from knora.answering.excerpt import citation_excerpt
+from knora.answering.generation_recovery import GenerationRecovery, generate_with_recovery
 from knora.answering.generation_validation import (
     MARKER_PATTERN,
     validate_generation,
-    validate_generation_structure,
 )
 from knora.answering.interface import (
     CitationProjection,
@@ -654,102 +646,49 @@ class AnswerQuestion:
             self._store.revalidate_lexical_snapshot(
                 command.workspace_id, retrieval_configuration.lexical_policy_id, lexical_generations
             )
-        generation_deadline = asyncio.get_running_loop().time() + 90.0
         generation_evidence = tuple(
             GenerationEvidence(evidence_id=alias, content=candidate.content)
             for alias, candidate in alias_to_candidate.items()
         )
-        try:
-            async with asyncio.timeout_at(generation_deadline):
-                generation = await self._generation_provider.generate(
-                    question=generation_question,
-                    evidence=generation_evidence,
-                )
-        except TimeoutError:
-            raise KnoraError("PROVIDER_REQUEST_FAILED") from None
-        generation_ended = self._clock()
-        phase_timings = self._phase_timings(
-            started=started,
-            embedding_ended=embedding_ended,
-            retrieval_ended=retrieval_ended,
-            selection_ended=selection_ended,
-            generation_ended=generation_ended,
+        groups = required_answer_groups(
+            tuple((sq.id, sq.text) for sq in (active_subquestions or ()) if sq.required)
+            or (("question", generation_question),)
         )
-        answer_support_observation = None
-        try:
-            if is_v3_retrieval and generation.provider == "cloudflare-workers-ai":
-                validated = validate_generation_structure(
-                    generation, available_evidence_ids=tuple(alias_to_candidate)
+        binding = {
+            "workspace_id": command.workspace_id,
+            "original_question": command.question,
+            "question": generation_question,
+            "groups": [list(group) for group in groups],
+            "lexical_generations": [asdict(g) for g in lexical_generations],
+            "sources": [
+                {"alias": a, "chunk_id": c.chunk_id, "content_checksum": c.content_checksum}
+                for a, c in alias_to_candidate.items()
+            ],
+        }
+
+        def revalidate():
+            if is_v3_retrieval and (lexical or dense_or_hybrid_v3):
+                self._store.revalidate_lexical_snapshot(
+                    command.workspace_id,
+                    retrieval_configuration.lexical_policy_id,
+                    lexical_generations,
                 )
-                if generation.decision == "ANSWER":
-                    if (
-                        self._answer_support_verifier is None
-                        or generation.answer_projection is None
-                    ):
-                        raise KnoraError("GENERATION_OUTPUT_INVALID")
-                    groups = tuple(
-                        (sq.id, sq.text) for sq in (active_subquestions or ()) if sq.required
-                    ) or (("question", generation_question),)
-                    groups = required_answer_groups(groups)
-                    binding = {
-                        "workspace_id": command.workspace_id,
-                        "original_question": command.question,
-                        "question": generation_question,
-                        "groups": [list(group) for group in groups],
-                        "lexical_generations": [asdict(g) for g in lexical_generations],
-                        "sources": [
-                            {
-                                "alias": a,
-                                "chunk_id": c.chunk_id,
-                                "content_checksum": c.content_checksum,
-                            }
-                            for a, c in alias_to_candidate.items()
-                        ],
-                    }
-                    answer_support_observation = {
-                        "policy_id": "answer-support-verification-v3-r4-v1",
-                        "status": "invalid",
-                        "snapshot_binding": binding,
-                    }
-                    self._store.revalidate_lexical_snapshot(
-                        command.workspace_id,
-                        retrieval_configuration.lexical_policy_id,
-                        lexical_generations,
-                    )
-                    try:
-                        proof, metadata = await self._answer_support_verifier.verify(
-                            question=generation_question,
-                            groups=groups,
-                            answer=generation.answer,
-                            answer_projection=generation.answer_projection,
-                            evidence=generation_evidence,
-                            snapshot_digest=digest(binding),
-                        )
-                    except KnoraError as error:
-                        answer_support_observation["status"] = (
-                            "unavailable" if error.code == "PROVIDER_REQUEST_FAILED" else "invalid"
-                        )
-                        if isinstance(error, AnswerSupportFailure):
-                            answer_support_observation.update(error.observation)
-                        raise
-                    proof = validate_support(
-                        json.loads(proof.verdict_json),
-                        answer=generation.answer,
-                        projection=generation.answer_projection,
-                        evidence=generation_evidence,
-                        snapshot_digest=digest(binding),
-                        group_ids=tuple(key for key, _ in groups),
-                    )
-                    answer_support_observation = {
-                        **proof_observation(proof, generation.answer_projection, groups, metadata),
-                        "snapshot_binding": binding,
-                    }
-                    self._store.revalidate_lexical_snapshot(
-                        command.workspace_id,
-                        retrieval_configuration.lexical_policy_id,
-                        lexical_generations,
-                    )
-            else:
+
+        recovery = GenerationRecovery()
+        try:
+            generation, validated = await generate_with_recovery(
+                provider=self._generation_provider,
+                verifier=self._answer_support_verifier,
+                question=generation_question,
+                evidence=generation_evidence,
+                groups=groups,
+                binding=binding,
+                revalidate=revalidate,
+                is_v3=is_v3_retrieval,
+                state=recovery,
+            )
+            generation_ended = self._clock()
+            if validated is None:
                 validated = validate_generation(
                     generation,
                     available_evidence_ids=tuple(alias_to_candidate),
@@ -757,16 +696,17 @@ class AnswerQuestion:
                     alias_to_candidate=alias_to_candidate,
                     is_v3=is_v3_retrieval,
                 )
-        except KnoraError:
+        except (KnoraError, asyncio.CancelledError):
+            generation = recovery.generation
             trace_ended = self._clock()
             self._store.persist_trace(
                 self._trace(
                     command=command,
                     selection=selection,
-                    decision=generation.decision,
-                    answer=generation.answer,
-                    refusal_reason=generation.refusal_reason,
-                    generation_status="completed",
+                    decision=generation.decision if generation else "ERROR",
+                    answer=generation.answer if generation else None,
+                    refusal_reason=generation.refusal_reason if generation else None,
+                    generation_status="completed" if generation else "failed",
                     embedding=query_batch,
                     retrieval_latency_ms=retrieval_latency_ms,
                     alias_mapping={
@@ -774,12 +714,13 @@ class AnswerQuestion:
                     },
                     parsed_markers=(
                         tuple(MARKER_PATTERN.findall(generation.answer))
-                        if isinstance(generation.answer, str)
+                        if generation and isinstance(generation.answer, str)
                         else ()
                     ),
                     validation_outcome="invalid",
                     generation=generation,
-                    answer_support_observation=answer_support_observation,
+                    answer_support_observation=recovery.support,
+                    recovery_observation=recovery.observation(),
                     started=started,
                     ended_at=trace_ended,
                     retrieval_configuration=retrieval_configuration,
@@ -796,7 +737,13 @@ class AnswerQuestion:
                         else None
                     ),
                     verification_observation=verification_observation,
-                    phase_timings=phase_timings,
+                    phase_timings=self._phase_timings(
+                        started=started,
+                        embedding_ended=embedding_ended,
+                        retrieval_ended=retrieval_ended,
+                        selection_ended=selection_ended,
+                        generation_ended=trace_ended,
+                    ),
                 )
             )
             raise
@@ -832,7 +779,8 @@ class AnswerQuestion:
                 parsed_markers=validated.parsed_markers,
                 validation_outcome="valid",
                 generation=generation,
-                answer_support_observation=answer_support_observation,
+                answer_support_observation=recovery.support,
+                recovery_observation=recovery.observation(),
                 started=started,
                 ended_at=trace_ended,
                 retrieval_configuration=retrieval_configuration,
@@ -843,7 +791,13 @@ class AnswerQuestion:
                 sdm_observation=sdm_observation,
                 reranking_observation=reranking_observation,
                 query_plan_observation=query_plan_observation,
-                phase_timings=phase_timings,
+                phase_timings=self._phase_timings(
+                    started=started,
+                    embedding_ended=embedding_ended,
+                    retrieval_ended=retrieval_ended,
+                    selection_ended=selection_ended,
+                    generation_ended=generation_ended,
+                ),
             )
         )
         # Final delivery revalidation: fail-closed if revoked between persist and delivery
@@ -987,6 +941,7 @@ class AnswerQuestion:
         validation_outcome: str = "not_applicable",
         generation: GenerationResult | None = None,
         answer_support_observation: dict[str, object] | None = None,
+        recovery_observation: dict[str, object] | None = None,
         retrieval_configuration: RetrievalConfiguration | None = None,
         branch_observations: tuple[dict[str, object], ...] = (),
         retrieval_embedding_set_ids: tuple[str, ...] = (),
@@ -1022,6 +977,8 @@ class AnswerQuestion:
             provider_metadata["retrieval"]["source_verification"] = verification_observation
         if answer_support_observation is not None:
             provider_metadata["answer_support"] = answer_support_observation
+        if recovery_observation is not None:
+            provider_metadata["generation_recovery"] = recovery_observation
         if sdm_observation is not None and (
             retrieval_configuration is not None
             and (
