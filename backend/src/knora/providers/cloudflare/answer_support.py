@@ -4,6 +4,7 @@ import asyncio
 import json
 import re
 from collections.abc import Awaitable, Callable
+from copy import deepcopy
 from dataclasses import asdict
 from typing import Literal
 
@@ -128,6 +129,24 @@ class CloudflareAnswerSupportVerifier:
         definitions["_Statement"]["properties"]["id"]["enum"] = statement_ids
         definitions["GroupVerdict"]["properties"]["id"]["enum"] = [key for key, _ in groups]
         definitions["GroupVerdict"]["properties"]["statement_ids"]["items"]["enum"] = statement_ids
+        # A globally allowed quote can still be foreign to an individual statement.
+        scopes = {}
+        variants = []
+        for statement in answer_projection.statements:
+            if statement.aliases not in scopes:
+                name = f"_ReferenceScope{len(scopes)}"
+                scoped_reference = deepcopy(definitions["_Reference"])
+                scoped_reference["properties"]["quote_id"]["enum"] = [
+                    key for key, quote in quotes.items() if quote["alias"] in statement.aliases
+                ]
+                definitions[name] = scoped_reference
+                scopes[statement.aliases] = f"#/$defs/{name}"
+            variant = deepcopy(definitions["_Statement"])
+            variant["properties"]["id"]["enum"] = [statement.id]
+            variant["properties"]["source_refs"]["items"] = {"$ref": scopes[statement.aliases]}
+            variants.append(variant)
+        properties["statements"]["items"] = {"oneOf": variants}
+        del definitions["_Statement"], definitions["_Reference"]
         for key, count in (("statements", len(statement_ids)), ("groups", len(groups))):
             properties[key].update(minItems=count, maxItems=count)
         input_tokens = (
