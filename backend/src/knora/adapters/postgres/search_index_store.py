@@ -3,6 +3,7 @@
 import hashlib
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict
+from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
@@ -145,6 +146,148 @@ class PostgresSearchIndexStore:
         )
         _CORPUS_STATS_CACHE[cache_key] = stats
         return stats
+
+    def dynamic_workspace_ids(self, embedding_configuration_id: str) -> tuple[str, ...]:
+        with self._sessions() as session:
+            return tuple(
+                session.scalars(
+                    select(DocumentTable.workspace_id)
+                    .join(WorkspaceTable, WorkspaceTable.id == DocumentTable.workspace_id)
+                    .where(
+                        WorkspaceTable.archived.is_(False),
+                        DocumentTable.archived.is_(False),
+                        DocumentTable.active_embedding_configuration_id
+                        == embedding_configuration_id,
+                    )
+                    .distinct()
+                    .order_by(DocumentTable.workspace_id)
+                ).all()
+            )
+
+    def prepare_dynamic_corpus(
+        self, workspace_id: str, lexical_policy_id: str, embedding_configuration_id: str
+    ) -> tuple[LexicalIndexInput, ...]:
+        """Persist a whole-corpus request before projection I/O; resume requests after a crash."""
+        from knora.ingestion.lexical_population import CorpusStatisticsSnapshot
+
+        with self._sessions.begin() as session:
+            workspace = session.scalar(
+                select(WorkspaceTable)
+                .where(WorkspaceTable.id == workspace_id, WorkspaceTable.archived.is_(False))
+                .with_for_update(skip_locked=True)
+            )
+            if workspace is None:
+                return ()
+            documents = session.scalars(
+                select(DocumentTable)
+                .where(
+                    DocumentTable.workspace_id == workspace_id, DocumentTable.archived.is_(False)
+                )
+                .order_by(DocumentTable.id)
+                .with_for_update()
+            ).all()
+            if not documents:
+                return ()
+            members = []
+            corpus = []
+            for document in documents:
+                if document.active_embedding_set_id is None:
+                    return ()
+                embedding_set = session.get(EmbeddingSetTable, document.active_embedding_set_id)
+                if (
+                    embedding_set is None
+                    or embedding_set.status != "completed"
+                    or embedding_set.embedding_configuration_id != embedding_configuration_id
+                    or document.active_embedding_configuration_id != embedding_configuration_id
+                ):
+                    return ()
+                chunk_set = session.get(ChunkSetTable, embedding_set.chunk_set_id)
+                if (
+                    chunk_set is None
+                    or chunk_set.status != "completed"
+                    or chunk_set.document_version_id != document.current_document_version_id
+                ):
+                    return ()
+                chunks = session.scalars(
+                    select(ChunkTable)
+                    .where(ChunkTable.chunk_set_id == chunk_set.id)
+                    .order_by(ChunkTable.ordinal)
+                ).all()
+                if not chunks:
+                    return ()
+                if any(
+                    hashlib.sha256(c.content.encode("utf-8")).hexdigest() != c.content_checksum
+                    for c in chunks
+                ):
+                    raise LexicalGenerationError("authoritative chunk text checksum is invalid")
+                # Distinct source keys remain distinct corpus members even for identical PDFs.
+                member_id = hashlib.sha256(document.id.encode("utf-8")).hexdigest()
+                corpus.append((member_id, [(c.content_checksum, c.token_count) for c in chunks]))
+                members.append((document, embedding_set, chunk_set, chunks))
+            profile = CorpusStatisticsSnapshot.build(
+                population_id=lexical_policy_id, documents=corpus
+            ).profile
+            prepared = []
+            all_ready = True
+            for document, embedding_set, chunk_set, chunks in members:
+                head = session.get(LexicalHeadTable, document.id)
+                desired = (
+                    session.get(LexicalGenerationTable, head.desired_generation_id)
+                    if head and head.desired_generation_id
+                    else None
+                )
+                if (
+                    desired is not None
+                    and desired.status in ("requested", "active")
+                    and desired.document_version_id == document.current_document_version_id
+                    and desired.chunk_set_id == chunk_set.id
+                    and desired.source_revision == document.revision
+                    and desired.workspace_revision == workspace.revision
+                    and desired.profile_digest == profile.digest()
+                    and desired.revision == head.revision
+                ):
+                    generation = self._decode_generation(desired)
+                    ready = desired.status == "active" and head.active_generation_id == desired.id
+                else:
+                    generation = LexicalGeneration(
+                        generation_id=str(uuid4()),
+                        workspace_id=workspace_id,
+                        document_id=document.id,
+                        document_version_id=document.current_document_version_id,
+                        chunk_set_id=chunk_set.id,
+                        lexical_profile=profile,
+                        revision=head.revision + 1 if head else 1,
+                        chunks=tuple(
+                            LexicalChunk(c.id, c.ordinal, c.content_checksum) for c in chunks
+                        ),
+                    )
+                    ready = False
+                all_ready = all_ready and ready
+                prepared.append((generation, embedding_set, chunks))
+            if all_ready:
+                return ()
+            inputs = []
+            for generation, embedding_set, chunks in prepared:
+                embeddings = session.scalars(
+                    select(ChunkEmbeddingTable).where(
+                        ChunkEmbeddingTable.embedding_set_id == embedding_set.id
+                    )
+                ).all()
+                if len(embeddings) != len(chunks) or {e.chunk_id for e in embeddings} != {
+                    c.id for c in chunks
+                }:
+                    raise LexicalGenerationError("incomplete authoritative chunk embeddings")
+                inputs.append(
+                    LexicalIndexInput(
+                        generation,
+                        tuple((c.id, c.content) for c in chunks),
+                        tuple(
+                            (e.chunk_id, tuple(float(v) for v in e.embedding)) for e in embeddings
+                        ),
+                    )
+                )
+            self.stage_corpus_transition_in_transaction(session, [i.generation for i in inputs])
+            return tuple(inputs)
 
     def read_active_generations(
         self, workspace_id: str, lexical_policy_id: str
