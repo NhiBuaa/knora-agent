@@ -53,7 +53,7 @@ def test_bootstrap_selects_one_complete_provider_mode() -> None:
     assert compatible.embedding_configuration.dimensions == 1536
 
 
-@pytest.mark.parametrize("model", ["@cf/openai/gpt-oss-20b", "@cf/openai/gpt-oss-120b"])
+@pytest.mark.parametrize("model", ["@cf/openai/gpt-oss-20b"])
 def test_bootstrap_selects_cloudflare_pair_with_one_account_and_token(model) -> None:
     selected = build_provider_selection(
         Settings(
@@ -86,6 +86,7 @@ def test_bootstrap_selects_cloudflare_pair_with_one_account_and_token(model) -> 
         {"cloudflare_api_token": ""},
         {"cloudflare_embedding_model": "other"},
         {"cloudflare_generation_model": "other"},
+        {"cloudflare_generation_model": "@cf/openai/gpt-oss-120b"},
         {"cloudflare_embedding_configuration_id": "other"},
         {"cloudflare_timeout_seconds": 0},
     ],
