@@ -370,3 +370,76 @@ async def test_verifier_transport_is_bounded_and_retains_invalid_completion_evid
             proof, _ = await verifier.verify(**kwargs)
             assert proof.answer_digest == projection.answer_digest
     assert len(requests) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("foreign_ref", [False, True])
+async def test_verifier_grammar_binds_each_statement_to_its_own_sources(foreign_ref):
+    import json
+
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+    evidence = (GenerationEvidence("E1", "Fact one."), GenerationEvidence("E2", "Fact two."))
+    answer, _, projection = compose_answer_projection(
+        {
+            "decision": "ANSWER",
+            "before": [],
+            "after": [],
+            "refusal_reason": None,
+            "items": [
+                {"text": "Fact one.", "support": ["E1"]},
+                {"text": "Fact two.", "support": ["E2"]},
+            ],
+        },
+        evidence,
+    )
+
+    async def complete(prompt):
+        schema = prompt.definition.schema
+        variants = schema["properties"]["statements"]["items"]["oneOf"]
+        assert len(variants) == 2
+        data = json.loads(prompt.messages[1]["content"])
+        verdicts = []
+        for variant, statement in zip(variants, projection.statements, strict=True):
+            assert variant["properties"]["id"]["enum"] == [statement.id]
+            ref_schema = variant["properties"]["source_refs"]["items"]
+            if "$ref" in ref_schema:
+                ref_schema = schema["$defs"][ref_schema["$ref"].rsplit("/", 1)[-1]]
+            allowed = ref_schema["properties"]["quote_id"]["enum"]
+            assert allowed
+            assert {q["alias"] for q in data["evidence"] if q["quote_id"] in allowed} == set(
+                statement.aliases
+            )
+            verdicts.append(
+                {
+                    "id": statement.id,
+                    "verdict": "SUPPORTED",
+                    "source_refs": [{"quote_id": allowed[0], "reason": "ENTAILMENT"}],
+                }
+            )
+        if foreign_ref:
+            verdicts[0]["source_refs"][0]["quote_id"] = next(
+                q["quote_id"] for q in data["evidence"] if q["alias"] == "E2"
+            )
+        return {
+            "answer_digest": projection.answer_digest,
+            "snapshot_digest": "snapshot",
+            "statements": verdicts,
+            "groups": [{"id": "G1", "verdict": "ANSWERED", "statement_ids": ["S1", "S2"]}],
+        }, {}
+
+    kwargs = dict(
+        question="What are the two facts?",
+        groups=(("G1", "What are the two facts?"),),
+        answer=answer,
+        answer_projection=projection,
+        evidence=evidence,
+        snapshot_digest="snapshot",
+    )
+    verifier = CloudflareAnswerSupportVerifier(complete)
+    if foreign_ref:
+        with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+            await verifier.verify(**kwargs)
+    else:
+        proof, _ = await verifier.verify(**kwargs)
+        assert proof.answer_digest == projection.answer_digest

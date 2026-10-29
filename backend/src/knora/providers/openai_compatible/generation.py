@@ -160,7 +160,7 @@ class OpenAICompatibleGenerationProvider:
         if self._max_tokens is not None:
             request_body["max_tokens"] = self._max_tokens
         if prompt.definition.version in {
-            "cloudflare-gpt-oss-answer-support-v2",
+            "cloudflare-gpt-oss-answer-support-v3",
             "cloudflare-gpt-oss-cited-answer-v23",
         }:
             request_body["reasoning_effort"] = "low"
