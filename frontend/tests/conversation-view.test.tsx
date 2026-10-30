@@ -1118,4 +1118,61 @@ describe("session recovery on tab return and identity mismatch", () => {
       ),
     ).toHaveLength(1);
   });
+
+  it("offers an actionable retry after a temporary session-probe failure", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url) =>
+        String(url).includes("/api/auth/session")
+          ? new Response(null, { status: 503 })
+          : new Response(
+              JSON.stringify({ items: [answered], next_cursor: null }),
+            ),
+      ),
+    );
+    renderView();
+    await screen.findByText(answered.result.answer);
+    fireEvent.blur(window);
+    fireEvent.focus(window);
+    await screen.findByText("Unable to verify your session. Retry.");
+    expect(
+      screen.queryAllByRole("button", { name: /retry|reload history/i })
+        .length > 0,
+    ).toBe(true);
+  });
+
+  it("prevents an old history response from overwriting recovered history", async () => {
+    let finishOld: ((r: Response) => void) | undefined;
+    let histories = 0;
+    const newer = {
+      ...answered,
+      result: { ...answered.result, answer: "NEW_RECOVERY_ANSWER" },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url) => {
+        if (String(url).includes("/api/auth/session"))
+          return new Response(
+            JSON.stringify({ session: defaultIdentityScope }),
+          );
+        if (++histories === 1)
+          return new Promise<Response>((resolve) => {
+            finishOld = resolve;
+          });
+        return new Response(
+          JSON.stringify({ items: [newer], next_cursor: null }),
+        );
+      }),
+    );
+    renderView();
+    await waitFor(() => expect(histories).toBe(1));
+    fireEvent.blur(window);
+    fireEvent.focus(window);
+    await screen.findByText("NEW_RECOVERY_ANSWER");
+    finishOld?.(
+      new Response(JSON.stringify({ items: [answered], next_cursor: null })),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.queryByText(answered.result.answer)).not.toBeInTheDocument();
+  });
 });

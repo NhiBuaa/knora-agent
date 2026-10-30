@@ -247,7 +247,8 @@ function ConversationViewState({
         `/v1/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(admittedConversation.current.id)}/turns?limit=50`,
         { headers: expectedHeaders },
       );
-      if (!active.current) return null;
+      if (!active.current || generation !== authenticationGeneration.current)
+        return null;
       if (response.status === 401) {
         requireAuthentication();
         return null;
@@ -284,6 +285,8 @@ function ConversationViewState({
     if (recoveryInFlight.current) {
       return recoveryInFlight.current;
     }
+    if (pollTimer.current) clearTimeout(pollTimer.current);
+    const generation = ++authenticationGeneration.current;
     const runToken = ++currentRecoveryRunToken.current;
     submitBusy.current = true;
     setCheckingSession(true);
@@ -297,7 +300,11 @@ function ConversationViewState({
           cache: "no-store",
           headers: { "cache-control": "no-store" },
         });
-        if (!active.current || currentRecoveryRunToken.current !== runToken)
+        if (
+          !active.current ||
+          generation !== authenticationGeneration.current ||
+          currentRecoveryRunToken.current !== runToken
+        )
           return;
         if (res.status === 503 || (!res.ok && res.status !== 401)) {
           setError("Unable to verify your session. Retry.");
@@ -310,7 +317,11 @@ function ConversationViewState({
         const data = (await res.json()) as {
           session: { issuer?: string; subject?: string } | null;
         };
-        if (!active.current || currentRecoveryRunToken.current !== runToken)
+        if (
+          !active.current ||
+          generation !== authenticationGeneration.current ||
+          currentRecoveryRunToken.current !== runToken
+        )
           return;
         if (!data.session || !data.session.issuer || !data.session.subject) {
           requireAuthentication();
@@ -321,13 +332,21 @@ function ConversationViewState({
           subject: data.session.subject,
         };
       } catch {
-        if (!active.current || currentRecoveryRunToken.current !== runToken)
+        if (
+          !active.current ||
+          generation !== authenticationGeneration.current ||
+          currentRecoveryRunToken.current !== runToken
+        )
           return;
         setError("Unable to verify your session. Retry.");
         return;
       }
 
-      if (!active.current || currentRecoveryRunToken.current !== runToken)
+      if (
+        !active.current ||
+        generation !== authenticationGeneration.current ||
+        currentRecoveryRunToken.current !== runToken
+      )
         return;
 
       const hasBaseline = Boolean(
@@ -360,7 +379,11 @@ function ConversationViewState({
             `/v1/workspaces/${encodeURIComponent(workspaceId)}`,
             { headers: expectedHeaders },
           );
-          if (!active.current || currentRecoveryRunToken.current !== runToken)
+          if (
+            !active.current ||
+            generation !== authenticationGeneration.current ||
+            currentRecoveryRunToken.current !== runToken
+          )
             return;
           if (wsRes.status === 401) {
             requireAuthentication();
@@ -383,7 +406,11 @@ function ConversationViewState({
             `/v1/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(admittedConversation.current.id)}/turns?limit=50`,
             { headers: expectedHeaders },
           );
-          if (!active.current || currentRecoveryRunToken.current !== runToken)
+          if (
+            !active.current ||
+            generation !== authenticationGeneration.current ||
+            currentRecoveryRunToken.current !== runToken
+          )
             return;
           if (historyRes.status === 401) {
             requireAuthentication();
@@ -400,7 +427,11 @@ function ConversationViewState({
             items: TurnResponse[];
             next_cursor: string | null;
           };
-          if (!active.current || currentRecoveryRunToken.current !== runToken)
+          if (
+            !active.current ||
+            generation !== authenticationGeneration.current ||
+            currentRecoveryRunToken.current !== runToken
+          )
             return;
           setTurns(page.items);
           setCursor(page.next_cursor);
@@ -414,7 +445,11 @@ function ConversationViewState({
           }
         }
       } catch {
-        if (!active.current || currentRecoveryRunToken.current !== runToken)
+        if (
+          !active.current ||
+          generation !== authenticationGeneration.current ||
+          currentRecoveryRunToken.current !== runToken
+        )
           return;
         setError("Unable to load Conversation history. Retry this page.");
       }
@@ -443,6 +478,8 @@ function ConversationViewState({
     let timer: ReturnType<typeof setTimeout> | null = null;
     const onLeave = () => {
       needsIdentityCheck.current = true;
+      if (pollTimer.current) clearTimeout(pollTimer.current);
+      authenticationGeneration.current += 1;
     };
     const onReturn = () => {
       if (
@@ -541,6 +578,7 @@ function ConversationViewState({
       sessionLocked
     )
       return;
+    const generation = authenticationGeneration.current;
     submitBusy.current = true;
     setDraft(question);
     setSubmitting(true);
@@ -550,7 +588,12 @@ function ConversationViewState({
       if (submitKey.current && error) {
         if (!(await load())) return;
       }
-      if (!active.current || authenticationRequired.current) return;
+      if (
+        !active.current ||
+        authenticationRequired.current ||
+        generation !== authenticationGeneration.current
+      )
+        return;
       let target = admittedConversation.current;
       if (!target) {
         creationKey.current ??= crypto.randomUUID();
@@ -589,7 +632,12 @@ function ConversationViewState({
         target = (await created.json()) as ConversationResponse;
         if (target.workspace_id !== workspaceId || !target.id)
           throw new Error("Creation scope mismatch");
-        if (!active.current || authenticationRequired.current) return;
+        if (
+          !active.current ||
+          authenticationRequired.current ||
+          generation !== authenticationGeneration.current
+        )
+          return;
         admittedConversation.current = target;
       }
       const response = await browserRequest(
@@ -649,7 +697,8 @@ function ConversationViewState({
         return;
       }
       const turn = (await response.json()) as TurnResponse;
-      if (!active.current) return;
+      if (!active.current || generation !== authenticationGeneration.current)
+        return;
       if (draftMode && !projection.id) {
         setProjection({
           ...target,
@@ -667,10 +716,12 @@ function ConversationViewState({
       ]);
       if (pending.has(turn.status)) void pollTurn(turn.id);
     } catch {
-      setSubmissionUncertain(true);
-      setError(
-        "Submission status is uncertain. Check history, then retry with the same draft.",
-      );
+      if (active.current && generation === authenticationGeneration.current) {
+        setSubmissionUncertain(true);
+        setError(
+          "Submission status is uncertain. Check history, then retry with the same draft.",
+        );
+      }
     } finally {
       submitBusy.current = false;
       setSubmitting(false);
@@ -720,6 +771,7 @@ function ConversationViewState({
   async function restore() {
     if (workspaceArchived || restoring || sessionExpired || checkingSession)
       return;
+    const generation = authenticationGeneration.current;
     setRestoring(true);
     try {
       const response = await browserRequest(`${base}/restore`, {
@@ -729,24 +781,26 @@ function ConversationViewState({
           ...expectedHeaders,
         },
       });
-      if (!active.current) return;
+      if (!active.current || generation !== authenticationGeneration.current)
+        return;
       if (response.status === 401) {
         requireAuthentication();
         return;
       }
       if (!response.ok) throw new Error("restore failed");
       const updated = (await response.json()) as ConversationResponse;
-      if (!active.current) return;
+      if (!active.current || generation !== authenticationGeneration.current)
+        return;
       if (updated.id !== projection.id || updated.workspace_id !== workspaceId)
         throw new Error("scope mismatch");
       setProjection(updated);
       setServerArchived(false);
       setError(null);
     } catch {
-      if (active.current)
+      if (active.current && generation === authenticationGeneration.current)
         setError("Unable to restore Conversation. Reload and retry.");
     } finally {
-      if (active.current) setRestoring(false);
+      setRestoring(false);
     }
   }
 
@@ -924,9 +978,19 @@ function ConversationViewState({
         </p>
       )}
       {error && (
-        <p role="alert" className="mt-4 text-sm text-status-error">
-          {error}
-        </p>
+        <div role="alert" className="mt-4 text-sm text-status-error">
+          <p>{error}</p>
+          {error === "Unable to verify your session. Retry." && (
+            <button
+              type="button"
+              disabled={checkingSession || submitting || loading}
+              onClick={() => void recoverSession()}
+              className="mt-2 text-action-text underline"
+            >
+              Retry
+            </button>
+          )}
+        </div>
       )}
     </ConversationPanels>
   );

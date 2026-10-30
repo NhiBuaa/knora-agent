@@ -5,6 +5,7 @@ import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from "jose";
 const state = vi.hoisted(() => ({
   cookie: "",
   set: vi.fn(),
+  delete: vi.fn(),
   keys: undefined as any,
 }));
 vi.mock("next/headers", () => ({
@@ -12,6 +13,7 @@ vi.mock("next/headers", () => ({
     get: (name: string) =>
       name === "knora_session_v2" ? { value: state.cookie } : undefined,
     set: state.set,
+    delete: state.delete,
   }),
 }));
 vi.mock("jose", async (original) => {
@@ -345,10 +347,12 @@ describe("server session renewal", () => {
         .fn()
         .mockResolvedValue(new Response(JSON.stringify(await tokens("bob")))),
     );
-    await expect(getSession(true)).rejects.toThrow(
-      "SESSION_REFRESH_UNAVAILABLE",
+    expect(await getSession(true)).toBeNull();
+    expect(state.set).toHaveBeenCalledWith(
+      "knora_session_v2",
+      "",
+      expect.objectContaining({ maxAge: 0 }),
     );
-    expect(state.set).not.toHaveBeenCalled();
   });
 
   it("rejects a refresh response when signed claims policy mismatches initial session", async () => {
@@ -392,5 +396,39 @@ describe("server session renewal", () => {
     vi.setSystemTime((now + 15) * 1000);
     expect(await getSession(true)).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("invalidates a verified refresh subject mismatch even when old access still has 20 seconds", async () => {
+    await expiredCookie();
+    const previous = (await decodeSession(state.cookie))!;
+    state.cookie = await encodeSession({
+      ...previous,
+      expiresAt: Math.floor(Date.now() / 1000) + 20,
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(new Response(JSON.stringify(await tokens("bob")))),
+    );
+    expect(await getSession(true)).toBeNull();
+  });
+
+  it("invalidates when refreshed policy claims do not match original session even with valid access", async () => {
+    await expiredCookie();
+    const previous = (await decodeSession(state.cookie))!;
+    state.cookie = await encodeSession({
+      ...previous,
+      expiresAt: Math.floor(Date.now() / 1000) + 20,
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify(await tokens("alice", true))),
+        ),
+    );
+    expect(await getSession(true)).toBeNull();
   });
 });

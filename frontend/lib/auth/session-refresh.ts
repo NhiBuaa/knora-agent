@@ -165,13 +165,17 @@ async function refresh(session: KnoraSession): Promise<KnoraSession | null> {
   } catch {
     throw new SessionRefreshUnavailable();
   }
-  if (payload.sub !== session.subject) throw new SessionRefreshUnavailable();
+  if (payload.sub !== session.subject) {
+    invalidateSession(session);
+    return null;
+  }
 
   const now = Math.floor(Date.now() / 1000);
   let refreshedPolicy;
   try {
     refreshedPolicy = policyFromClaims(payload, now);
   } catch {
+    invalidateSession(session);
     return null;
   }
   if (
@@ -179,6 +183,7 @@ async function refresh(session: KnoraSession): Promise<KnoraSession | null> {
     refreshedPolicy.sessionStartedAt !== session.sessionStartedAt ||
     refreshedPolicy.sessionExpiresAt !== session.sessionExpiresAt
   ) {
+    invalidateSession(session);
     return null;
   }
 
@@ -192,7 +197,8 @@ async function refresh(session: KnoraSession): Promise<KnoraSession | null> {
       now,
     );
   } catch {
-    throw new SessionRefreshUnavailable();
+    invalidateSession(session);
+    return null;
   }
 
   const strings = (value: unknown) =>
