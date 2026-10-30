@@ -98,6 +98,7 @@ function ConversationViewState({
   const [sessionLocked, setSessionLocked] = useState(false);
 
   const recoveryInFlight = useRef<Promise<void> | null>(null);
+  const rerunRequested = useRef(false);
   const currentRecoveryRunToken = useRef(0);
   const needsIdentityCheck = useRef(false);
 
@@ -283,175 +284,191 @@ function ConversationViewState({
   const recoverSession = useCallback(async () => {
     if (!active.current) return;
     if (recoveryInFlight.current) {
+      rerunRequested.current = true;
       return recoveryInFlight.current;
     }
     if (pollTimer.current) clearTimeout(pollTimer.current);
-    const generation = ++authenticationGeneration.current;
-    const runToken = ++currentRecoveryRunToken.current;
-    submitBusy.current = true;
-    setCheckingSession(true);
-    setSessionLocked(true);
-    setError(null);
 
     const promise = (async () => {
-      let sessionData: { issuer: string; subject: string } | null = null;
-      try {
-        const res = await fetch("/api/auth/session", {
-          cache: "no-store",
-          headers: { "cache-control": "no-store" },
-        });
-        if (
-          !active.current ||
-          generation !== authenticationGeneration.current ||
-          currentRecoveryRunToken.current !== runToken
-        )
-          return;
-        if (res.status === 503 || (!res.ok && res.status !== 401)) {
+      while (active.current) {
+        rerunRequested.current = false;
+        const generation = authenticationGeneration.current;
+        const runToken = ++currentRecoveryRunToken.current;
+        submitBusy.current = true;
+        setCheckingSession(true);
+        setSessionLocked(true);
+        setError(null);
+
+        let sessionData: { issuer: string; subject: string } | null = null;
+        try {
+          const res = await fetch("/api/auth/session", {
+            cache: "no-store",
+            headers: { "cache-control": "no-store" },
+          });
+          if (!active.current) return;
+          if (
+            generation !== authenticationGeneration.current ||
+            rerunRequested.current
+          ) {
+            continue;
+          }
+          if (res.status === 503 || (!res.ok && res.status !== 401)) {
+            setError("Unable to verify your session. Retry.");
+            return;
+          }
+          if (res.status === 401) {
+            requireAuthentication();
+            return;
+          }
+          const data = (await res.json()) as {
+            session: { issuer?: string; subject?: string } | null;
+          };
+          if (!active.current) return;
+          if (
+            generation !== authenticationGeneration.current ||
+            rerunRequested.current
+          ) {
+            continue;
+          }
+          if (!data.session || !data.session.issuer || !data.session.subject) {
+            requireAuthentication();
+            return;
+          }
+          sessionData = {
+            issuer: data.session.issuer,
+            subject: data.session.subject,
+          };
+        } catch {
+          if (!active.current) return;
+          if (
+            generation !== authenticationGeneration.current ||
+            rerunRequested.current
+          ) {
+            continue;
+          }
           setError("Unable to verify your session. Retry.");
           return;
         }
-        if (res.status === 401) {
-          requireAuthentication();
-          return;
-        }
-        const data = (await res.json()) as {
-          session: { issuer?: string; subject?: string } | null;
-        };
+
+        if (!active.current) return;
         if (
-          !active.current ||
           generation !== authenticationGeneration.current ||
-          currentRecoveryRunToken.current !== runToken
-        )
-          return;
-        if (!data.session || !data.session.issuer || !data.session.subject) {
-          requireAuthentication();
-          return;
+          rerunRequested.current
+        ) {
+          continue;
         }
-        sessionData = {
-          issuer: data.session.issuer,
-          subject: data.session.subject,
-        };
-      } catch {
-        if (
-          !active.current ||
-          generation !== authenticationGeneration.current ||
-          currentRecoveryRunToken.current !== runToken
-        )
-          return;
-        setError("Unable to verify your session. Retry.");
-        return;
-      }
 
-      if (
-        !active.current ||
-        generation !== authenticationGeneration.current ||
-        currentRecoveryRunToken.current !== runToken
-      )
-        return;
+        const hasBaseline = Boolean(
+          identityScope?.issuer && identityScope?.subject,
+        );
+        const sameIdentity =
+          hasBaseline &&
+          sessionData.issuer === identityScope?.issuer &&
+          sessionData.subject === identityScope?.subject;
 
-      const hasBaseline = Boolean(
-        identityScope?.issuer && identityScope?.subject,
-      );
-      const sameIdentity =
-        hasBaseline &&
-        sessionData.issuer === identityScope?.issuer &&
-        sessionData.subject === identityScope?.subject;
-
-      if (!sameIdentity) {
-        setIdentityChanged(true);
-        setDraft("");
-        setTurns([]);
-        setSelection(null);
-        creationKey.current = null;
-        submitKey.current = null;
-        admittedConversation.current = null;
-        if (pollTimer.current) clearTimeout(pollTimer.current);
-        if (typeof window !== "undefined") {
-          window.location.replace("/workspaces");
-        }
-        return;
-      }
-
-      // Same identity -> GET history or unadmitted draft Workspace check
-      try {
-        if (!admittedConversation.current?.id) {
-          const wsRes = await browserRequest(
-            `/v1/workspaces/${encodeURIComponent(workspaceId)}`,
-            { headers: expectedHeaders },
-          );
-          if (
-            !active.current ||
-            generation !== authenticationGeneration.current ||
-            currentRecoveryRunToken.current !== runToken
-          )
-            return;
-          if (wsRes.status === 401) {
-            requireAuthentication();
-            return;
+        if (!sameIdentity) {
+          setIdentityChanged(true);
+          setDraft("");
+          setTurns([]);
+          setSelection(null);
+          creationKey.current = null;
+          submitKey.current = null;
+          admittedConversation.current = null;
+          if (pollTimer.current) clearTimeout(pollTimer.current);
+          if (typeof window !== "undefined") {
+            window.location.replace("/workspaces");
           }
-          if (wsRes.status === 403) {
-            setError(
-              "You don't have permission to ask questions in this workspace.",
+          return;
+        }
+
+        // Same identity -> GET history or unadmitted draft Workspace check
+        try {
+          if (!admittedConversation.current?.id) {
+            const wsRes = await browserRequest(
+              `/v1/workspaces/${encodeURIComponent(workspaceId)}`,
+              { headers: expectedHeaders },
             );
+            if (!active.current) return;
+            if (
+              generation !== authenticationGeneration.current ||
+              rerunRequested.current
+            ) {
+              continue;
+            }
+            if (wsRes.status === 401) {
+              requireAuthentication();
+              return;
+            }
+            if (wsRes.status === 403) {
+              setError(
+                "You don't have permission to ask questions in this workspace.",
+              );
+              return;
+            }
+            if (!wsRes.ok) throw new Error("Workspace check failed");
+            authenticationRequired.current = false;
+            setSessionExpired(false);
+            setSessionLocked(false);
+            setError(null);
+            setNotice(null);
             return;
-          }
-          if (!wsRes.ok) throw new Error("Workspace check failed");
-          authenticationRequired.current = false;
-          setSessionExpired(false);
-          setSessionLocked(false);
-          setError(null);
-          setNotice(null);
-        } else {
-          const historyRes = await browserRequest(
-            `/v1/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(admittedConversation.current.id)}/turns?limit=50`,
-            { headers: expectedHeaders },
-          );
-          if (
-            !active.current ||
-            generation !== authenticationGeneration.current ||
-            currentRecoveryRunToken.current !== runToken
-          )
-            return;
-          if (historyRes.status === 401) {
-            requireAuthentication();
-            return;
-          }
-          if (historyRes.status === 403) {
-            setError(
-              "You don't have permission to ask questions in this workspace.",
+          } else {
+            const historyRes = await browserRequest(
+              `/v1/workspaces/${encodeURIComponent(workspaceId)}/conversations/${encodeURIComponent(admittedConversation.current.id)}/turns?limit=50`,
+              { headers: expectedHeaders },
             );
+            if (!active.current) return;
+            if (
+              generation !== authenticationGeneration.current ||
+              rerunRequested.current
+            ) {
+              continue;
+            }
+            if (historyRes.status === 401) {
+              requireAuthentication();
+              return;
+            }
+            if (historyRes.status === 403) {
+              setError(
+                "You don't have permission to ask questions in this workspace.",
+              );
+              return;
+            }
+            if (!historyRes.ok) throw new Error("History fetch failed");
+            const page = (await historyRes.json()) as {
+              items: TurnResponse[];
+              next_cursor: string | null;
+            };
+            if (!active.current) return;
+            if (
+              generation !== authenticationGeneration.current ||
+              rerunRequested.current
+            ) {
+              continue;
+            }
+            setTurns(page.items);
+            setCursor(page.next_cursor);
+            authenticationRequired.current = false;
+            setSessionExpired(false);
+            setSessionLocked(false);
+            setError(null);
+            setNotice(null);
+            for (const turn of page.items) {
+              if (pending.has(turn.status)) void pollTurn(turn.id);
+            }
             return;
           }
-          if (!historyRes.ok) throw new Error("History fetch failed");
-          const page = (await historyRes.json()) as {
-            items: TurnResponse[];
-            next_cursor: string | null;
-          };
+        } catch {
+          if (!active.current) return;
           if (
-            !active.current ||
             generation !== authenticationGeneration.current ||
-            currentRecoveryRunToken.current !== runToken
-          )
-            return;
-          setTurns(page.items);
-          setCursor(page.next_cursor);
-          authenticationRequired.current = false;
-          setSessionExpired(false);
-          setSessionLocked(false);
-          setError(null);
-          setNotice(null);
-          for (const turn of page.items) {
-            if (pending.has(turn.status)) void pollTurn(turn.id);
+            rerunRequested.current
+          ) {
+            continue;
           }
-        }
-      } catch {
-        if (
-          !active.current ||
-          generation !== authenticationGeneration.current ||
-          currentRecoveryRunToken.current !== runToken
-        )
+          setError("Unable to load Conversation history. Retry this page.");
           return;
-        setError("Unable to load Conversation history. Retry this page.");
+        }
       }
     })();
 
@@ -459,11 +476,9 @@ function ConversationViewState({
     try {
       await promise;
     } finally {
-      if (currentRecoveryRunToken.current === runToken) {
-        recoveryInFlight.current = null;
-        submitBusy.current = false;
-        setCheckingSession(false);
-      }
+      recoveryInFlight.current = null;
+      submitBusy.current = false;
+      setCheckingSession(false);
     }
   }, [
     expectedHeaders,
@@ -520,7 +535,8 @@ function ConversationViewState({
         `${base}/turns?limit=50&cursor=${encodeURIComponent(cursor)}`,
         { headers: expectedHeaders },
       );
-      if (!active.current) return null;
+      if (!active.current || generation !== authenticationGeneration.current)
+        return null;
       if (response.status === 401) {
         requireAuthentication();
         return;
@@ -607,6 +623,8 @@ function ConversationViewState({
             },
           },
         );
+        if (!active.current || generation !== authenticationGeneration.current)
+          return;
         if (created.status === 401) {
           try {
             const body = (await created.json()) as { detail?: string };
@@ -651,7 +669,8 @@ function ConversationViewState({
           body: JSON.stringify({ question }),
         },
       );
-      if (!active.current) return null;
+      if (!active.current || generation !== authenticationGeneration.current)
+        return null;
       if (response.status === 401) {
         try {
           const body = (await response.json()) as { detail?: string };
@@ -723,7 +742,9 @@ function ConversationViewState({
         );
       }
     } finally {
-      submitBusy.current = false;
+      if (generation === authenticationGeneration.current) {
+        submitBusy.current = false;
+      }
       setSubmitting(false);
     }
   }
@@ -980,7 +1001,9 @@ function ConversationViewState({
       {error && (
         <div role="alert" className="mt-4 text-sm text-status-error">
           <p>{error}</p>
-          {error === "Unable to verify your session. Retry." && (
+          {(error === "Unable to verify your session. Retry." ||
+            error === "Unable to load Conversation history. Retry this page." ||
+            error.toLowerCase().includes("retry")) && (
             <button
               type="button"
               disabled={checkingSession || submitting || loading}

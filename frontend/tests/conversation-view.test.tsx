@@ -1175,4 +1175,115 @@ describe("session recovery on tab return and identity mismatch", () => {
     await new Promise((resolve) => setTimeout(resolve, 20));
     expect(screen.queryByText(answered.result.answer)).not.toBeInTheDocument();
   });
+
+  describe("Review 2 Findings F2 and F3 regression", () => {
+    it("offers recovery action after temporary history failure", async () => {
+      let reads = 0;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url) => {
+          if (String(url).includes("/api/auth/session"))
+            return new Response(
+              JSON.stringify({ session: defaultIdentityScope }),
+            );
+          if (++reads > 1) return new Response(null, { status: 500 });
+          return new Response(
+            JSON.stringify({ items: [answered], next_cursor: null }),
+          );
+        }),
+      );
+      renderView();
+      await screen.findByText(answered.result.answer);
+      fireEvent.blur(window);
+      fireEvent.focus(window);
+      await screen.findByText(
+        "Unable to load Conversation history. Retry this page.",
+      );
+      expect(
+        screen.queryAllByRole("button", { name: /retry|reload history/i })
+          .length,
+      ).toBeGreaterThan(0);
+    });
+
+    it("discards old mutation 401 after successful recovery", async () => {
+      let finishPost: ((r: Response) => void) | undefined;
+      let posts = 0;
+      let reads = 0;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url, init) => {
+          if (String(url).includes("/api/auth/session"))
+            return new Response(
+              JSON.stringify({ session: defaultIdentityScope }),
+            );
+          if (init?.method === "POST") {
+            posts++;
+            return new Promise<Response>((resolve) => {
+              finishPost = resolve;
+            });
+          }
+          reads++;
+          return new Response(
+            JSON.stringify({ items: [answered], next_cursor: null }),
+          );
+        }),
+      );
+      renderView();
+      await screen.findByText(answered.result.answer);
+      fireEvent.change(screen.getByLabelText("Question"), {
+        target: { value: "Keep pending draft" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+      await waitFor(() => expect(posts).toBe(1));
+      fireEvent.blur(window);
+      fireEvent.focus(window);
+      await waitFor(() => expect(reads).toBe(2));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      finishPost?.(new Response(null, { status: 401 }));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(
+        screen.queryByRole("link", { name: "Sign in again" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("does not lose a second return while the first probe is pending", async () => {
+      let finishProbe: ((r: Response) => void) | undefined;
+      let probes = 0;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url) => {
+          if (String(url).includes("/api/auth/session")) {
+            probes++;
+            if (probes === 1)
+              return new Promise<Response>((resolve) => {
+                finishProbe = resolve;
+              });
+            return new Response(
+              JSON.stringify({ session: defaultIdentityScope }),
+            );
+          }
+          return new Response(
+            JSON.stringify({ items: [answered], next_cursor: null }),
+          );
+        }),
+      );
+      renderView();
+      await screen.findByText(answered.result.answer);
+      fireEvent.change(screen.getByLabelText("Question"), {
+        target: { value: "draft" },
+      });
+      fireEvent.blur(window);
+      fireEvent.focus(window);
+      await waitFor(() => expect(probes).toBe(1));
+      fireEvent.blur(window);
+      fireEvent.focus(window);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      finishProbe?.(
+        new Response(JSON.stringify({ session: defaultIdentityScope })),
+      );
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "Ask" })).toBeEnabled(),
+      );
+    });
+  });
 });

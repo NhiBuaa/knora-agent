@@ -312,18 +312,29 @@ if ($Mode -eq 'Apply') {
     if (-not $existingPolicyMapper) {
         $mBody = $desiredMapper | ConvertTo-Json
         Invoke-RestMethod -Method Post -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid/protocol-mappers/models" -Headers $headers -ContentType 'application/json' -Body $mBody | Out-Null
+        Update-Journal 'mapper'
+
         # Exact readback
         $readbackMappers = @(Unwrap-Items (Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid/protocol-mappers/models" -Headers $headers))
         $foundMapper = $null
-        foreach ($rm in $readbackMappers) { if ($rm.id -eq $mapperId -or $rm.name -eq 'knora-session-policy') { $foundMapper = $rm } }
-        if (-not $foundMapper -or $foundMapper.protocolMapper -ne 'knora-session-policy' -or $foundMapper.protocol -ne 'openid-connect') {
+        foreach ($rm in $readbackMappers) { if ($rm.name -eq 'knora-session-policy') { $foundMapper = $rm } }
+        if (-not $foundMapper -or $foundMapper.id -ne $mapperId -or $foundMapper.protocolMapper -ne 'knora-session-policy' -or $foundMapper.protocol -ne 'openid-connect') {
             throw 'KEYCLOAK_SESSION_POLICY_UPDATE_OR_VERIFICATION_FAILED'
         }
-        Update-Journal 'mapper'
     }
 
     # Step 2: Client attributes mutation
     $clientFresh = Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid" -Headers $headers
+    foreach ($propName in @('access.token.lifespan', 'client.session.idle.timeout', 'client.session.max.lifespan')) {
+        $curPres = ($clientFresh.attributes -ne $null -and $clientFresh.attributes.PSObject.Properties[$propName] -ne $null)
+        $curVal = if ($curPres) { $clientFresh.attributes.($propName) } else { $null }
+        $expPres = $attributesBefore[$propName].present
+        $expVal = $attributesBefore[$propName].value
+        if ($curPres -ne $expPres -or $curVal -ne $expVal) {
+            throw 'KEYCLOAK_SESSION_POLICY_CONCURRENT_CHANGE'
+        }
+    }
+
     $freshAttrs = [ordered]@{}
     if ($clientFresh.attributes) {
         foreach ($prop in $clientFresh.attributes.PSObject.Properties) {
@@ -340,6 +351,7 @@ if ($Mode -eq 'Apply') {
     }
     $cBody = $clientPayload | ConvertTo-Json -Depth 10
     Invoke-RestMethod -Method Put -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid" -Headers $headers -ContentType 'application/json' -Body $cBody | Out-Null
+    Update-Journal 'client'
 
     # Exact readback
     $clientVerify = Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid" -Headers $headers
@@ -350,11 +362,18 @@ if ($Mode -eq 'Apply') {
     if ($lifespanVal -ne '300' -or $idlePres -or $maxPres) {
         throw 'KEYCLOAK_SESSION_POLICY_UPDATE_OR_VERIFICATION_FAILED'
     }
-    Update-Journal 'client'
 
     # Step 3: Realm mutation
+    $realmFresh = Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm" -Headers $headers
+    foreach ($k in $desiredRealm.Keys) {
+        if ($realmFresh.$k -ne $realmBefore[$k]) {
+            throw 'KEYCLOAK_SESSION_POLICY_CONCURRENT_CHANGE'
+        }
+    }
+
     $rBody = $desiredRealm | ConvertTo-Json
     Invoke-RestMethod -Method Put -Uri "$BaseUrl/admin/realms/$Realm" -Headers $headers -ContentType 'application/json' -Body $rBody | Out-Null
+    Update-Journal 'realm'
 
     # Exact readback
     $realmVerify = Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm" -Headers $headers
@@ -363,7 +382,6 @@ if ($Mode -eq 'Apply') {
             throw 'KEYCLOAK_SESSION_POLICY_UPDATE_OR_VERIFICATION_FAILED'
         }
     }
-    Update-Journal 'realm'
 
     Write-Output 'KEYCLOAK_SESSION_POLICY_APPLY_VERIFIED'
     Write-Output "Snapshot: $SnapshotPath"

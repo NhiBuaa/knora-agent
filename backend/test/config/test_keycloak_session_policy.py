@@ -693,3 +693,96 @@ $credentials = @{AdminUsername='admin'; AdminPassword='password'}
     )
     assert res.returncode != 0
     assert "KEYCLOAK_INSPECTION_FAILED" in res.stderr
+
+
+def _get_apply_prefix() -> str:
+    import ast
+
+    tree = ast.parse(Path(__file__).read_text(encoding="utf-8"))
+    fn = next(
+        n
+        for n in tree.body
+        if isinstance(n, ast.FunctionDef) and n.name == "test_apply_repeat_noop_and_rollback_flow"
+    )
+    wrapper = next(
+        ast.literal_eval(n.value)
+        for n in fn.body
+        if isinstance(n, ast.Assign)
+        and any(isinstance(t, ast.Name) and t.id == "wrapper_text" for t in n.targets)
+    )
+    return wrapper.split("# 1. Apply")[0]
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell runner unavailable")
+def test_apply_rejects_client_drift(tmp_path: Path) -> None:
+    prefix = _get_apply_prefix()
+    get_client = """    if ($Uri.EndsWith('/clients/client-uuid-1')) {
+        return $global:client
+    }"""
+    drift_client = """    if ($Uri.EndsWith('/clients/client-uuid-1')) {
+        if (-not $global:driftInjected) {
+            $global:driftInjected = $true
+            $global:client.attributes |
+                Add-Member -NotePropertyName 'access.token.lifespan' `
+                -NotePropertyValue '777' -Force
+        }
+        return $global:client
+    }"""
+    wrapper_text = (
+        prefix.replace(get_client, drift_client)
+        + "\n& $ScriptPath -Mode Apply @credentials -SnapshotPath $SnapshotPath\n"
+    )
+    res = _run_script(
+        tmp_path,
+        wrapper_text,
+        [str(ROOT / "scripts/configure-keycloak-session-policy.ps1"), str(tmp_path / "snap.json")],
+    )
+    assert res.returncode != 0
+    assert "KEYCLOAK_SESSION_POLICY_CONCURRENT_CHANGE" in res.stderr
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell runner unavailable")
+def test_apply_rejects_unexpected_mapper_id(tmp_path: Path) -> None:
+    prefix = _get_apply_prefix()
+    wrong_mapper = "$m = $Body | ConvertFrom-Json; $m.id = 'unexpected-server-id'"
+    wrapper_text = (
+        prefix.replace("$m = $Body | ConvertFrom-Json", wrong_mapper)
+        + "\n& $ScriptPath -Mode Apply @credentials -SnapshotPath $SnapshotPath\n"
+    )
+    res = _run_script(
+        tmp_path,
+        wrapper_text,
+        [str(ROOT / "scripts/configure-keycloak-session-policy.ps1"), str(tmp_path / "snap.json")],
+    )
+    assert res.returncode != 0
+    assert "KEYCLOAK_SESSION_POLICY_UPDATE_OR_VERIFICATION_FAILED" in res.stderr
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell runner unavailable")
+def test_partial_client_readback_failure_rolls_back_cleanly(tmp_path: Path) -> None:
+    prefix = _get_apply_prefix()
+    get_client = """    if ($Uri.EndsWith('/clients/client-uuid-1')) {
+        return $global:client
+    }"""
+    readback_fault_client = """    if ($Uri.EndsWith('/clients/client-uuid-1')) {
+        if ($global:putClientCount -eq 1 -and -not $global:readbackFault) {
+            $global:readbackFault = $true
+            throw 'INJECTED_READBACK_FAILURE_AFTER_SUCCESSFUL_CLIENT_PUT'
+        }
+        return $global:client
+    }"""
+    wrapper_text = (
+        prefix.replace(get_client, readback_fault_client)
+        + "\ntry { & $ScriptPath -Mode Apply @credentials "
+        + "-SnapshotPath $SnapshotPath | Out-Null } catch {}\n"
+        + "& $ScriptPath -Mode Rollback @credentials -SnapshotPath $SnapshotPath\n"
+        + "Write-Output 'PARTIAL_ROLLBACK_COMPLETED'\n"
+    )
+    res = _run_script(
+        tmp_path,
+        wrapper_text,
+        [str(ROOT / "scripts/configure-keycloak-session-policy.ps1"), str(tmp_path / "snap.json")],
+    )
+    assert res.returncode == 0
+    assert "KEYCLOAK_SESSION_POLICY_ROLLBACK_VERIFIED" in res.stdout
+    assert "PARTIAL_ROLLBACK_COMPLETED" in res.stdout

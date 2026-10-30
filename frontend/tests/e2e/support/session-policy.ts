@@ -333,6 +333,14 @@ export async function withAcceleratedSessionPolicy<T>(
       })
     ).json()) as Record<string, unknown>;
 
+    for (const [key, val] of Object.entries(originalRealmProjection)) {
+      if (freshRealmForPut[key] !== val) {
+        throw new Error(
+          `Realm drift detected before accelerated apply: ${key} expected ${String(val)}, found ${String(freshRealmForPut[key])}`,
+        );
+      }
+    }
+
     const putRealmRes = await fetch(
       "http://127.0.0.1:8380/admin/realms/knora-dev",
       {
@@ -368,6 +376,18 @@ export async function withAcceleratedSessionPolicy<T>(
       clientId: string;
       attributes?: Record<string, string>;
     };
+
+    const currentFreshLifespan =
+      freshClientForPut.attributes?.["access.token.lifespan"];
+    if (
+      originalLifespanPresent
+        ? currentFreshLifespan !== originalLifespanValue
+        : currentFreshLifespan !== undefined
+    ) {
+      throw new Error(
+        `Client drift detected before accelerated apply: access.token.lifespan expected ${String(originalLifespanValue)}, found ${String(currentFreshLifespan)}`,
+      );
+    }
 
     const updatedAttributes = {
       ...(freshClientForPut.attributes ?? {}),
