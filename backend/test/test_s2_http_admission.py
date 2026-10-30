@@ -10,17 +10,19 @@ from backend.runtime_test import s2_runtime_guard
 from backend.runtime_test import test_s2_http_application as runtime
 
 
-def application_row(root):
+def application_row(root, run_id=None):
+    run_id = run_id or ("c" * 32)
+    project = f"knora-retrieval-test-{run_id}"
     return {
         "Id": "a" * 64,
         "Image": "sha256:" + "b" * 64,
         "State": {"Running": True, "Restarting": False},
         "Config": {
             "Labels": {
-                "com.docker.compose.project": "knora-153-s2",
-                "com.docker.compose.service": "application",
+                "com.docker.compose.project": project,
+                "com.docker.compose.service": "verification-api",
                 "com.docker.compose.project.working_dir": str(root),
-                "com.docker.compose.project.config_files": str(root / "docker-compose.s2.yml"),
+                "com.docker.compose.project.config_files": str(root / "docker-compose.dev.yml"),
             },
             "Env": [
                 "KNORA_PROVIDER_MODE=deterministic-local",
@@ -48,27 +50,43 @@ def application_row(root):
     }
 
 
-def storage_rows(root):
+def storage_rows(root, run_id=None):
+    run_id = run_id or ("c" * 32)
+    project = f"knora-retrieval-test-{run_id}"
     rows = []
-    for service, cpu, memory, internal, port, destination in (
-        ("postgres", 1, 1024, "5432/tcp", "15433", "/var/lib/postgresql/data"),
-        ("qdrant", 2, 2048, "6333/tcp", "16433", "/qdrant/storage"),
+    for service, cpu, memory, internal, port, destination, vol_key in (
+        (
+            "verification-postgres",
+            1,
+            1024,
+            "5432/tcp",
+            "15433",
+            "/var/lib/postgresql/data",
+            "verification-pgdata",
+        ),
+        (
+            "verification-qdrant",
+            2,
+            2048,
+            "6333/tcp",
+            "16433",
+            "/qdrant/storage",
+            "verification-qdrantdata",
+        ),
     ):
-        volume = (
-            "knora-153-s2-" + ("pgdata-" if service == "postgres" else "qdrantdata-") + "c" * 32
-        )
+        volume = f"{project}_{vol_key}"
         rows.append(
             {
-                "Id": ("c" if service == "postgres" else "d") * 64,
+                "Id": ("c" if "postgres" in service else "d") * 64,
                 "Image": "sha256:" + "e" * 64,
                 "State": {"Running": True, "Restarting": False},
                 "Config": {
                     "Labels": {
-                        "com.docker.compose.project": "knora-153-s2",
+                        "com.docker.compose.project": project,
                         "com.docker.compose.service": service,
                         "com.docker.compose.project.working_dir": str(root),
                         "com.docker.compose.project.config_files": str(
-                            root / "docker-compose.s2.yml"
+                            root / "docker-compose.dev.yml"
                         ),
                     }
                 },
@@ -88,6 +106,9 @@ def storage_rows(root):
     "change",
     [
         None,
+        "legacy_config",
+        "legacy_service",
+        "legacy_project",
         "historical",
         "wrong_mount",
         "project",
@@ -96,21 +117,72 @@ def storage_rows(root):
         "memory",
         "stopped",
         "missing",
+        "wrong_run_id",
+        "missing_working_dir",
+        "missing_config_files",
+        "missing_working_dir_key",
+        "whitespace_working_dir",
+        "missing_config_files_key",
+        "whitespace_config_files",
+        "qdrant_missing_working_dir",
+        "qdrant_empty_working_dir",
+        "qdrant_whitespace_working_dir",
+        "qdrant_missing_config_files",
+        "qdrant_empty_config_files",
+        "qdrant_whitespace_config_files",
     ],
 )
 def test_storage_admission_rejects_unowned_mounts_before_work(monkeypatch, change):
     root = Path(__file__).resolve().parents[2]
-    rows = storage_rows(root)
+    run_id = "c" * 32
+    project = f"knora-retrieval-test-{run_id}"
+    rows = storage_rows(root, run_id=run_id)
+
+    monkeypatch.setenv("KNORA_S2_RUN_ID", run_id)
+    monkeypatch.setenv("KNORA_S2_PROJECT", project)
     monkeypatch.setenv("KNORA_S2_POSTGRES_VOLUME", rows[0]["Mounts"][0]["Name"])
     monkeypatch.setenv("KNORA_S2_QDRANT_VOLUME", rows[1]["Mounts"][0]["Name"])
-    if change == "historical":
+
+    if change == "legacy_config":
+        rows[0]["Config"]["Labels"]["com.docker.compose.project.config_files"] = str(
+            root / "docker-compose.s2.yml"
+        )
+    elif change == "legacy_service":
+        rows[0]["Config"]["Labels"]["com.docker.compose.service"] = "postgres"
+    elif change == "legacy_project":
+        rows[0]["Config"]["Labels"]["com.docker.compose.project"] = "knora-153-s2"
+    elif change == "historical":
         monkeypatch.setenv("KNORA_S2_POSTGRES_VOLUME", "knora-153-s2-pgdata")
     elif change == "wrong_mount":
-        rows[1]["Mounts"][0]["Name"] = "knora-153-s2-qdrantdata"
+        rows[1]["Mounts"][0]["Name"] = "foreign-qdrantdata"
     elif change == "project":
         rows[0]["Config"]["Labels"]["com.docker.compose.project"] = "other"
     elif change == "source":
         rows[0]["Config"]["Labels"]["com.docker.compose.project.working_dir"] = str(root / "other")
+    elif change == "missing_working_dir":
+        rows[0]["Config"]["Labels"]["com.docker.compose.project.working_dir"] = ""
+    elif change == "missing_config_files":
+        rows[0]["Config"]["Labels"]["com.docker.compose.project.config_files"] = ""
+    elif change == "missing_working_dir_key":
+        rows[0]["Config"]["Labels"].pop("com.docker.compose.project.working_dir", None)
+    elif change == "whitespace_working_dir":
+        rows[0]["Config"]["Labels"]["com.docker.compose.project.working_dir"] = "   "
+    elif change == "missing_config_files_key":
+        rows[0]["Config"]["Labels"].pop("com.docker.compose.project.config_files", None)
+    elif change == "whitespace_config_files":
+        rows[0]["Config"]["Labels"]["com.docker.compose.project.config_files"] = "   "
+    elif change == "qdrant_missing_working_dir":
+        rows[1]["Config"]["Labels"].pop("com.docker.compose.project.working_dir", None)
+    elif change == "qdrant_empty_working_dir":
+        rows[1]["Config"]["Labels"]["com.docker.compose.project.working_dir"] = ""
+    elif change == "qdrant_whitespace_working_dir":
+        rows[1]["Config"]["Labels"]["com.docker.compose.project.working_dir"] = "   "
+    elif change == "qdrant_missing_config_files":
+        rows[1]["Config"]["Labels"].pop("com.docker.compose.project.config_files", None)
+    elif change == "qdrant_empty_config_files":
+        rows[1]["Config"]["Labels"]["com.docker.compose.project.config_files"] = ""
+    elif change == "qdrant_whitespace_config_files":
+        rows[1]["Config"]["Labels"]["com.docker.compose.project.config_files"] = "   "
     elif change == "public":
         rows[1]["NetworkSettings"]["Ports"]["6333/tcp"][0]["HostIp"] = "0.0.0.0"
     elif change == "memory":
@@ -119,6 +191,9 @@ def test_storage_admission_rejects_unowned_mounts_before_work(monkeypatch, chang
         rows[0]["State"]["Running"] = False
     elif change == "missing":
         rows.pop()
+    elif change == "wrong_run_id":
+        monkeypatch.setenv("KNORA_S2_RUN_ID", "d" * 32)
+
     if change:
         with pytest.raises(ValueError):
             s2_runtime_guard.require_owned_s2_storage(rows, root)
@@ -127,18 +202,66 @@ def test_storage_admission_rejects_unowned_mounts_before_work(monkeypatch, chang
 
 
 @pytest.mark.parametrize(
-    "change", [None, "project", "source", "port", "memory", "provider", "native", "objects"]
+    "change",
+    [
+        None,
+        "legacy_config",
+        "legacy_service",
+        "legacy_project",
+        "project",
+        "source",
+        "port",
+        "extra_public_port",
+        "memory",
+        "provider",
+        "native",
+        "objects",
+        "missing_working_dir",
+        "missing_config_files",
+        "missing_working_dir_key",
+        "whitespace_working_dir",
+        "missing_config_files_key",
+        "whitespace_config_files",
+    ],
 )
 def test_application_admission_pins_local_daemon_and_owned_container(monkeypatch, change):
     root = Path(__file__).resolve().parents[2]
-    row = deepcopy(application_row(root))
-    storage = storage_rows(root)
+    run_id = "c" * 32
+    project = f"knora-retrieval-test-{run_id}"
+    row = deepcopy(application_row(root, run_id=run_id))
+    if change == "extra_public_port":
+        row["NetworkSettings"]["Ports"]["9000/tcp"] = [{"HostIp": "0.0.0.0", "HostPort": "19000"}]
+    storage = storage_rows(root, run_id=run_id)
+
+    monkeypatch.setenv("KNORA_S2_RUN_ID", run_id)
+    monkeypatch.setenv("KNORA_S2_PROJECT", project)
     monkeypatch.setenv("KNORA_S2_POSTGRES_VOLUME", storage[0]["Mounts"][0]["Name"])
     monkeypatch.setenv("KNORA_S2_QDRANT_VOLUME", storage[1]["Mounts"][0]["Name"])
-    if change == "project":
+
+    if change == "legacy_config":
+        row["Config"]["Labels"]["com.docker.compose.project.config_files"] = str(
+            root / "docker-compose.s2.yml"
+        )
+    elif change == "legacy_service":
+        row["Config"]["Labels"]["com.docker.compose.service"] = "application"
+    elif change == "legacy_project":
+        row["Config"]["Labels"]["com.docker.compose.project"] = "knora-153-s2"
+    elif change == "project":
         row["Config"]["Labels"]["com.docker.compose.project"] = "other-project"
     elif change == "source":
         row["Config"]["Labels"]["com.docker.compose.project.working_dir"] = str(root / "other")
+    elif change == "missing_working_dir":
+        row["Config"]["Labels"]["com.docker.compose.project.working_dir"] = ""
+    elif change == "missing_config_files":
+        row["Config"]["Labels"]["com.docker.compose.project.config_files"] = ""
+    elif change == "missing_working_dir_key":
+        row["Config"]["Labels"].pop("com.docker.compose.project.working_dir", None)
+    elif change == "whitespace_working_dir":
+        row["Config"]["Labels"]["com.docker.compose.project.working_dir"] = "   "
+    elif change == "missing_config_files_key":
+        row["Config"]["Labels"].pop("com.docker.compose.project.config_files", None)
+    elif change == "whitespace_config_files":
+        row["Config"]["Labels"]["com.docker.compose.project.config_files"] = "   "
     elif change == "port":
         row["NetworkSettings"]["Ports"]["8000/tcp"][0]["HostIp"] = "0.0.0.0"
     elif change == "memory":
@@ -149,6 +272,7 @@ def test_application_admission_pins_local_daemon_and_owned_container(monkeypatch
         row["Config"]["Env"][5] = "KNORA_LEXICAL_QDRANT_URL=https://foreign.example"
     elif change == "objects":
         row["Mounts"][0]["Source"] = str(root / "other-objects")
+
     monkeypatch.setenv("KNORA_S2_EVIDENCE_ROOT", str(root / "evidence"))
     monkeypatch.setenv("KNORA_S2_OBJECT_STORE_ROOT", str(root / "evidence/http-objects"))
     monkeypatch.setenv("KNORA_S2_APPLICATION_COLLECTION", "s2_http_test")
@@ -165,7 +289,7 @@ def test_application_admission_pins_local_daemon_and_owned_container(monkeypatch
 
     monkeypatch.setattr(runtime.subprocess, "run", inspect)
     if change:
-        with pytest.raises(AssertionError):
+        with pytest.raises((AssertionError, ValueError)):
             runtime._owned_application(root)
     else:
         command, environment, container_id, image_id = runtime._owned_application(root)
@@ -179,6 +303,10 @@ def test_windows_worker_environment_uses_owned_endpoints_and_discards_ambient_se
     from sqlalchemy.engine import make_url
 
     root = Path(__file__).resolve().parents[2]
+    run_id = "c" * 32
+    project = f"knora-retrieval-test-{run_id}"
+    monkeypatch.setenv("KNORA_S2_RUN_ID", run_id)
+    monkeypatch.setenv("KNORA_S2_PROJECT", project)
     monkeypatch.setenv("KNORA_S2_APPLICATION_COLLECTION", "s2_http_test")
     monkeypatch.setenv("KNORA_S2_OBJECT_STORE_ROOT", str(root / "evidence/http-objects"))
     monkeypatch.setattr(
@@ -212,3 +340,12 @@ def test_windows_worker_environment_uses_owned_endpoints_and_discards_ambient_se
         str(root / "backend/src"),
         str(root),
     ]
+
+
+def test_pure_application_admission_rejects_extra_public_port(monkeypatch):
+    root = Path(__file__).resolve().parents[2]
+    monkeypatch.setenv("KNORA_S2_RUN_ID", "c" * 32)
+    row = application_row(root)
+    row["NetworkSettings"]["Ports"]["9000/tcp"] = [{"HostIp": "0.0.0.0", "HostPort": "19000"}]
+    with pytest.raises(ValueError, match="port"):
+        s2_runtime_guard.require_owned_s2_application_rows([row, *storage_rows(root)], root)

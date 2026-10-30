@@ -605,32 +605,43 @@ def compose_graph(*profiles: str) -> dict:
             r"^(COMPOSE_|FIGMA_E2E_|M5_E2E_|KEYCLOAK_|KNORA_|DOCKER_|SESSION_SECRET$)", key
         )
     }
-    args = [
-        "docker",
-        "compose",
-        "-f",
-        str(ROOT / "docker-compose.dev.yml"),
-        "--project-name",
-        "knora-figma-e2e",
-    ]
-    for profile in profiles:
-        args += ["--profile", profile]
-    result = subprocess.run(
-        args + ["config", "--format", "json"],
-        cwd=ROOT,
-        env=environment,
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    return json.loads(result.stdout)
+    environment["KNORA_CANONICAL_MINIO_ACCESS_KEY"] = "ci-synthetic-access"
+    environment["KNORA_CANONICAL_MINIO_SECRET_KEY"] = "ci-synthetic-secret"
+    if "provider-test" in profiles:
+        environment["KNORA_PROVIDER_TEST_ACCESS_KEY"] = "ci-synthetic-access"
+        environment["KNORA_PROVIDER_TEST_SECRET_KEY"] = "ci-synthetic-secret"
+
+    with tempfile.TemporaryDirectory() as td:
+        empty_env = Path(td) / "empty.env"
+        empty_env.write_text("", encoding="utf-8")
+
+        args = [
+            "docker",
+            "compose",
+            "--env-file",
+            str(empty_env),
+            "-f",
+            str(ROOT / "docker-compose.dev.yml"),
+            "--project-name",
+            "knora-figma-e2e",
+        ]
+        for profile in profiles:
+            args += ["--profile", profile]
+        result = subprocess.run(
+            args + ["config", "--format", "json"],
+            cwd=ROOT,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        return json.loads(result.stdout)
 
 
 def test_compose_entry_points_and_production_excludes_test_services() -> None:
     assert {p.name for p in ROOT.glob("docker-compose*.yml")} == {
         "docker-compose.yml",
         "docker-compose.dev.yml",
-        "docker-compose.s2.yml",
     }
     production = yaml.safe_load((ROOT / "docker-compose.yml").read_text())
     assert set(production["services"]) == {"postgres", "minio", "minio-init", "api"}
@@ -1624,13 +1635,13 @@ function docker {
 def test_backend_services_use_root_context_and_dockerfile_contract() -> None:
     prod = yaml.safe_load((ROOT / "docker-compose.yml").read_text(encoding="utf-8"))
     dev = yaml.safe_load((ROOT / "docker-compose.dev.yml").read_text(encoding="utf-8"))
-    s2 = yaml.safe_load((ROOT / "docker-compose.s2.yml").read_text(encoding="utf-8"))
 
     for doc, svc, name in [
         (prod, "api", "prod-api"),
         (dev, "api", "dev-api"),
         (dev, "figma-api", "dev-figma-api"),
-        (s2, "application", "s2-application"),
+        (dev, "verification-api", "dev-verification-api"),
+        (dev, "reset-api", "dev-reset-api"),
     ]:
         build = doc["services"][svc]["build"]
         assert build["context"] == ".", f"{name} must use root context, got {build.get('context')}"
@@ -2081,4 +2092,277 @@ def test_check_frontend_only_rejects_invalid_version(tmp_path: Path, bad_version
     assert (
         "FIGMA_FRONTEND_METADATA_INVALID" in proc.stderr
         or "FIGMA_FRONTEND_LOCK_MISMATCH" in proc.stderr
+    )
+
+
+def test_password_reset_services_present_in_dev_compose():
+    dev_compose = yaml.safe_load((ROOT / "docker-compose.dev.yml").read_text(encoding="utf-8"))
+    services = dev_compose.get("services", {})
+    expected = [
+        "reset-keycloak-db",
+        "reset-keycloak",
+        "reset-mail",
+        "reset-postgres",
+        "reset-api",
+    ]
+    for s in expected:
+        assert s in services, f"Service {s} must be defined in docker-compose.dev.yml"
+        profiles = services[s].get("profiles", [])
+        assert "password-reset-test" in profiles, (
+            f"Service {s} must have profile password-reset-test"
+        )
+
+
+def test_password_reset_network_isolation_contract():
+    dev_compose = yaml.safe_load((ROOT / "docker-compose.dev.yml").read_text(encoding="utf-8"))
+    assert "reset-isolated" in dev_compose.get("networks", {})
+    services = dev_compose.get("services", {})
+    for s in (
+        "reset-keycloak-db",
+        "reset-keycloak",
+        "reset-mail",
+        "reset-postgres",
+        "reset-api",
+    ):
+        assert s in services, f"Service {s} missing from dev compose"
+        nets = services[s].get("networks", [])
+        if isinstance(nets, dict):
+            nets = list(nets.keys())
+        assert nets == ["reset-isolated"], f"Service {s} must be isolated on reset-isolated network"
+
+
+def test_password_reset_ports_and_dependencies_contract():
+    dev_compose = yaml.safe_load((ROOT / "docker-compose.dev.yml").read_text(encoding="utf-8"))
+    services = dev_compose.get("services", {})
+
+    kc = services.get("reset-keycloak", {})
+    api = services.get("reset-api", {})
+    mail = services.get("reset-mail", {})
+
+    assert kc.get("ports") == ["127.0.0.1:8480:8080"]
+    assert api.get("ports") == ["127.0.0.1:8900:8000"]
+    assert mail.get("ports") == ["127.0.0.1:8125:8025"]
+
+    kc_deps = kc.get("depends_on", {})
+    assert set(kc_deps.keys()) == {"reset-keycloak-db", "reset-mail"}
+    assert kc_deps["reset-keycloak-db"]["condition"] == "service_healthy"
+    assert kc_deps["reset-mail"]["condition"] == "service_started"
+
+    api_deps = api.get("depends_on", {})
+    assert set(api_deps.keys()) == {"reset-postgres", "reset-keycloak"}
+    assert api_deps["reset-postgres"]["condition"] == "service_healthy"
+    assert api_deps["reset-keycloak"]["condition"] == "service_started"
+
+
+def test_password_reset_vault_binds_and_env_contract():
+    dev_compose = yaml.safe_load((ROOT / "docker-compose.dev.yml").read_text(encoding="utf-8"))
+    services = dev_compose.get("services", {})
+    kc = services.get("reset-keycloak", {})
+    volumes = kc.get("volumes", [])
+    binds = [v for v in volumes if isinstance(v, dict) and v.get("type") == "bind"]
+    assert len(binds) >= 2, "reset-keycloak must have long bind mounts for realm and vault"
+    for b in binds:
+        assert b.get("bind", {}).get("create_host_path") is False
+
+    api_env = services.get("reset-api", {}).get("environment", {})
+    if isinstance(api_env, list):
+        api_env = dict(e.split("=", 1) for e in api_env if "=" in e)
+    assert "reset-keycloak" in api_env.get("KNORA_KEYCLOAK_JWKS_URL", "")
+    assert "reset-postgres" in api_env.get("KNORA_DATABASE_URL", "")
+
+
+DAILY_SERVICES = {
+    "postgres",
+    "minio",
+    "minio-init",
+    "api",
+    "keycloak-dev",
+    "keycloak-dev-db",
+}
+
+
+def _check_port(ports: list, host_ip: str, published: str, target: int) -> bool:
+    return len(ports) == 1 and {
+        key: ports[0][key] for key in ("host_ip", "published", "target", "protocol")
+    } == {"host_ip": host_ip, "published": published, "target": target, "protocol": "tcp"}
+
+
+def test_retrieval_test_parsed_graph_contract() -> None:
+    graph = compose_graph("retrieval-test")
+    services = graph["services"]
+    expected_services = DAILY_SERVICES | {"verification-postgres", "verification-qdrant"}
+    assert set(services.keys()) == expected_services
+    assert "verification-api" not in services
+    assert not any(s.startswith("reset-") or s.startswith("figma-") for s in services)
+
+    pg = services["verification-postgres"]
+    qd = services["verification-qdrant"]
+
+    # Pinned retrieval images
+    assert (
+        pg["image"] == "pgvector/pgvector:pg16@sha256:"
+        "ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b"
+    )
+    assert (
+        qd["image"] == "qdrant/qdrant:v1.19.2@sha256:"
+        "b7b0444c4c351c970b98e90a6f89c2ee4287c65b44e52b4cb503fa5b2aa927ad"
+    )
+
+    # CPU and memory limits
+    assert float(pg.get("cpus", 0)) == 1.0 or str(pg.get("cpus")) == "1"
+    assert str(pg.get("mem_limit", "")).lower() in ("1g", "1073741824")
+    assert float(qd.get("cpus", 0)) == 2.0 or str(qd.get("cpus")) == "2"
+    assert str(qd.get("mem_limit", "")).lower() in ("2g", "2147483648")
+
+    # Ports loopback-only
+    assert _check_port(pg["ports"], "127.0.0.1", "15433", 5432)
+    assert _check_port(qd["ports"], "127.0.0.1", "16433", 6333)
+
+    # Network isolation
+    for s_name, node in (("verification-postgres", pg), ("verification-qdrant", qd)):
+        nets = node.get("networks", {})
+        net_names = list(nets.keys()) if isinstance(nets, dict) else list(nets)
+        assert net_names == ["verification-isolated"], (
+            f"{s_name} must only connect to verification-isolated"
+        )
+
+    # Volumes
+    for service, source, target in (
+        (pg, "verification-pgdata", "/var/lib/postgresql/data"),
+        (qd, "verification-qdrantdata", "/qdrant/storage"),
+    ):
+        assert len(service["volumes"]) == 1
+        volume = service["volumes"][0]
+        assert (volume["type"], volume["source"], volume["target"]) == ("volume", source, target)
+
+
+def test_retrieval_http_test_parsed_graph_contract() -> None:
+    graph = compose_graph("retrieval-http-test")
+    services = graph["services"]
+    expected_services = DAILY_SERVICES | {
+        "verification-postgres",
+        "verification-qdrant",
+        "verification-api",
+    }
+    assert set(services.keys()) == expected_services
+    assert not any(s.startswith("reset-") or s.startswith("figma-") for s in services)
+
+    api = services["verification-api"]
+
+    # Image and build context contract
+    assert api.get("image") == "knora-153-s2-application:verify"
+    build = api.get("build", {})
+    assert Path(build["context"]).resolve() == ROOT.resolve()
+    assert build.get("dockerfile") == "backend/Dockerfile"
+
+    # CPU and memory limits
+    assert float(api.get("cpus", 0)) == 1.0 or str(api.get("cpus")) == "1"
+    assert str(api.get("mem_limit", "")).lower() in ("768m", "805306368")
+
+    # Dependency closure
+    deps = api.get("depends_on", {})
+    assert set(deps) == {"verification-postgres", "verification-qdrant"}
+    assert deps["verification-postgres"]["condition"] == "service_healthy"
+    assert deps["verification-qdrant"]["condition"] == "service_started"
+
+    # Network isolation and loopback port
+    nets = api.get("networks", {})
+    net_names = list(nets.keys()) if isinstance(nets, dict) else list(nets)
+    assert net_names == ["verification-isolated"]
+    assert _check_port(api["ports"], "127.0.0.1", "18053", 8000)
+
+    # Environment deterministic providers
+    env = api.get("environment", {})
+    if isinstance(env, list):
+        env = dict(e.split("=", 1) for e in env if "=" in e)
+    assert env.get("KNORA_PROVIDER_MODE") == "deterministic-local"
+    assert env.get("KNORA_EMBEDDING_PROVIDER") == "deterministic-local"
+    assert env.get("KNORA_GENERATION_PROVIDER") == "deterministic-local"
+
+    # Mounts: create_host_path false and corpus read-only
+    volumes = api.get("volumes", [])
+    binds = [v for v in volumes if isinstance(v, dict) and v.get("type") == "bind"]
+    assert {b["target"] for b in binds} == {
+        "/s2-objects",
+        "/app/evals/fixtures/pdf_retrieval_v3_s2",
+    }
+    for b in binds:
+        assert b["bind"]["create_host_path"] is False
+        assert b.get("read_only", False) is (b["target"] != "/s2-objects")
+
+
+def test_password_reset_test_parsed_graph_contract() -> None:
+    graph = compose_graph("password-reset-test")
+    services = graph["services"]
+    expected_services = DAILY_SERVICES | {
+        "reset-keycloak-db",
+        "reset-keycloak",
+        "reset-mail",
+        "reset-postgres",
+        "reset-api",
+    }
+    assert set(services.keys()) == expected_services
+    assert not any(s.startswith("verification-") or s.startswith("figma-") for s in services)
+
+    for name in (
+        "reset-keycloak-db",
+        "reset-keycloak",
+        "reset-mail",
+        "reset-postgres",
+        "reset-api",
+    ):
+        nets = services[name].get("networks", {})
+        net_names = list(nets.keys()) if isinstance(nets, dict) else list(nets)
+        assert net_names == ["reset-isolated"], f"{name} must only connect to reset-isolated"
+
+    # Ports
+    assert _check_port(services["reset-keycloak"]["ports"], "127.0.0.1", "8480", 8080)
+    assert _check_port(services["reset-api"]["ports"], "127.0.0.1", "8900", 8000)
+    assert _check_port(services["reset-mail"]["ports"], "127.0.0.1", "8125", 8025)
+
+    # Dependency closure
+    kc_deps = services["reset-keycloak"].get("depends_on", {})
+    assert set(kc_deps) == {"reset-keycloak-db", "reset-mail"}
+    assert kc_deps["reset-keycloak-db"]["condition"] == "service_healthy"
+    assert kc_deps["reset-mail"]["condition"] == "service_started"
+
+    api_deps = services["reset-api"].get("depends_on", {})
+    assert set(api_deps) == {"reset-postgres", "reset-keycloak"}
+    assert api_deps["reset-postgres"]["condition"] == "service_healthy"
+    assert api_deps["reset-keycloak"]["condition"] == "service_started"
+
+    # Binds on reset-keycloak
+    kc_vols = services["reset-keycloak"].get("volumes", [])
+    binds = [v for v in kc_vols if isinstance(v, dict) and v.get("type") == "bind"]
+    assert {b["target"] for b in binds} == {
+        "/opt/keycloak/data/import/realm.json",
+        "/opt/keycloak/vault",
+    }
+    for b in binds:
+        assert b["bind"]["create_host_path"] is False
+        assert b["read_only"] is True
+
+    # Reset API env
+    api_env = services["reset-api"].get("environment", {})
+    if isinstance(api_env, list):
+        api_env = dict(e.split("=", 1) for e in api_env if "=" in e)
+    assert "reset-postgres" in api_env.get("KNORA_DATABASE_URL", "")
+    assert api_env.get("KNORA_KEYCLOAK_ISSUER") == "http://127.0.0.1:8480/realms/knora-dev"
+    assert "reset-keycloak" in api_env.get("KNORA_KEYCLOAK_JWKS_URL", "")
+
+
+def test_provider_test_parsed_graph_contract() -> None:
+    services = compose_graph("provider-test")["services"]
+    assert set(services) == DAILY_SERVICES | {"s3-provider-test", "s3-provider-test-init"}
+    provider = services["s3-provider-test"]
+    assert [(p["host_ip"], p["published"], p["target"]) for p in provider["ports"]] == [
+        ("127.0.0.1", "9100", 9000),
+        ("127.0.0.1", "9101", 9001),
+    ]
+    assert provider["environment"] == {
+        "MINIO_ROOT_USER": "ci-synthetic-access",
+        "MINIO_ROOT_PASSWORD": "ci-synthetic-secret",
+    }
+    assert services["s3-provider-test-init"]["depends_on"]["s3-provider-test"]["condition"] == (
+        "service_healthy"
     )
