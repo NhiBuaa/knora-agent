@@ -152,12 +152,23 @@ export async function withAcceleratedSessionPolicy<T>(
   const cleanupErrors: Error[] = [];
 
   const restoreAll = async () => {
+    let restoreToken = adminToken;
+    try {
+      restoreToken = await getKeycloakAdminToken();
+    } catch {
+      // fallback to initial adminToken if fresh token acquisition fails
+    }
+    const restoreHeaders = {
+      Authorization: `Bearer ${restoreToken}`,
+      "Content-Type": "application/json",
+    };
+
     // Independent restore of client
     if (clientMutated) {
       try {
         const freshClientRes = await fetch(
           `http://127.0.0.1:8380/admin/realms/knora-dev/clients/${client.id}`,
-          { headers: { Authorization: `Bearer ${adminToken}` } },
+          { headers: { Authorization: `Bearer ${restoreToken}` } },
         );
         if (!freshClientRes.ok) {
           throw new Error(
@@ -189,7 +200,7 @@ export async function withAcceleratedSessionPolicy<T>(
           `http://127.0.0.1:8380/admin/realms/knora-dev/clients/${client.id}`,
           {
             method: "PUT",
-            headers,
+            headers: restoreHeaders,
             body: JSON.stringify({
               id: client.id,
               clientId: client.clientId,
@@ -206,7 +217,7 @@ export async function withAcceleratedSessionPolicy<T>(
         // Readback check
         const verifyClientRes = await fetch(
           `http://127.0.0.1:8380/admin/realms/knora-dev/clients/${client.id}`,
-          { headers: { Authorization: `Bearer ${adminToken}` } },
+          { headers: { Authorization: `Bearer ${restoreToken}` } },
         );
         const verifiedClient = (await verifyClientRes.json()) as {
           attributes?: Record<string, string>;
@@ -237,7 +248,7 @@ export async function withAcceleratedSessionPolicy<T>(
         const freshRealmRes = await fetch(
           "http://127.0.0.1:8380/admin/realms/knora-dev",
           {
-            headers: { Authorization: `Bearer ${adminToken}` },
+            headers: { Authorization: `Bearer ${restoreToken}` },
           },
         );
         if (!freshRealmRes.ok) {
@@ -272,7 +283,7 @@ export async function withAcceleratedSessionPolicy<T>(
           "http://127.0.0.1:8380/admin/realms/knora-dev",
           {
             method: "PUT",
-            headers,
+            headers: restoreHeaders,
             body: JSON.stringify({
               ...freshRealm,
               ...originalRealmProjection,
@@ -289,7 +300,7 @@ export async function withAcceleratedSessionPolicy<T>(
         const verifyRealmRes = await fetch(
           "http://127.0.0.1:8380/admin/realms/knora-dev",
           {
-            headers: { Authorization: `Bearer ${adminToken}` },
+            headers: { Authorization: `Bearer ${restoreToken}` },
           },
         );
         const finalRealm = (await verifyRealmRes.json()) as Record<
