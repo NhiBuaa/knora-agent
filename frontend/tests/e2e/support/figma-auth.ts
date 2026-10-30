@@ -108,7 +108,15 @@ export async function signInFigmaUser(
     );
   }
   await openFigmaLogin(page, forcedReauth);
-  await page.locator("#username").fill(user.username);
+  const usernameInput = page.locator("#username");
+  if (!(await usernameInput.isVisible())) {
+    const resetLogin = page.locator("#reset-login");
+    if (await resetLogin.isVisible()) {
+      await resetLogin.click();
+      await expect(usernameInput).toBeVisible();
+    }
+  }
+  await usernameInput.fill(user.username);
   await page.locator("#password").fill(user.credentials[0].value);
   const checkbox = page.locator("#rememberMe");
   if (rememberMe) {
