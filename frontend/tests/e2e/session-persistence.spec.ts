@@ -1,4 +1,5 @@
 import { test, expect, type BrowserContext, chromium } from "@playwright/test";
+import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -313,8 +314,9 @@ test.describe("Browser session persistence and recovery", () => {
       const convRes = await page.request.post(
         `/api/v1/workspaces/${workspaceId}/conversations`,
         {
-          data: { title: "Draft Recovery Test" },
+          data: {},
           headers: {
+            "Idempotency-Key": randomUUID(),
             "x-knora-expected-issuer": sessionData.session.issuer,
             "x-knora-expected-subject": sessionData.session.subject,
           },
