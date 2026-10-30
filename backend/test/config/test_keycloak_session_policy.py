@@ -427,3 +427,269 @@ $credentials = @{AdminUsername='admin'; AdminPassword='password'}
     )
     assert res.returncode != 0
     assert "KEYCLOAK_SESSION_POLICY_UPDATE_OR_VERIFICATION_FAILED" in res.stderr
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell runner unavailable")
+def test_client_drift_before_rollback_rejected(tmp_path: Path) -> None:
+    snapshot = tmp_path / "snapshot.json"
+    wrapper_text = """
+param($ScriptPath, $SnapshotPath)
+$global:realm = [pscustomobject]@{
+    realm = 'knora-dev'
+    rememberMe = $false
+    ssoSessionIdleTimeout = 1800
+    ssoSessionMaxLifespan = 36000
+    ssoSessionIdleTimeoutRememberMe = 0
+    ssoSessionMaxLifespanRememberMe = 0
+    clientSessionIdleTimeout = 0
+    clientSessionMaxLifespan = 0
+    accessTokenLifespan = 300
+}
+$global:client = [pscustomobject]@{
+    id = 'client-uuid-1'
+    clientId = 'knora-web'
+    attributes = [pscustomobject]@{
+        'post.logout.redirect.uris' = 'http://127.0.0.1:3000/'
+    }
+}
+$global:mappers = [System.Collections.ArrayList]@()
+function docker {
+    $global:LASTEXITCODE = 0
+    if ($args[0] -eq 'ps') { return 'fixture-container' }
+    return '[{"NetworkSettings":{"Ports":{"8080/tcp":[{"HostIp":"127.0.0.1","HostPort":"8180"}]}}}]'
+}
+function Invoke-RestMethod {
+    param($Method, $Uri, $Headers, $ContentType, $Body)
+    if ($Method -eq 'Post') {
+        if ($Uri.EndsWith('/protocol/openid-connect/token')) {
+            return @{ access_token = 'test-token' }
+        }
+        if ($Uri.EndsWith('/protocol-mappers/models')) {
+            $m = $Body | ConvertFrom-Json
+            $global:mappers.Add($m) | Out-Null
+            return $m
+        }
+    }
+    if ($Method -eq 'Put') {
+        if ($Uri.EndsWith('/admin/realms/knora-dev')) {
+            $b = $Body | ConvertFrom-Json
+            foreach ($p in $b.PSObject.Properties) { $global:realm.($p.Name) = $p.Value }
+            return
+        }
+        if ($Uri.Contains('/clients/client-uuid-1')) {
+            $b = $Body | ConvertFrom-Json
+            $global:client.attributes = $b.attributes
+            return
+        }
+    }
+    if ($Uri.EndsWith('/serverinfo')) {
+        return [pscustomobject]@{
+            protocolMapperTypes = [pscustomobject]@{
+                'openid-connect' = @([pscustomobject]@{ id = 'knora-session-policy' })
+            }
+        }
+    }
+    if ($Uri.Contains('/clients?clientId=knora-web') -or $Uri.EndsWith('/clients/client-uuid-1')) {
+        return $global:client
+    }
+    if ($Uri.EndsWith('/protocol-mappers/models')) { return @($global:mappers) }
+    if ($Uri.EndsWith('/default-client-scopes') -or
+        $Uri.EndsWith('/optional-client-scopes')) { return @() }
+    if ($Uri.EndsWith('/admin/realms/knora-dev')) { return $global:realm }
+}
+$credentials = @{AdminUsername='admin'; AdminPassword='password'}
+& $ScriptPath -Mode Apply @credentials -SnapshotPath $SnapshotPath | Out-Null
+# Simulate drift in managed client attribute
+$global:client.attributes.'access.token.lifespan' = '777'
+& $ScriptPath -Mode Rollback @credentials -SnapshotPath $SnapshotPath
+"""
+    res = _run_script(
+        tmp_path,
+        wrapper_text,
+        [str(ROOT / "scripts/configure-keycloak-session-policy.ps1"), str(snapshot)],
+    )
+    assert res.returncode != 0
+    assert "KEYCLOAK_SESSION_POLICY_CONCURRENT_CHANGE" in res.stderr
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell runner unavailable")
+def test_repeated_rollback_is_noop(tmp_path: Path) -> None:
+    snapshot = tmp_path / "snapshot.json"
+    wrapper_text = """
+param($ScriptPath, $SnapshotPath)
+$global:realm = [pscustomobject]@{
+    realm = 'knora-dev'
+    rememberMe = $false
+    ssoSessionIdleTimeout = 1800
+    ssoSessionMaxLifespan = 36000
+    ssoSessionIdleTimeoutRememberMe = 0
+    ssoSessionMaxLifespanRememberMe = 0
+    clientSessionIdleTimeout = 0
+    clientSessionMaxLifespan = 0
+    accessTokenLifespan = 300
+}
+$global:client = [pscustomobject]@{
+    id = 'client-uuid-1'
+    clientId = 'knora-web'
+    attributes = [pscustomobject]@{
+        'post.logout.redirect.uris' = 'http://127.0.0.1:3000/'
+    }
+}
+$global:mappers = [System.Collections.ArrayList]@()
+function docker {
+    $global:LASTEXITCODE = 0
+    if ($args[0] -eq 'ps') { return 'fixture-container' }
+    return '[{"NetworkSettings":{"Ports":{"8080/tcp":[{"HostIp":"127.0.0.1","HostPort":"8180"}]}}}]'
+}
+function Invoke-RestMethod {
+    param($Method, $Uri, $Headers, $ContentType, $Body)
+    if ($Method -eq 'Post') {
+        if ($Uri.EndsWith('/protocol/openid-connect/token')) {
+            return @{ access_token = 'test-token' }
+        }
+        if ($Uri.EndsWith('/protocol-mappers/models')) {
+            $m = $Body | ConvertFrom-Json
+            $global:mappers.Add($m) | Out-Null
+            return $m
+        }
+    }
+    if ($Method -eq 'Delete') {
+        if ($Uri.Contains('/protocol-mappers/models/')) {
+            $id = $Uri.Substring($Uri.LastIndexOf('/') + 1)
+            $toRemove = $null
+            foreach ($m in $global:mappers) { if ($m.id -eq $id) { $toRemove = $m } }
+            if ($toRemove) { $global:mappers.Remove($toRemove) }
+            return
+        }
+    }
+    if ($Method -eq 'Put') {
+        if ($Uri.EndsWith('/admin/realms/knora-dev')) {
+            $b = $Body | ConvertFrom-Json
+            foreach ($p in $b.PSObject.Properties) { $global:realm.($p.Name) = $p.Value }
+            return
+        }
+        if ($Uri.Contains('/clients/client-uuid-1')) {
+            $b = $Body | ConvertFrom-Json
+            $global:client.attributes = $b.attributes
+            return
+        }
+    }
+    if ($Uri.EndsWith('/serverinfo')) {
+        return [pscustomobject]@{
+            protocolMapperTypes = [pscustomobject]@{
+                'openid-connect' = @([pscustomobject]@{ id = 'knora-session-policy' })
+            }
+        }
+    }
+    if ($Uri.Contains('/clients?clientId=knora-web') -or $Uri.EndsWith('/clients/client-uuid-1')) {
+        return $global:client
+    }
+    if ($Uri.EndsWith('/protocol-mappers/models')) { return @($global:mappers) }
+    if ($Uri.EndsWith('/default-client-scopes') -or
+        $Uri.EndsWith('/optional-client-scopes')) { return @() }
+    if ($Uri.EndsWith('/admin/realms/knora-dev')) { return $global:realm }
+}
+$credentials = @{AdminUsername='admin'; AdminPassword='password'}
+& $ScriptPath -Mode Apply @credentials -SnapshotPath $SnapshotPath | Out-Null
+& $ScriptPath -Mode Rollback @credentials -SnapshotPath $SnapshotPath | Out-Null
+# Second rollback should succeed as no-op verified
+& $ScriptPath -Mode Rollback @credentials -SnapshotPath $SnapshotPath
+"""
+    res = _run_script(
+        tmp_path,
+        wrapper_text,
+        [str(ROOT / "scripts/configure-keycloak-session-policy.ps1"), str(snapshot)],
+    )
+    assert res.returncode == 0
+    assert "KEYCLOAK_SESSION_POLICY_ROLLBACK_VERIFIED" in res.stdout
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell runner unavailable")
+def test_conflicting_claim_mapper_rejected(tmp_path: Path) -> None:
+    wrapper_text = """
+param($ScriptPath)
+function docker {
+    $global:LASTEXITCODE = 0
+    if ($args[0] -eq 'ps') { return 'fixture-container' }
+    return '[{"NetworkSettings":{"Ports":{"8080/tcp":[{"HostIp":"127.0.0.1","HostPort":"8180"}]}}}]'
+}
+function Invoke-RestMethod {
+    param($Method, $Uri, $Headers, $ContentType, $Body)
+    if ($Method -eq 'Post') { return @{ access_token = 'test-token' } }
+    if ($Uri.EndsWith('/serverinfo')) {
+        return [pscustomobject]@{
+            protocolMapperTypes = [pscustomobject]@{
+                'openid-connect' = @([pscustomobject]@{ id = 'knora-session-policy' })
+            }
+        }
+    }
+    if ($Uri.Contains('/clients?clientId=knora-web') -or $Uri.EndsWith('/clients/client-uuid-1')) {
+        return [pscustomobject]@{ id = 'client-uuid-1'; clientId = 'knora-web'; attributes = @{} }
+    }
+    if ($Uri.EndsWith('/protocol-mappers/models')) {
+        return @([pscustomobject]@{
+            id = 'other-claim-mapper'
+            name = 'other-claim-mapper'
+            protocol = 'openid-connect'
+            protocolMapper = 'oidc-hardcoded-claim-mapper'
+            consentRequired = $false
+            config = [pscustomobject]@{
+                'claim.name' = 'knora_remember_me'
+                'claim.value' = 'true'
+            }
+        })
+    }
+    if ($Uri.EndsWith('/default-client-scopes') -or
+        $Uri.EndsWith('/optional-client-scopes')) { return @() }
+    return [pscustomobject]@{ realm = 'knora-dev' }
+}
+$credentials = @{AdminUsername='admin'; AdminPassword='password'}
+& $ScriptPath -Mode Inspect @credentials
+"""
+    res = _run_script(
+        tmp_path,
+        wrapper_text,
+        [str(ROOT / "scripts/configure-keycloak-session-policy.ps1")],
+    )
+    assert res.returncode != 0
+    assert "KEYCLOAK_SESSION_POLICY_MAPPER_CONFLICT" in res.stderr
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell runner unavailable")
+def test_scope_inspection_failure_rejected(tmp_path: Path) -> None:
+    wrapper_text = """
+param($ScriptPath)
+function docker {
+    $global:LASTEXITCODE = 0
+    if ($args[0] -eq 'ps') { return 'fixture-container' }
+    return '[{"NetworkSettings":{"Ports":{"8080/tcp":[{"HostIp":"127.0.0.1","HostPort":"8180"}]}}}]'
+}
+function Invoke-RestMethod {
+    param($Method, $Uri, $Headers, $ContentType, $Body)
+    if ($Method -eq 'Post') { return @{ access_token = 'test-token' } }
+    if ($Uri.EndsWith('/serverinfo')) {
+        return [pscustomobject]@{
+            protocolMapperTypes = [pscustomobject]@{
+                'openid-connect' = @([pscustomobject]@{ id = 'knora-session-policy' })
+            }
+        }
+    }
+    if ($Uri.Contains('/clients?clientId=knora-web') -or $Uri.EndsWith('/clients/client-uuid-1')) {
+        return [pscustomobject]@{ id = 'client-uuid-1'; clientId = 'knora-web'; attributes = @{} }
+    }
+    if ($Uri.EndsWith('/protocol-mappers/models')) { return @() }
+    if ($Uri.EndsWith('/default-client-scopes')) {
+        throw [System.Net.WebException]::new("Scope API connection refused")
+    }
+    return [pscustomobject]@{ realm = 'knora-dev' }
+}
+$credentials = @{AdminUsername='admin'; AdminPassword='password'}
+& $ScriptPath -Mode Inspect @credentials
+"""
+    res = _run_script(
+        tmp_path,
+        wrapper_text,
+        [str(ROOT / "scripts/configure-keycloak-session-policy.ps1")],
+    )
+    assert res.returncode != 0
+    assert "KEYCLOAK_INSPECTION_FAILED" in res.stderr
