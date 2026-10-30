@@ -17,6 +17,10 @@ import {
   getKeycloakAdminToken,
 } from "./support/session-policy";
 import { figmaEnvironment } from "./support/figma-environment";
+import {
+  measureTopologyManifest,
+  evaluateTopologyDrift,
+} from "./support/topology-manifest";
 
 test.describe.configure({ mode: "serial" });
 
@@ -573,66 +577,6 @@ test.describe("Browser session persistence and recovery", () => {
       return { version, digest, state };
     }
 
-    function measureTopologyManifest(project: string) {
-      let sourceSha = process.env.FIGMA_SUBJECT_SHA ?? "HEAD";
-      let isClean = true;
-      const containers: Array<{
-        name: string;
-        image: string;
-        containerId: string;
-        restartCount: number;
-      }> = [];
-
-      try {
-        sourceSha = cp
-          .execSync("git rev-parse HEAD", { encoding: "utf8" })
-          .trim();
-        isClean =
-          cp.execSync("git status --porcelain", { encoding: "utf8" }).trim()
-            .length === 0;
-
-        const psOut = cp
-          .execSync(
-            `docker ps --filter "label=com.docker.compose.project=${project}" --format "{{.Names}}|{{.Image}}|{{.ID}}"`,
-            { encoding: "utf8" },
-          )
-          .trim();
-
-        if (psOut) {
-          for (const line of psOut.split("\n")) {
-            const parts = line.trim().split("|");
-            if (parts.length >= 3) {
-              const inspectOut = cp
-                .execSync(
-                  `docker inspect ${parts[2]} --format "{{.RestartCount}}"`,
-                  {
-                    encoding: "utf8",
-                  },
-                )
-                .trim();
-              containers.push({
-                name: parts[0],
-                image: parts[1],
-                containerId: parts[2],
-                restartCount: Number(inspectOut || "0"),
-              });
-            }
-          }
-          containers.sort((a, b) => a.name.localeCompare(b.name));
-        }
-      } catch {
-        // Fallback for mock environments without active docker daemon
-      }
-
-      return {
-        sourceSha,
-        isClean,
-        project,
-        issuer: "http://127.0.0.1:8380/realms/knora-dev",
-        containers,
-      };
-    }
-
     // 0. Pre-measurement of policy digest and topology manifest
     const initialPolicy = await measurePolicyDigest();
     const initialTopology = measureTopologyManifest(env.project);
@@ -826,26 +770,13 @@ test.describe("Browser session persistence and recovery", () => {
       expect(finalPolicy.digest).toBe(initialPolicy.digest);
 
       const finalTopology = measureTopologyManifest(env.project);
-      expect(finalTopology.sourceSha).toBe(initialTopology.sourceSha);
-      expect(finalTopology.containers.length).toBe(
-        initialTopology.containers.length,
+      const topologyEval = evaluateTopologyDrift(
+        initialTopology,
+        finalTopology,
+        process.env.FIGMA_SUBJECT_SHA,
       );
-      if (initialTopology.containers.length > 0) {
-        for (let i = 0; i < initialTopology.containers.length; i++) {
-          expect(finalTopology.containers[i].name).toBe(
-            initialTopology.containers[i].name,
-          );
-          expect(finalTopology.containers[i].image).toBe(
-            initialTopology.containers[i].image,
-          );
-          expect(finalTopology.containers[i].containerId).toBe(
-            initialTopology.containers[i].containerId,
-          );
-          expect(finalTopology.containers[i].restartCount).toBe(
-            initialTopology.containers[i].restartCount,
-          );
-        }
-      }
+      expect(topologyEval.driftReasons).toEqual([]);
+      expect(topologyEval.zeroTopologyDrift).toBe(true);
 
       // 4. Fresh UI navigation tests:
       // normal33 navigates to protected /workspaces -> redirected to login
@@ -871,23 +802,29 @@ test.describe("Browser session persistence and recovery", () => {
       // rem33 navigates to known synthetic workspace -> refreshed, enters workspace shell
       const navRem = await rem33Ctx.newPage();
       await navRem.goto(`${env.baseUrl}/workspaces/${knownWorkspace.id}`);
-      await navRem.waitForURL((url) => url.pathname.startsWith("/workspaces"), {
-        timeout: 15_000,
-      });
-      expect(new URL(navRem.url()).pathname).toContain("/workspaces");
-      const wsLocator = navRem
-        .locator('[data-testid="workspace-shell"], main')
-        .or(
-          navRem.getByRole("heading", {
-            name: new RegExp(knownWorkspace.name, "i"),
-          }),
+      await navRem.waitForURL(
+        (url) =>
+          url.pathname === `/workspaces/${knownWorkspace.id}/conversations`,
+        { timeout: 15_000 },
+      );
+      expect(new URL(navRem.url()).pathname).toBe(
+        `/workspaces/${knownWorkspace.id}/conversations`,
+      );
+      const wsTrigger = navRem
+        .locator(
+          '.workspace-selector-trigger, [aria-label^="Switch workspace"]',
         )
-        .first();
-      await expect(wsLocator).toBeVisible({ timeout: 15_000 });
+        .filter({ hasText: knownWorkspace.name });
+      await expect(wsTrigger).toBeVisible({ timeout: 15_000 });
+      const wsRegion = navRem.locator('[aria-label="Conversation workspace"]');
+      await expect(wsRegion).toBeVisible({ timeout: 15_000 });
       const checkWs = await navRem.request.get(
         `/api/v1/workspaces/${knownWorkspace.id}`,
       );
       expect(checkWs.ok()).toBe(true);
+      const wsData = (await checkWs.json()) as { id: string; name: string };
+      expect(wsData.id).toBe(knownWorkspace.id);
+      expect(wsData.name).toBe(knownWorkspace.name);
       await navRem.close();
 
       // Capture masked screenshots
@@ -942,9 +879,8 @@ test.describe("Browser session persistence and recovery", () => {
           quietRequests33 === 0 &&
           quietRequestsRem === 0,
         zeroPolicyDrift: finalPolicy.digest === initialPolicy.digest,
-        zeroTopologyDrift:
-          finalTopology.sourceSha === initialTopology.sourceSha &&
-          finalTopology.containers.length === initialTopology.containers.length,
+        zeroTopologyDrift: topologyEval.zeroTopologyDrift,
+        topologyDriftReasons: topologyEval.driftReasons,
         outcomes: {
           normal15StillActive: data15.session !== null,
           normal33Expired: data33.session === null,
