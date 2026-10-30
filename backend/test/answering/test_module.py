@@ -1708,6 +1708,43 @@ async def test_v3_semantic_rejection_gets_corrected_answer_and_fresh_proof():
 
 
 @pytest.mark.asyncio
+async def test_missing_covered_group_repairs_without_redundant_sufficiency_call():
+    from knora.answering.answer_support import AnswerSupportFailure
+
+    class Verifier(SupportVerifier):
+        async def assess_sufficiency(self, **kwargs):
+            pytest.fail("A missing group with source facts already has actionable repair data")
+
+        async def verify(self, **kwargs):
+            if not self.calls:
+                self.calls.append(kwargs)
+                group_id = kwargs["groups"][0][0]
+                raise AnswerSupportFailure(
+                    "GENERATION_OUTPUT_INVALID",
+                    {
+                        "failure": "unsupported_answer",
+                        "failed_id": group_id,
+                        "source_facts": [{"id": group_id, "source_fact": "Seven days."}],
+                        "verdict": {
+                            "statements": [{"id": "S1", "verdict": "SUPPORTED"}],
+                            "groups": [
+                                {"id": group_id, "verdict": "MISSING", "statement_ids": ["S1"]}
+                            ],
+                        },
+                    },
+                )
+            return await super().verify(**kwargs)
+
+    generator, verifier = RecoverableGenerator(), Verifier()
+    result, store = await run_recovery_case(generator, verifier)
+    assert result.decision == "ANSWER"
+    assert generator.feedback[0]["source_facts"][0]["source_fact"] == "Seven days."
+    assert [
+        a["phase"] for a in store.traces[0].provider_metadata["generation_recovery"]["attempts"]
+    ] == ["generation", "verification", "repair", "verification"]
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("outcome", ["insufficient", "answerable", "unavailable", "stale"])
 async def test_semantic_recovery_only_refuses_after_independent_sufficiency_check(outcome):
     class Verifier(RecoverableVerifier):
