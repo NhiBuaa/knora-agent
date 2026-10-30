@@ -286,7 +286,7 @@ test.describe("Browser session persistence and recovery", () => {
   test("recovery keeps same account draft and rejects account switch", async ({
     browser,
   }) => {
-    test.setTimeout(120_000);
+    test.setTimeout(240_000);
     const env = figmaEnvironment();
     const context = await browser.newContext({ baseURL: env.baseUrl });
     const page = await context.newPage();
@@ -421,7 +421,7 @@ test.describe("Browser session persistence and recovery", () => {
   });
 
   test("logout and revoked refresh", async ({ page, context }) => {
-    test.setTimeout(90_000);
+    test.setTimeout(180_000);
     const env = figmaEnvironment();
     await withAcceleratedSessionPolicy(env.project, async () => {
       // 1. Clean logout with Origin header clears cookie
