@@ -499,6 +499,82 @@ test.describe("Browser session persistence and recovery", () => {
     const evidenceDir = info.outputPath("evidence");
     fs.mkdirSync(evidenceDir, { recursive: true });
 
+    // Function to compute cryptographic SHA-256 policy digest from measured server state
+    async function measurePolicyDigest(): Promise<{
+      version: string;
+      digest: string;
+      state: Record<string, unknown>;
+    }> {
+      const adminToken = await getKeycloakAdminToken();
+      const sInfoRes = await fetch("http://127.0.0.1:8380/admin/serverinfo", {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      if (!sInfoRes.ok) {
+        throw new Error(`Failed to read serverinfo: HTTP ${sInfoRes.status}`);
+      }
+      const sInfo = (await sInfoRes.json()) as {
+        systemInfo?: { version?: string };
+      };
+      const version = sInfo.systemInfo?.version;
+      if (!version) {
+        throw new Error("Keycloak serverinfo missing systemInfo.version");
+      }
+
+      const realmRes = await fetch(
+        "http://127.0.0.1:8380/admin/realms/knora-dev",
+        { headers: { Authorization: `Bearer ${adminToken}` } },
+      );
+      if (!realmRes.ok) {
+        throw new Error(`Failed to read realm policy: HTTP ${realmRes.status}`);
+      }
+      const realmData = (await realmRes.json()) as Record<string, unknown>;
+
+      const clientRes = await fetch(
+        "http://127.0.0.1:8380/admin/realms/knora-dev/clients?clientId=knora-web",
+        { headers: { Authorization: `Bearer ${adminToken}` } },
+      );
+      if (!clientRes.ok) {
+        throw new Error(`Failed to read client: HTTP ${clientRes.status}`);
+      }
+      const clients = (await clientRes.json()) as Array<{
+        attributes?: Record<string, string>;
+      }>;
+      const clientAttrs = clients[0]?.attributes ?? {};
+
+      const state = {
+        keycloakVersion: version,
+        rememberMe: Boolean(realmData.rememberMe),
+        ssoSessionIdleTimeout: Number(realmData.ssoSessionIdleTimeout),
+        ssoSessionMaxLifespan: Number(realmData.ssoSessionMaxLifespan),
+        ssoSessionIdleTimeoutRememberMe: Number(
+          realmData.ssoSessionIdleTimeoutRememberMe,
+        ),
+        ssoSessionMaxLifespanRememberMe: Number(
+          realmData.ssoSessionMaxLifespanRememberMe,
+        ),
+        clientSessionIdleTimeout: Number(realmData.clientSessionIdleTimeout),
+        clientSessionMaxLifespan: Number(realmData.clientSessionMaxLifespan),
+        accessTokenLifespan: Number(realmData.accessTokenLifespan),
+        clientAccessTokenLifespan: clientAttrs["access.token.lifespan"] ?? null,
+      };
+
+      const canonicalJson = JSON.stringify(state, Object.keys(state).sort());
+      const digestBuf = await crypto.subtle.digest(
+        "SHA-256",
+        new TextEncoder().encode(canonicalJson),
+      );
+      const digest =
+        "sha256:" +
+        Array.from(new Uint8Array(digestBuf))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+
+      return { version, digest, state };
+    }
+
+    // 0. Pre-measurement of policy digest before quiet window
+    const initialPolicy = await measurePolicyDigest();
+
     // 3 parallel independent browser contexts
     const normal15Ctx = await browser.newContext({ baseURL: env.baseUrl });
     const normal33Ctx = await browser.newContext({ baseURL: env.baseUrl });
@@ -531,20 +607,20 @@ test.describe("Browser session persistence and recovery", () => {
         }
       }
 
-      // Attach comprehensive request counters to guarantee 0 renewing requests during quiet window (F8)
+      // Comprehensive request predicate: intercepts any renewing or protected route
       let renewingRequests15 = 0;
       let renewingRequests33 = 0;
       let renewingRequestsRem = 0;
 
-      const isRenewingRequest = (urlStr: string) => {
+      const isRenewingOrProtectedRoute = (urlStr: string) => {
         try {
           const u = new URL(urlStr);
           const p = u.pathname;
           return (
-            p.includes("/api/auth/session") ||
-            p.includes("/api/auth/refresh") ||
-            p.includes("/protocol/openid-connect/token") ||
-            p.includes("/auth/realms/")
+            p.startsWith("/api/auth/") ||
+            p.startsWith("/api/v1/") ||
+            p.includes("/protocol/openid-connect/") ||
+            p.includes("/realms/knora-dev/")
           );
         } catch {
           return false;
@@ -552,13 +628,13 @@ test.describe("Browser session persistence and recovery", () => {
       };
 
       normal15Ctx.on("request", (req) => {
-        if (isRenewingRequest(req.url())) renewingRequests15++;
+        if (isRenewingOrProtectedRoute(req.url())) renewingRequests15++;
       });
       normal33Ctx.on("request", (req) => {
-        if (isRenewingRequest(req.url())) renewingRequests33++;
+        if (isRenewingOrProtectedRoute(req.url())) renewingRequests33++;
       });
       rem33Ctx.on("request", (req) => {
-        if (isRenewingRequest(req.url())) renewingRequestsRem++;
+        if (isRenewingOrProtectedRoute(req.url())) renewingRequestsRem++;
       });
 
       const idle15Ms = Number(process.env.FIGMA_IDLE_15_SECONDS ?? 900) * 1000;
@@ -595,23 +671,47 @@ test.describe("Browser session persistence and recovery", () => {
       const dataRem = (await resRem.json()) as { session: unknown };
       expect(dataRem.session).not.toBeNull();
 
-      // Fresh UI navigation test (F8):
-      // - normal33 navigated to /workspaces -> redirected to login or shows unauthenticated alert
+      // 3. Post-measurement: verify zero policy drift during quiet window
+      const finalPolicy = await measurePolicyDigest();
+      expect(finalPolicy.digest).toBe(initialPolicy.digest);
+
+      // 4. Fresh UI navigation tests:
+      // normal33 navigates to protected /workspaces -> redirected to login
       const nav33 = await normal33Ctx.newPage();
       await nav33.goto(env.baseUrl + "/workspaces");
+      await nav33.waitForURL(
+        (url) =>
+          url.pathname.includes("/auth") ||
+          url.pathname.includes("/login") ||
+          url.port === "8380",
+        { timeout: 15_000 },
+      );
+      expect(new URL(nav33.url()).pathname).not.toBe("/workspaces");
       await expect(
         nav33.locator(
-          "input[name='username'], #username, text=Sign in, text=Your session has expired",
+          "#username, input[name='username'], [role='alert'], text=Sign in",
         ),
       ).toBeVisible({ timeout: 15_000 });
       await nav33.close();
 
-      // - rem33 navigated to /workspaces -> workspace list rendered normally
+      // rem33 navigates to protected /workspaces -> refreshed, enters workspace shell
       const navRem = await rem33Ctx.newPage();
       await navRem.goto(env.baseUrl + "/workspaces");
+      await navRem.waitForURL((url) => url.pathname === "/workspaces", {
+        timeout: 15_000,
+      });
+      expect(new URL(navRem.url()).pathname).toBe("/workspaces");
       await expect(
-        navRem.locator("text=Workspaces, h1:has-text('Workspaces')"),
+        navRem.locator(
+          "main, [data-testid='workspace-shell'], text=Workspaces",
+        ),
       ).toBeVisible({ timeout: 15_000 });
+      const checkWs = await navRem.request.get("/api/v1/workspaces");
+      expect(checkWs.ok()).toBe(true);
+      const wsData = (await checkWs.json()) as {
+        items?: Array<{ id: string }>;
+      };
+      expect(wsData.items?.length).toBeGreaterThan(0);
       await navRem.close();
 
       // Capture masked screenshots
@@ -629,27 +729,7 @@ test.describe("Browser session persistence and recovery", () => {
         );
       }
 
-      // Read real Keycloak system version and compute policy digest
-      let realKeycloakVersion = "26.3.3";
-      try {
-        const adminToken = await getKeycloakAdminToken();
-        const sInfoRes = await fetch("http://127.0.0.1:8380/admin/serverinfo", {
-          headers: { Authorization: `Bearer ${adminToken}` },
-        });
-        if (sInfoRes.ok) {
-          const sInfo = (await sInfoRes.json()) as {
-            systemInfo?: { version?: string };
-          };
-          if (sInfo.systemInfo?.version) {
-            realKeycloakVersion = sInfo.systemInfo.version;
-          }
-        }
-      } catch {
-        // fallback
-      }
-      const policyDigest = `knora-session-policy-v1-kc${realKeycloakVersion}-normal1800-rem604800`;
-
-      // Record evidence JSON (schemaVersion 1) with monotonic measurements (F8)
+      // Record evidence JSON (schemaVersion 1) with monotonic measurements and real policy digest
       const monotonicEnd = performance.now();
       const quietEndIso = new Date().toISOString();
       const elapsedSeconds = Number(
@@ -659,8 +739,9 @@ test.describe("Browser session persistence and recovery", () => {
         schemaVersion: 1,
         subjectSha: process.env.FIGMA_SUBJECT_SHA ?? "HEAD",
         project: env.project,
-        KeycloakVersion: realKeycloakVersion,
-        policyDigest: policyDigest,
+        KeycloakVersion: finalPolicy.version,
+        policyDigest: finalPolicy.digest,
+        policyState: finalPolicy.state,
         contextCases: ["normal15", "normal33", "remembered33"],
         startedAt: quietStartIso,
         finishedAt: quietEndIso,
@@ -676,6 +757,7 @@ test.describe("Browser session persistence and recovery", () => {
           normal33: renewingRequests33,
           remembered33: renewingRequestsRem,
         },
+        zeroPolicyDrift: finalPolicy.digest === initialPolicy.digest,
         outcomes: {
           normal15StillActive: data15.session !== null,
           normal33Expired: data33.session === null,
@@ -683,7 +765,7 @@ test.describe("Browser session persistence and recovery", () => {
         },
         freshNavigationOutcomes: {
           normal33RedirectedToLogin: true,
-          remembered33AccessedWorkspace: true,
+          remembered33EnteredWorkspace: true,
         },
         cookieSizeVerified: true,
         screenshots: [
