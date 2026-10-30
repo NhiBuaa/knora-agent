@@ -1677,6 +1677,76 @@ async def run_recovery_case(generator, verifier):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["supported", "unavailable", "foreign"])
+async def test_source_preparation_avoids_discarded_generation_but_requires_fresh_proof(outcome):
+    class SourceVerifier(SupportVerifier):
+        async def prepare_candidate(self, **kwargs):
+            assert "answer" not in kwargs and "feedback" not in kwargs
+            return [{"text": "Đổi trả trong 7 ngày.", "support": ["E1"]}], {
+                "provider": "other-provider" if outcome == "foreign" else "cloudflare-workers-ai",
+                "model": "@cf/openai/gpt-oss-120b",
+                "provider_request_id": "source-generation-receipt",
+                "source_inventory": {"binding": "same-snapshot"},
+            }
+
+        async def verify(self, **kwargs):
+            assert kwargs["feedback"]["source_inventory"] == {"binding": "same-snapshot"}
+            return await super().verify(**kwargs)
+
+    generator, verifier = RecoverableGenerator(), SourceVerifier(outcome)
+    store, service = generation_repair_case(generator, verifier=verifier)
+    command = QuestionCommand(workspace_id="workspace-a", question="Đổi trả trong bao nhiêu ngày?")
+    principal = WorkspacePrincipal(workspace_id="workspace-a", key_id="test")
+    if outcome in {"unavailable", "foreign"}:
+        with pytest.raises(KnoraError, match="PROVIDER_REQUEST_FAILED"):
+            await service.execute(command, principal)
+    else:
+        result = await service.execute(command, principal)
+        assert result.answer == "Đổi trả trong **7 ngày**. [[E1]]"
+    assert generator.calls == [] and generator.feedback == []
+    attempts = store.traces[0].provider_metadata["generation_recovery"]["attempts"]
+    assert [a["phase"] for a in attempts] == (
+        ["source_generation"] if outcome == "foreign" else ["source_generation", "verification"]
+    )
+    assert attempts[0]["provider"]["provider_request_id"] == "source-generation-receipt"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("sufficiency", ["insufficient", "unavailable"])
+async def test_empty_source_draft_is_not_itself_proof_of_insufficiency(sufficiency):
+    class EmptySource(SupportVerifier):
+        async def prepare_candidate(self, **kwargs):
+            return [], {"provider": "cloudflare-workers-ai", "provider_request_id": "empty-draft"}
+
+        async def assess_sufficiency(self, **kwargs):
+            assert "answer" not in kwargs
+            if sufficiency == "unavailable":
+                raise KnoraError("PROVIDER_REQUEST_FAILED")
+            return True, {"provider_request_id": "independent-sufficiency"}
+
+    generator = RecoverableGenerator()
+    store, service = generation_repair_case(generator, verifier=EmptySource())
+    if sufficiency == "unavailable":
+        with pytest.raises(KnoraError, match="PROVIDER_REQUEST_FAILED"):
+            await service.execute(
+                QuestionCommand(
+                    workspace_id="workspace-a", question="Đổi trả trong bao nhiêu ngày?"
+                ),
+                WorkspacePrincipal(workspace_id="workspace-a", key_id="test"),
+            )
+        assert store.traces[0].validation_outcome == "invalid"
+    else:
+        result = await service.execute(
+            QuestionCommand(workspace_id="workspace-a", question="Đổi trả trong bao nhiêu ngày?"),
+            WorkspacePrincipal(workspace_id="workspace-a", key_id="test"),
+        )
+        assert result.decision == "REFUSAL"
+        support = store.traces[0].provider_metadata["answer_support"]
+        assert support["coverage"] == "unverified" and support["scope"] == "provided_evidence"
+    assert not generator.calls
+
+
+@pytest.mark.asyncio
 async def test_v3_malformed_generation_is_repaired_and_proof_is_persisted():
     from knora.answering.answer_support import validate_trace_support
 

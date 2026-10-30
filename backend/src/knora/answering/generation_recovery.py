@@ -56,7 +56,8 @@ async def generate_with_recovery(
     pruned = None
     sufficiency_checked = False
     assess_sufficiency = getattr(verifier, "assess_sufficiency", None)
-    phase = "generation"
+    prepare_source = getattr(verifier, "prepare_candidate", None) if is_v3 and repair else None
+    phase = "source_generation" if prepare_source else "generation"
     while True:
         revalidate()
         attempt = {"phase": phase, "status": "started"}
@@ -102,7 +103,66 @@ async def generate_with_recovery(
                 phase = "repair"
                 continue
             if phase != "verification":
-                if phase in {"prune", "source_repair"}:
+                if phase == "source_generation":
+                    facts, metadata = await prepare_source(
+                        question=question,
+                        groups=groups,
+                        evidence=evidence,
+                        snapshot_digest=digest(binding),
+                        revalidate=revalidate,
+                    )
+                    attempt["provider"] = metadata
+                    if metadata.get("provider") != "cloudflare-workers-ai":
+                        raise KnoraError("PROVIDER_REQUEST_FAILED")
+                    answer, aliases, projection = (
+                        compose_grounded_answer(
+                            {
+                                "decision": "ANSWER",
+                                "before": [],
+                                "items": facts,
+                                "after": [],
+                                "refusal_reason": None,
+                            },
+                            evidence,
+                        )
+                        if facts
+                        else (None, (), None)
+                    )
+                    generation = GenerationResult(
+                        decision="ANSWER" if facts else "REFUSAL",
+                        answer=answer,
+                        cited_evidence_ids=aliases,
+                        answer_projection=projection,
+                        refusal_reason=None if facts else "INSUFFICIENT_EVIDENCE",
+                        **{
+                            k: metadata[k]
+                            for k in (
+                                "provider",
+                                "model",
+                                "prompt_version",
+                                "finish_reason",
+                                "provider_request_id",
+                                "usage",
+                                "cost",
+                            )
+                            if k in metadata
+                        },
+                    )
+                    state.generation = generation
+                    source_inventory = metadata.get("source_inventory") if facts else None
+                    if not facts:
+                        state.support = {
+                            "policy_id": "answer-support-verification-v3-r4-v1",
+                            "status": "invalid",
+                            "snapshot_binding": binding,
+                        }
+                        if assess_sufficiency is None:
+                            raise KnoraError("GENERATION_OUTPUT_INVALID")
+                        feedback = {"failure": "source_inventory_empty"}
+                        attempt["status"] = "completed"
+                        phase = "source_sufficiency"
+                        continue
+                elif phase in {"prune", "source_repair"}:
                     generation = pruned
                     attempt["operation"] = (
                         "compose_inventory_candidate"
@@ -117,7 +177,7 @@ async def generate_with_recovery(
                         else await repair(question=question, evidence=evidence, feedback=feedback)
                     )
                 state.generation = generation
-                if phase not in {"prune", "source_repair"}:
+                if phase not in {"prune", "source_repair", "source_generation"}:
                     attempt["provider"] = {
                         k: v
                         for k, v in asdict(generation).items()
@@ -194,6 +254,7 @@ async def generate_with_recovery(
                 evidence=evidence,
                 snapshot_digest=digest(binding),
                 group_ids=tuple(key for key, _ in groups),
+                question_context=question,
             )
             state.support = {
                 **proof_observation(proof, generation.answer_projection, groups, metadata),

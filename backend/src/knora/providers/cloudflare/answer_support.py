@@ -285,19 +285,17 @@ class CloudflareAnswerSupportVerifier:
             g.status != "UNKNOWN" for g in verdict.groups
         ), metadata
 
-    async def verify(
+    async def _inventory(
         self,
         *,
         question: str,
         groups: tuple[tuple[str, str], ...],
-        answer: str,
-        answer_projection: AnswerProjection,
         evidence: tuple[GenerationEvidence, ...],
         snapshot_digest: str,
         feedback: dict | None = None,
         revalidate: Callable[[], None] | None = None,
     ):
-        validate_projection(answer, answer_projection, evidence)
+        source_groups = ((groups[0][0], question),)
         quotes = {
             f"{e.evidence_id}:Q{i}": {"alias": e.evidence_id, **quote}
             for e in evidence
@@ -330,16 +328,16 @@ class CloudflareAnswerSupportVerifier:
         )
         inventory_schema = _InventoryVerdict.model_json_schema()
         inventory_schema["properties"]["snapshot_digest"]["enum"] = [snapshot_digest]
-        inventory_schema["properties"]["groups"].update(minItems=len(groups), maxItems=len(groups))
+        inventory_schema["properties"]["groups"].update(minItems=1, maxItems=1)
         inventory_schema["$defs"]["_InventoryGroup"]["properties"]["id"]["enum"] = [
-            g[0] for g in groups
+            g[0] for g in source_groups
         ]
         inventory_schema["$defs"]["_InventoryFact"]["properties"]["quote_ids"]["items"]["enum"] = (
             list(quotes)
         )
         payload = {
             "question": question,
-            "groups": [{"id": k, "question": v} for k, v in groups],
+            "groups": [{"id": k, "question": v} for k, v in source_groups],
             "snapshot_digest": snapshot_digest,
             "sources": sources,
         }
@@ -366,7 +364,7 @@ class CloudflareAnswerSupportVerifier:
             raise KnoraError("PROVIDER_REQUEST_FAILED")
         prompt = BuiltPrompt(
             PromptDefinition(
-                "cloudflare-gpt-oss-source-inventory-v2",
+                "cloudflare-gpt-oss-source-inventory-v3",
                 inventory_system,
                 inventory_schema,
                 "source-inventory-v1",
@@ -377,7 +375,7 @@ class CloudflareAnswerSupportVerifier:
             revalidate()
         started = asyncio.get_running_loop().time()
         cached = (feedback or {}).get("source_inventory")
-        inventory_binding = digest(payload)
+        inventory_binding = digest({"payload": payload, "answer_groups": groups})
         reuse = (
             isinstance(cached, dict)
             and cached.get("binding") == inventory_binding
@@ -411,8 +409,8 @@ class CloudflareAnswerSupportVerifier:
             inventory = _InventoryVerdict.model_validate(raw)
             if (
                 inventory.snapshot_digest != snapshot_digest
-                or len(inventory.groups) != len(groups)
-                or {g.id for g in inventory.groups} != {k for k, _ in groups}
+                or len(inventory.groups) != 1
+                or {g.id for g in inventory.groups} != {k for k, _ in source_groups}
             ):
                 raise ValueError
             for group in inventory.groups:
@@ -446,22 +444,6 @@ class CloudflareAnswerSupportVerifier:
                 }
             },
         }
-        for group in inventory.groups:
-            if not group.facts:
-                raise AnswerSupportFailure(
-                    "GENERATION_OUTPUT_INVALID",
-                    {
-                        "failure": "unsupported_answer",
-                        "failed_id": group.id,
-                        "source_facts": [
-                            {
-                                "id": group.id,
-                                "source_fact": "These excerpts did not establish the needed facts.",
-                            }
-                        ],
-                        "provider": metadata,
-                    },
-                )
         required = {
             f"{g.id}:F{i}": {"group_id": g.id, **f.model_dump()}
             for g in inventory.groups
@@ -474,6 +456,57 @@ class CloudflareAnswerSupportVerifier:
             }
             for fact in required.values()
         ]
+        return required, repair_facts, metadata, quotes, sources
+
+    async def prepare_candidate(
+        self, *, question, groups, evidence, snapshot_digest, revalidate=None
+    ) -> tuple[list[dict], dict]:
+        _, facts, metadata, _, _ = await self._inventory(
+            question=question,
+            groups=groups,
+            evidence=evidence,
+            snapshot_digest=snapshot_digest,
+            revalidate=revalidate,
+        )
+        metadata["limits"]["calls_per_attempt"] = 1
+        return facts, metadata
+
+    async def verify(
+        self,
+        *,
+        question: str,
+        groups: tuple[tuple[str, str], ...],
+        answer: str,
+        answer_projection: AnswerProjection,
+        evidence: tuple[GenerationEvidence, ...],
+        snapshot_digest: str,
+        feedback: dict | None = None,
+        revalidate: Callable[[], None] | None = None,
+    ):
+        validate_projection(answer, answer_projection, evidence)
+        required, repair_facts, metadata, quotes, sources = await self._inventory(
+            question=question,
+            groups=groups,
+            evidence=evidence,
+            snapshot_digest=snapshot_digest,
+            feedback=feedback,
+            revalidate=revalidate,
+        )
+        if not required:
+            raise AnswerSupportFailure(
+                "GENERATION_OUTPUT_INVALID",
+                {
+                    "failure": "unsupported_answer",
+                    "failed_id": groups[0][0],
+                    "source_facts": [
+                        {
+                            "id": groups[0][0],
+                            "source_fact": "These excerpts did not establish the needed facts.",
+                        }
+                    ],
+                    "provider": metadata,
+                },
+            )
         if (feedback or {}).get("prepare_source_candidate"):
             raise AnswerSupportFailure(
                 "GENERATION_OUTPUT_INVALID",
@@ -507,7 +540,9 @@ class CloudflareAnswerSupportVerifier:
             "footer does not impose report length. Examples are not general requirements. Select "
             "exact quote_ids for each supported statement; no invented text or offsets. "
             "For EVERY supplied required_fact ID, select exact statement_ids from the candidate "
-            "answer. The server resolves their immutable answer spans; never transcribe quotes "
+            "answer. These facts cover the WHOLE original question, independently of the atomic "
+            "group ID used to identify them; do not narrow them to that group's isolated wording. "
+            "The server resolves their immutable answer spans; never transcribe quotes "
             "or substitute source text. Several selected statements may JOINTLY express a fact. "
             "Then decide covered: the selected answer statements must express the WHOLE "
             "required fact, not merely overlap words. Empty statement_ids and covered=false when "
@@ -610,7 +645,7 @@ class CloudflareAnswerSupportVerifier:
             )
         prompt = BuiltPrompt(
             PromptDefinition(
-                "cloudflare-gpt-oss-source-audit-v4", audit_system, schema, "source-audit-v1"
+                "cloudflare-gpt-oss-source-audit-v5", audit_system, schema, "source-audit-v1"
             ),
             messages,
         )
@@ -725,6 +760,7 @@ class CloudflareAnswerSupportVerifier:
                 evidence=evidence,
                 snapshot_digest=snapshot_digest,
                 group_ids=tuple(k for k, _ in groups),
+                question_context=question,
             )
         except KnoraError as error:
             raise AnswerSupportFailure(

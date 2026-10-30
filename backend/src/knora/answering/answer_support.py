@@ -185,6 +185,7 @@ def validate_support(
     evidence: tuple[GenerationEvidence, ...],
     snapshot_digest: str,
     group_ids: tuple[str, ...],
+    question_context: str = "",
 ) -> AnswerSupportProof:
     validate_projection(answer, projection, evidence)
     failure = "invalid_verifier_proof"
@@ -230,7 +231,9 @@ def validate_support(
             failure = "unsupported_answer"
             try:
                 _validate_explicit_facts(
-                    statements[item.id].text, "\n".join(ref.exact_quote for ref in item.source_refs)
+                    statements[item.id].text,
+                    "\n".join(ref.exact_quote for ref in item.source_refs),
+                    question_context=question_context,
                 )
             except ValueError as mismatch:
                 raise AnswerSupportFailure(
@@ -272,7 +275,7 @@ def validate_support(
         ) from None
 
 
-def _validate_explicit_facts(statement: str, source: str) -> None:
+def _validate_explicit_facts(statement: str, source: str, *, question_context: str = "") -> None:
     """Reject provable mismatches only; uncertain relations remain the verifier's task."""
 
     def negative_requirements(text):
@@ -293,7 +296,16 @@ def _validate_explicit_facts(statement: str, source: str) -> None:
         for m in re.finditer(modal, statement, re.IGNORECASE)
     )
     example = r"\b(?:ví dụ|for example|example)\s*:\s*[^.!?]+[.!?]?"
-    if positive_requirement and not re.search(r"\b(?:ví dụ|example)\b", statement, re.IGNORECASE):
+    example_context = re.search(
+        r"\b(?:(?:theo|trong)\s+ví dụ|(?:in|according to)\s+(?:the\s+)?example)\b",
+        question_context,
+        re.IGNORECASE,
+    ) and not re.search(r"\b(?:mọi|tất cả|all|every|universally)\b", statement, re.IGNORECASE)
+    if (
+        positive_requirement
+        and not example_context
+        and not re.search(r"\b(?:ví dụ|example)\b", statement, re.IGNORECASE)
+    ):
         examples = " ".join(re.findall(example, source, re.IGNORECASE))
         outside_examples = re.sub(example, "", source, flags=re.IGNORECASE)
         for number in re.findall(r"\b\d+\b", statement):
@@ -443,6 +455,7 @@ def validate_trace_support(trace, sources: dict[str, tuple[str, str]]) -> None:
             evidence=evidence,
             snapshot_digest=digest(binding),
             group_ids=tuple(g[0] for g in binding["groups"]),
+            question_context=binding["question"],
         )
     except (KeyError, TypeError, AttributeError, ValueError):
         raise KnoraError("GENERATION_OUTPUT_INVALID") from None

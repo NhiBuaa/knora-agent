@@ -1000,6 +1000,81 @@ def test_provable_fact_mismatch_cannot_be_overridden_by_model(claim, source, val
             _validate_explicit_facts(claim, source)
 
 
+@pytest.mark.parametrize("universal", [False, True])
+def test_example_context_allows_a_short_source_answer_without_a_universal_rule(universal):
+    from knora.answering.answer_support import _validate_explicit_facts
+
+    question = "Theo ví dụ yêu cầu phi chức năng, ứng dụng cần đáp ứng bao nhiêu người dùng?"
+    claim = "Ứng dụng phải phục vụ 1000 người dùng."
+    source = "Ví dụ: Ứng dụng phải phục vụ 1000 người dùng."
+    if universal:
+        with pytest.raises(ValueError, match="example"):
+            _validate_explicit_facts("Mọi " + claim, source, question_context=question)
+    else:
+        _validate_explicit_facts(claim, source, question_context=question)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("has_facts", [False, True])
+async def test_source_candidate_preparation_reads_sources_without_an_answer(has_facts):
+    import json
+
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+    _, _, evidence, _ = case()
+    calls = []
+
+    async def complete(prompt):
+        data = json.loads(prompt.messages[1]["content"])
+        assert "answer" not in data and "feedback" not in data
+        calls.append(prompt)
+        return _inventory_fixture(data, ("A diagram is required.",) if has_facts else ()), {
+            "provider": "cloudflare-workers-ai",
+            "provider_request_id": "inventory-only",
+        }
+
+    facts, metadata = await CloudflareAnswerSupportVerifier(complete).prepare_candidate(
+        question="Is a diagram required?",
+        groups=(("G1", "Is a diagram required?"),),
+        evidence=evidence,
+        snapshot_digest="snapshot",
+    )
+    assert facts == ([{"text": "A diagram is required.", "support": ["E1"]}] if has_facts else [])
+    assert metadata["provider_request_id"] == "inventory-only"
+    assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_source_inventory_preserves_whole_question_scope_before_atomic_audit():
+    import json
+
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+    question = "What information must the database section describe, and which diagram is needed?"
+    groups = (
+        ("G1", "What information must the database section describe?"),
+        ("G2", "Which diagram is needed?"),
+    )
+    evidence = (
+        GenerationEvidence(
+            "E1", "Describe the data. Explain why this database was chosen. Use an ERD."
+        ),
+    )
+
+    async def complete(prompt):
+        data = json.loads(prompt.messages[1]["content"])
+        assert len(data["groups"]) == 1 and data["groups"][0]["question"] == question
+        return _inventory_fixture(data, ("Explain why this database was chosen.",)), {}
+
+    facts, _ = await CloudflareAnswerSupportVerifier(complete).prepare_candidate(
+        question=question,
+        groups=groups,
+        evidence=evidence,
+        snapshot_digest="snapshot",
+    )
+    assert facts == [{"text": "Explain why this database was chosen.", "support": ["E1"]}]
+
+
 @pytest.mark.parametrize(
     "claim,source,valid",
     [
