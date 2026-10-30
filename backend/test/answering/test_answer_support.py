@@ -553,6 +553,41 @@ async def test_verifier_cannot_invent_answer_spans_to_cover_a_missing_fact(defec
 
 
 @pytest.mark.asyncio
+async def test_invalid_answer_quote_explains_the_exact_wire_correction():
+    import json
+
+    from knora.answering.answer_support import AnswerSupportFailure
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+    answer, projection, evidence, _ = case()
+
+    async def complete(prompt):
+        data = json.loads(prompt.messages[1]["content"])
+        if prompt.definition.serializer_id == "source-inventory-v1":
+            return _inventory_fixture(data), {}
+        wire = _audit_fixture(data)
+        wire["coverage"][0]["answer_quotes"] = ["A paraphrase, not the actual answer."]
+        return wire, {}
+
+    with pytest.raises(AnswerSupportFailure) as caught:
+        await CloudflareAnswerSupportVerifier(complete).verify(
+            question="Is a diagram required?",
+            groups=(("G1", "Is a diagram required?"),),
+            answer=answer,
+            answer_projection=projection,
+            evidence=evidence,
+            snapshot_digest="snapshot",
+        )
+    observation = caught.value.observation
+    assert observation["failure"] == "invalid_verifier_envelope"
+    assert observation["invalid_answer_quote"] == {
+        "fact_id": "G1:F1",
+        "quote": "A paraphrase, not the actual answer.",
+        "eligible_statements": [{"id": "S1", "text": projection.statements[0].text}],
+    }
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("unicode_context", [False, True])
 async def test_independent_audit_rejects_supported_subset_of_requested_contents(unicode_context):
     import json

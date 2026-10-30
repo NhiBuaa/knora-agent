@@ -593,25 +593,33 @@ class CloudflareAnswerSupportVerifier:
             ):
                 raise ValueError
             for item in verdict.coverage:
+                for quote in item.answer_quotes if item.covered else ():
+                    if not quote.strip() or not any(
+                        quote in s.text or quote in answer[s.start : s.end]
+                        for s in answer_projection.statements
+                        if s.id in item.statement_ids
+                    ):
+                        raise AnswerSupportFailure(
+                            "GENERATION_OUTPUT_INVALID",
+                            {
+                                "failure": "invalid_verifier_envelope",
+                                "invalid_answer_quote": {
+                                    "fact_id": item.id,
+                                    "quote": quote,
+                                    "eligible_statements": [
+                                        {"id": s.id, "text": s.text}
+                                        for s in answer_projection.statements
+                                        if s.id in item.statement_ids
+                                    ],
+                                },
+                                "provider": metadata,
+                            },
+                        )
                 if (
                     len(set(item.statement_ids)) != len(item.statement_ids)
                     or not set(item.statement_ids) <= set(statement_ids)
                     or (item.covered and not item.statement_ids)
-                    or (
-                        item.covered
-                        and (
-                            not item.answer_quotes
-                            or any(
-                                not quote.strip()
-                                or not any(
-                                    quote in s.text or quote in answer[s.start : s.end]
-                                    for s in answer_projection.statements
-                                    if s.id in item.statement_ids
-                                )
-                                for quote in item.answer_quotes
-                            )
-                        )
-                    )
+                    or (item.covered and not item.answer_quotes)
                 ):
                     raise ValueError
             expanded = verdict.model_dump(exclude={"coverage"})

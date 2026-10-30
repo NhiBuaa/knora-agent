@@ -302,6 +302,15 @@ async def generate_with_recovery(
                 "source_sufficiency"
                 if phase == "verification"
                 and observation.get("failure") == "unsupported_answer"
+                and not (
+                    observation.get("source_facts")
+                    and observation.get("failed_id") in {key for key, _ in groups}
+                    and observation.get("verdict", {}).get("statements")
+                    and all(
+                        s.get("verdict") == "SUPPORTED"
+                        for s in observation["verdict"]["statements"]
+                    )
+                )
                 and assess_sufficiency is not None
                 and not sufficiency_checked
                 else "repair"
