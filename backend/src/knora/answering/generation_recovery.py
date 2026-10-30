@@ -101,9 +101,13 @@ async def generate_with_recovery(
                 phase = "repair"
                 continue
             if phase != "verification":
-                if phase == "prune":
+                if phase in {"prune", "source_repair"}:
                     generation = pruned
-                    attempt["operation"] = "remove_rejected_statements"
+                    attempt["operation"] = (
+                        "compose_inventory_candidate"
+                        if phase == "source_repair"
+                        else "remove_rejected_statements"
+                    )
                 else:
                     state.generation = None
                     generation = (
@@ -112,7 +116,7 @@ async def generate_with_recovery(
                         else await repair(question=question, evidence=evidence, feedback=feedback)
                     )
                 state.generation = generation
-                if phase != "prune":
+                if phase not in {"prune", "source_repair"}:
                     attempt["provider"] = {
                         k: v
                         for k, v in asdict(generation).items()
@@ -267,6 +271,30 @@ async def generate_with_recovery(
                 rejected_answers.add(digest(state.generation.answer))
                 feedback["previous_answer"] = state.generation.answer
                 if observation.get("failure") == "unsupported_answer":
+                    if (
+                        observation.get("repair_facts")
+                        and not observation.get("fact_mismatch")
+                        and not any(a["phase"] == "source_repair" for a in state.attempts)
+                    ):
+                        answer, aliases, projection = compose_grounded_answer(
+                            {
+                                "decision": "ANSWER",
+                                "before": [],
+                                "items": observation["repair_facts"],
+                                "after": [],
+                                "refusal_reason": None,
+                            },
+                            evidence,
+                        )
+                        pruned = replace(
+                            state.generation,
+                            answer=answer,
+                            cited_evidence_ids=aliases,
+                            answer_projection=projection,
+                        )
+                        verify_feedback = None
+                        phase = "source_repair"
+                        continue
                     rejected_ids = {
                         s["id"]
                         for s in observation.get("verdict", {}).get("statements", [])

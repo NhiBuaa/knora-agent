@@ -1708,6 +1708,55 @@ async def test_v3_semantic_rejection_gets_corrected_answer_and_fresh_proof():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("final_outcome", ["supported", "unavailable"])
+async def test_inventory_repair_builds_a_new_candidate_then_requires_fresh_proof(final_outcome):
+    from knora.answering.answer_support import AnswerSupportFailure
+
+    class Verifier(SupportVerifier):
+        async def verify(self, **kwargs):
+            if not self.calls:
+                self.calls.append(kwargs)
+                raise AnswerSupportFailure(
+                    "GENERATION_OUTPUT_INVALID",
+                    {
+                        "failure": "unsupported_answer",
+                        "failed_id": "S1",
+                        "repair_facts": [{"text": "Đổi trả trong 7 ngày.", "support": ["E1"]}],
+                        "verdict": {"statements": [{"id": "S1", "verdict": "UNKNOWN"}]},
+                    },
+                )
+            assert (
+                kwargs["answer_projection"].answer_digest
+                != self.calls[0]["answer_projection"].answer_digest
+            )
+            return await super().verify(**kwargs)
+
+    generator, verifier = RecoverableGenerator(), Verifier(final_outcome)
+    store, service = generation_repair_case(generator, verifier=verifier)
+    command = QuestionCommand(workspace_id="workspace-a", question="Đổi trả trong bao nhiêu ngày?")
+    principal = WorkspacePrincipal(workspace_id="workspace-a", key_id="test")
+    if final_outcome == "unavailable":
+        with pytest.raises(KnoraError, match="PROVIDER_REQUEST_FAILED"):
+            await service.execute(command, principal)
+        assert store.traces[0].validation_outcome == "invalid"
+        assert store.traces[0].provider_metadata["answer_support"]["status"] == "unavailable"
+    else:
+        result = await service.execute(command, principal)
+        assert result.decision == "ANSWER"
+    assert len(verifier.calls) == 2
+    assert not generator.feedback
+    attempts = store.traces[0].provider_metadata["generation_recovery"]["attempts"]
+    assert [a["phase"] for a in attempts] == [
+        "generation",
+        "verification",
+        "source_repair",
+        "verification",
+    ]
+    assert attempts[2]["operation"] == "compose_inventory_candidate"
+    assert "provider" not in attempts[2]
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("statement_verdict", ["SUPPORTED", "UNKNOWN"])
 async def test_missing_covered_group_repairs_without_redundant_sufficiency_call(statement_verdict):
     from knora.answering.answer_support import AnswerSupportFailure
