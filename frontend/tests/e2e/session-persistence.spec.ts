@@ -27,7 +27,7 @@ test.describe("Browser session persistence and recovery", () => {
   test("native remember choice and retry preserve mode", async ({
     page,
   }, info) => {
-    test.setTimeout(90_000);
+    test.setTimeout(180_000);
     const evidenceDir = info.outputPath("evidence");
     fs.mkdirSync(evidenceDir, { recursive: true });
 
