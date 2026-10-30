@@ -69,7 +69,8 @@ resource or begin side effect`. Authorization failures must stop before resource
   This model selection preserves source validation and the shared 90-second request deadline;
   it does not authorize local inference. Retrieval V3 may recover malformed generation or
   verification and unsupported answers with specific diagnostic feedback inside that deadline.
-  A verification attempt has at most 60 seconds, bounded by the request's remaining time.
+  Verification selects exact supporting quotes and checks claim entailment independently.
+  Each verification call has at most 60 seconds, bounded by the request's remaining time.
   Successful answers still require a fresh source proof; repeated rejected candidates or
   unchanged failures stop recovery. Availability, quota, authorization and provenance failures
   fail closed. Each call is audited; no arbitrary call-count ceiling replaces the time budget.

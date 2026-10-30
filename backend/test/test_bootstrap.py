@@ -520,4 +520,4 @@ async def test_bootstrap_cloudflare_cap_reaches_wire_without_extra_generation() 
         "json_schema": GROUNDED_ANSWER_SCHEMA,
     }
     assert result.decision == "REFUSAL"
-    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v24"
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v25"

@@ -366,7 +366,9 @@ of the entire remaining answer and all required question parts. It stops on repe
 content, provider unavailability or deadline;
 there is no provider fallback and no unverified final answer. Per-call safe observations are in
 `QuestionTrace.provider_metadata.generation_recovery`; malformed generation also retains a trace.
-The verifier remains capped at 60 seconds within the 90-second question pipeline.
+Verification selects exact supporting quotes, then independently checks whether they
+establish each complete claim. Each call is capped at 60 seconds within the same
+90-second question pipeline; the second call does not reset that deadline.
 Provider/model changes require restarting the full launcher and checking fresh trace
 model/prompt identities. Paid AI use requires its own authorization; the Issue #153
 owner granted reasonable paid use and conditional 120B integration in the Codex

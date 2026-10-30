@@ -14,7 +14,7 @@ from knora.domain.errors import KnoraError
 from knora.providers.generation import AnswerProjection, AnswerStatement, GenerationEvidence
 
 POLICY_ID = "answer-support-verification-v3-r4-v1"
-PROMPT_ID = "cloudflare-gpt-oss-answer-support-v3"
+PROMPT_ID = "cloudflare-gpt-oss-answer-support-v4"
 
 
 def required_answer_groups(groups: tuple[tuple[str, str], ...]) -> tuple[tuple[str, str], ...]:
@@ -22,13 +22,24 @@ def required_answer_groups(groups: tuple[tuple[str, str], ...]) -> tuple[tuple[s
     separator = re.compile(
         r"(?:[,;?]\s*(?:(?:và|and)\s+)?|\s+(?:và|and)\s+)"
         r"(?=(?:cần|phải|bao|những|gồm|khi|ở|tại|vì|ai|có|dùng|sử dụng|trình bày|"
-        r"mô tả|giải thích|lựa chọn|chọn|(?:được\s+)?đánh số|what|how|when|where|why|"
+        r"mô tả|giải thích|lựa chọn|chọn|(?:được\s+)?đánh số|nếu|if|what|how|when|where|why|"
         r"which|who|must|should|is|are|do|does|can|numbered)\b)",
         re.IGNORECASE,
     )
     result = []
     for key, question in groups:
-        parts = tuple(part.strip() for part in separator.split(question) if part.strip())
+        parts = []
+        start = 0
+        for match in separator.finditer(question):
+            # Keep a conditional lead-in with its question across a comma.
+            if question[match.start()] == "," and re.match(
+                r"\s*(?:nếu|if)\b", question[start:], re.IGNORECASE
+            ):
+                continue
+            parts.append(question[start : match.start()].strip())
+            start = match.end()
+        parts.append(question[start:].strip())
+        parts = tuple(part for part in parts if part)
         result.extend(
             (f"{key}.{i}" if len(parts) > 1 else key, part) for i, part in enumerate(parts, 1)
         )
@@ -191,9 +202,19 @@ def validate_support(
                 ):
                     raise ValueError
             failure = "unsupported_answer"
-            _validate_explicit_facts(
-                statements[item.id].text, "\n".join(ref.exact_quote for ref in item.source_refs)
-            )
+            try:
+                _validate_explicit_facts(
+                    statements[item.id].text, "\n".join(ref.exact_quote for ref in item.source_refs)
+                )
+            except ValueError as mismatch:
+                raise AnswerSupportFailure(
+                    "GENERATION_OUTPUT_INVALID",
+                    {
+                        "failure": "unsupported_answer",
+                        "failed_id": item.id,
+                        "fact_mismatch": str(mismatch),
+                    },
+                ) from None
         failure = "invalid_verifier_proof"
         failed_id = None
         if len(verdict.groups) != len(group_ids) or {g.id for g in verdict.groups} != set(
@@ -252,7 +273,7 @@ def _validate_explicit_facts(statement: str, source: str) -> None:
         for number in re.findall(r"\b\d+\b", statement):
             token = rf"\b{number}\b"
             if re.search(token, examples) and not re.search(token, outside_examples):
-                raise ValueError
+                raise ValueError("An example value does not establish a general requirement.")
 
     # A source's pagination proves its own extent, never a requirement on another work.
     pagination = r"\b(?:trang|pages?)\s+\d+\s*(?:/|of)\s*\d+\b"
@@ -272,7 +293,9 @@ def _validate_explicit_facts(statement: str, source: str) -> None:
                 substantive,
                 re.IGNORECASE,
             ):
-                raise ValueError
+                raise ValueError(
+                    "Source pagination does not establish the required length of another work."
+                )
 
     def figure_labels(text):
         names = {"hình": "figure", "figure": "figure", "bảng": "table", "table": "table"}
@@ -284,13 +307,13 @@ def _validate_explicit_facts(statement: str, source: str) -> None:
         }
 
     if not figure_labels(statement) <= figure_labels(source):
-        raise ValueError
+        raise ValueError("Claimed figure/table identifiers are absent from the selected quotes.")
 
     # Compare the same explicit action, never a prohibition elsewhere in the source.
     source_requirements = negative_requirements(source)
     for action, forces in negative_requirements(statement).items():
         if "prohibited" in forces and source_requirements.get(action) == {"discouraged"}:
-            raise ValueError
+            raise ValueError("The claim strengthens a recommendation into a prohibition.")
 
     def tuples(text):
         units = {
@@ -313,7 +336,7 @@ def _validate_explicit_facts(statement: str, source: str) -> None:
     source_facts = tuples(source)
     for unit, values in tuples(statement).items():
         if unit in source_facts and not values <= source_facts[unit]:
-            raise ValueError
+            raise ValueError("The numeric quantity or unit differs from the selected quotes.")
 
     def dates(text):
         return {
@@ -325,7 +348,7 @@ def _validate_explicit_facts(statement: str, source: str) -> None:
         }
 
     if dates(source) and not dates(statement) <= dates(source):
-        raise ValueError
+        raise ValueError("The date differs from the selected quotes.")
 
     def codes(text):
         result = {}
@@ -336,7 +359,7 @@ def _validate_explicit_facts(statement: str, source: str) -> None:
     source_codes = codes(source)
     for prefix, values in codes(statement).items():
         if prefix in source_codes and not values <= source_codes[prefix]:
-            raise ValueError
+            raise ValueError("The identifier differs from the selected quotes.")
 
 
 def proof_observation(
