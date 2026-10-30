@@ -4,6 +4,7 @@ import json
 import shutil
 import subprocess
 import tempfile
+import uuid
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
@@ -12,12 +13,6 @@ import pytest
 POWERSHELL = shutil.which("pwsh") or shutil.which("powershell")
 ROOT = Path(__file__).resolve().parents[3]
 SUPERVISOR_SCRIPT = ROOT / "scripts/supervise-task8.ps1"
-
-
-def _clean_test_env(proj: str) -> None:
-    shutil.rmtree(ROOT / f"frontend/test-results/{proj}", ignore_errors=True)
-    Path(tempfile.gettempdir(), f"knora-session-supervisor-{proj}.lock").unlink(missing_ok=True)
-    Path(tempfile.gettempdir(), f"knora-figma-reservation-{proj}.lock").unlink(missing_ok=True)
 
 
 def _is_process_running(pid: int) -> bool:
@@ -36,8 +31,7 @@ def test_supervisor_stub_success(tmp_path: Path) -> None:
     now = datetime.now(UTC)
     cutoff = (now + timedelta(minutes=50)).isoformat()
     hard_deadline = (now + timedelta(minutes=55)).isoformat()
-    proj = "knora-figma-e2e-session-stub-success"
-    _clean_test_env(proj)
+    proj = f"knora-figma-e2e-session-stub-success-{uuid.uuid4().hex[:8]}"
 
     res = subprocess.run(
         [
@@ -86,10 +80,9 @@ def test_supervisor_stub_success(tmp_path: Path) -> None:
 @pytest.mark.skipif(POWERSHELL is None, reason="PowerShell runner unavailable")
 def test_supervisor_real_cutoff_terminates_child_and_grandchild_tree(tmp_path: Path) -> None:
     now = datetime.now(UTC)
-    cutoff = (now + timedelta(seconds=3)).isoformat()
-    hard_deadline = (now + timedelta(seconds=15)).isoformat()
-    proj = "knora-figma-e2e-session-stub-timeout"
-    _clean_test_env(proj)
+    cutoff = (now + timedelta(seconds=2)).isoformat()
+    hard_deadline = (now + timedelta(seconds=10)).isoformat()
+    proj = f"knora-figma-e2e-session-stub-timeout-{uuid.uuid4().hex[:8]}"
 
     res = subprocess.run(
         [
@@ -139,10 +132,10 @@ def test_supervisor_real_cutoff_terminates_child_and_grandchild_tree(tmp_path: P
 @pytest.mark.skipif(POWERSHELL is None, reason="PowerShell runner unavailable")
 def test_supervisor_cleanup_failure_retains_reservation(tmp_path: Path) -> None:
     now = datetime.now(UTC)
-    cutoff = (now + timedelta(seconds=3)).isoformat()
-    hard_deadline = (now + timedelta(seconds=12)).isoformat()
-    proj = "knora-figma-e2e-session-cleanup-fail"
-    _clean_test_env(proj)
+    cutoff = (now + timedelta(seconds=2)).isoformat()
+    # 5 seconds hard deadline allows 3 seconds for bounded cleanup timeout
+    hard_deadline = (now + timedelta(seconds=5)).isoformat()
+    proj = f"knora-figma-e2e-session-cleanup-fail-{uuid.uuid4().hex[:8]}"
 
     res = subprocess.run(
         [
@@ -174,6 +167,7 @@ def test_supervisor_cleanup_failure_retains_reservation(tmp_path: Path) -> None:
     assert receipt["status"] == "CLEANUP_FAILED_OR_INCOMPLETE"
     assert receipt["cleanupVerified"] is False
     assert receipt["reservationReleased"] is False
+    assert "TIMEOUT" in (receipt["failureReason"] or "")
 
     # Postcondition: Reservation lock file MUST BE RETAINED on disk for inspection
     reservation_path = Path(receipt["reservationPath"])
@@ -187,14 +181,11 @@ def test_supervisor_cleanup_failure_retains_reservation(tmp_path: Path) -> None:
 
 
 @pytest.mark.skipif(POWERSHELL is None, reason="PowerShell runner unavailable")
-def test_supervisor_hard_deadline_exceeded_before_cleanup(tmp_path: Path) -> None:
+def test_supervisor_fail_cleanup_exitcode_fails_cleanly(tmp_path: Path) -> None:
     now = datetime.now(UTC)
-    # Very short cutoff (2s) and hard deadline (2.1s):
-    # By the time worker hangs and is killed, hard deadline has passed.
     cutoff = (now + timedelta(seconds=2)).isoformat()
-    hard_deadline = (now + timedelta(seconds=2, milliseconds=100)).isoformat()
-    proj = "knora-figma-e2e-session-hard-deadline"
-    _clean_test_env(proj)
+    hard_deadline = (now + timedelta(seconds=6)).isoformat()
+    proj = f"knora-figma-e2e-session-fail-cleanup-{uuid.uuid4().hex[:8]}"
 
     res = subprocess.run(
         [
@@ -209,7 +200,7 @@ def test_supervisor_hard_deadline_exceeded_before_cleanup(tmp_path: Path) -> Non
             "-ProjectName",
             proj,
             "-StubMode",
-            "HangRunner",
+            "FailCleanup",
             "-AllowDirty",
         ],
         capture_output=True,
@@ -222,14 +213,107 @@ def test_supervisor_hard_deadline_exceeded_before_cleanup(tmp_path: Path) -> Non
     receipt_path = ROOT / f"frontend/test-results/{proj}/task8-supervision-receipt.json"
     assert receipt_path.exists()
     receipt = json.loads(receipt_path.read_text(encoding="utf-8-sig"))
-    assert receipt["withinHardDeadline"] is False
     assert receipt["status"] == "CLEANUP_FAILED_OR_INCOMPLETE"
+    assert receipt["cleanupVerified"] is False
     assert receipt["reservationReleased"] is False
-    assert Path(receipt["reservationPath"]).exists()
+
+    # Postcondition: Reservation lock file MUST BE RETAINED on disk
+    reservation_path = Path(receipt["reservationPath"])
+    assert reservation_path.exists()
 
     # Cleanup retained test artifact
-    Path(receipt["reservationPath"]).unlink(missing_ok=True)
+    reservation_path.unlink(missing_ok=True)
     shutil.rmtree(ROOT / f"frontend/test-results/{proj}", ignore_errors=True)
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell runner unavailable")
+def test_supervisor_preserves_foreign_canonical_reservation_and_skips_teardown(
+    tmp_path: Path,
+) -> None:
+    proj = f"knora-figma-e2e-session-foreign-{uuid.uuid4().hex[:8]}"
+    foreign_lock = Path(tempfile.gettempdir(), f"knora-figma-reservation-{proj}.lock")
+    foreign_bytes = b'{"owner": "foreign-process", "locked": true}'
+    foreign_lock.write_bytes(foreign_bytes)
+
+    now = datetime.now(UTC)
+    cutoff = (now + timedelta(minutes=50)).isoformat()
+    hard_deadline = (now + timedelta(minutes=55)).isoformat()
+
+    try:
+        res = subprocess.run(
+            [
+                POWERSHELL,
+                "-NoProfile",
+                "-File",
+                str(SUPERVISOR_SCRIPT),
+                "-AbsoluteCutoff",
+                cutoff,
+                "-HardDeadline",
+                hard_deadline,
+                "-ProjectName",
+                proj,
+                "-StubMode",
+                "Success",
+                "-AllowDirty",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+        assert res.returncode != 0
+        assert "CANONICAL_HARNESS_PROJECT_RESERVED" in res.stderr
+
+        # Postcondition: The foreign lock MUST BE COMPLETELY UNTOUCHED AND PRESERVED!
+        assert foreign_lock.exists()
+        assert foreign_lock.read_bytes() == foreign_bytes
+    finally:
+        foreign_lock.unlink(missing_ok=True)
+        shutil.rmtree(ROOT / f"frontend/test-results/{proj}", ignore_errors=True)
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell runner unavailable")
+def test_supervisor_preserves_foreign_supervisor_reservation(tmp_path: Path) -> None:
+    proj = f"knora-figma-e2e-session-foreign-sup-{uuid.uuid4().hex[:8]}"
+    foreign_sup_lock = Path(tempfile.gettempdir(), f"knora-session-supervisor-{proj}.lock")
+    foreign_bytes = b'{"owner": "another-supervisor", "status": "ACTIVE"}'
+    foreign_sup_lock.write_bytes(foreign_bytes)
+
+    now = datetime.now(UTC)
+    cutoff = (now + timedelta(minutes=50)).isoformat()
+    hard_deadline = (now + timedelta(minutes=55)).isoformat()
+
+    try:
+        res = subprocess.run(
+            [
+                POWERSHELL,
+                "-NoProfile",
+                "-File",
+                str(SUPERVISOR_SCRIPT),
+                "-AbsoluteCutoff",
+                cutoff,
+                "-HardDeadline",
+                hard_deadline,
+                "-ProjectName",
+                proj,
+                "-StubMode",
+                "Success",
+                "-AllowDirty",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+        assert res.returncode != 0
+        assert "FIGMA_SUPERVISOR_PROJECT_RESERVED" in res.stderr
+
+        # Postcondition: The foreign supervisor lock MUST BE UNTOUCHED
+        assert foreign_sup_lock.exists()
+        assert foreign_sup_lock.read_bytes() == foreign_bytes
+    finally:
+        foreign_sup_lock.unlink(missing_ok=True)
+        shutil.rmtree(ROOT / f"frontend/test-results/{proj}", ignore_errors=True)
 
 
 @pytest.mark.skipif(POWERSHELL is None, reason="PowerShell runner unavailable")
@@ -237,8 +321,7 @@ def test_supervisor_remaining_time_guard_rejects_insufficient_time(tmp_path: Pat
     now = datetime.now(UTC)
     cutoff = (now + timedelta(minutes=30)).isoformat()
     hard_deadline = (now + timedelta(minutes=35)).isoformat()
-    proj = "knora-figma-e2e-session-insufficient"
-    _clean_test_env(proj)
+    proj = f"knora-figma-e2e-session-insufficient-{uuid.uuid4().hex[:8]}"
 
     res = subprocess.run(
         [
@@ -267,9 +350,8 @@ def test_supervisor_remaining_time_guard_rejects_insufficient_time(tmp_path: Pat
 def test_supervisor_rejects_invalid_deadlines(tmp_path: Path) -> None:
     now = datetime.now(UTC)
     cutoff = (now + timedelta(minutes=50)).isoformat()
-    # HardDeadline is before AbsoluteCutoff!
     hard_deadline = (now + timedelta(minutes=40)).isoformat()
-    proj = "knora-figma-e2e-session-invalid-deadlines"
+    proj = f"knora-figma-e2e-session-invalid-deadlines-{uuid.uuid4().hex[:8]}"
 
     res = subprocess.run(
         [

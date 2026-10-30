@@ -33,6 +33,7 @@ $resDir = Join-Path $repoRoot "frontend/test-results/$project"
 $supervisionReceiptPath = Join-Path $resDir 'task8-supervision-receipt.json'
 $migrationReceiptPath = Join-Path $resDir 'migration-cycle-receipt.json'
 $pidsFilePath = Join-Path $resDir 'worker-pids.json'
+$ownershipPath = Join-Path $resDir 'worker-ownership.json'
 
 function Get-ProcessDescendantIds([int]$parentPid) {
     $descendants = [System.Collections.Generic.List[int]]::new()
@@ -54,6 +55,45 @@ function Get-ProcessDescendantIds([int]$parentPid) {
     return $descendants
 }
 
+function Invoke-BoundedProcess {
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [string[]]$ArgumentList = @(),
+        [Parameter(Mandatory = $true)][int]$TimeoutMs,
+        [switch]$CaptureOutput
+    )
+    $safeTimeout = [Math]::Max(100, $TimeoutMs)
+    $pInfo = New-Object System.Diagnostics.ProcessStartInfo
+    $pInfo.FileName = $FilePath
+    if ($ArgumentList -and $ArgumentList.Count -gt 0) {
+        $pInfo.Arguments = ($ArgumentList -join ' ')
+    }
+    $pInfo.UseShellExecute = $false
+    $pInfo.CreateNoWindow = $true
+    if ($CaptureOutput) {
+        $pInfo.RedirectStandardOutput = $true
+        $pInfo.RedirectStandardError = $true
+    }
+    $p = [System.Diagnostics.Process]::Start($pInfo)
+    $null = $p.Handle
+    $finished = $p.WaitForExit($safeTimeout)
+    $timedOut = $false
+    if (-not $finished) {
+        $timedOut = $true
+        try { Start-Process "taskkill" -ArgumentList "/PID $($p.Id) /T /F" -NoNewWindow -Wait } catch {}
+    } else {
+        $p.WaitForExit()
+    }
+    $out = if ($CaptureOutput -and -not $timedOut) { $p.StandardOutput.ReadToEnd() } else { '' }
+    $err = if ($CaptureOutput -and -not $timedOut) { $p.StandardError.ReadToEnd() } else { '' }
+    return [ordered]@{
+        ExitCode = if ($timedOut) { -1 } else { $p.ExitCode }
+        TimedOut = $timedOut
+        StdOut = $out
+        StdErr = $err
+    }
+}
+
 # ==============================================================================
 # INNER WORKER MODE: Executes inside the isolated environment reservation
 # ==============================================================================
@@ -68,6 +108,18 @@ if ($WorkerMode) {
     # STUB MODE (used for local fault tests without Docker)
     if ($StubMode -ne 'None') {
         Write-Output "Worker running in STUB MODE: $StubMode"
+        
+        # In stub mode, simulate successful reservation acquisition and startup attempt
+        $stubOwnership = [ordered]@{
+            schemaVersion = 1
+            project = $project
+            workerPid = $PID
+            acquired = $true
+            startupAttempted = $true
+            timestampUtc = [DateTime]::UtcNow.ToString('o')
+        }
+        [System.IO.File]::WriteAllText($ownershipPath, ($stubOwnership | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
+
         if ($StubMode -eq 'HangStartup') {
             $cleanPidPath = $pidsFilePath.Replace('\', '/')
             $nodeScript = "const { spawn } = require('child_process'); const fs = require('fs'); const gc = spawn('node', ['-e', 'setTimeout(()=>{}, 600000)']); const pids = { workerPid: $PID, childPid: process.pid, grandchildPid: gc.pid }; fs.writeFileSync('$cleanPidPath', JSON.stringify(pids)); setTimeout(() => {}, 600000);"
@@ -107,7 +159,6 @@ if ($WorkerMode) {
             $nodeScript = "const { spawn } = require('child_process'); const fs = require('fs'); const gc = spawn('node', ['-e', 'setTimeout(()=>{}, 600000)']); const pids = { workerPid: $PID, childPid: process.pid, grandchildPid: gc.pid }; fs.writeFileSync('$cleanPidPath', JSON.stringify(pids)); setTimeout(() => {}, 600000);"
             $child = Start-Process "node" -ArgumentList "-e", "`"$nodeScript`"" -PassThru -NoNewWindow
             $null = $child.Handle
-            # Simulate worker finishing runner and then hanging during cleanup
             Start-Sleep -Seconds 600
         }
         if ($StubMode -eq 'FailCleanup') {
@@ -120,7 +171,12 @@ if ($WorkerMode) {
                 timestampUtc = [DateTime]::UtcNow.ToString('o')
             }
             [System.IO.File]::WriteAllText($migrationReceiptPath, ($migReceipt | ConvertTo-Json -Depth 5), [System.Text.UTF8Encoding]::new($false))
-            throw "SIMULATED_CLEANUP_FAILURE: Worker cleanup failed in stub mode"
+            
+            $cleanPidPath = $pidsFilePath.Replace('\', '/')
+            $nodeScript = "const { spawn } = require('child_process'); const fs = require('fs'); const gc = spawn('node', ['-e', 'setTimeout(()=>{}, 600000)']); const pids = { workerPid: $PID, childPid: process.pid, grandchildPid: gc.pid }; fs.writeFileSync('$cleanPidPath', JSON.stringify(pids)); setTimeout(() => {}, 600000);"
+            $child = Start-Process "node" -ArgumentList "-e", "`"$nodeScript`"" -PassThru -NoNewWindow
+            $null = $child.Handle
+            Start-Sleep -Seconds 600
         }
         if ($StubMode -eq 'Success') {
             $migReceipt = [ordered]@{
@@ -143,6 +199,18 @@ if ($WorkerMode) {
         param($proj, $composeArgs)
         $repo = 'C:\Developer\Projects\knora-agent-worktree\fix-browser-session-persistence'
         $targetDir = Join-Path $repo "frontend/test-results/$proj"
+
+        # Record ownership receipt: This run successfully acquired harness reservation and started compose!
+        $workerOwnership = [ordered]@{
+            schemaVersion = 1
+            project = $proj
+            workerPid = $PID
+            acquired = $true
+            startupAttempted = $true
+            timestampUtc = [DateTime]::UtcNow.ToString('o')
+        }
+        $ownershipPathWorker = Join-Path $targetDir 'worker-ownership.json'
+        [System.IO.File]::WriteAllText($ownershipPathWorker, ($workerOwnership | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
 
         # 1. Health checks & Provider observation
         Invoke-RestMethod http://127.0.0.1:8800/health | Out-Null
@@ -294,8 +362,18 @@ if ($StubMode -eq 'None' -and $initialRemaining -lt 2580) {
     throw "INSUFFICIENT_TIME_FOR_WHOLE_PACKAGE: Remaining seconds ($initialRemaining) < required 2580s for whole-package execution"
 }
 
-# Acquire Outer Supervisor Reservation
+# 1. VERIFY NO PREEXISTING CANONICAL HARNESS RESERVATION
+$canonicalHarnessLockPath = Join-Path ([System.IO.Path]::GetTempPath()) "knora-figma-reservation-$project.lock"
+if (Test-Path $canonicalHarnessLockPath) {
+    throw "CANONICAL_HARNESS_PROJECT_RESERVED: Project $project is already reserved by preexisting harness lock ($canonicalHarnessLockPath)"
+}
+
+# 2. ACQUIRE OUTER SUPERVISOR RESERVATION ATOMICALLY
 $supervisorReservationPath = Join-Path ([System.IO.Path]::GetTempPath()) "knora-session-supervisor-$project.lock"
+if (Test-Path $supervisorReservationPath) {
+    throw "FIGMA_SUPERVISOR_PROJECT_RESERVED: Project $project already has an active supervisor reservation ($supervisorReservationPath)"
+}
+
 $supervisorReservation = $null
 try {
     $supervisorReservation = [System.IO.File]::Open(
@@ -343,6 +421,7 @@ if ($AllowDirty) {
 }
 
 Write-Output "Outer Supervisor launching Worker: $psExe $workerArgs"
+$supervisorStartTime = [DateTime]::UtcNow
 $workerProc = Start-Process -FilePath $psExe -ArgumentList $workerArgs -PassThru -NoNewWindow
 $null = $workerProc.Handle
 
@@ -389,7 +468,7 @@ try {
         if (-not $allTrackedPids.Contains($dPid)) { $allTrackedPids.Add($dPid) }
     }
 
-    # Terminate process tree via taskkill if still running
+    # Terminate process tree via taskkill if still running (validate creation identity)
     if (-not $workerProc.HasExited) {
         try {
             $tkProc = Start-Process "taskkill" -ArgumentList "/PID $($workerProc.Id) /T /F" -PassThru -NoNewWindow -Wait
@@ -406,8 +485,11 @@ try {
         foreach ($pidToCheck in $allTrackedPids) {
             $procFound = Get-Process -Id $pidToCheck -ErrorAction SilentlyContinue
             if ($procFound) {
-                $lingeringProcesses.Add($pidToCheck)
-                try { Stop-Process -Id $pidToCheck -Force } catch {}
+                # Guard against recycled PIDs started before supervisor
+                if ($procFound.StartTime.ToUniversalTime() -ge $supervisorStartTime) {
+                    $lingeringProcesses.Add($pidToCheck)
+                    try { Stop-Process -Id $pidToCheck -Force } catch {}
+                }
             }
         }
         if ($lingeringProcesses.Count -eq 0) { break }
@@ -424,97 +506,130 @@ try {
     }
 
     # ==========================================================================
-    # POSTCONDITION 2: CLEANUP BOUNDED BY HARDDEADLINE & VERIFY COMPOSE RESOURCES
+    # POSTCONDITION 2: CLEANUP BOUNDED BY HARDDEADLINE & PRESERVE FOREIGN RESOURCES
     # ==========================================================================
     $cleanupVerified = $false
     $nowCleanup = [DateTimeOffset]::UtcNow
 
-    if ($nowCleanup -ge $HardDeadline) {
+    # Teardown must ONLY occur if this run actually acquired ownership and attempted startup!
+    $workerAttemptedStartup = $false
+    if (Test-Path $ownershipPath) {
+        try {
+            $ownerData = Get-Content $ownershipPath -Raw | ConvertFrom-Json
+            if ($ownerData.startupAttempted -and $ownerData.workerPid -eq $workerProc.Id) {
+                $workerAttemptedStartup = $true
+            }
+        } catch {}
+    }
+
+    if (-not $workerAttemptedStartup) {
+        Write-Output "Startup was not attempted by worker PID $($workerProc.Id); skipping compose teardown to protect foreign resources."
         if (-not $failureReason) {
-            $failureReason = "HARD_DEADLINE_EXCEEDED_BEFORE_CLEANUP: Now=$($nowCleanup.ToString('o')) >= HardDeadline=$($HardDeadline.ToString('o'))"
+            $failureReason = "WORKER_STARTUP_NOT_ATTEMPTED: Worker did not acquire harness reservation or failed before startup"
         }
-    } elseif ($StubMode -eq 'HangCleanup') {
-        # Simulate worker hanging during cleanup past HardDeadline
-        $failureReason = "CLEANUP_VERIFICATION_FAILED: Simulated cleanup hang/failure for StubMode HangCleanup"
-    } elseif ($StubMode -eq 'FailCleanup') {
-        # Simulate cleanup failure
-        $failureReason = "CLEANUP_VERIFICATION_FAILED: Simulated cleanup failure for StubMode FailCleanup"
-    } elseif ($StubMode -eq 'None') {
-        # Production Docker Teardown
-        $remainingSecForCleanup = ($HardDeadline - [DateTimeOffset]::UtcNow).TotalSeconds
-        if ($remainingSecForCleanup -lt 15) {
+    } else {
+        if ($nowCleanup -ge $HardDeadline) {
             if (-not $failureReason) {
-                $failureReason = "INSUFFICIENT_TIME_FOR_CLEANUP: Only $remainingSecForCleanup s remaining before HardDeadline"
+                $failureReason = "HARD_DEADLINE_EXCEEDED_BEFORE_CLEANUP: Now=$($nowCleanup.ToString('o')) >= HardDeadline=$($HardDeadline.ToString('o'))"
             }
         } else {
-            $composeArgs = @(
-                '--project-name', $project,
-                '--project-directory', $repoRoot,
-                '-f', (Join-Path $repoRoot 'docker-compose.dev.yml'),
-                '--profile', 'figma'
-            )
-            Write-Output "Executing Docker Teardown for project $project bounded by HardDeadline ($($HardDeadline.ToString('o')))..."
-            $downProc = Start-Process -FilePath "docker" -ArgumentList (@("compose") + $composeArgs + @("down", "--volumes", "--remove-orphans")) -PassThru -NoNewWindow
-            $null = $downProc.Handle
-            $timeoutMs = [int]($remainingSecForCleanup * 1000)
-            $downFinished = $downProc.WaitForExit($timeoutMs)
-            if (-not $downFinished) {
-                try { Start-Process "taskkill" -ArgumentList "/PID $($downProc.Id) /T /F" -NoNewWindow -Wait } catch {}
+            $remMs = [int](($HardDeadline - [DateTimeOffset]::UtcNow).TotalMilliseconds)
+            if ($remMs -lt 1500) {
                 if (-not $failureReason) {
-                    $failureReason = "CLEANUP_DOCKER_DOWN_TIMEOUT: docker compose down exceeded HardDeadline"
-                }
-            } elseif ($downProc.ExitCode -ne 0) {
-                if (-not $failureReason) {
-                    $failureReason = "CLEANUP_DOCKER_DOWN_FAILED: docker compose down returned exit code $($downProc.ExitCode)"
+                    $failureReason = "INSUFFICIENT_TIME_FOR_CLEANUP: Only $remMs ms remaining before HardDeadline"
                 }
             } else {
-                # Inspect postconditions: resources
-                $lingeringResource = $null
-                foreach ($resource in @(@('ps', '-a'), @('volume', 'ls'), @('network', 'ls'))) {
-                    $remaining = @(& docker @resource --filter "label=com.docker.compose.project=$project" --quiet)
-                    if ($LASTEXITCODE -ne 0 -or $remaining.Count -gt 0) {
-                        $lingeringResource = "$resource (count: $($remaining.Count))"
-                        break
-                    }
-                }
-                if ($lingeringResource) {
-                    if (-not $failureReason) {
-                        $failureReason = "CLEANUP_POSTCONDITION_FAILED: Remaining $lingeringResource for project $project"
-                    }
-                } else {
-                    # Inspect postconditions: listeners
-                    $activePort = $null
-                    foreach ($port in 3300, 8800, 8380, 5543, 9900, 9901, 1025, 8025) {
-                        $listener = New-Object Net.Sockets.TcpClient
-                        try {
-                            $connected = $listener.ConnectAsync('127.0.0.1', $port).Wait(150)
-                            if ($connected -and $listener.Connected) {
-                                $activePort = $port
-                                break
-                            }
-                        } catch [AggregateException] {
-                        } finally { $listener.Dispose() }
-                    }
-                    if ($activePort) {
+                $downTimeoutMs = [Math]::Max(500, $remMs - 1000)
+
+                if ($StubMode -eq 'HangCleanup') {
+                    # Exercise real bounded process timeout
+                    Write-Output "Executing Stub Cleanup (HangCleanup) bounded by timeout ${downTimeoutMs}ms..."
+                    $downRes = Invoke-BoundedProcess -FilePath "node" -ArgumentList @("-e", "`"setTimeout(()=>{}, 600000)`"") -TimeoutMs $downTimeoutMs
+                    if ($downRes.TimedOut) {
                         if (-not $failureReason) {
-                            $failureReason = "CLEANUP_PORT_LISTENER_ACTIVE: Port $activePort still has an active listener"
+                            $failureReason = "CLEANUP_DOCKER_DOWN_TIMEOUT: Teardown command exceeded remaining HardDeadline"
+                        }
+                    }
+                } elseif ($StubMode -eq 'FailCleanup') {
+                    # Exercise real non-zero exit code failure
+                    Write-Output "Executing Stub Cleanup (FailCleanup)..."
+                    $downRes = Invoke-BoundedProcess -FilePath "node" -ArgumentList @("-e", "`"process.exit(42)`"") -TimeoutMs $downTimeoutMs
+                    if ($downRes.ExitCode -ne 0) {
+                        if (-not $failureReason) {
+                            $failureReason = "CLEANUP_DOCKER_DOWN_FAILED: Teardown command returned exit code $($downRes.ExitCode)"
+                        }
+                    }
+                } elseif ($StubMode -eq 'None') {
+                    # Real Production Docker Teardown
+                    $composeArgs = @(
+                        '--project-name', $project,
+                        '--project-directory', $repoRoot,
+                        '-f', (Join-Path $repoRoot 'docker-compose.dev.yml'),
+                        '--profile', 'figma'
+                    )
+                    Write-Output "Executing Docker Teardown for project $project bounded by ${downTimeoutMs}ms..."
+                    $downRes = Invoke-BoundedProcess -FilePath "docker" -ArgumentList (@("compose") + $composeArgs + @("down", "--volumes", "--remove-orphans")) -TimeoutMs $downTimeoutMs
+                    if ($downRes.TimedOut) {
+                        if (-not $failureReason) {
+                            $failureReason = "CLEANUP_DOCKER_DOWN_TIMEOUT: docker compose down exceeded HardDeadline"
+                        }
+                    } elseif ($downRes.ExitCode -ne 0) {
+                        if (-not $failureReason) {
+                            $failureReason = "CLEANUP_DOCKER_DOWN_FAILED: docker compose down returned exit code $($downRes.ExitCode)"
                         }
                     } else {
+                        # Inspect postconditions: resources (bounded by remaining time)
+                        $lingeringResource = $null
+                        foreach ($resource in @(@('ps', '-a'), @('volume', 'ls'), @('network', 'ls'))) {
+                            $qRemMs = [Math]::Max(500, [int](($HardDeadline - [DateTimeOffset]::UtcNow).TotalMilliseconds - 1000))
+                            $qRes = Invoke-BoundedProcess -FilePath "docker" -ArgumentList (@($resource) + @("--filter", "label=com.docker.compose.project=$project", "--quiet")) -TimeoutMs $qRemMs -CaptureOutput
+                            if ($qRes.TimedOut) {
+                                $lingeringResource = "$resource query timed out"
+                                break
+                            } elseif ($qRes.ExitCode -ne 0 -or ($qRes.StdOut.Trim().Length -gt 0)) {
+                                $lingeringResource = "$resource (output: $($qRes.StdOut.Trim()))"
+                                break
+                            }
+                        }
+                        if ($lingeringResource) {
+                            if (-not $failureReason) {
+                                $failureReason = "CLEANUP_POSTCONDITION_FAILED: Remaining $lingeringResource for project $project"
+                            }
+                        } else {
+                            # Inspect postconditions: port listeners (each 150ms)
+                            $activePort = $null
+                            foreach ($port in 3300, 8800, 8380, 5543, 9900, 9901, 1025, 8025) {
+                                $listener = New-Object Net.Sockets.TcpClient
+                                try {
+                                    $connected = $listener.ConnectAsync('127.0.0.1', $port).Wait(150)
+                                    if ($connected -and $listener.Connected) {
+                                        $activePort = $port
+                                        break
+                                    }
+                                } catch [AggregateException] {
+                                } finally { $listener.Dispose() }
+                            }
+                            if ($activePort) {
+                                if (-not $failureReason) {
+                                    $failureReason = "CLEANUP_PORT_LISTENER_ACTIVE: Port $activePort still has an active listener"
+                                }
+                            } else {
+                                $cleanupVerified = $true
+                            }
+                        }
+                    }
+                } else {
+                    # Other stub modes: Success, HangStartup, HangRunner
+                    if ($workerFinishedCleanly -or $childProcessesKilled) {
                         $cleanupVerified = $true
                     }
                 }
-            }
-        }
 
-        # Also clean up worker's figma reservation lock if left behind
-        $workerLockPath = Join-Path ([System.IO.Path]::GetTempPath()) "knora-figma-reservation-$project.lock"
-        if ($cleanupVerified -and (Test-Path $workerLockPath)) {
-            Remove-Item -LiteralPath $workerLockPath -Force -ErrorAction SilentlyContinue
-        }
-    } else {
-        # Other stub modes: Success, HangStartup, HangRunner
-        if ($workerFinishedCleanly -or $childProcessesKilled) {
-            $cleanupVerified = $true
+                # Only delete worker's canonical harness lock if verified AND this run owned it
+                if ($cleanupVerified -and (Test-Path $canonicalHarnessLockPath)) {
+                    Remove-Item -LiteralPath $canonicalHarnessLockPath -Force -ErrorAction SilentlyContinue
+                }
+            }
         }
     }
 
