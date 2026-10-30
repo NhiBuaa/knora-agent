@@ -477,6 +477,40 @@ async def test_source_audit_detects_an_omission_absent_from_preliminary_inventor
 
 
 @pytest.mark.asyncio
+async def test_repair_does_not_repeat_a_fact_reported_missing_twice():
+    import json
+
+    from knora.answering.answer_support import AnswerSupportFailure
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+    answer, projection, evidence, _ = case()
+
+    async def complete(prompt):
+        data = json.loads(prompt.messages[1]["content"])
+        if prompt.definition.serializer_id == "source-inventory-v1":
+            return _inventory_fixture(data), {}
+        wire = _audit_fixture(data)
+        wire["missing_source_facts"] = [
+            {"group_id": "G1", "fact": "A diagram is required.", "quote_ids": ["E1:Q1"]}
+        ] * 2
+        return wire, {}
+
+    with pytest.raises(AnswerSupportFailure) as caught:
+        await CloudflareAnswerSupportVerifier(complete).verify(
+            question="Is a diagram required?",
+            groups=(("G1", "Is a diagram required?"),),
+            answer=answer,
+            answer_projection=projection,
+            evidence=evidence,
+            snapshot_digest="snapshot",
+        )
+    assert caught.value.observation["failure"] == "unsupported_answer"
+    assert caught.value.observation["repair_facts"] == [
+        {"text": "A diagram is required.", "support": ["E1"]}
+    ]
+
+
+@pytest.mark.asyncio
 async def test_inventory_candidate_requires_a_fresh_audit_against_original_sources():
     import json
 

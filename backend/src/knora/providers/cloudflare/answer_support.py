@@ -758,6 +758,11 @@ class CloudflareAnswerSupportVerifier:
                 }
                 for f in verdict.missing_source_facts
             )
+            unique_facts = []
+            for fact in repair_facts:
+                if fact not in unique_facts:
+                    unique_facts.append(fact)
+            repair_facts = unique_facts
             expanded.pop("missing_source_facts")
             for group in expanded["groups"]:
                 if group["id"] in missing:
