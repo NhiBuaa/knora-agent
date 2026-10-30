@@ -367,7 +367,11 @@ content, provider unavailability or deadline;
 there is no provider fallback and no unverified final answer. Per-call safe observations are in
 `QuestionTrace.provider_metadata.generation_recovery`; malformed generation also retains a trace.
 Verification selects exact supporting quotes, then independently checks whether they
-establish each complete claim. Each call is capped at 60 seconds within the same
+establish each complete claim. Completeness uses immutable answer-statement IDs;
+the server resolves literal answer spans instead of asking the model to transcribe them.
+A rejected candidate can be rebuilt from preliminary source facts, but that candidate
+still requires fresh verification against original sources and every question group.
+Each call is capped at 60 seconds within the same
 90-second question pipeline; the second call does not reset that deadline.
 When a rejected answer needs repair, a separate source check may confirm insufficient evidence
 and return the existing generic refusal. This checks the supplied excerpts, not absence across
