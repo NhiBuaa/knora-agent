@@ -289,7 +289,10 @@ async def generate_with_recovery(
                     if (
                         observation.get("repair_facts")
                         and not observation.get("fact_mismatch")
-                        and not any(a["phase"] == "source_repair" for a in state.attempts)
+                        and (
+                            observation.get("missing_source_facts")
+                            or not any(a["phase"] == "source_repair" for a in state.attempts)
+                        )
                     ):
                         answer, aliases, projection = compose_grounded_answer(
                             {
