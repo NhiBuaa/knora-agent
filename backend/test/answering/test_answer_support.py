@@ -430,6 +430,54 @@ async def test_required_source_inventory_is_blind_to_candidate_answer():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("changed_input", [None, "question", "groups", "source", "snapshot"])
+async def test_recovery_reuses_only_the_same_blind_inventory_and_always_audits(changed_input):
+    import json
+
+    from knora.answering.answer_support import AnswerSupportFailure
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+    answer, projection, evidence, _ = case()
+    calls = []
+
+    async def complete(prompt):
+        data = json.loads(prompt.messages[1]["content"])
+        calls.append(prompt.definition.serializer_id)
+        assert "source_inventory" not in data.get("recovery_feedback", {})
+        if prompt.definition.serializer_id == "source-inventory-v1":
+            return _inventory_fixture(data), {"provider_request_id": "inventory-receipt"}
+        wire = _audit_fixture(data)
+        wire["statements"][0].update(verdict="UNKNOWN", source_refs=[])
+        return wire, {}
+
+    verifier = CloudflareAnswerSupportVerifier(complete)
+    kwargs = dict(
+        question="Required?",
+        groups=(("G1", "Required?"),),
+        answer=answer,
+        answer_projection=projection,
+        evidence=evidence,
+        snapshot_digest="snapshot",
+    )
+    with pytest.raises(AnswerSupportFailure) as first:
+        await verifier.verify(**kwargs)
+    inventory = first.value.observation["provider"]["source_inventory"]
+    if changed_input == "question":
+        kwargs["question"] = "Is this optional?"
+    elif changed_input == "groups":
+        kwargs["groups"] = (("G2", "Required?"),)
+    elif changed_input == "source":
+        kwargs["evidence"] = (GenerationEvidence("E1", evidence[0].content + " Extra."),)
+    elif changed_input == "snapshot":
+        kwargs["snapshot_digest"] = "new-snapshot"
+    with pytest.raises(AnswerSupportFailure) as second:
+        await verifier.verify(**kwargs, feedback={"source_inventory": inventory})
+    assert calls.count("source-inventory-v1") == (1 if changed_input is None else 2)
+    assert calls.count("source-audit-v1") == 2
+    assert second.value.observation["failure"] == "unsupported_answer"
+
+
+@pytest.mark.asyncio
 async def test_required_fact_can_be_covered_across_multiple_answer_statements():
     import json
 

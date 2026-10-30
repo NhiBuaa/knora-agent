@@ -371,6 +371,8 @@ establish each complete claim. Completeness uses immutable answer-statement IDs;
 the server resolves literal answer spans instead of asking the model to transcribe them.
 A rejected candidate can be rebuilt from preliminary source facts, but that candidate
 still requires fresh verification against original sources and every question group.
+The blind inventory may be reused only within that recovery request with identical
+question, groups, source content and snapshot binding; answer audits always run again.
 Each call is capped at 60 seconds within the same
 90-second question pipeline; the second call does not reset that deadline.
 When a rejected answer needs repair, a separate source check may confirm insufficient evidence

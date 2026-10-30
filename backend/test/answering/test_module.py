@@ -1722,6 +1722,7 @@ async def test_inventory_repair_builds_a_new_candidate_then_requires_fresh_proof
                         "failure": "unsupported_answer",
                         "failed_id": "S1",
                         "repair_facts": [{"text": "Đổi trả trong 7 ngày.", "support": ["E1"]}],
+                        "provider": {"source_inventory": {"binding": "same-snapshot"}},
                         "verdict": {"statements": [{"id": "S1", "verdict": "UNKNOWN"}]},
                     },
                 )
@@ -1729,6 +1730,7 @@ async def test_inventory_repair_builds_a_new_candidate_then_requires_fresh_proof
                 kwargs["answer_projection"].answer_digest
                 != self.calls[0]["answer_projection"].answer_digest
             )
+            assert kwargs["feedback"]["source_inventory"] == {"binding": "same-snapshot"}
             return await super().verify(**kwargs)
 
     generator, verifier = RecoverableGenerator(), Verifier(final_outcome)
