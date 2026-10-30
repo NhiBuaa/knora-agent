@@ -1708,7 +1708,8 @@ async def test_v3_semantic_rejection_gets_corrected_answer_and_fresh_proof():
 
 
 @pytest.mark.asyncio
-async def test_missing_covered_group_repairs_without_redundant_sufficiency_call():
+@pytest.mark.parametrize("statement_verdict", ["SUPPORTED", "UNKNOWN"])
+async def test_missing_covered_group_repairs_without_redundant_sufficiency_call(statement_verdict):
     from knora.answering.answer_support import AnswerSupportFailure
 
     class Verifier(SupportVerifier):
@@ -1723,10 +1724,10 @@ async def test_missing_covered_group_repairs_without_redundant_sufficiency_call(
                     "GENERATION_OUTPUT_INVALID",
                     {
                         "failure": "unsupported_answer",
-                        "failed_id": group_id,
+                        "failed_id": group_id if statement_verdict == "SUPPORTED" else "S1",
                         "source_facts": [{"id": group_id, "source_fact": "Seven days."}],
                         "verdict": {
-                            "statements": [{"id": "S1", "verdict": "SUPPORTED"}],
+                            "statements": [{"id": "S1", "verdict": statement_verdict}],
                             "groups": [
                                 {"id": group_id, "verdict": "MISSING", "statement_ids": ["S1"]}
                             ],
@@ -1742,6 +1743,43 @@ async def test_missing_covered_group_repairs_without_redundant_sufficiency_call(
     assert [
         a["phase"] for a in store.traces[0].provider_metadata["generation_recovery"]["attempts"]
     ] == ["generation", "verification", "repair", "verification"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("fact_mismatch", [False, True])
+async def test_source_facts_do_not_skip_sufficiency_after_failed_repair_or_fact_mismatch(
+    fact_mismatch,
+):
+    from knora.answering.answer_support import AnswerSupportFailure
+
+    class Verifier(SupportVerifier):
+        async def verify(self, **kwargs):
+            self.calls.append(kwargs)
+            raise AnswerSupportFailure(
+                "GENERATION_OUTPUT_INVALID",
+                {
+                    "failure": "unsupported_answer",
+                    "failed_id": "S1",
+                    "source_facts": [{"id": kwargs["groups"][0][0], "source_fact": "Seven days."}],
+                    "verdict": {"statements": [{"id": "S1", "verdict": "UNKNOWN"}]},
+                    **(
+                        {"fact_mismatch": "Page count is not required length"}
+                        if fact_mismatch
+                        else {}
+                    ),
+                },
+            )
+
+        async def assess_sufficiency(self, **kwargs):
+            assert len(self.calls) == (1 if fact_mismatch else 2)
+            assert "answer" not in kwargs
+            return True, {"result": {"groups": []}}
+
+    generator, verifier = RecoverableGenerator(), Verifier()
+    result, store = await run_recovery_case(generator, verifier)
+    assert result.decision == "REFUSAL"
+    assert len(generator.feedback) == (0 if fact_mismatch else 1)
+    assert store.traces[0].provider_metadata["answer_support"]["coverage"] == "unverified"
 
 
 @pytest.mark.asyncio
