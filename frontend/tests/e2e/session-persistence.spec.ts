@@ -303,9 +303,22 @@ test.describe("Browser session persistence and recovery", () => {
       expect(workspaces.items.length).toBeGreaterThan(0);
       const workspaceId = workspaces.items[0].id;
 
+      const sessionRes = await page.request.get("/api/auth/session");
+      expect(sessionRes.ok()).toBe(true);
+      const sessionData = (await sessionRes.json()) as {
+        session: { issuer: string; subject: string };
+      };
+      expect(sessionData.session).toBeDefined();
+
       const convRes = await page.request.post(
         `/api/v1/workspaces/${workspaceId}/conversations`,
-        { data: { title: "Draft Recovery Test" } },
+        {
+          data: { title: "Draft Recovery Test" },
+          headers: {
+            "x-knora-expected-issuer": sessionData.session.issuer,
+            "x-knora-expected-subject": sessionData.session.subject,
+          },
+        },
       );
       expect(convRes.ok()).toBe(true);
       const conversation = (await convRes.json()) as { id: string };
