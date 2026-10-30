@@ -374,3 +374,97 @@ def test_supervisor_rejects_invalid_deadlines(tmp_path: Path) -> None:
     )
     assert res.returncode != 0
     assert "INVALID_DEADLINES" in res.stderr
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell runner unavailable")
+def test_supervisor_hang_startup_cleans_up_partial_startup(tmp_path: Path) -> None:
+    now = datetime.now(UTC)
+    cutoff = (now + timedelta(seconds=2)).isoformat()
+    hard_deadline = (now + timedelta(seconds=10)).isoformat()
+    proj = f"knora-figma-e2e-session-hang-startup-{uuid.uuid4().hex[:8]}"
+
+    res = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(SUPERVISOR_SCRIPT),
+            "-AbsoluteCutoff",
+            cutoff,
+            "-HardDeadline",
+            hard_deadline,
+            "-ProjectName",
+            proj,
+            "-StubMode",
+            "HangStartup",
+            "-AllowDirty",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    assert res.returncode != 0
+
+    receipt_path = ROOT / f"frontend/test-results/{proj}/task8-supervision-receipt.json"
+    assert receipt_path.exists()
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8-sig"))
+    assert receipt["status"] == "TIMEOUT_CLEANUP_VERIFIED"
+    assert receipt["cleanupVerified"] is True
+    assert receipt["reservationReleased"] is True
+
+    # Verify ownership receipt recorded startupAttempted is True
+    owner_path = ROOT / f"frontend/test-results/{proj}/worker-ownership.json"
+    assert owner_path.exists()
+    owner_data = json.loads(owner_path.read_text(encoding="utf-8-sig"))
+    assert owner_data["startupAttempted"] is True
+
+    shutil.rmtree(ROOT / f"frontend/test-results/{proj}", ignore_errors=True)
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell runner unavailable")
+def test_supervisor_fail_preflight_skips_teardown(tmp_path: Path) -> None:
+    now = datetime.now(UTC)
+    cutoff = (now + timedelta(minutes=50)).isoformat()
+    hard_deadline = (now + timedelta(minutes=55)).isoformat()
+    proj = f"knora-figma-e2e-session-fail-preflight-{uuid.uuid4().hex[:8]}"
+
+    res = subprocess.run(
+        [
+            POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(SUPERVISOR_SCRIPT),
+            "-AbsoluteCutoff",
+            cutoff,
+            "-HardDeadline",
+            hard_deadline,
+            "-ProjectName",
+            proj,
+            "-StubMode",
+            "FailPreflight",
+            "-AllowDirty",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    assert res.returncode != 0
+    assert "skipping compose teardown to protect foreign resources" in res.stdout
+
+    receipt_path = ROOT / f"frontend/test-results/{proj}/task8-supervision-receipt.json"
+    assert receipt_path.exists()
+    receipt = json.loads(receipt_path.read_text(encoding="utf-8-sig"))
+    assert receipt["cleanupVerified"] is False
+    assert receipt["reservationReleased"] is False
+
+    # Verify ownership recorded startupAttempted is False
+    owner_path = ROOT / f"frontend/test-results/{proj}/worker-ownership.json"
+    assert owner_path.exists()
+    owner_data = json.loads(owner_path.read_text(encoding="utf-8-sig"))
+    assert owner_data["startupAttempted"] is False
+
+    # Cleanup retained test artifact
+    Path(receipt["reservationPath"]).unlink(missing_ok=True)
+    shutil.rmtree(ROOT / f"frontend/test-results/{proj}", ignore_errors=True)

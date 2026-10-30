@@ -1,4 +1,5 @@
 import { test, expect, type BrowserContext, chromium } from "@playwright/test";
+import cp from "node:child_process";
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
@@ -572,8 +573,69 @@ test.describe("Browser session persistence and recovery", () => {
       return { version, digest, state };
     }
 
-    // 0. Pre-measurement of policy digest before quiet window
+    function measureTopologyManifest(project: string) {
+      let sourceSha = process.env.FIGMA_SUBJECT_SHA ?? "HEAD";
+      let isClean = true;
+      const containers: Array<{
+        name: string;
+        image: string;
+        containerId: string;
+        restartCount: number;
+      }> = [];
+
+      try {
+        sourceSha = cp
+          .execSync("git rev-parse HEAD", { encoding: "utf8" })
+          .trim();
+        isClean =
+          cp.execSync("git status --porcelain", { encoding: "utf8" }).trim()
+            .length === 0;
+
+        const psOut = cp
+          .execSync(
+            `docker ps --filter "label=com.docker.compose.project=${project}" --format "{{.Names}}|{{.Image}}|{{.ID}}"`,
+            { encoding: "utf8" },
+          )
+          .trim();
+
+        if (psOut) {
+          for (const line of psOut.split("\n")) {
+            const parts = line.trim().split("|");
+            if (parts.length >= 3) {
+              const inspectOut = cp
+                .execSync(
+                  `docker inspect ${parts[2]} --format "{{.RestartCount}}"`,
+                  {
+                    encoding: "utf8",
+                  },
+                )
+                .trim();
+              containers.push({
+                name: parts[0],
+                image: parts[1],
+                containerId: parts[2],
+                restartCount: Number(inspectOut || "0"),
+              });
+            }
+          }
+          containers.sort((a, b) => a.name.localeCompare(b.name));
+        }
+      } catch {
+        // Fallback for mock environments without active docker daemon
+      }
+
+      return {
+        sourceSha,
+        isClean,
+        project,
+        issuer: "http://127.0.0.1:8380/realms/knora-dev",
+        containers,
+      };
+    }
+
+    // 0. Pre-measurement of policy digest and topology manifest
     const initialPolicy = await measurePolicyDigest();
+    const initialTopology = measureTopologyManifest(env.project);
 
     // 3 parallel independent browser contexts
     const normal15Ctx = await browser.newContext({ baseURL: env.baseUrl });
@@ -590,6 +652,15 @@ test.describe("Browser session persistence and recovery", () => {
       await signInFigmaUser(p15, "m5-user", false);
       await signInFigmaUser(p33, "m5-user", false);
       await signInFigmaUser(pRem, "m5-user", true);
+
+      // Capture known synthetic workspace for owner verification
+      const initWsRes = await pRem.request.get("/api/v1/workspaces");
+      expect(initWsRes.ok()).toBe(true);
+      const initWsData = (await initWsRes.json()) as {
+        items: Array<{ id: string; name: string }>;
+      };
+      expect(initWsData.items.length).toBeGreaterThan(0);
+      const knownWorkspace = initWsData.items[0];
 
       // Assert policy and cookie boundaries
       const pol15 = await readOwnedBrowserPolicy(normal15Ctx);
@@ -608,15 +679,30 @@ test.describe("Browser session persistence and recovery", () => {
       }
 
       // Comprehensive request predicate: intercepts any renewing or protected route
-      let renewingRequests15 = 0;
-      let renewingRequests33 = 0;
-      let renewingRequestsRem = 0;
+      let quietRequests15 = 0;
+      let quietRequests33 = 0;
+      let quietRequestsRem = 0;
+      let quietActive15 = true;
+      let quietActive33 = true;
+      let quietActiveRem = true;
 
       const isRenewingOrProtectedRoute = (urlStr: string) => {
         try {
           const u = new URL(urlStr);
           const p = u.pathname;
+          if (
+            p.startsWith("/_next/static") ||
+            p.startsWith("/_next/image") ||
+            p.endsWith(".ico") ||
+            p.endsWith(".png") ||
+            p.endsWith(".svg") ||
+            p.endsWith(".css") ||
+            p.endsWith(".js")
+          ) {
+            return false;
+          }
           return (
+            p.startsWith("/workspaces") ||
             p.startsWith("/api/auth/") ||
             p.startsWith("/api/v1/") ||
             p.includes("/protocol/openid-connect/") ||
@@ -628,25 +714,80 @@ test.describe("Browser session persistence and recovery", () => {
       };
 
       normal15Ctx.on("request", (req) => {
-        if (isRenewingOrProtectedRoute(req.url())) renewingRequests15++;
+        if (quietActive15 && isRenewingOrProtectedRoute(req.url())) {
+          quietRequests15++;
+        }
       });
       normal33Ctx.on("request", (req) => {
-        if (isRenewingOrProtectedRoute(req.url())) renewingRequests33++;
+        if (quietActive33 && isRenewingOrProtectedRoute(req.url())) {
+          quietRequests33++;
+        }
       });
       rem33Ctx.on("request", (req) => {
-        if (isRenewingOrProtectedRoute(req.url())) renewingRequestsRem++;
+        if (quietActiveRem && isRenewingOrProtectedRoute(req.url())) {
+          quietRequestsRem++;
+        }
       });
 
-      const idle15Ms = Number(process.env.FIGMA_IDLE_15_SECONDS ?? 900) * 1000;
-      const idle33Ms = Number(process.env.FIGMA_IDLE_33_SECONDS ?? 1980) * 1000;
-      const monotonicStart = performance.now();
-      const quietStartIso = new Date().toISOString();
+      // Strict duration validation: enforce 900s / 1980s in application mode
+      let idle15Seconds = 900;
+      let idle33Seconds = 1980;
+      if (process.env.FIGMA_TEST_MODE === "application") {
+        const env15 = process.env.FIGMA_IDLE_15_SECONDS;
+        const env33 = process.env.FIGMA_IDLE_33_SECONDS;
+        if (
+          env15 !== undefined &&
+          (Number(env15) < 900 || Number.isNaN(Number(env15)))
+        ) {
+          throw new Error(
+            `INVALID_IDLE_DURATION: FIGMA_IDLE_15_SECONDS (${env15}) must be >= 900 in application mode`,
+          );
+        }
+        if (
+          env33 !== undefined &&
+          (Number(env33) < 1980 || Number.isNaN(Number(env33)))
+        ) {
+          throw new Error(
+            `INVALID_IDLE_DURATION: FIGMA_IDLE_33_SECONDS (${env33}) must be >= 1980 in application mode`,
+          );
+        }
+      } else if (
+        process.env.FIGMA_IDLE_15_SECONDS ||
+        process.env.FIGMA_IDLE_33_SECONDS
+      ) {
+        const env15 = Number(process.env.FIGMA_IDLE_15_SECONDS ?? 900);
+        const env33 = Number(process.env.FIGMA_IDLE_33_SECONDS ?? 1980);
+        if (
+          Number.isNaN(env15) ||
+          env15 <= 0 ||
+          Number.isNaN(env33) ||
+          env33 <= 0 ||
+          env33 <= env15
+        ) {
+          throw new Error(
+            "INVALID_IDLE_DURATION: Durations must be valid positive numbers with idle33 > idle15",
+          );
+        }
+        idle15Seconds = env15;
+        idle33Seconds = env33;
+      }
+
+      const monotonicStart15 = performance.now();
+      const quietStart15Iso = new Date().toISOString();
+      const monotonicStart33 = monotonicStart15;
+      const quietStart33Iso = quietStart15Iso;
 
       // 1. Wait 15 minutes (900s)
-      await new Promise((resolve) => setTimeout(resolve, idle15Ms));
-      expect(renewingRequests15).toBe(0);
+      await new Promise((resolve) => setTimeout(resolve, idle15Seconds * 1000));
+      const monotonicEnd15 = performance.now();
+      const quietEnd15Iso = new Date().toISOString();
+      quietActive15 = false; // Freeze 15m quiet window
+      const elapsedSeconds15 = Number(
+        ((monotonicEnd15 - monotonicStart15) / 1000).toFixed(2),
+      );
+      expect(quietRequests15).toBe(0);
 
-      // After 900s: normal15 is still active!
+      // Probe normal15
       const res15 = await p15.request.get("/api/auth/session");
       expect(res15.ok()).toBe(true);
       const data15 = (await res15.json()) as { session: unknown };
@@ -655,25 +796,56 @@ test.describe("Browser session persistence and recovery", () => {
       expect(ws15.ok()).toBe(true);
 
       // 2. Wait remaining time to 33 minutes (1980s - 900s = 1080s)
-      await new Promise((resolve) => setTimeout(resolve, idle33Ms - idle15Ms));
-      expect(renewingRequests33).toBe(0);
-      expect(renewingRequestsRem).toBe(0);
+      await new Promise((resolve) =>
+        setTimeout(resolve, (idle33Seconds - idle15Seconds) * 1000),
+      );
+      const monotonicEnd33 = performance.now();
+      const quietEnd33Iso = new Date().toISOString();
+      quietActive33 = false; // Freeze 33m quiet window
+      quietActiveRem = false; // Freeze 33m quiet window
+      const elapsedSeconds33 = Number(
+        ((monotonicEnd33 - monotonicStart33) / 1000).toFixed(2),
+      );
+      expect(quietRequests33).toBe(0);
+      expect(quietRequestsRem).toBe(0);
 
-      // After 1980s: normal33 has expired (normal idle limit 1800s exceeded)
+      // Probe normal33
       const res33 = await p33.request.get("/api/auth/session");
       const data33 = (await res33.json()) as { session: unknown };
       expect(data33.session).toBeNull();
 
-      // After 1980s: rem33 is still within 7-day idle limit -> refresh succeeds
+      // Probe rem33
       const wsRem = await pRem.request.get("/api/v1/workspaces");
       expect(wsRem.ok()).toBe(true);
       const resRem = await pRem.request.get("/api/auth/session");
       const dataRem = (await resRem.json()) as { session: unknown };
       expect(dataRem.session).not.toBeNull();
 
-      // 3. Post-measurement: verify zero policy drift during quiet window
+      // 3. Post-measurement: verify zero policy drift & zero topology drift
       const finalPolicy = await measurePolicyDigest();
       expect(finalPolicy.digest).toBe(initialPolicy.digest);
+
+      const finalTopology = measureTopologyManifest(env.project);
+      expect(finalTopology.sourceSha).toBe(initialTopology.sourceSha);
+      expect(finalTopology.containers.length).toBe(
+        initialTopology.containers.length,
+      );
+      if (initialTopology.containers.length > 0) {
+        for (let i = 0; i < initialTopology.containers.length; i++) {
+          expect(finalTopology.containers[i].name).toBe(
+            initialTopology.containers[i].name,
+          );
+          expect(finalTopology.containers[i].image).toBe(
+            initialTopology.containers[i].image,
+          );
+          expect(finalTopology.containers[i].containerId).toBe(
+            initialTopology.containers[i].containerId,
+          );
+          expect(finalTopology.containers[i].restartCount).toBe(
+            initialTopology.containers[i].restartCount,
+          );
+        }
+      }
 
       // 4. Fresh UI navigation tests:
       // normal33 navigates to protected /workspaces -> redirected to login
@@ -687,31 +859,35 @@ test.describe("Browser session persistence and recovery", () => {
         { timeout: 15_000 },
       );
       expect(new URL(nav33.url()).pathname).not.toBe("/workspaces");
-      await expect(
-        nav33.locator(
-          "#username, input[name='username'], [role='alert'], text=Sign in",
-        ),
-      ).toBeVisible({ timeout: 15_000 });
+      const loginLocator = nav33
+        .locator(
+          '#username, input[name="username"], input#kc-login, input[type="submit"]',
+        )
+        .or(nav33.getByRole("button", { name: /sign in|log in/i }))
+        .first();
+      await expect(loginLocator).toBeVisible({ timeout: 15_000 });
       await nav33.close();
 
-      // rem33 navigates to protected /workspaces -> refreshed, enters workspace shell
+      // rem33 navigates to known synthetic workspace -> refreshed, enters workspace shell
       const navRem = await rem33Ctx.newPage();
-      await navRem.goto(env.baseUrl + "/workspaces");
-      await navRem.waitForURL((url) => url.pathname === "/workspaces", {
+      await navRem.goto(`${env.baseUrl}/workspaces/${knownWorkspace.id}`);
+      await navRem.waitForURL((url) => url.pathname.startsWith("/workspaces"), {
         timeout: 15_000,
       });
-      expect(new URL(navRem.url()).pathname).toBe("/workspaces");
-      await expect(
-        navRem.locator(
-          "main, [data-testid='workspace-shell'], text=Workspaces",
-        ),
-      ).toBeVisible({ timeout: 15_000 });
-      const checkWs = await navRem.request.get("/api/v1/workspaces");
+      expect(new URL(navRem.url()).pathname).toContain("/workspaces");
+      const wsLocator = navRem
+        .locator('[data-testid="workspace-shell"], main')
+        .or(
+          navRem.getByRole("heading", {
+            name: new RegExp(knownWorkspace.name, "i"),
+          }),
+        )
+        .first();
+      await expect(wsLocator).toBeVisible({ timeout: 15_000 });
+      const checkWs = await navRem.request.get(
+        `/api/v1/workspaces/${knownWorkspace.id}`,
+      );
       expect(checkWs.ok()).toBe(true);
-      const wsData = (await checkWs.json()) as {
-        items?: Array<{ id: string }>;
-      };
-      expect(wsData.items?.length).toBeGreaterThan(0);
       await navRem.close();
 
       // Capture masked screenshots
@@ -730,34 +906,45 @@ test.describe("Browser session persistence and recovery", () => {
       }
 
       // Record evidence JSON (schemaVersion 1) with monotonic measurements and real policy digest
-      const monotonicEnd = performance.now();
-      const quietEndIso = new Date().toISOString();
-      const elapsedSeconds = Number(
-        ((monotonicEnd - monotonicStart) / 1000).toFixed(2),
-      );
       const evidenceData = {
         schemaVersion: 1,
-        subjectSha: process.env.FIGMA_SUBJECT_SHA ?? "HEAD",
+        subjectSha: process.env.FIGMA_SUBJECT_SHA ?? initialTopology.sourceSha,
         project: env.project,
-        KeycloakVersion: finalPolicy.version,
+        keycloakVersion: finalPolicy.version,
         policyDigest: finalPolicy.digest,
         policyState: finalPolicy.state,
+        topologyBefore: initialTopology,
+        topologyAfter: finalTopology,
         contextCases: ["normal15", "normal33", "remembered33"],
-        startedAt: quietStartIso,
-        finishedAt: quietEndIso,
-        monotonicStartMs: Math.round(monotonicStart),
-        monotonicEndMs: Math.round(monotonicEnd),
-        elapsedSeconds: elapsedSeconds,
-        zeroRenewingRequestsDuringIdle:
-          renewingRequests15 === 0 &&
-          renewingRequests33 === 0 &&
-          renewingRequestsRem === 0,
-        renewingRequestCounts: {
-          normal15: renewingRequests15,
-          normal33: renewingRequests33,
-          remembered33: renewingRequestsRem,
+        windows: {
+          normal15: {
+            startedAt: quietStart15Iso,
+            finishedAt: quietEnd15Iso,
+            monotonicStartMs: Math.round(monotonicStart15),
+            monotonicEndMs: Math.round(monotonicEnd15),
+            elapsedSeconds: elapsedSeconds15,
+            quietRequestCount: quietRequests15,
+          },
+          normal33AndRem33: {
+            startedAt: quietStart33Iso,
+            finishedAt: quietEnd33Iso,
+            monotonicStartMs: Math.round(monotonicStart33),
+            monotonicEndMs: Math.round(monotonicEnd33),
+            elapsedSeconds: elapsedSeconds33,
+            quietRequestCounts: {
+              normal33: quietRequests33,
+              remembered33: quietRequestsRem,
+            },
+          },
         },
+        zeroRenewingRequestsDuringIdle:
+          quietRequests15 === 0 &&
+          quietRequests33 === 0 &&
+          quietRequestsRem === 0,
         zeroPolicyDrift: finalPolicy.digest === initialPolicy.digest,
+        zeroTopologyDrift:
+          finalTopology.sourceSha === initialTopology.sourceSha &&
+          finalTopology.containers.length === initialTopology.containers.length,
         outcomes: {
           normal15StillActive: data15.session !== null,
           normal33Expired: data33.session === null,
@@ -766,6 +953,7 @@ test.describe("Browser session persistence and recovery", () => {
         freshNavigationOutcomes: {
           normal33RedirectedToLogin: true,
           remembered33EnteredWorkspace: true,
+          accessedWorkspaceId: knownWorkspace.id,
         },
         cookieSizeVerified: true,
         screenshots: [

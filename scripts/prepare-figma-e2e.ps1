@@ -3,6 +3,7 @@ param(
     [switch]$CheckFrontendOnly,
     [ValidatePattern('(?-i)^knora-figma-e2e(?:-[a-z0-9][a-z0-9-]{0,39})?$')]
     [string]$Project = 'knora-figma-e2e',
+    [string]$OwnershipPath = '',
     [scriptblock]$Run
 )
 
@@ -508,6 +509,21 @@ try {
         # CreateNew is atomic across worktrees; retain the claim if an orphaned Compose child could survive.
         try { $reservation = [IO.File]::Open($reservationPath, [IO.FileMode]::CreateNew, [IO.FileAccess]::Write, [IO.FileShare]::None) }
         catch [IO.IOException] { throw "FIGMA_PROJECT_RESERVED: $reservationPath" }
+        if ($OwnershipPath) {
+            $ownerReceipt = [ordered]@{
+                schemaVersion = 1
+                project = $Project
+                workerPid = $PID
+                acquired = $true
+                startupAttempted = $false
+                timestampUtc = [DateTime]::UtcNow.ToString('o')
+            }
+            $ownerParent = Split-Path $OwnershipPath -Parent
+            if ($ownerParent -and -not (Test-Path $ownerParent)) {
+                $null = New-Item -ItemType Directory -Path $ownerParent -Force
+            }
+            [IO.File]::WriteAllText($OwnershipPath, ($ownerReceipt | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
+        }
         foreach ($resource in @(@('ps', '-a'), @('volume', 'ls'), @('network', 'ls'))) {
             $existing = @(& docker @resource --filter "label=com.docker.compose.project=$Project" --quiet)
             if ($LASTEXITCODE -ne 0) { throw 'FIGMA_RESOURCE_INSPECTION_FAILED' }
@@ -545,6 +561,17 @@ try {
         } finally { $listener.Dispose() }
     }
     $startupAttempted = $true
+    if ($OwnershipPath) {
+        $ownerReceipt = [ordered]@{
+            schemaVersion = 1
+            project = $Project
+            workerPid = $PID
+            acquired = $true
+            startupAttempted = $true
+            timestampUtc = [DateTime]::UtcNow.ToString('o')
+        }
+        [IO.File]::WriteAllText($OwnershipPath, ($ownerReceipt | ConvertTo-Json), [Text.UTF8Encoding]::new($false))
+    }
     & docker compose @compose up -d --build figma-postgres figma-keycloak-db figma-keycloak figma-mail figma-minio figma-minio-init figma-api
     if ($LASTEXITCODE -ne 0) { throw 'FIGMA_START_FAILED' }
     foreach ($uri in "$issuer/.well-known/openid-configuration", 'http://127.0.0.1:8800/health', 'http://127.0.0.1:8025/api/v1/info') {

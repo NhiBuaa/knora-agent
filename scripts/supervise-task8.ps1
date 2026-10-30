@@ -5,7 +5,7 @@ param(
     [DateTimeOffset]$HardDeadline,
     [string]$SubjectSha = '',
     [string]$ProjectName = '',
-    [ValidateSet('None', 'Success', 'HangStartup', 'HangRunner', 'HangCleanup', 'FailCleanup')][string]$StubMode = 'None',
+    [ValidateSet('None', 'Success', 'HangStartup', 'HangRunner', 'HangCleanup', 'FailCleanup', 'FailPreflight')][string]$StubMode = 'None',
     [switch]$WorkerMode,
     [switch]$AllowDirty
 )
@@ -108,6 +108,19 @@ if ($WorkerMode) {
     # STUB MODE (used for local fault tests without Docker)
     if ($StubMode -ne 'None') {
         Write-Output "Worker running in STUB MODE: $StubMode"
+
+        if ($StubMode -eq 'FailPreflight') {
+            $stubOwnership = [ordered]@{
+                schemaVersion = 1
+                project = $project
+                workerPid = $PID
+                acquired = $true
+                startupAttempted = $false
+                timestampUtc = [DateTime]::UtcNow.ToString('o')
+            }
+            [System.IO.File]::WriteAllText($ownershipPath, ($stubOwnership | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
+            throw "SIMULATED_PREFLIGHT_FAILURE: Port in use or project not fresh"
+        }
         
         # In stub mode, simulate successful reservation acquisition and startup attempt
         $stubOwnership = [ordered]@{
@@ -195,7 +208,7 @@ if ($WorkerMode) {
     }
 
     # REAL PRODUCTION WORKER PATH
-    & "$repoRoot/scripts/prepare-figma-e2e.ps1" -Project $project -Run {
+    & "$repoRoot/scripts/prepare-figma-e2e.ps1" -Project $project -OwnershipPath $ownershipPath -Run {
         param($proj, $composeArgs)
         $repo = 'C:\Developer\Projects\knora-agent-worktree\fix-browser-session-persistence'
         $targetDir = Join-Path $repo "frontend/test-results/$proj"
