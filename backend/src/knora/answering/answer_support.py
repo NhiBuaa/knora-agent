@@ -210,9 +210,20 @@ def validate_support(
             if item.verdict != "SUPPORTED" or not item.source_refs:
                 raise ValueError
             for ref in item.source_refs:
+                if ref.alias not in statements[item.id].aliases:
+                    raise AnswerSupportFailure(
+                        "GENERATION_OUTPUT_INVALID",
+                        {
+                            "failure": "invalid_verifier_proof",
+                            "failed_id": item.id,
+                            "invalid_reference": {
+                                "alias": ref.alias,
+                                "allowed_aliases": list(statements[item.id].aliases),
+                            },
+                        },
+                    )
                 if (
-                    ref.alias not in statements[item.id].aliases
-                    or not 0 <= ref.start < ref.end <= len(sources[ref.alias])
+                    not 0 <= ref.start < ref.end <= len(sources[ref.alias])
                     or sources[ref.alias][ref.start : ref.end] != ref.exact_quote
                 ):
                     raise ValueError

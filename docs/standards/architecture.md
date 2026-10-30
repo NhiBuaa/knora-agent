@@ -76,7 +76,9 @@ resource or begin side effect`. Authorization failures must stop before resource
   multiple statements may jointly cover one fact. The application validates those spans and
   derives completeness from the mappings; a supported subset cannot satisfy a requested list.
   Shared quote-reference schemas keep repeated source IDs within the 8192-token input budget;
-  inventory and audit each allow 4096 output tokens and reject truncated or malformed output.
+  inventory allows 4096 output tokens and audit allows 8192; both reject truncated or malformed
+  output. Quote spans retain numbered identifiers and section headings; individual statement
+  schemas constrain source aliases without duplicating the full quote inventory.
   Each verification call has at most 60 seconds, bounded by the request's remaining time.
   Successful answers still require a fresh source proof; repeated rejected candidates or
   unchanged failures stop recovery. Availability, quota, authorization and provenance failures

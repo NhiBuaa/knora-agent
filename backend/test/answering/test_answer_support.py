@@ -55,6 +55,41 @@ def _inventory_fixture(data, facts=("A diagram is required.",)):
     }
 
 
+@pytest.mark.parametrize("label", ["Figure 3.1", "https://example.test/api/v1.2"])
+def test_source_quotes_keep_identifiers_intact(label):
+    from knora.providers.cloudflare.answer_support import _quotes
+
+    source = f"Use {label} as a reference. Or use another reference."
+    quotes = _quotes(source)
+    assert {q["exact_quote"] for q in quotes} == {
+        source,
+        f"Use {label} as a reference.",
+        " Or use another reference.",
+    }
+    assert all(source[q["start"] : q["end"]] == q["exact_quote"] for q in quotes)
+
+
+def test_source_quotes_do_not_cross_numbered_section_boundaries():
+    from knora.providers.cloudflare.answer_support import _quotes
+
+    source = (
+        "An architecture diagram is required.\n4.2 Database design\n"
+        "Database diagrams must stay legible.\n4.3 Interface design\nShow the main screens."
+    )
+    quotes = _quotes(source)
+    boundary = source.index("4.2")
+    next_boundary = source.index("4.3")
+    assert all(not (q["start"] < boundary < q["end"]) for q in quotes)
+    assert all(not (q["start"] < next_boundary < q["end"]) for q in quotes)
+    assert any("Database diagrams must stay legible." in q["exact_quote"] for q in quotes)
+    assert all(
+        q["exact_quote"].startswith("4.2 Database design")
+        for q in quotes
+        if "Database diagrams must stay legible." in q["exact_quote"]
+    )
+    assert all(source[q["start"] : q["end"]] == q["exact_quote"] for q in quotes)
+
+
 def _audit_fixture(data):
     ids = [s["id"] for s in data["statements"]]
     return {
@@ -81,6 +116,52 @@ def _audit_fixture(data):
             for f in data["required_facts"]
         ],
     }
+
+
+@pytest.mark.asyncio
+async def test_supported_detail_does_not_need_to_be_a_required_inventory_fact():
+    import json
+
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+    evidence = (
+        GenerationEvidence(
+            "E1", "A diagram is required. The diagram must use a twelve point font."
+        ),
+    )
+    answer, _, projection = compose_answer_projection(
+        dict(
+            decision="ANSWER",
+            before=[],
+            items=[
+                dict(text="A diagram is required.", support=["E1"]),
+                dict(text="The diagram must use a twelve point font.", support=["E1"]),
+            ],
+            after=[],
+            refusal_reason=None,
+        ),
+        evidence,
+    )
+
+    async def complete(prompt):
+        data = json.loads(prompt.messages[1]["content"])
+        if prompt.definition.serializer_id == "source-inventory-v1":
+            return _inventory_fixture(data), {}
+        wire = _audit_fixture(data)
+        wire["coverage"][0]["statement_ids"] = ["S1"]
+        wire["coverage"][0]["answer_quotes"] = ["A diagram is required."]
+        wire["statements"][1]["source_refs"][0]["quote_id"] = "E1:Q3"
+        return wire, {}
+
+    proof, _ = await CloudflareAnswerSupportVerifier(complete).verify(
+        question="Is a diagram required?",
+        groups=(("G1", "Is a diagram required?"),),
+        answer=answer,
+        answer_projection=projection,
+        evidence=evidence,
+        snapshot_digest="snapshot",
+    )
+    assert proof.answer_digest == projection.answer_digest
 
 
 def test_translated_paraphrase_is_valid_with_exact_source_proof():
@@ -435,7 +516,8 @@ async def test_coverage_can_quote_rendered_bold_text_from_its_statement():
 
 
 @pytest.mark.asyncio
-async def test_verifier_cannot_invent_answer_text_to_cover_a_missing_fact():
+@pytest.mark.parametrize("defect", ["invented_text", "foreign_id", "empty_ids", "duplicate_ids"])
+async def test_verifier_cannot_invent_answer_spans_to_cover_a_missing_fact(defect):
     import json
 
     from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
@@ -447,9 +529,16 @@ async def test_verifier_cannot_invent_answer_text_to_cover_a_missing_fact():
         if prompt.definition.serializer_id == "source-inventory-v1":
             return _inventory_fixture(data), {}
         wire = _audit_fixture(data)
-        wire["coverage"][0]["answer_quotes"] = [
-            "The answer explains all components and interactions."
-        ]
+        if defect == "invented_text":
+            wire["coverage"][0]["answer_quotes"] = [
+                "The answer explains all components and interactions."
+            ]
+        else:
+            wire["coverage"][0]["statement_ids"] = {
+                "foreign_id": ["S2"],
+                "empty_ids": [],
+                "duplicate_ids": ["S1", "S1"],
+            }[defect]
         return wire, {}
 
     with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
@@ -1036,9 +1125,9 @@ async def test_verifier_transport_is_bounded_and_retains_invalid_completion_evid
         requests.append(body)
         assert body["model"] == "@cf/openai/gpt-oss-120b"
         assert body["response_format"]["type"] == "json_object"
-        assert body["temperature"] == 0 and body["max_tokens"] == 4096
         data = json.loads(body["messages"][1]["content"])
         audit = "required_facts" in data
+        assert body["temperature"] == 0 and body["max_tokens"] == (8192 if audit else 4096)
         assert body["reasoning_effort"] == ("medium" if audit else "low")
         wire = _audit_fixture(data) if audit else _inventory_fixture(data)
         return httpx.Response(
@@ -1121,6 +1210,15 @@ async def test_verifier_binds_each_statement_to_its_own_sources(foreign_ref):
         data = json.loads(prompt.messages[1]["content"])
         if prompt.definition.serializer_id == "source-inventory-v1":
             return _inventory_fixture(data), {}
+        scopes = prompt.definition.schema["properties"]["statements"]["items"]["oneOf"]
+        allowed = {}
+        import re
+
+        for scope in scopes:
+            props = scope["properties"]
+            pattern = props["source_refs"]["items"]["properties"]["quote_id"]["pattern"]
+            allowed[props["id"]["const"]] = [q for q in ("E1:Q1", "E2:Q1") if re.match(pattern, q)]
+        assert allowed == {"S1": ["E1:Q1"], "S2": ["E2:Q1"]}
         wire = _audit_fixture(data)
         if foreign_ref:
             wire["statements"][0]["source_refs"][0]["quote_id"] = "E2:Q1"
@@ -1136,8 +1234,12 @@ async def test_verifier_binds_each_statement_to_its_own_sources(foreign_ref):
     )
     verifier = CloudflareAnswerSupportVerifier(complete)
     if foreign_ref:
-        with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+        with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID") as caught:
             await verifier.verify(**kwargs)
+        assert caught.value.observation["invalid_reference"] == {
+            "alias": "E2",
+            "allowed_aliases": ["E1"],
+        }
     else:
         proof, _ = await verifier.verify(**kwargs)
         assert proof.answer_digest == projection.answer_digest
