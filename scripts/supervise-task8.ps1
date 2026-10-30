@@ -1,4 +1,5 @@
 param(
+    [string]$SubjectSha = '',
     [Parameter(Mandatory = $true)]
     [DateTimeOffset]$AbsoluteCutoff,
     [Parameter(Mandatory = $true)]
@@ -12,7 +13,11 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = 'C:\Developer\Projects\knora-agent-worktree\fix-browser-session-persistence'
 Set-Location $repoRoot
 
-$subjectSha = '857638b81db1cefcda10fe64b7e6ad149ca3407b'
+$currentHead = (git -C $repoRoot rev-parse HEAD).Trim()
+if ($SubjectSha -and $currentHead -ne $SubjectSha) {
+    throw "Subject drift: worktree HEAD ($currentHead) does not match declared SubjectSha ($SubjectSha)"
+}
+$subjectSha = $currentHead
 $project = if ($ProjectName) { $ProjectName } else { 'knora-figma-e2e-session-' + [guid]::NewGuid().ToString('N').Substring(0, 12) }
 $resDir = Join-Path $repoRoot "frontend/test-results/$project"
 
