@@ -10,6 +10,23 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+function Unwrap-Items($items) {
+    if ($null -eq $items) { return }
+    if ($items -is [System.Collections.IEnumerable] -and $items -isnot [string] -and $items -isnot [System.Collections.IDictionary] -and $items -isnot [System.Management.Automation.PSCustomObject]) {
+        foreach ($sub in $items) {
+            if ($sub -is [System.Collections.IEnumerable] -and $sub -isnot [string] -and $sub -isnot [System.Collections.IDictionary] -and $sub -isnot [System.Management.Automation.PSCustomObject]) {
+                foreach ($subsub in $sub) {
+                    $subsub
+                }
+            } else {
+                $sub
+            }
+        }
+    } else {
+        $items
+    }
+}
+
 foreach ($item in Get-ChildItem Env:) {
     if ($item.Name -match '^(DOCKER_|COMPOSE_)' -and $item.Value.Trim()) {
         throw "KEYCLOAK_AMBIENT_SELECTOR_REJECTED: $($item.Name)"
@@ -50,7 +67,7 @@ try {
 try {
     $serverInfo = Invoke-RestMethod -Uri "$BaseUrl/admin/serverinfo" -Headers $headers
     $hasProvider = $false
-    $oidcMappers = @($serverInfo.protocolMapperTypes.'openid-connect')
+    $oidcMappers = @(Unwrap-Items $serverInfo.protocolMapperTypes.'openid-connect')
     foreach ($mapperType in $oidcMappers) {
         if ($mapperType.id -eq 'knora-session-policy') { $hasProvider = $true }
     }
@@ -61,7 +78,7 @@ try {
 
 # Client lookup
 try {
-    $clients = @(Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/clients?clientId=knora-web" -Headers $headers)
+    $clients = @(Unwrap-Items (Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/clients?clientId=knora-web" -Headers $headers))
     if ($clients.Count -ne 1) { throw 'client' }
     $client = $clients[0]
     $clientUuid = $client.id
@@ -73,7 +90,7 @@ try {
 $managedClaims = @('knora_remember_me', 'knora_session_started_at')
 
 # Mapper and client scopes conflict scan
-$existingMappers = @(Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid/protocol-mappers/models" -Headers $headers)
+$existingMappers = @(Unwrap-Items (Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid/protocol-mappers/models" -Headers $headers))
 $existingPolicyMapper = $null
 foreach ($m in $existingMappers) {
     $claimName = if ($m.config) { $m.config.'claim.name' } else { $null }
@@ -96,15 +113,15 @@ foreach ($m in $existingMappers) {
             (-not $hasConflictingClaim)) {
             $existingPolicyMapper = $m
         } else {
-            throw "KEYCLOAK_SESSION_POLICY_MAPPER_CONFLICT: name='$($m.name)' protocol='$($m.protocol)' mapper='$($m.protocolMapper)' isConsent='$isConsent' conflict='$hasConflictingClaim'"
+            throw 'KEYCLOAK_SESSION_POLICY_MAPPER_CONFLICT'
         }
     }
 }
 
 $scopes = @()
 try {
-    $scopes += @(Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid/default-client-scopes" -Headers $headers)
-    $scopes += @(Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid/optional-client-scopes" -Headers $headers)
+    $scopes += @(Unwrap-Items (Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid/default-client-scopes" -Headers $headers))
+    $scopes += @(Unwrap-Items (Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid/optional-client-scopes" -Headers $headers))
 } catch {
     throw 'KEYCLOAK_INSPECTION_FAILED'
 }
@@ -113,7 +130,7 @@ foreach ($s in $scopes) {
     if ($s.id) {
         $scopeMappers = @()
         try {
-            $scopeMappers = @(Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/client-scopes/$($s.id)/protocol-mappers/models" -Headers $headers)
+            $scopeMappers = @(Unwrap-Items (Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/client-scopes/$($s.id)/protocol-mappers/models" -Headers $headers))
         } catch {
             throw 'KEYCLOAK_INSPECTION_FAILED'
         }
@@ -296,7 +313,7 @@ if ($Mode -eq 'Apply') {
         $mBody = $desiredMapper | ConvertTo-Json
         Invoke-RestMethod -Method Post -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid/protocol-mappers/models" -Headers $headers -ContentType 'application/json' -Body $mBody | Out-Null
         # Exact readback
-        $readbackMappers = @(Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid/protocol-mappers/models" -Headers $headers)
+        $readbackMappers = @(Unwrap-Items (Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid/protocol-mappers/models" -Headers $headers))
         $foundMapper = $null
         foreach ($rm in $readbackMappers) { if ($rm.id -eq $mapperId -or $rm.name -eq 'knora-session-policy') { $foundMapper = $rm } }
         if (-not $foundMapper -or $foundMapper.protocolMapper -ne 'knora-session-policy' -or $foundMapper.protocol -ne 'openid-connect') {
@@ -484,7 +501,7 @@ if ($Mode -eq 'Rollback') {
             $mId = $saved.mapperAfter.id
             Invoke-RestMethod -Method Delete -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid/protocol-mappers/models/$mId" -Headers $headers | Out-Null
             # Readback mapper deleted
-            $readbackMappers = @(Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid/protocol-mappers/models" -Headers $headers)
+            $readbackMappers = @(Unwrap-Items (Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid/protocol-mappers/models" -Headers $headers))
             foreach ($rm in $readbackMappers) {
                 if ($rm.id -eq $mId -or $rm.name -eq 'knora-session-policy') {
                     throw 'KEYCLOAK_SESSION_POLICY_UPDATE_OR_VERIFICATION_FAILED'
