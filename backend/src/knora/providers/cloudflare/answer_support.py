@@ -207,7 +207,7 @@ class CloudflareAnswerSupportVerifier:
         }
         prompt = BuiltPrompt(
             PromptDefinition(
-                "cloudflare-gpt-oss-source-sufficiency-v2", system, schema, "source-sufficiency-v2"
+                "cloudflare-gpt-oss-source-sufficiency-v3", system, schema, "source-sufficiency-v2"
             ),
             [
                 {"role": "system", "content": system},

@@ -83,6 +83,64 @@ async def test_concurrent_generation_and_audit_keep_their_models_and_receipts(ve
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("configured_model", ["@cf/openai/gpt-oss-20b", "@cf/openai/gpt-oss-120b"])
+async def test_sufficiency_uses_qualified_20b_json_object_without_changing_generation(
+    configured_model,
+):
+    from knora.providers.prompts.builder import BuiltPrompt
+    from knora.providers.prompts.versioning import PromptDefinition
+
+    bodies = []
+
+    async def endpoint(request):
+        bodies.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {"finish_reason": "stop", "message": {"content": '{"diagnostic":true}'}}
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
+        provider = OpenAICompatibleGenerationProvider(
+            base_url="https://provider.example/v1",
+            api_key="secret-canary",
+            model=configured_model,
+            provider_identity="cloudflare-workers-ai",
+            input_cost_per_million_tokens=None,
+            output_cost_per_million_tokens=None,
+            pricing_version=None,
+            max_tokens=2048,
+            direct_json_schema=True,
+            client=client,
+        )
+        _, metadata = await provider.complete_answer_support(
+            BuiltPrompt(
+                PromptDefinition(
+                    "cloudflare-gpt-oss-source-sufficiency-v3",
+                    "Inspect sources.",
+                    {"type": "object"},
+                    "source-sufficiency-v2",
+                ),
+                [
+                    {"role": "system", "content": "Inspect sources."},
+                    {"role": "user", "content": "Sources."},
+                ],
+            )
+        )
+        assert (
+            provider._model_for_version("cloudflare-gpt-oss-cited-answer-v25") == configured_model
+        )
+    body = bodies[0]
+    assert body["model"] == metadata["model"] == "@cf/openai/gpt-oss-20b"
+    assert body["response_format"] == {"type": "json_object"}
+    assert body["max_tokens"] == 2048 and body["reasoning_effort"] == "medium"
+    assert "Required JSON Schema" in body["messages"][0]["content"]
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("failure", [None, "wrapped", "foreign_alias", "length"])
 async def test_cloudflare_120b_json_object_keeps_strict_grounded_validation(failure):
     requests = []
