@@ -12,7 +12,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = 'C:\Developer\Projects\knora-agent-worktree\fix-browser-session-persistence'
 Set-Location $repoRoot
 
-$subjectSha = 'af1b50c4a84365d0681f75cf03377dd40d18ef8a'
+$subjectSha = '857638b81db1cefcda10fe64b7e6ad149ca3407b'
 $project = if ($ProjectName) { $ProjectName } else { 'knora-figma-e2e-session-' + [guid]::NewGuid().ToString('N').Substring(0, 12) }
 $resDir = Join-Path $repoRoot "frontend/test-results/$project"
 
@@ -87,7 +87,7 @@ if ($LASTEXITCODE -ne 0) { throw 'Configuration check failed' }
 & "$repoRoot/scripts/prepare-figma-e2e.ps1" -Project $project -Run {
     param($proj, $composeArgs)
     $repo = 'C:\Developer\Projects\knora-agent-worktree\fix-browser-session-persistence'
-    $sha = 'af1b50c4a84365d0681f75cf03377dd40d18ef8a'
+    $sha = '857638b81db1cefcda10fe64b7e6ad149ca3407b'
     $targetDir = Join-Path $repo "frontend/test-results/$proj"
     $null = New-Item -ItemType Directory -Path $targetDir -Force
     $supervisionReceiptPath = Join-Path $targetDir 'task8-supervision-receipt.json'
