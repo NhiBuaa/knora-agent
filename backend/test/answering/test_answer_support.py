@@ -553,6 +553,38 @@ async def test_verifier_cannot_invent_answer_spans_to_cover_a_missing_fact(defec
 
 
 @pytest.mark.asyncio
+async def test_unsupported_answer_is_repaired_before_irrelevant_quote_transcription():
+    import json
+
+    from knora.answering.answer_support import AnswerSupportFailure
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+    answer, projection, evidence, _ = case()
+
+    async def complete(prompt):
+        data = json.loads(prompt.messages[1]["content"])
+        if prompt.definition.serializer_id == "source-inventory-v1":
+            return _inventory_fixture(data), {}
+        wire = _audit_fixture(data)
+        wire["statements"][0].update(verdict="UNKNOWN", source_refs=[])
+        wire["coverage"][0]["answer_quotes"] = ["A paraphrase, not the actual answer."]
+        return wire, {}
+
+    with pytest.raises(AnswerSupportFailure) as caught:
+        await CloudflareAnswerSupportVerifier(complete).verify(
+            question="Is a diagram required?",
+            groups=(("G1", "Is a diagram required?"),),
+            answer=answer,
+            answer_projection=projection,
+            evidence=evidence,
+            snapshot_digest="snapshot",
+        )
+    assert caught.value.observation["failure"] == "unsupported_answer"
+    assert caught.value.observation["failed_id"] == "S1"
+    assert caught.value.observation["source_facts"]
+
+
+@pytest.mark.asyncio
 async def test_invalid_answer_quote_explains_the_exact_wire_correction():
     import json
 
