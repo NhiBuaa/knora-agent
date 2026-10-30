@@ -459,6 +459,22 @@ class CloudflareAnswerSupportVerifier:
             for g in inventory.groups
             for i, f in enumerate(g.facts, 1)
         }
+        repair_facts = [
+            {
+                "text": fact["fact"],
+                "support": list(dict.fromkeys(quotes[q]["alias"] for q in fact["quote_ids"])),
+            }
+            for fact in required.values()
+        ]
+        if (feedback or {}).get("prepare_source_candidate"):
+            raise AnswerSupportFailure(
+                "GENERATION_OUTPUT_INVALID",
+                {
+                    "failure": "source_candidate_ready",
+                    "repair_facts": repair_facts,
+                    "provider": metadata,
+                },
+            )
         audit_system = (
             "Independently audit factual support AND completeness using ORIGINAL SOURCES as "
             "the factual evidence. The question, candidate answer and preliminary inventory "
@@ -467,6 +483,9 @@ class CloudflareAnswerSupportVerifier:
             "section heading, conditions and scope; a rule under one subsection does not "
             "establish that rule for a different subsection. "
             "Check EVERY ENTIRE answer statement against its own aliases and the original sources. "
+            "For SUPPORTED, the chosen source_refs must JOINTLY establish EVERY detail of that "
+            "statement, not just the same topic. Plausible expert advice or customary details "
+            "absent from those quotes are unsupported, even when reasonable. "
             "Statement support is INDEPENDENT of group completeness: a true cited statement "
             "stays SUPPORTED even if other required facts are missing. Missing facts belong "
             "in coverage=false and group=MISSING, never as UNKNOWN for an otherwise supported "
@@ -681,15 +700,7 @@ class CloudflareAnswerSupportVerifier:
                         for v in verdict.coverage
                         if not v.covered or not any(not c.covered for c in verdict.coverage)
                     ],
-                    "repair_facts": [
-                        {
-                            "text": fact["fact"],
-                            "support": list(
-                                dict.fromkeys(quotes[q]["alias"] for q in fact["quote_ids"])
-                            ),
-                        }
-                        for fact in required.values()
-                    ],
+                    "repair_facts": repair_facts,
                     "provider": metadata,
                 },
             ) from None

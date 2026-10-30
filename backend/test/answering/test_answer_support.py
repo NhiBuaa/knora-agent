@@ -430,6 +430,58 @@ async def test_required_source_inventory_is_blind_to_candidate_answer():
 
 
 @pytest.mark.asyncio
+async def test_inventory_candidate_requires_a_fresh_audit_against_original_sources():
+    import json
+
+    from knora.answering.answer_support import AnswerSupportFailure
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+    from knora.providers.openai_compatible.answer_blocks import compose_grounded_answer
+
+    answer, projection, evidence, _ = case()
+    calls = []
+
+    async def complete(prompt):
+        data = json.loads(prompt.messages[1]["content"])
+        calls.append(prompt.definition.serializer_id)
+        if prompt.definition.serializer_id == "source-inventory-v1":
+            assert "answer" not in data
+            return _inventory_fixture(data), {}
+        assert data["sources"]
+        return _audit_fixture(data), {}
+
+    verifier = CloudflareAnswerSupportVerifier(complete)
+    kwargs = dict(
+        question="Required?",
+        groups=(("G1", "Required?"),),
+        answer=answer,
+        answer_projection=projection,
+        evidence=evidence,
+        snapshot_digest="snapshot",
+    )
+    with pytest.raises(AnswerSupportFailure) as prepared:
+        await verifier.verify(**kwargs, feedback={"prepare_source_candidate": True})
+    observation = prepared.value.observation
+    assert observation["failure"] == "source_candidate_ready"
+    assert calls == ["source-inventory-v1"]
+    answer, _, projection = compose_grounded_answer(
+        dict(
+            decision="ANSWER",
+            before=[],
+            items=observation["repair_facts"],
+            after=[],
+            refusal_reason=None,
+        ),
+        evidence,
+    )
+    kwargs.update(answer=answer, answer_projection=projection)
+    proof, _ = await verifier.verify(
+        **kwargs, feedback={"source_inventory": observation["provider"]["source_inventory"]}
+    )
+    assert calls == ["source-inventory-v1", "source-audit-v1"]
+    assert proof.answer_digest == projection.answer_digest
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("changed_input", [None, "question", "groups", "source", "snapshot"])
 async def test_recovery_reuses_only_the_same_blind_inventory_and_always_audits(changed_input):
     import json
