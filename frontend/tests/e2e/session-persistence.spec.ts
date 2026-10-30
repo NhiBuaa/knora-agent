@@ -50,14 +50,22 @@ test.describe("Browser session persistence and recovery", () => {
       await page.locator("#password").fill("wrong-password-1");
       await rememberCheckbox.check();
       await page.locator("#kc-login").click();
-      await expect(page.locator(".alert-error, #input-error")).toBeVisible();
+      await expect(
+        page.locator(
+          "[role='alert'], .alert-error, #input-error, .pf-v5-c-alert",
+        ),
+      ).toBeVisible();
       expect(await page.locator("#rememberMe").isChecked()).toBe(true);
 
       // 3. Wrong password with rememberMe unchecked: stays unchecked after error
       await page.locator("#password").fill("wrong-password-2");
       await page.locator("#rememberMe").uncheck();
       await page.locator("#kc-login").click();
-      await expect(page.locator(".alert-error, #input-error")).toBeVisible();
+      await expect(
+        page.locator(
+          "[role='alert'], .alert-error, #input-error, .pf-v5-c-alert",
+        ),
+      ).toBeVisible();
       expect(await page.locator("#rememberMe").isChecked()).toBe(false);
 
       // 4. Toggle via keyboard using Space
