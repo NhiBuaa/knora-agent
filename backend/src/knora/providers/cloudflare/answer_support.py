@@ -4,7 +4,6 @@ import asyncio
 import json
 import re
 from collections.abc import Awaitable, Callable
-from copy import deepcopy
 from dataclasses import asdict
 from typing import Literal
 
@@ -441,21 +440,9 @@ class CloudflareAnswerSupportVerifier:
         definitions["GroupVerdict"]["properties"]["statement_ids"]["items"]["enum"] = statement_ids
         definitions["_FactCoverage"]["properties"]["id"]["enum"] = list(required)
         definitions["_FactCoverage"]["properties"]["statement_ids"]["items"]["enum"] = statement_ids
-        variants = []
-        for statement in answer_projection.statements:
-            variant = deepcopy(definitions["_Statement"])
-            variant["properties"]["id"]["enum"] = [statement.id]
-            ref_name = "Refs_" + "_".join(sorted(statement.aliases))
-            if ref_name not in definitions:
-                scoped = deepcopy(definitions["_Reference"])
-                scoped["properties"]["quote_id"]["enum"] = [
-                    k for k, v in quotes.items() if v["alias"] in statement.aliases
-                ]
-                definitions[ref_name] = scoped
-            variant["properties"]["source_refs"]["items"] = {"$ref": f"#/$defs/{ref_name}"}
-            variants.append(variant)
-        props["statements"]["items"] = {"oneOf": variants}
-        del definitions["_Statement"], definitions["_Reference"]
+        # Cross-alias containment is enforced by validate_support, without repeating schemas.
+        definitions["_Statement"]["properties"]["id"]["enum"] = statement_ids
+        definitions["_Reference"]["properties"]["quote_id"]["enum"] = list(quotes)
         for name, count in (
             ("statements", len(statement_ids)),
             ("groups", len(groups)),

@@ -1097,7 +1097,7 @@ async def test_verifier_transport_is_bounded_and_retains_invalid_completion_evid
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("foreign_ref", [False, True])
-async def test_verifier_grammar_binds_each_statement_to_its_own_sources(foreign_ref):
+async def test_verifier_binds_each_statement_to_its_own_sources(foreign_ref):
     import json
 
     from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
@@ -1121,15 +1121,6 @@ async def test_verifier_grammar_binds_each_statement_to_its_own_sources(foreign_
         data = json.loads(prompt.messages[1]["content"])
         if prompt.definition.serializer_id == "source-inventory-v1":
             return _inventory_fixture(data), {}
-        variants = prompt.definition.schema["properties"]["statements"]["items"]["oneOf"]
-        assert len(variants) == 2
-        for variant, statement in zip(variants, projection.statements, strict=True):
-            assert variant["properties"]["id"]["enum"] == [statement.id]
-            ref = variant["properties"]["source_refs"]["items"]
-            if "$ref" in ref:
-                ref = prompt.definition.schema["$defs"][ref["$ref"].rsplit("/", 1)[1]]
-            allowed = ref["properties"]["quote_id"]["enum"]
-            assert allowed and {q.split(":")[0] for q in allowed} == set(statement.aliases)
         wire = _audit_fixture(data)
         if foreign_ref:
             wire["statements"][0]["source_refs"][0]["quote_id"] = "E2:Q1"
@@ -1153,18 +1144,28 @@ async def test_verifier_grammar_binds_each_statement_to_its_own_sources(foreign_
 
 
 @pytest.mark.asyncio
-async def test_multistatement_answer_within_source_budget_reaches_independent_audit():
+@pytest.mark.parametrize("multiple_aliases", [False, True])
+async def test_multistatement_answer_within_source_budget_reaches_independent_audit(
+    multiple_aliases,
+):
     import json
 
     from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
 
-    source = " ".join(f"Source fact number {i}." for i in range(100))
-    evidence = (GenerationEvidence("E1", source),)
+    source = " ".join(f"Source fact number {i}." for i in range(30 if multiple_aliases else 100))
+    evidence = tuple(
+        GenerationEvidence(f"E{i}", source) for i in range(1, 6 if multiple_aliases else 2)
+    )
+    aliases = (
+        [["E1"], ["E2"], ["E3"], ["E4"], ["E5"], ["E1", "E2"], ["E2", "E3"], ["E1", "E3", "E5"]]
+        if multiple_aliases
+        else [["E1"]] * 8
+    )
     answer, _, projection = compose_answer_projection(
         dict(
             decision="ANSWER",
             before=[],
-            items=[{"text": f"Source fact number {i}.", "support": ["E1"]} for i in range(8)],
+            items=[{"text": f"Source fact number {i}.", "support": aliases[i]} for i in range(8)],
             after=[],
             refusal_reason=None,
         ),
@@ -1176,8 +1177,8 @@ async def test_multistatement_answer_within_source_budget_reaches_independent_au
         if prompt.definition.serializer_id == "source-inventory-v1":
             return _inventory_fixture(data, ("Source fact number 0.",)), {}
         wire = _audit_fixture(data)
-        for i, statement in enumerate(wire["statements"], 1):
-            statement["source_refs"][0]["quote_id"] = f"E1:Q{i}"
+        for i, statement in enumerate(wire["statements"]):
+            statement["source_refs"][0]["quote_id"] = f"{aliases[i][0]}:Q2"
         return wire, {}
 
     proof, _ = await CloudflareAnswerSupportVerifier(complete).verify(
