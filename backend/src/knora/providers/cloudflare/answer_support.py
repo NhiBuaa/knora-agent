@@ -68,6 +68,9 @@ Example values describe that example, not all projects. A section limit does not
 whole work. A topic mention or nearby number is insufficient. Translations, concise answers,
 explicit unit conversions and complete enumerations are allowed. If any asserted relation
 is not established, entailed=false. Return only the required JSON with one result per check.
+Sources contain contiguous passages, preserving their original text once. quote_ids mark
+precisely which selected quotes contain each passage. For a claim, only passages marked
+by its quote_ids are proof; all other passages provide qualifying context only.
 """
 
 
@@ -88,6 +91,10 @@ back to exact source quotes and Unicode half-open offsets. Use ENTAILMENT, EXPLI
 or ENUMERATION as reason. A count requires a complete enumerated set or an explicit source total.
 For EACH required group, ANSWERED requires supported statements answering ALL parts of that
 question. A heading, topic mention or promise of detail is MISSING. UNKNOWN when uncertain.
+For requests to list or describe contents, inspect the relevant source enumeration and
+conditions: a supported subset is not a complete answer. Omitting a requested member,
+exception or conditional how-to part makes the group MISSING. The answer must use the
+current question's language (source titles and technical terms may retain their language).
 Inspect the full question too, including compound questions and follow-up context.
 Echo answer_digest and snapshot_digest EXACTLY, one verdict per statement and required group.
 Empty refs are permitted only for non-supported verdicts. Never rewrite or select answer text.
@@ -108,6 +115,36 @@ def _quotes(content: str) -> list[dict]:
         if len(m[0]) <= 1800
     )
     return [{"exact_quote": content[a:b], "start": a, "end": b} for a, b in sorted(spans)]
+
+
+def _entailment_sources(evidence, quotes, selected):
+    sources = []
+    for source in evidence:
+        spans = {
+            key: q
+            for key, q in quotes.items()
+            if key in selected and q["alias"] == source.evidence_id
+        }
+        boundaries = sorted(
+            {0, len(source.content), *(n for q in spans.values() for n in (q["start"], q["end"]))}
+        )
+        sources.append(
+            {
+                "alias": source.evidence_id,
+                "passages": [
+                    {
+                        "text": source.content[start:end],
+                        "quote_ids": [
+                            key
+                            for key, q in spans.items()
+                            if q["start"] <= start and end <= q["end"]
+                        ],
+                    }
+                    for start, end in zip(boundaries, boundaries[1:], strict=False)
+                ],
+            }
+        )
+    return sources
 
 
 class CloudflareAnswerSupportVerifier:
@@ -274,20 +311,15 @@ class CloudflareAnswerSupportVerifier:
                 }
                 for statement in answer_projection.statements
             ],
-            "quotes": [
-                {"quote_id": key, "alias": quote["alias"], "text": quote["exact_quote"]}
-                for key, quote in quotes.items()
-                if any(
-                    ref.quote_id == key
-                    for statement in wire.statements
-                    for ref in statement.source_refs
-                )
-            ],
-            "sources": [
-                {"alias": e.evidence_id, "content": e.content}
-                for e in evidence
-                if any(e.evidence_id in s.aliases for s in answer_projection.statements)
-            ],
+            "sources": _entailment_sources(
+                tuple(
+                    e
+                    for e in evidence
+                    if any(e.evidence_id in s.aliases for s in answer_projection.statements)
+                ),
+                quotes,
+                {ref.quote_id for statement in wire.statements for ref in statement.source_refs},
+            ),
         }
         schema = _EntailmentVerdict.model_json_schema()
         schema["$defs"]["_EntailmentStatement"]["properties"]["id"]["enum"] = statement_ids
@@ -303,7 +335,7 @@ class CloudflareAnswerSupportVerifier:
             raise KnoraError("PROVIDER_REQUEST_FAILED")
         prompt = BuiltPrompt(
             PromptDefinition(
-                "cloudflare-gpt-oss-source-entailment-v1",
+                "cloudflare-gpt-oss-source-entailment-v2",
                 _ENTAILMENT_SYSTEM,
                 schema,
                 "source-claims-v1",
@@ -375,6 +407,15 @@ class CloudflareAnswerSupportVerifier:
         except KnoraError as error:
             raise AnswerSupportFailure(
                 error.code,
-                {**getattr(error, "observation", {}), "verdict": expanded, "provider": metadata},
+                {
+                    **getattr(error, "observation", {}),
+                    "verdict": expanded,
+                    "source_facts": [
+                        {"id": item.id, "source_fact": item.source_fact}
+                        for item in checked.statements
+                        if not item.entailed
+                    ],
+                    "provider": metadata,
+                },
             ) from None
         return proof, metadata

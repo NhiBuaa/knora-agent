@@ -292,7 +292,10 @@ async def test_quote_selection_does_not_override_independent_claim_entailment(en
         if "checks" in data:
             assert "question" not in data and "groups" not in data
             assert data["checks"][0]["claim"] == "Hệ thống B phải phục vụ 1000 người dùng."
-            assert "Hệ thống A" in data["sources"][0]["content"]
+            assert "quotes" not in data
+            assert data["sources"] == [
+                {"alias": "E1", "passages": [{"text": source, "quote_ids": ["E1:Q1"]}]}
+            ]
             return {
                 "statements": [
                     {"id": "S1", "source_fact": "Nguồn nói về hệ thống A.", "entailed": entailed}
@@ -330,7 +333,33 @@ async def test_quote_selection_does_not_override_independent_claim_entailment(en
             await verifier.verify(**kwargs)
         assert caught.value.observation["failure"] == "unsupported_answer"
         assert caught.value.observation["failed_id"] == "S1"
+        assert caught.value.observation["source_facts"] == [
+            {"id": "S1", "source_fact": "Nguồn nói về hệ thống A."}
+        ]
     assert len(calls) == 2
+
+
+def test_entailment_context_preserves_unselected_text_and_overlapping_quote_boundaries():
+    from knora.providers.cloudflare.answer_support import _entailment_sources
+
+    evidence = (GenerationEvidence("E1", "Ví dụ: A. B.\nC."), GenerationEvidence("E2", "Context."))
+    quotes = {
+        "E1:Q1": {"alias": "E1", "start": 7, "end": 9},
+        "E1:Q2": {"alias": "E1", "start": 7, "end": 12},
+        "E1:Q3": {"alias": "E1", "start": 13, "end": 15},
+    }
+    assert _entailment_sources(evidence, quotes, {"E1:Q1", "E1:Q2"}) == [
+        {
+            "alias": "E1",
+            "passages": [
+                {"text": "Ví dụ: ", "quote_ids": []},
+                {"text": "A.", "quote_ids": ["E1:Q1", "E1:Q2"]},
+                {"text": " B.", "quote_ids": ["E1:Q2"]},
+                {"text": "\nC.", "quote_ids": []},
+            ],
+        },
+        {"alias": "E2", "passages": [{"text": "Context.", "quote_ids": []}]},
+    ]
 
 
 @pytest.mark.asyncio
@@ -495,6 +524,65 @@ def test_layout_counters_and_missing_example_values_cannot_prove_a_claim(claim, 
 
 
 @pytest.mark.parametrize(
+    "claim,source,detail",
+    [
+        ("Báo cáo bắt buộc có 12 trang.", "HƯỚNG DẪN - TRANG 1/12", "pagination"),
+        (
+            "Ứng dụng phải phục vụ 1000 người dùng.",
+            "Ví dụ: Ứng dụng phải phục vụ 1000 người dùng.",
+            "example",
+        ),
+        ("Ví dụ hình 1.2.", "Caption phải đánh số.", "identifiers"),
+    ],
+)
+def test_fact_rejection_explains_what_recovery_must_correct(claim, source, detail):
+    from knora.answering.answer_support import AnswerSupportFailure
+
+    evidence = (GenerationEvidence("E1", source),)
+    answer, _, projection = compose_answer_projection(
+        dict(
+            decision="ANSWER",
+            before=[dict(text=claim, support=["E1"], bold=None)],
+            items=[],
+            after=[],
+            refusal_reason=None,
+        ),
+        evidence,
+    )
+    verdict = {
+        "answer_digest": projection.answer_digest,
+        "snapshot_digest": "snapshot",
+        "statements": [
+            {
+                "id": "S1",
+                "verdict": "SUPPORTED",
+                "source_refs": [
+                    dict(
+                        alias="E1",
+                        exact_quote=source,
+                        start=0,
+                        end=len(source),
+                        reason="ENTAILMENT",
+                    )
+                ],
+            }
+        ],
+        "groups": [{"id": "G1", "verdict": "ANSWERED", "statement_ids": ["S1"]}],
+    }
+    with pytest.raises(AnswerSupportFailure) as caught:
+        validate_support(
+            verdict,
+            answer=answer,
+            projection=projection,
+            evidence=evidence,
+            snapshot_digest="snapshot",
+            group_ids=("G1",),
+        )
+    assert caught.value.observation["failure"] == "unsupported_answer"
+    assert detail in caught.value.observation["fact_mismatch"]
+
+
+@pytest.mark.parametrize(
     "question,parts",
     [
         ("Sơ đồ có bắt buộc không, và cần trình bày những gì kèm sơ đồ?", 2),
@@ -535,7 +623,7 @@ def test_grounded_schema_has_no_model_selected_emphasis():
     from knora.providers.prompts.builder import build_prompt
 
     prompt = build_prompt("cloudflare-grounded-answer", question="Bao nhiêu chương?", evidence=())
-    assert prompt.definition.version == "cloudflare-gpt-oss-cited-answer-v24"
+    assert prompt.definition.version == "cloudflare-gpt-oss-cited-answer-v25"
     assert "bold" not in str(prompt.definition.schema)
     assert "null" not in str(prompt.definition.schema["$defs"]["_Statement"])
 
@@ -805,6 +893,8 @@ async def test_verifier_failures_distinguish_wire_repair_from_answer_repair(defe
         ("Caption cần được định dạng và đánh số thế nào?", 2),
         ("Các mục cần trình bày ra sao và được đánh số theo quy tắc nào?", 2),
         ("How should captions be formatted and numbered?", 2),
+        ("Có được dùng ảnh không? Nếu cần mã nguồn thì trình bày ra sao?", 2),
+        ("May I use screenshots? If code is needed, how should I format it?", 2),
         ("What are frontend and backend?", 1),
         ("Liệt kê font chữ và cỡ chữ.", 1),
     ],
