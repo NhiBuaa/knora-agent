@@ -37,6 +37,20 @@ def required_answer_groups(groups: tuple[tuple[str, str], ...]) -> tuple[tuple[s
                 r"\s*(?:nếu|if)\b", question[start:], re.IGNORECASE
             ):
                 continue
+            # A shared predicate after a noun list does not start another question.
+            if not re.match(
+                r"(?:cần|phải|bao|những|gồm|khi|ở|tại|vì|ai|có|dùng|sử dụng|trình bày|"
+                r"mô tả|giải thích|lựa chọn|chọn|(?:được\s+)?đánh số|nếu|if|what|how|"
+                r"when|where|why|"
+                r"which|who|must|should|is|are|do|does|can|numbered)\b",
+                question[match.end() :],
+                re.IGNORECASE,
+            ) and not re.search(
+                r"\b(?:cần|phải|bao nhiêu|thế nào|có|được|must|should|how|what|can|is|are)\b",
+                question[start : match.start()],
+                re.IGNORECASE,
+            ):
+                continue
             parts.append(question[start : match.start()].strip())
             start = match.end()
         parts.append(question[start:].strip())

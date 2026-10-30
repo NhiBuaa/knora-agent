@@ -45,6 +45,44 @@ def case():
     return answer, projection, evidence, verdict
 
 
+def _inventory_fixture(data, facts=("A diagram is required.",)):
+    return {
+        "snapshot_digest": data["snapshot_digest"],
+        "groups": [
+            {"id": g["id"], "facts": [{"fact": f, "quote_ids": ["E1:Q1"]} for f in facts]}
+            for g in data["groups"]
+        ],
+    }
+
+
+def _audit_fixture(data):
+    ids = [s["id"] for s in data["statements"]]
+    return {
+        "answer_digest": data["answer_digest"],
+        "snapshot_digest": data["snapshot_digest"],
+        "statements": [
+            {
+                "id": s["id"],
+                "verdict": "SUPPORTED",
+                "source_refs": [{"quote_id": s["aliases"][0] + ":Q1", "reason": "ENTAILMENT"}],
+            }
+            for s in data["statements"]
+        ],
+        "groups": [
+            {"id": g["id"], "verdict": "ANSWERED", "statement_ids": ids} for g in data["groups"]
+        ],
+        "coverage": [
+            {
+                "id": f["id"],
+                "answer_quotes": [s["text"] for s in data["statements"]],
+                "statement_ids": ids,
+                "covered": True,
+            }
+            for f in data["required_facts"]
+        ],
+    }
+
+
 def test_translated_paraphrase_is_valid_with_exact_source_proof():
     answer, projection, evidence, verdict = case()
     proof = validate_support(
@@ -202,33 +240,17 @@ async def test_cloudflare_wire_references_resolve_to_exact_unicode_source(defect
     calls = []
 
     async def complete(prompt):
-        calls.append(prompt)
-        if prompt.definition.serializer_id == "source-claims-v1":
-            return {
-                "statements": [
-                    {"id": "S1", "source_fact": "A diagram is required.", "entailed": True}
-                ]
-            }, {}
+        data = json.loads(prompt.messages[1]["content"])
+        calls.append(data)
+        if prompt.definition.serializer_id == "source-inventory-v1":
+            return _inventory_fixture(data), {}
         assert prompt.definition.schema["properties"]["answer_digest"]["enum"] == [
             projection.answer_digest
         ]
         assert prompt.definition.schema["properties"]["snapshot_digest"]["enum"] == ["snapshot"]
         if defect == "timeout":
             raise TimeoutError
-        data = json.loads(prompt.messages[1]["content"])
-        quote = next(q for q in data["evidence"] if "A diagram is required." in q["exact_quote"])
-        wire = {
-            "answer_digest": projection.answer_digest,
-            "snapshot_digest": "snapshot",
-            "statements": [
-                {
-                    "id": "S1",
-                    "verdict": "SUPPORTED",
-                    "source_refs": [{"quote_id": quote["quote_id"], "reason": "ENTAILMENT"}],
-                }
-            ],
-            "groups": [{"id": "G1", "verdict": "ANSWERED", "statement_ids": ["S1"]}],
-        }
+        wire = _audit_fixture(data)
         if defect == "foreign_quote":
             wire["statements"][0]["source_refs"][0]["quote_id"] = "E99:Q1"
         if defect == "missing":
@@ -241,8 +263,8 @@ async def test_cloudflare_wire_references_resolve_to_exact_unicode_source(defect
 
     verifier = CloudflareAnswerSupportVerifier(complete)
     kwargs = dict(
-        question="Sơ đồ có bắt buộc không?",
-        groups=(("G1", "Sơ đồ có bắt buộc không?"),),
+        question="Is a diagram required?",
+        groups=(("G1", "Is a diagram required?"),),
         answer=answer,
         answer_projection=projection,
         evidence=evidence,
@@ -259,7 +281,227 @@ async def test_cloudflare_wire_references_resolve_to_exact_unicode_source(defect
         assert (
             "exact_quote" in proof.verdict_json and "A diagram is required." in proof.verdict_json
         )
-    assert len(calls) == (1 if defect else 2)
+    assert len(calls) == 2
+
+
+@pytest.mark.asyncio
+async def test_required_source_inventory_is_blind_to_candidate_answer():
+    import json
+
+    from knora.answering.answer_support import AnswerSupportFailure
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+    answer, projection, evidence, _ = case()
+    seen = []
+
+    async def complete(prompt):
+        data = json.loads(prompt.messages[1]["content"])
+        seen.append(data)
+        if prompt.definition.serializer_id == "source-inventory-v1":
+            assert "answer" not in data and "statements" not in data and "checks" not in data
+            return {
+                "snapshot_digest": "snapshot",
+                "groups": [
+                    {
+                        "id": "G1",
+                        "facts": [
+                            {"fact": "A diagram is required.", "quote_ids": ["E1:Q1"]},
+                            {"fact": "Its components must be explained.", "quote_ids": ["E1:Q1"]},
+                        ],
+                    }
+                ],
+            }, {"provider_request_id": "blind-inventory"}
+        return {
+            "answer_digest": projection.answer_digest,
+            "snapshot_digest": "snapshot",
+            "statements": [
+                {
+                    "id": "S1",
+                    "verdict": "SUPPORTED",
+                    "source_refs": [{"quote_id": "E1:Q1", "reason": "ENTAILMENT"}],
+                }
+            ],
+            "groups": [{"id": "G1", "verdict": "ANSWERED", "statement_ids": ["S1"]}],
+            "coverage": [
+                {
+                    "id": "G1:F1",
+                    "answer_quotes": [projection.statements[0].text],
+                    "statement_ids": ["S1"],
+                    "covered": True,
+                },
+                {
+                    "id": "G1:F2",
+                    "answer_quotes": [],
+                    "statement_ids": [],
+                    "covered": False,
+                },
+            ],
+        }, {"provider_request_id": "independent-audit"}
+
+    with pytest.raises(AnswerSupportFailure) as caught:
+        await CloudflareAnswerSupportVerifier(complete).verify(
+            question="What must be included?",
+            groups=(("G1", "What must be included?"),),
+            answer=answer,
+            answer_projection=projection,
+            evidence=evidence,
+            snapshot_digest="snapshot",
+        )
+    assert len(seen) == 2
+    assert caught.value.observation["failure"] == "unsupported_answer"
+    assert caught.value.observation["failed_id"] == "G1"
+
+
+@pytest.mark.asyncio
+async def test_required_fact_can_be_covered_across_multiple_answer_statements():
+    import json
+
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+    evidence = (GenerationEvidence("E1", "The caption is italic and centered."),)
+    answer, _, projection = compose_answer_projection(
+        dict(
+            decision="ANSWER",
+            before=[],
+            items=[
+                dict(text="The caption is italic.", support=["E1"]),
+                dict(text="The caption is centered.", support=["E1"]),
+            ],
+            after=[],
+            refusal_reason=None,
+        ),
+        evidence,
+    )
+
+    async def complete(prompt):
+        data = json.loads(prompt.messages[1]["content"])
+        if prompt.definition.serializer_id == "source-inventory-v1":
+            return _inventory_fixture(data, ("The caption is italic and centered.",)), {}
+        wire = _audit_fixture(data)
+        wire["coverage"][0]["answer_quotes"] = [
+            "The caption is italic.",
+            "The caption is centered.",
+        ]
+        return wire, {}
+
+    proof, _ = await CloudflareAnswerSupportVerifier(complete).verify(
+        question="How is the caption formatted?",
+        groups=(("G1", "How is the caption formatted?"),),
+        answer=answer,
+        answer_projection=projection,
+        evidence=evidence,
+        snapshot_digest="snapshot",
+    )
+    assert proof.answer_digest == projection.answer_digest
+
+
+@pytest.mark.asyncio
+async def test_coverage_can_quote_rendered_bold_text_from_its_statement():
+    import json
+
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+    evidence = (GenerationEvidence("E1", "Seven chapters are suggested."),)
+    answer, _, projection = compose_answer_projection(
+        dict(
+            decision="ANSWER",
+            before=[
+                dict(text="Seven chapters are suggested.", support=["E1"], bold="Seven chapters")
+            ],
+            items=[],
+            after=[],
+            refusal_reason=None,
+        ),
+        evidence,
+    )
+
+    async def complete(prompt):
+        data = json.loads(prompt.messages[1]["content"])
+        if prompt.definition.serializer_id == "source-inventory-v1":
+            return _inventory_fixture(data, ("Seven chapters are suggested.",)), {}
+        wire = _audit_fixture(data)
+        wire["coverage"][0]["answer_quotes"] = ["**Seven chapters** are suggested."]
+        return wire, {}
+
+    proof, _ = await CloudflareAnswerSupportVerifier(complete).verify(
+        question="How many chapters?",
+        groups=(("G1", "How many chapters?"),),
+        answer=answer,
+        answer_projection=projection,
+        evidence=evidence,
+        snapshot_digest="snapshot",
+    )
+    assert proof.answer_digest == projection.answer_digest
+
+
+@pytest.mark.asyncio
+async def test_verifier_cannot_invent_answer_text_to_cover_a_missing_fact():
+    import json
+
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+    answer, projection, evidence, _ = case()
+
+    async def complete(prompt):
+        data = json.loads(prompt.messages[1]["content"])
+        if prompt.definition.serializer_id == "source-inventory-v1":
+            return _inventory_fixture(data), {}
+        wire = _audit_fixture(data)
+        wire["coverage"][0]["answer_quotes"] = [
+            "The answer explains all components and interactions."
+        ]
+        return wire, {}
+
+    with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+        await CloudflareAnswerSupportVerifier(complete).verify(
+            question="What must be included?",
+            groups=(("G1", "What must be included?"),),
+            answer=answer,
+            answer_projection=projection,
+            evidence=evidence,
+            snapshot_digest="snapshot",
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("unicode_context", [False, True])
+async def test_independent_audit_rejects_supported_subset_of_requested_contents(unicode_context):
+    import json
+
+    from knora.answering.answer_support import AnswerSupportFailure
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+    answer, projection, evidence, _ = case()
+    evidence += (GenerationEvidence("E2", "Include a diagram AND describe its components."),)
+    if unicode_context:
+        evidence += (GenerationEvidence("E3", "Ngữ cảnh bổ sung " * 750),)
+
+    async def complete(prompt):
+        data = json.loads(prompt.messages[1]["content"])
+        assert {e["alias"] for e in data["sources"]} == {e.evidence_id for e in evidence}
+        if prompt.definition.serializer_id == "source-inventory-v1":
+            assert "answer" not in data and "recovery_feedback" not in data
+            return _inventory_fixture(
+                data, ("A diagram is required.", "Describe the diagram's components.")
+            ), {}
+        wire = _audit_fixture(data)
+        wire["coverage"][1].update(covered=False, statement_ids=[], answer_quotes=[])
+        return wire, {}
+
+    with pytest.raises(AnswerSupportFailure) as caught:
+        await CloudflareAnswerSupportVerifier(complete).verify(
+            question="What must be included?",
+            groups=(("G1", "What must be included?"),),
+            answer=answer,
+            answer_projection=projection,
+            evidence=evidence,
+            snapshot_digest="snapshot",
+        )
+    assert caught.value.observation["failure"] == "unsupported_answer"
+    assert caught.value.observation["failed_id"] == "G1"
+    assert caught.value.observation["source_facts"] == [
+        {"id": "G1", "source_fact": "Describe the diagram's components."}
+    ]
 
 
 @pytest.mark.asyncio
@@ -270,14 +512,12 @@ async def test_quote_selection_does_not_override_independent_claim_entailment(en
     from knora.answering.answer_support import AnswerSupportFailure
     from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
 
-    source = "Hệ thống A phải phục vụ 1000 người dùng."
+    source = "System A must serve 1000 users."
     evidence = (GenerationEvidence("E1", source),)
     answer, _, projection = compose_answer_projection(
         dict(
             decision="ANSWER",
-            before=[
-                dict(text="Hệ thống B phải phục vụ 1000 người dùng.", support=["E1"], bold=None)
-            ],
+            before=[dict(text="System B must serve 1000 users.", support=["E1"], bold=None)],
             items=[],
             after=[],
             refusal_reason=None,
@@ -289,36 +529,18 @@ async def test_quote_selection_does_not_override_independent_claim_entailment(en
     async def complete(prompt):
         data = json.loads(prompt.messages[1]["content"])
         calls.append(data)
-        if "checks" in data:
-            assert "question" not in data and "groups" not in data
-            assert data["checks"][0]["claim"] == "Hệ thống B phải phục vụ 1000 người dùng."
-            assert "quotes" not in data
-            assert data["sources"] == [
-                {"alias": "E1", "passages": [{"text": source, "quote_ids": ["E1:Q1"]}]}
-            ]
-            return {
-                "statements": [
-                    {"id": "S1", "source_fact": "Nguồn nói về hệ thống A.", "entailed": entailed}
-                ]
-            }, {"provider_request_id": "scope-check"}
-        quote = next(q for q in data["evidence"] if source in q["exact_quote"])
-        return {
-            "answer_digest": projection.answer_digest,
-            "snapshot_digest": "snapshot",
-            "statements": [
-                {
-                    "id": "S1",
-                    "verdict": "SUPPORTED",
-                    "source_refs": [{"quote_id": quote["quote_id"], "reason": "ENTAILMENT"}],
-                }
-            ],
-            "groups": [{"id": "G1", "verdict": "ANSWERED", "statement_ids": ["S1"]}],
-        }, {"provider_request_id": "quote-selection"}
+        if prompt.definition.serializer_id == "source-inventory-v1":
+            assert "answer" not in data
+            return _inventory_fixture(data, (source,)), {"provider_request_id": "source-inventory"}
+        wire = _audit_fixture(data)
+        if not entailed:
+            wire["statements"][0]["verdict"] = "UNKNOWN"
+        return wire, {"provider_request_id": "scope-check"}
 
     verifier = CloudflareAnswerSupportVerifier(complete)
     kwargs = dict(
-        question="Hệ thống bắt buộc phục vụ bao nhiêu người?",
-        groups=(("G1", "Số người dùng?"),),
+        question="How many users?",
+        groups=(("G1", "How many users?"),),
         answer=answer,
         answer_projection=projection,
         evidence=evidence,
@@ -333,9 +555,10 @@ async def test_quote_selection_does_not_override_independent_claim_entailment(en
             await verifier.verify(**kwargs)
         assert caught.value.observation["failure"] == "unsupported_answer"
         assert caught.value.observation["failed_id"] == "S1"
-        assert caught.value.observation["source_facts"] == [
-            {"id": "S1", "source_fact": "Nguồn nói về hệ thống A."}
-        ]
+        assert (
+            caught.value.observation["provider"]["result"]["groups"][0]["facts"][0]["fact"]
+            == source
+        )
     assert len(calls) == 2
 
 
@@ -364,7 +587,8 @@ def test_entailment_context_preserves_unselected_text_and_overlapping_quote_boun
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "defect", ["missing", "duplicate", "foreign", "timeout", "stale", "cancel"]
+    "defect",
+    ["missing", "duplicate", "foreign", "timeout", "stale", "cancel", "stale_after_entailment"],
 )
 async def test_entailment_cannot_deliver_an_incomplete_proof_or_cross_snapshot(defect):
     import asyncio
@@ -378,47 +602,32 @@ async def test_entailment_cannot_deliver_an_incomplete_proof_or_cross_snapshot(d
     async def complete(prompt):
         data = json.loads(prompt.messages[1]["content"])
         calls.append(data)
-        if "checks" in data:
-            if defect == "cancel":
-                raise asyncio.CancelledError
-            if defect == "timeout":
-                raise TimeoutError
-            items = [
-                {
-                    "id": "foreign" if defect == "foreign" else "S1",
-                    "source_fact": "Required diagram.",
-                    "entailed": True,
-                }
-            ]
-            return {
-                "statements": []
-                if defect == "missing"
-                else items * (2 if defect == "duplicate" else 1)
-            }, {}
-        return {
-            "answer_digest": projection.answer_digest,
-            "snapshot_digest": "snapshot",
-            "statements": [
-                {
-                    "id": "S1",
-                    "verdict": "SUPPORTED",
-                    "source_refs": [
-                        {"quote_id": data["evidence"][0]["quote_id"], "reason": "ENTAILMENT"}
-                    ],
-                }
-            ],
-            "groups": [{"id": "G1", "verdict": "ANSWERED", "statement_ids": ["S1"]}],
-        }, {"provider_request_id": "completed-quote-selection"}
+        if prompt.definition.serializer_id == "source-inventory-v1":
+            return _inventory_fixture(data), {"provider_request_id": "completed-quote-selection"}
+        if defect == "cancel":
+            raise asyncio.CancelledError
+        if defect == "timeout":
+            raise TimeoutError
+        wire = _audit_fixture(data)
+        if defect == "missing":
+            wire["statements"] = []
+        if defect == "duplicate":
+            wire["statements"] *= 2
+        if defect == "foreign":
+            wire["statements"][0]["id"] = "foreign"
+        return wire, {"provider_request_id": "completed-entailment"}
 
     def revalidate():
-        if defect == "stale":
+        if defect == "stale" or (defect == "stale_after_entailment" and len(calls) == 2):
             raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
 
     with pytest.raises(
         asyncio.CancelledError if defect == "cancel" else KnoraError,
-        match={"timeout": "PROVIDER_REQUEST_FAILED", "stale": "LEXICAL_RETRIEVAL_UNAVAILABLE"}.get(
-            defect, None if defect == "cancel" else "GENERATION_OUTPUT_INVALID"
-        ),
+        match={
+            "timeout": "PROVIDER_REQUEST_FAILED",
+            "stale": "LEXICAL_RETRIEVAL_UNAVAILABLE",
+            "stale_after_entailment": "LEXICAL_RETRIEVAL_UNAVAILABLE",
+        }.get(defect, None if defect == "cancel" else "GENERATION_OUTPUT_INVALID"),
     ) as caught:
         await CloudflareAnswerSupportVerifier(complete).verify(
             question="Required?",
@@ -429,10 +638,16 @@ async def test_entailment_cannot_deliver_an_incomplete_proof_or_cross_snapshot(d
             snapshot_digest="snapshot",
             revalidate=revalidate,
         )
-    assert len(calls) == (1 if defect == "stale" else 2)
+    assert len(calls) == (0 if defect == "stale" else 2)
     if defect == "cancel":
-        assert caught.value.observation["provider"]["provider_request_id"] == (
-            "completed-quote-selection"
+        assert (
+            caught.value.observation["provider"]["provider_request_id"]
+            == "completed-quote-selection"
+        )
+    if defect == "stale_after_entailment":
+        assert (
+            caught.value.observation["provider"]["entailment"]["provider"]["provider_request_id"]
+            == "completed-entailment"
         )
 
 
@@ -616,7 +831,19 @@ def test_subject_before_second_predicate_keeps_both_required_questions(question)
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "outcome",
-    ["INSUFFICIENT", "ANSWERABLE", "UNKNOWN", "duplicate", "foreign", "quote", "digest", "timeout"],
+    [
+        "INSUFFICIENT",
+        "ANSWERABLE",
+        "UNKNOWN",
+        "duplicate",
+        "foreign",
+        "quote",
+        "digest",
+        "timeout",
+        "missing_reason",
+        "contradiction",
+        "no_refs",
+    ],
 )
 async def test_source_sufficiency_checks_all_evidence_and_fails_closed(outcome):
     import json
@@ -631,9 +858,10 @@ async def test_source_sufficiency_checks_all_evidence_and_fails_closed(outcome):
     async def complete(prompt):
         data = json.loads(prompt.messages[1]["content"])
         assert "answer" not in data and "previous_answer" not in data
-        assert data["evidence"] == [
-            {"alias": "E1", "content": ev[0].content},
-            {"alias": "E2", "content": ev[1].content},
+        assert [e["alias"] for e in data["evidence"]] == ["E1", "E2"]
+        assert [e["passages"][0]["text"] for e in data["evidence"]] == [
+            ev[0].content,
+            ev[1].content,
         ]
         if outcome == "timeout":
             raise TimeoutError
@@ -643,15 +871,15 @@ async def test_source_sufficiency_checks_all_evidence_and_fails_closed(outcome):
             if outcome in {"INSUFFICIENT", "ANSWERABLE", "UNKNOWN"}
             else "ANSWERABLE",
             "source_fact": "There is a substantive report-length requirement.",
-            "source_refs": [
-                {
-                    "alias": "E2",
-                    "exact_quote": "Reports must have at least 20 pages."
-                    if outcome != "quote"
-                    else "Reports must have 12 pages.",
-                }
-            ],
+            "source_refs": []
+            if outcome == "no_refs"
+            else ["E2:P1" if outcome != "quote" else "foreign:P1"],
+            "missing_fact": "A required fact is missing."
+            if outcome in {"INSUFFICIENT", "contradiction"}
+            else "",
         }
+        if outcome == "missing_reason":
+            item["status"] = "INSUFFICIENT"
         return {
             "snapshot_digest": "wrong" if outcome == "digest" else "snapshot",
             "groups": [item, item] if outcome == "duplicate" else [item],
@@ -681,6 +909,45 @@ async def test_source_sufficiency_checks_all_evidence_and_fails_closed(outcome):
 
 
 @pytest.mark.asyncio
+async def test_sufficiency_resolves_source_ids_without_retranscribing_unicode():
+    import json
+
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+    source = "HƯỚNG DẪN - TRANG 1/12\n\nBáo cáo phải có ít nhất 20 trang."
+
+    async def complete(prompt):
+        data = json.loads(prompt.messages[1]["content"])
+        assert data["evidence"][0]["passages"] == [
+            {"quote_id": "E1:P1", "text": "HƯỚNG DẪN - TRANG 1/12"},
+            {"quote_id": "E1:P2", "text": "Báo cáo phải có ít nhất 20 trang."},
+        ]
+        return {
+            "snapshot_digest": "snapshot",
+            "groups": [
+                {
+                    "id": "G1",
+                    "source_fact": "Reports must have at least 20 pages.",
+                    "source_refs": ["E1:P2"],
+                    "missing_fact": "",
+                    "status": "ANSWERABLE",
+                }
+            ],
+        }, {"provider_request_id": "source-ids"}
+
+    insufficient, metadata = await CloudflareAnswerSupportVerifier(complete).assess_sufficiency(
+        question="Báo cáo phải dài bao nhiêu?",
+        groups=(("G1", "Báo cáo phải dài bao nhiêu?"),),
+        evidence=(GenerationEvidence("E1", source),),
+        snapshot_digest="snapshot",
+    )
+    assert not insufficient
+    assert metadata["resolved_groups"][0]["source_refs"] == [
+        {"alias": "E1", "exact_quote": "Báo cáo phải có ít nhất 20 trang."},
+    ]
+
+
+@pytest.mark.asyncio
 async def test_sufficiency_retains_completed_receipt_when_snapshot_changes():
     from knora.answering.answer_support import AnswerSupportFailure
     from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
@@ -694,6 +961,7 @@ async def test_sufficiency_retains_completed_receipt_when_snapshot_changes():
                     "status": "INSUFFICIENT",
                     "source_fact": "Only a source footer is present.",
                     "source_refs": [],
+                    "missing_fact": "Report-length requirement.",
                 }
             ],
         }, {"provider_request_id": "completed-check"}
@@ -766,55 +1034,13 @@ async def test_verifier_transport_is_bounded_and_retains_invalid_completion_evid
     async def endpoint(request):
         body = json.loads(request.content)
         requests.append(body)
-        assert body["model"] == model
-        if model == "@cf/openai/gpt-oss-120b":
-            assert body["response_format"] == {"type": "json_object"}
-            assert "Required JSON Schema" in body["messages"][0]["content"]
-        else:
-            assert body["response_format"]["type"] == "json_schema"
-        assert body["temperature"] == 0
-        assert body["max_tokens"] == 2048
-        payload = json.loads(body["messages"][1]["content"])
-        if "checks" in payload:
-            assert body["reasoning_effort"] == "medium"
-            return httpx.Response(
-                200,
-                json={
-                    "id": "entailment-receipt",
-                    "choices": [
-                        {
-                            "finish_reason": "stop",
-                            "message": {
-                                "content": json.dumps(
-                                    {
-                                        "statements": [
-                                            {
-                                                "id": "S1",
-                                                "source_fact": "A diagram is required.",
-                                                "entailed": True,
-                                            }
-                                        ]
-                                    }
-                                )
-                            },
-                        }
-                    ],
-                },
-            )
-        wire = {
-            "answer_digest": projection.answer_digest,
-            "snapshot_digest": "snapshot",
-            "statements": [
-                {
-                    "id": "S1",
-                    "verdict": "SUPPORTED",
-                    "source_refs": [
-                        {"quote_id": payload["evidence"][0]["quote_id"], "reason": "ENTAILMENT"}
-                    ],
-                }
-            ],
-            "groups": [{"id": "G1", "verdict": "ANSWERED", "statement_ids": ["S1"]}],
-        }
+        assert body["model"] == "@cf/openai/gpt-oss-120b"
+        assert body["response_format"]["type"] == "json_object"
+        assert body["temperature"] == 0 and body["max_tokens"] == 4096
+        data = json.loads(body["messages"][1]["content"])
+        audit = "required_facts" in data
+        assert body["reasoning_effort"] == ("medium" if audit else "low")
+        wire = _audit_fixture(data) if audit else _inventory_fixture(data)
         return httpx.Response(
             200,
             json={
@@ -846,25 +1072,23 @@ async def test_verifier_transport_is_bounded_and_retains_invalid_completion_evid
             direct_json_schema=True,
             client=client,
         )
+        verifier = provider.build_answer_support_verifier()
         kwargs = dict(
-            question="Sơ đồ có bắt buộc không?",
-            groups=(("G1", "Sơ đồ có bắt buộc không?"),),
+            question="Required?",
+            groups=(("G1", "Required?"),),
             answer=answer,
             answer_projection=projection,
             evidence=evidence,
             snapshot_digest="snapshot",
         )
-        verifier = provider.build_answer_support_verifier()
         if failure:
             with pytest.raises(AnswerSupportFailure) as caught:
                 await verifier.verify(**kwargs)
-            observation = caught.value.observation
-            assert observation["failure"] == "invalid_verifier_completion"
-            assert observation["provider"]["provider_request_id"] == "provider-receipt"
-            assert observation["provider"]["finish_reason"] == (
-                "length" if failure == "length" else "stop"
-            )
-            assert "secret-canary" not in json.dumps(observation)
+            obs = caught.value.observation
+            assert obs["failure"] == "invalid_verifier_completion"
+            assert obs["provider"]["provider_request_id"] == "provider-receipt"
+            assert obs["provider"]["finish_reason"] == ("length" if failure == "length" else "stop")
+            assert "secret-canary" not in json.dumps(obs)
         else:
             proof, _ = await verifier.verify(**kwargs)
             assert proof.answer_digest == projection.answer_digest
@@ -880,59 +1104,36 @@ async def test_verifier_grammar_binds_each_statement_to_its_own_sources(foreign_
 
     evidence = (GenerationEvidence("E1", "Fact one."), GenerationEvidence("E2", "Fact two."))
     answer, _, projection = compose_answer_projection(
-        {
-            "decision": "ANSWER",
-            "before": [],
-            "after": [],
-            "refusal_reason": None,
-            "items": [
+        dict(
+            decision="ANSWER",
+            before=[],
+            items=[
                 {"text": "Fact one.", "support": ["E1"]},
                 {"text": "Fact two.", "support": ["E2"]},
             ],
-        },
+            after=[],
+            refusal_reason=None,
+        ),
         evidence,
     )
 
     async def complete(prompt):
-        if prompt.definition.serializer_id == "source-claims-v1":
-            return {
-                "statements": [
-                    {"id": s.id, "source_fact": s.text, "entailed": True}
-                    for s in projection.statements
-                ]
-            }, {}
-        schema = prompt.definition.schema
-        variants = schema["properties"]["statements"]["items"]["oneOf"]
-        assert len(variants) == 2
         data = json.loads(prompt.messages[1]["content"])
-        verdicts = []
+        if prompt.definition.serializer_id == "source-inventory-v1":
+            return _inventory_fixture(data), {}
+        variants = prompt.definition.schema["properties"]["statements"]["items"]["oneOf"]
+        assert len(variants) == 2
         for variant, statement in zip(variants, projection.statements, strict=True):
             assert variant["properties"]["id"]["enum"] == [statement.id]
-            ref_schema = variant["properties"]["source_refs"]["items"]
-            if "$ref" in ref_schema:
-                ref_schema = schema["$defs"][ref_schema["$ref"].rsplit("/", 1)[-1]]
-            allowed = ref_schema["properties"]["quote_id"]["enum"]
-            assert allowed
-            assert {q["alias"] for q in data["evidence"] if q["quote_id"] in allowed} == set(
-                statement.aliases
-            )
-            verdicts.append(
-                {
-                    "id": statement.id,
-                    "verdict": "SUPPORTED",
-                    "source_refs": [{"quote_id": allowed[0], "reason": "ENTAILMENT"}],
-                }
-            )
+            ref = variant["properties"]["source_refs"]["items"]
+            if "$ref" in ref:
+                ref = prompt.definition.schema["$defs"][ref["$ref"].rsplit("/", 1)[1]]
+            allowed = ref["properties"]["quote_id"]["enum"]
+            assert allowed and {q.split(":")[0] for q in allowed} == set(statement.aliases)
+        wire = _audit_fixture(data)
         if foreign_ref:
-            verdicts[0]["source_refs"][0]["quote_id"] = next(
-                q["quote_id"] for q in data["evidence"] if q["alias"] == "E2"
-            )
-        return {
-            "answer_digest": projection.answer_digest,
-            "snapshot_digest": "snapshot",
-            "statements": verdicts,
-            "groups": [{"id": "G1", "verdict": "ANSWERED", "statement_ids": ["S1", "S2"]}],
-        }, {}
+            wire["statements"][0]["source_refs"][0]["quote_id"] = "E2:Q1"
+        return wire, {}
 
     kwargs = dict(
         question="What are the two facts?",
@@ -952,6 +1153,45 @@ async def test_verifier_grammar_binds_each_statement_to_its_own_sources(foreign_
 
 
 @pytest.mark.asyncio
+async def test_multistatement_answer_within_source_budget_reaches_independent_audit():
+    import json
+
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+    source = " ".join(f"Source fact number {i}." for i in range(100))
+    evidence = (GenerationEvidence("E1", source),)
+    answer, _, projection = compose_answer_projection(
+        dict(
+            decision="ANSWER",
+            before=[],
+            items=[{"text": f"Source fact number {i}.", "support": ["E1"]} for i in range(8)],
+            after=[],
+            refusal_reason=None,
+        ),
+        evidence,
+    )
+
+    async def complete(prompt):
+        data = json.loads(prompt.messages[1]["content"])
+        if prompt.definition.serializer_id == "source-inventory-v1":
+            return _inventory_fixture(data, ("Source fact number 0.",)), {}
+        wire = _audit_fixture(data)
+        for i, statement in enumerate(wire["statements"], 1):
+            statement["source_refs"][0]["quote_id"] = f"E1:Q{i}"
+        return wire, {}
+
+    proof, _ = await CloudflareAnswerSupportVerifier(complete).verify(
+        question="Summarize facts zero through seven.",
+        groups=(("G1", "Summarize facts zero through seven."),),
+        answer=answer,
+        answer_projection=projection,
+        evidence=evidence,
+        snapshot_digest="snapshot",
+    )
+    assert proof.answer_digest == projection.answer_digest
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize(
     "defect,want", [("digest", "invalid_verifier_proof"), ("unknown", "unsupported_answer")]
 )
@@ -965,27 +1205,20 @@ async def test_verifier_failures_distinguish_wire_repair_from_answer_repair(defe
     captured = []
 
     async def complete(prompt):
-        captured.append(prompt)
         data = json.loads(prompt.messages[1]["content"])
-        wire = {
-            "answer_digest": "wrong" if defect == "digest" else projection.answer_digest,
-            "snapshot_digest": "snapshot",
-            "statements": [
-                {
-                    "id": "S1",
-                    "verdict": "UNKNOWN" if defect == "unknown" else "SUPPORTED",
-                    "source_refs": [
-                        {"quote_id": data["evidence"][0]["quote_id"], "reason": "ENTAILMENT"}
-                    ],
-                }
-            ],
-            "groups": [{"id": "G1", "verdict": "ANSWERED", "statement_ids": ["S1"]}],
-        }
-        return wire, {"provider": "cloudflare-workers-ai"}
+        captured.append(prompt)
+        if prompt.definition.serializer_id == "source-inventory-v1":
+            assert "recovery_feedback" not in data and "answer" not in data
+            return _inventory_fixture(data), {}
+        wire = _audit_fixture(data)
+        if defect == "digest":
+            wire["answer_digest"] = "wrong"
+        if defect == "unknown":
+            wire["statements"][0]["verdict"] = "UNKNOWN"
+        return wire, {}
 
-    verifier = CloudflareAnswerSupportVerifier(complete)
     with pytest.raises(AnswerSupportFailure) as caught:
-        await verifier.verify(
+        await CloudflareAnswerSupportVerifier(complete).verify(
             question="Is a diagram required?",
             groups=(("G1", "Is a diagram required?"),),
             answer=answer,
@@ -995,8 +1228,7 @@ async def test_verifier_failures_distinguish_wire_repair_from_answer_repair(defe
             feedback={"failure": "invalid_verifier_envelope"},
         )
     assert caught.value.observation["failure"] == want
-    assert captured[0].definition.version.endswith(":recovery-v1")
-    assert "recovery_feedback" in json.loads(captured[0].messages[1]["content"])
+    assert "recovery_feedback" in json.loads(captured[1].messages[1]["content"])
 
 
 @pytest.mark.parametrize(
@@ -1016,6 +1248,7 @@ async def test_verifier_failures_distinguish_wire_repair_from_answer_repair(defe
         ("May I use screenshots? If code is needed, how should I format it?", 2),
         ("What are frontend and backend?", 1),
         ("Liệt kê font chữ và cỡ chữ.", 1),
+        ("Caption của hình ảnh, bảng và sơ đồ cần được định dạng và đánh số thế nào?", 2),
     ],
 )
 def test_each_coordinated_request_gets_independent_coverage(question, parts):
