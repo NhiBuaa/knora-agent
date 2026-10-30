@@ -361,6 +361,7 @@ test.describe("Browser session persistence and recovery", () => {
       // 4. Clear cookies to simulate session expiry and trigger focus recovery
       await context.clearCookies();
       await page.evaluate(() => {
+        window.dispatchEvent(new Event("blur"));
         window.dispatchEvent(new Event("focus"));
       });
       await expect(page.locator("text=Your session has expired")).toBeVisible();
@@ -398,6 +399,7 @@ test.describe("Browser session persistence and recovery", () => {
       // Return to original tab and trigger focus
       await page.bringToFront();
       await page.evaluate(() => {
+        window.dispatchEvent(new Event("blur"));
         window.dispatchEvent(new Event("focus"));
       });
 
