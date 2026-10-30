@@ -650,6 +650,15 @@ class CloudflareAnswerSupportVerifier:
                         for v in verdict.coverage
                         if not v.covered or not any(not c.covered for c in verdict.coverage)
                     ],
+                    "repair_facts": [
+                        {
+                            "text": fact["fact"],
+                            "support": list(
+                                dict.fromkeys(quotes[q]["alias"] for q in fact["quote_ids"])
+                            ),
+                        }
+                        for fact in required.values()
+                    ],
                     "provider": metadata,
                 },
             ) from None

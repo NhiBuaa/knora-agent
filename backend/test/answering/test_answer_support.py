@@ -658,6 +658,10 @@ async def test_independent_audit_rejects_supported_subset_of_requested_contents(
     assert caught.value.observation["source_facts"] == [
         {"id": "G1", "source_fact": "Describe the diagram's components."}
     ]
+    assert caught.value.observation["repair_facts"] == [
+        {"text": "A diagram is required.", "support": ["E1"]},
+        {"text": "Describe the diagram's components.", "support": ["E1"]},
+    ]
 
 
 @pytest.mark.asyncio
