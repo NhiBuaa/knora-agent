@@ -196,7 +196,9 @@ class OpenAICompatibleGenerationProvider:
             ":json-object-v1"
         ) in {
             "cloudflare-gpt-oss-source-inventory-v1",
+            "cloudflare-gpt-oss-source-inventory-v2",
             "cloudflare-gpt-oss-source-audit-v1",
+            "cloudflare-gpt-oss-source-audit-v3",
         }:
             return "@cf/openai/gpt-oss-120b"
         return self._model
@@ -215,7 +217,9 @@ class OpenAICompatibleGenerationProvider:
             "cloudflare-gpt-oss-source-entailment-v1",
             "cloudflare-gpt-oss-source-entailment-v2",
             "cloudflare-gpt-oss-source-audit-v1",
+            "cloudflare-gpt-oss-source-audit-v3",
             "cloudflare-gpt-oss-source-inventory-v1",
+            "cloudflare-gpt-oss-source-inventory-v2",
             "cloudflare-gpt-oss-source-sufficiency-v1",
             "cloudflare-gpt-oss-source-sufficiency-v2",
         }:
@@ -225,7 +229,7 @@ class OpenAICompatibleGenerationProvider:
         # 120B's schema decoder can emit Harmony tokens; validate JSON locally instead.
         system = prompt.definition.system_prompt + (
             "\nRequired JSON Schema (return a matching JSON object, no extra fields):\n"
-            + json.dumps(prompt.definition.schema, ensure_ascii=False)
+            + json.dumps(prompt.definition.schema, ensure_ascii=False, separators=(",", ":"))
         )
         return BuiltPrompt(
             PromptDefinition(
@@ -258,11 +262,17 @@ class OpenAICompatibleGenerationProvider:
             request_body["response_format"] = {"type": "json_object"}
         if self._max_tokens is not None:
             request_body["max_tokens"] = (
-                4096
+                8192
+                if prompt.definition.version.removesuffix(":json-object-v1")
+                == "cloudflare-gpt-oss-source-audit-v3"
+                and self._provider_identity == "cloudflare-workers-ai"
+                else 4096
                 if prompt.definition.version.removesuffix(":json-object-v1")
                 in {
                     "cloudflare-gpt-oss-source-inventory-v1",
+                    "cloudflare-gpt-oss-source-inventory-v2",
                     "cloudflare-gpt-oss-source-audit-v1",
+                    "cloudflare-gpt-oss-source-audit-v3",
                 }
                 and self._provider_identity == "cloudflare-workers-ai"
                 else self._max_tokens
@@ -278,7 +288,9 @@ class OpenAICompatibleGenerationProvider:
             "cloudflare-gpt-oss-source-entailment-v1",
             "cloudflare-gpt-oss-source-entailment-v2",
             "cloudflare-gpt-oss-source-audit-v1",
+            "cloudflare-gpt-oss-source-audit-v3",
             "cloudflare-gpt-oss-source-inventory-v1",
+            "cloudflare-gpt-oss-source-inventory-v2",
             "cloudflare-gpt-oss-source-sufficiency-v1",
             "cloudflare-gpt-oss-source-sufficiency-v2",
         }:
@@ -293,6 +305,7 @@ class OpenAICompatibleGenerationProvider:
                     "cloudflare-gpt-oss-source-entailment-v1",
                     "cloudflare-gpt-oss-source-entailment-v2",
                     "cloudflare-gpt-oss-source-audit-v1",
+                    "cloudflare-gpt-oss-source-audit-v3",
                     "cloudflare-gpt-oss-source-sufficiency-v1",
                     "cloudflare-gpt-oss-source-sufficiency-v2",
                 }

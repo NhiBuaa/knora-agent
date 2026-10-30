@@ -12,7 +12,8 @@ from knora.providers.openai_compatible.generation import OpenAICompatibleGenerat
 
 
 @pytest.mark.asyncio
-async def test_concurrent_generation_and_audit_keep_their_models_and_receipts():
+@pytest.mark.parametrize("version,budget", [("v1", 4096), ("v3", 8192)])
+async def test_concurrent_generation_and_audit_keep_their_models_and_receipts(version, budget):
     from knora.providers.prompts.builder import BuiltPrompt
     from knora.providers.prompts.versioning import PromptDefinition
 
@@ -60,7 +61,7 @@ async def test_concurrent_generation_and_audit_keep_their_models_and_receipts():
         )
         prompt = BuiltPrompt(
             PromptDefinition(
-                "cloudflare-gpt-oss-source-audit-v1",
+                f"cloudflare-gpt-oss-source-audit-{version}",
                 "Audit.",
                 {"type": "object"},
                 "source-audit-v1",
@@ -76,7 +77,7 @@ async def test_concurrent_generation_and_audit_keep_their_models_and_receipts():
     assert generated.model == "@cf/openai/gpt-oss-20b"
     assert metadata["model"] == "@cf/openai/gpt-oss-120b"
     assert sorted((b["model"], b["max_tokens"]) for b in bodies) == [
-        ("@cf/openai/gpt-oss-120b", 4096),
+        ("@cf/openai/gpt-oss-120b", budget),
         ("@cf/openai/gpt-oss-20b", 2048),
     ]
 
