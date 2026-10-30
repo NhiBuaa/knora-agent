@@ -50,6 +50,7 @@ async def generate_with_recovery(
     repair = getattr(provider, "repair_grounded_generation", None) if is_v3 else None
     feedback = None
     verify_feedback = None
+    source_inventory = None
     rejected_answers = set()
     failures = set()
     pruned = None
@@ -176,6 +177,11 @@ async def generate_with_recovery(
             }
             if verify_feedback is not None:
                 kwargs["feedback"] = verify_feedback
+            if source_inventory is not None:
+                kwargs["feedback"] = {
+                    **(verify_feedback or {}),
+                    "source_inventory": source_inventory,
+                }
             proof, metadata = await verifier.verify(**kwargs)
             attempt["provider"] = metadata
             revalidate()
@@ -206,6 +212,9 @@ async def generate_with_recovery(
             observation = getattr(error, "observation", {})
             attempt.update(status="failed", error_code=error.code, observation=observation)
             if phase == "verification" and state.support is not None:
+                source_inventory = observation.get("provider", {}).get(
+                    "source_inventory", source_inventory
+                )
                 state.support.update(observation)
                 state.support["status"] = (
                     "unavailable" if error.code == "PROVIDER_REQUEST_FAILED" else "invalid"

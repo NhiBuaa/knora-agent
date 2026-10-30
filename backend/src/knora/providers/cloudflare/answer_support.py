@@ -15,6 +15,7 @@ from knora.answering.answer_support import (
     AnswerSupportFailure,
     GroupVerdict,
     _Strict,
+    digest,
     validate_projection,
     validate_support,
 )
@@ -367,13 +368,24 @@ class CloudflareAnswerSupportVerifier:
         if revalidate is not None:
             revalidate()
         started = asyncio.get_running_loop().time()
-        try:
-            async with asyncio.timeout(60):
-                raw, metadata = await self._complete(prompt)
-        except (TimeoutError, httpx.HTTPError):
-            raise KnoraError("PROVIDER_REQUEST_FAILED") from None
+        cached = (feedback or {}).get("source_inventory")
+        inventory_binding = digest(payload)
+        reuse = (
+            isinstance(cached, dict)
+            and cached.get("binding") == inventory_binding
+            and isinstance(cached.get("provider"), dict)
+        )
+        if reuse:
+            raw, metadata = cached.get("result"), dict(cached.get("provider", {}))
+        else:
+            try:
+                async with asyncio.timeout(60):
+                    raw, metadata = await self._complete(prompt)
+            except (TimeoutError, httpx.HTTPError):
+                raise KnoraError("PROVIDER_REQUEST_FAILED") from None
         metadata = {
             **metadata,
+            "inventory_reused": reuse,
             "result": raw,
             "latency_ms": (asyncio.get_running_loop().time() - started) * 1000,
             "input_tokens_estimate": tokens,
@@ -382,7 +394,7 @@ class CloudflareAnswerSupportVerifier:
                 "pipeline_seconds": 90,
                 "input_tokens": 8192,
                 "output_tokens": 8192,
-                "calls_per_attempt": 2,
+                "calls_per_attempt": 1 if reuse else 2,
             },
         }
         try:
@@ -408,6 +420,24 @@ class CloudflareAnswerSupportVerifier:
                 "GENERATION_OUTPUT_INVALID",
                 {"failure": "invalid_verifier_envelope", "provider": metadata},
             ) from None
+        metadata["source_inventory"] = {
+            "binding": inventory_binding,
+            "result": inventory.model_dump(),
+            "provider": {
+                k: v
+                for k, v in metadata.items()
+                if k
+                in {
+                    "provider",
+                    "model",
+                    "prompt_version",
+                    "provider_request_id",
+                    "usage",
+                    "cost",
+                    "finish_reason",
+                }
+            },
+        }
         for group in inventory.groups:
             if not group.facts:
                 raise AnswerSupportFailure(
@@ -473,7 +503,9 @@ class CloudflareAnswerSupportVerifier:
             "sources": sources,
         }
         if feedback is not None:
-            payload["recovery_feedback"] = feedback
+            payload["recovery_feedback"] = {
+                k: v for k, v in feedback.items() if k != "source_inventory"
+            }
         schema = _SourceAudit.model_json_schema()
         props, definitions = schema["properties"], schema["$defs"]
         statement_ids = [s.id for s in answer_projection.statements]
