@@ -192,6 +192,12 @@ class OpenAICompatibleGenerationProvider:
         )
 
     def _model_for_version(self, version: str) -> str:
+        if (
+            self._provider_identity == "cloudflare-workers-ai"
+            and version.removesuffix(":json-object-v1")
+            == "cloudflare-gpt-oss-source-sufficiency-v3"
+        ):
+            return "@cf/openai/gpt-oss-20b"
         if self._provider_identity == "cloudflare-workers-ai" and version.removesuffix(
             ":json-object-v1"
         ) in {
@@ -207,11 +213,15 @@ class OpenAICompatibleGenerationProvider:
         return self._model
 
     def _prepare_prompt(self, prompt: BuiltPrompt) -> BuiltPrompt:
-        if self._model_for_version(
-            prompt.definition.version
-        ) != "@cf/openai/gpt-oss-120b" or prompt.definition.version.removesuffix(
-            ":recovery-v1"
-        ).removesuffix(":recovery-v2").removesuffix(":recovery-v3") not in {
+        if (
+            self._model_for_version(prompt.definition.version) != "@cf/openai/gpt-oss-120b"
+            and not (
+                self._provider_identity == "cloudflare-workers-ai"
+                and prompt.definition.version == "cloudflare-gpt-oss-source-sufficiency-v3"
+            )
+        ) or prompt.definition.version.removesuffix(":recovery-v1").removesuffix(
+            ":recovery-v2"
+        ).removesuffix(":recovery-v3") not in {
             "cloudflare-gpt-oss-cited-answer-v23",
             "cloudflare-gpt-oss-cited-answer-v24",
             "cloudflare-gpt-oss-cited-answer-v25",
@@ -228,11 +238,12 @@ class OpenAICompatibleGenerationProvider:
             "cloudflare-gpt-oss-source-inventory-v3",
             "cloudflare-gpt-oss-source-sufficiency-v1",
             "cloudflare-gpt-oss-source-sufficiency-v2",
+            "cloudflare-gpt-oss-source-sufficiency-v3",
         }:
             return prompt
         from knora.providers.prompts.versioning import PromptDefinition
 
-        # 120B's schema decoder can emit Harmony tokens; validate JSON locally instead.
+        # Schema decoding can stall or emit Harmony tokens; validate JSON locally instead.
         system = prompt.definition.system_prompt + (
             "\nRequired JSON Schema (return a matching JSON object, no extra fields):\n"
             + json.dumps(prompt.definition.schema, ensure_ascii=False, separators=(",", ":"))
@@ -309,6 +320,7 @@ class OpenAICompatibleGenerationProvider:
             "cloudflare-gpt-oss-source-inventory-v3",
             "cloudflare-gpt-oss-source-sufficiency-v1",
             "cloudflare-gpt-oss-source-sufficiency-v2",
+            "cloudflare-gpt-oss-source-sufficiency-v3",
         }:
             request_body["reasoning_effort"] = (
                 "medium"
@@ -326,6 +338,7 @@ class OpenAICompatibleGenerationProvider:
                     "cloudflare-gpt-oss-source-audit-v5",
                     "cloudflare-gpt-oss-source-sufficiency-v1",
                     "cloudflare-gpt-oss-source-sufficiency-v2",
+                    "cloudflare-gpt-oss-source-sufficiency-v3",
                 }
                 else "low"
             )
