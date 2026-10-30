@@ -27,8 +27,26 @@ git rev-parse HEAD
 docker version --format '{{.Server.Version}}'
 node --version
 npm --version
-Test-Path frontend/node_modules/@playwright/test/cli.js
+./scripts/prepare-figma-e2e.ps1 -CheckFrontendOnly
 ```
+
+### Frontend dependency containment pre-check (`-CheckFrontendOnly`)
+
+Before running Playwright directly or starting browser verification, run `-CheckFrontendOnly` to verify that frontend dependencies and the Playwright CLI are physically contained inside the owned worktree and match the lockfile:
+
+```powershell
+./scripts/prepare-figma-e2e.ps1 -CheckFrontendOnly
+```
+
+Result codes:
+- `FIGMA_FRONTEND_OK`: The frontend directory is physically contained within the repository. All three scoped packages (`@playwright/test`, `playwright`, `playwright-core`) are physically contained under `frontend` (either in `frontend/node_modules` or through valid internal package links declared in `package-lock.json`), the CLI belongs to `@playwright/test`, and declared package specs and installed package versions match the lockfile nodes.
+- `FIGMA_FRONTEND_UNAVAILABLE`: Node executable is missing, or `package.json`, `package-lock.json`, or required package installations are missing.
+- `FIGMA_FRONTEND_OWNERSHIP_REJECTED`: The frontend directory escapes the repository, or `node_modules`, resolved packages, internal link targets, or the CLI path escape the owned frontend directory (e.g. symlinks/junctions pointing to sibling worktrees or external directories).
+- `FIGMA_FRONTEND_LOCK_MISMATCH`: Declared dependency specs, package names, or installed versions do not agree with the lockfile nodes.
+- `FIGMA_FRONTEND_METADATA_INVALID`: Package metadata or lockfile JSON is malformed, missing required edges, or has invalid types.
+
+> [!NOTE]
+> `-CheckFrontendOnly` is a scoped pre-check verifying physical containment and lockfile metadata matching specifically for the three Playwright runner packages (`@playwright/test`, `playwright`, `playwright-core`) and the CLI. It does not audit the entire npm dependency tree or Chromium binaries, does not protect against post-check filesystem modifications by external background daemons, and does not replace runtime browser readiness verification. It is mutually exclusive with `-CheckConfigurationOnly` and `-Run`.
 
 Missing prerequisites are blockers: report them; installation, model downloads and
 credential/provider setup require separate authorization. Reusing already installed,
