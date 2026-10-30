@@ -304,12 +304,10 @@ async def generate_with_recovery(
                 and observation.get("failure") == "unsupported_answer"
                 and not (
                     observation.get("source_facts")
-                    and observation.get("failed_id") in {key for key, _ in groups}
                     and observation.get("verdict", {}).get("statements")
-                    and all(
-                        s.get("verdict") == "SUPPORTED"
-                        for s in observation["verdict"]["statements"]
-                    )
+                    and not observation.get("fact_mismatch")
+                    # The completed inventory gives repair facts, never final-answer proof.
+                    and not any(a["phase"] == "repair" for a in state.attempts)
                 )
                 and assess_sufficiency is not None
                 and not sufficiency_checked

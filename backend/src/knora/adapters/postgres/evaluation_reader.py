@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from contextlib import suppress
 from dataclasses import asdict, dataclass, fields
 from math import isfinite
 
@@ -599,7 +600,7 @@ class PostgresEvaluationReader:
                 alias_mapping=dict(trace.alias_mapping),
                 provider_metadata=dict(trace.provider_metadata),
                 retrieval_latency_ms=_retrieval_latency(trace.provider_metadata),
-                trace_schema_version=4,
+                trace_schema_version=trace.trace_schema_version,
                 branch_observation_schema_version=2,
                 fusion_policy_version=trace.fusion_policy_version,
                 embedding_set_ids=tuple(trace.embedding_set_ids),
@@ -627,7 +628,13 @@ class PostgresEvaluationReader:
             )
             if trace is None:
                 raise LookupError("evaluation trace not found")
-            if trace.trace_schema_version == 4:
+            v3_refusal = False
+            if trace.trace_schema_version == 3 and trace.decision == "REFUSAL":
+                with suppress(ValueError):
+                    v3_refusal = resolve_retrieval_configuration(
+                        trace.retrieval_configuration_id, vector_min_similarity=None
+                    ).is_v3_retrieval
+            if trace.trace_schema_version == 4 or v3_refusal:
                 return self._read_answer_support_trace(session, trace, workspace_id)
             if trace.trace_schema_version == 3:
                 return self._read_bm25_trace(session, trace, workspace_id)
