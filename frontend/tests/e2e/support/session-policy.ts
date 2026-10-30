@@ -59,7 +59,7 @@ export async function readOwnedBrowserPolicy(
   };
 }
 
-async function getKeycloakAdminToken(): Promise<string> {
+export async function getKeycloakAdminToken(): Promise<string> {
   const tokenRes = await fetch(
     "http://127.0.0.1:8380/realms/master/protocol/openid-connect/token",
     {
@@ -114,7 +114,7 @@ export async function withAcceleratedSessionPolicy<T>(
   }
   const currentRealm = (await realmRes.json()) as Record<string, unknown>;
 
-  const originalRealmProjection = {
+  const originalRealmProjection: Record<string, unknown> = {
     ssoSessionIdleTimeout: currentRealm.ssoSessionIdleTimeout,
     ssoSessionMaxLifespan: currentRealm.ssoSessionMaxLifespan,
     ssoSessionIdleTimeoutRememberMe:
@@ -147,162 +147,276 @@ export async function withAcceleratedSessionPolicy<T>(
   const originalLifespanPresent = "access.token.lifespan" in originalAttributes;
   const originalLifespanValue = originalAttributes["access.token.lifespan"];
 
-  // 3. Apply accelerated settings
-  // PUT realm
-  const putRealmRes = await fetch(
-    "http://127.0.0.1:8380/admin/realms/knora-dev",
-    {
-      method: "PUT",
-      headers,
-      body: JSON.stringify({
-        ...currentRealm,
-        ssoSessionIdleTimeout: 10,
-        ssoSessionMaxLifespan: 30,
-        ssoSessionIdleTimeoutRememberMe: 20,
-        ssoSessionMaxLifespanRememberMe: 60,
-        accessTokenLifespan: 5,
-        clientSessionIdleTimeout: 0,
-        clientSessionMaxLifespan: 0,
-      }),
-    },
-  );
-  if (!putRealmRes.ok) {
-    throw new Error(
-      `Failed to apply accelerated realm policy: ${putRealmRes.status}`,
-    );
-  }
+  let realmMutated = false;
+  let clientMutated = false;
+  const cleanupErrors: Error[] = [];
 
-  // PUT client
-  const updatedAttributes = {
-    ...originalAttributes,
-    "access.token.lifespan": "5",
+  const restoreAll = async () => {
+    // Independent restore of client
+    if (clientMutated) {
+      try {
+        const freshClientRes = await fetch(
+          `http://127.0.0.1:8380/admin/realms/knora-dev/clients/${client.id}`,
+          { headers: { Authorization: `Bearer ${adminToken}` } },
+        );
+        if (!freshClientRes.ok) {
+          throw new Error(
+            `Failed to fetch fresh client before restore: ${freshClientRes.status}`,
+          );
+        }
+        const freshClient = (await freshClientRes.json()) as {
+          id: string;
+          clientId: string;
+          attributes?: Record<string, string>;
+        };
+        const currentAttrs = { ...(freshClient.attributes ?? {}) };
+
+        // Drift check on managed attribute
+        if (currentAttrs["access.token.lifespan"] !== "5") {
+          throw new Error(
+            `Client access.token.lifespan drift detected before restore: expected "5", found "${currentAttrs["access.token.lifespan"]}"`,
+          );
+        }
+
+        // Restore managed attribute without wiping unrelated attributes
+        if (originalLifespanPresent) {
+          currentAttrs["access.token.lifespan"] = originalLifespanValue;
+        } else {
+          delete currentAttrs["access.token.lifespan"];
+        }
+
+        const restoreClientRes = await fetch(
+          `http://127.0.0.1:8380/admin/realms/knora-dev/clients/${client.id}`,
+          {
+            method: "PUT",
+            headers,
+            body: JSON.stringify({
+              id: client.id,
+              clientId: client.clientId,
+              attributes: currentAttrs,
+            }),
+          },
+        );
+        if (!restoreClientRes.ok) {
+          throw new Error(
+            `Failed to restore client attributes: ${restoreClientRes.status}`,
+          );
+        }
+
+        // Readback check
+        const verifyClientRes = await fetch(
+          `http://127.0.0.1:8380/admin/realms/knora-dev/clients/${client.id}`,
+          { headers: { Authorization: `Bearer ${adminToken}` } },
+        );
+        const verifiedClient = (await verifyClientRes.json()) as {
+          attributes?: Record<string, string>;
+        };
+        const finalLifespan =
+          verifiedClient.attributes?.["access.token.lifespan"];
+        if (
+          originalLifespanPresent &&
+          finalLifespan !== originalLifespanValue
+        ) {
+          throw new Error(
+            "Restored client access.token.lifespan readback mismatch",
+          );
+        }
+        if (!originalLifespanPresent && finalLifespan !== undefined) {
+          throw new Error(
+            "Restored client access.token.lifespan was not removed",
+          );
+        }
+      } catch (err) {
+        cleanupErrors.push(err instanceof Error ? err : new Error(String(err)));
+      }
+    }
+
+    // Independent restore of realm
+    if (realmMutated) {
+      try {
+        const freshRealmRes = await fetch(
+          "http://127.0.0.1:8380/admin/realms/knora-dev",
+          {
+            headers: { Authorization: `Bearer ${adminToken}` },
+          },
+        );
+        if (!freshRealmRes.ok) {
+          throw new Error(
+            `Failed to fetch fresh realm before restore: ${freshRealmRes.status}`,
+          );
+        }
+        const freshRealm = (await freshRealmRes.json()) as Record<
+          string,
+          unknown
+        >;
+
+        // Drift check on accelerated realm fields
+        const acceleratedExpected: Record<string, unknown> = {
+          ssoSessionIdleTimeout: 10,
+          ssoSessionMaxLifespan: 30,
+          ssoSessionIdleTimeoutRememberMe: 20,
+          ssoSessionMaxLifespanRememberMe: 60,
+          accessTokenLifespan: 5,
+          clientSessionIdleTimeout: 0,
+          clientSessionMaxLifespan: 0,
+        };
+        for (const [k, v] of Object.entries(acceleratedExpected)) {
+          if (freshRealm[k] !== v) {
+            throw new Error(
+              `Realm ${k} drift detected before restore: expected ${v}, found ${freshRealm[k]}`,
+            );
+          }
+        }
+
+        const restoreRealmRes = await fetch(
+          "http://127.0.0.1:8380/admin/realms/knora-dev",
+          {
+            method: "PUT",
+            headers,
+            body: JSON.stringify({
+              ...freshRealm,
+              ...originalRealmProjection,
+            }),
+          },
+        );
+        if (!restoreRealmRes.ok) {
+          throw new Error(
+            `Failed to restore realm policy: ${restoreRealmRes.status}`,
+          );
+        }
+
+        // Readback check
+        const verifyRealmRes = await fetch(
+          "http://127.0.0.1:8380/admin/realms/knora-dev",
+          {
+            headers: { Authorization: `Bearer ${adminToken}` },
+          },
+        );
+        const finalRealm = (await verifyRealmRes.json()) as Record<
+          string,
+          unknown
+        >;
+        for (const [key, val] of Object.entries(originalRealmProjection)) {
+          if (finalRealm[key] !== val) {
+            throw new Error(
+              `Restored realm policy readback mismatch on ${key}`,
+            );
+          }
+        }
+      } catch (err) {
+        cleanupErrors.push(err instanceof Error ? err : new Error(String(err)));
+      }
+    }
+
+    if (cleanupErrors.length > 0) {
+      const messages = cleanupErrors.map((e) => e.message).join("; ");
+      throw new Error(`Accelerated policy cleanup failed: ${messages}`);
+    }
   };
-  const putClientRes = await fetch(
-    `http://127.0.0.1:8380/admin/realms/knora-dev/clients/${client.id}`,
-    {
-      method: "PUT",
-      headers,
-      body: JSON.stringify({
-        ...client,
-        attributes: updatedAttributes,
-      }),
-    },
-  );
-  if (!putClientRes.ok) {
-    throw new Error(
-      `Failed to apply accelerated client attribute: ${putClientRes.status}`,
-    );
-  }
 
-  // 4. Verify readback before run
-  const readbackRealmRes = await fetch(
-    "http://127.0.0.1:8380/admin/realms/knora-dev",
-    {
-      headers: { Authorization: `Bearer ${adminToken}` },
-    },
-  );
-  const verifiedRealm = (await readbackRealmRes.json()) as Record<
-    string,
-    unknown
-  >;
-  if (
-    verifiedRealm.ssoSessionIdleTimeout !== 10 ||
-    verifiedRealm.ssoSessionMaxLifespan !== 30 ||
-    verifiedRealm.ssoSessionIdleTimeoutRememberMe !== 20 ||
-    verifiedRealm.ssoSessionMaxLifespanRememberMe !== 60 ||
-    verifiedRealm.accessTokenLifespan !== 5 ||
-    verifiedRealm.clientSessionIdleTimeout !== 0 ||
-    verifiedRealm.clientSessionMaxLifespan !== 0
-  ) {
-    throw new Error("Accelerated realm policy readback mismatch");
-  }
-
-  const readbackClientRes = await fetch(
-    `http://127.0.0.1:8380/admin/realms/knora-dev/clients/${client.id}`,
-    { headers: { Authorization: `Bearer ${adminToken}` } },
-  );
-  const verifiedClient = (await readbackClientRes.json()) as {
-    attributes?: Record<string, string>;
-  };
-  if (verifiedClient.attributes?.["access.token.lifespan"] !== "5") {
-    throw new Error("Accelerated client attribute readback mismatch");
-  }
-
-  // 5. Run wrapped function and restore in finally
   try {
-    return await run();
-  } finally {
-    // Restore client
-    const restoredClientAttributes = { ...verifiedClient.attributes };
-    if (originalLifespanPresent) {
-      restoredClientAttributes["access.token.lifespan"] = originalLifespanValue;
-    } else {
-      delete restoredClientAttributes["access.token.lifespan"];
-    }
-    const restoreClientRes = await fetch(
-      `http://127.0.0.1:8380/admin/realms/knora-dev/clients/${client.id}`,
-      {
-        method: "PUT",
-        headers,
-        body: JSON.stringify({
-          ...client,
-          attributes: restoredClientAttributes,
-        }),
-      },
-    );
-    if (!restoreClientRes.ok) {
-      throw new Error(
-        `Failed to restore client attributes: ${restoreClientRes.status}`,
-      );
-    }
+    // 3. Apply accelerated settings: PUT realm
+    const freshRealmForPut = (await (
+      await fetch("http://127.0.0.1:8380/admin/realms/knora-dev", {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      })
+    ).json()) as Record<string, unknown>;
 
-    // Restore realm
-    const restoreRealmRes = await fetch(
+    const putRealmRes = await fetch(
       "http://127.0.0.1:8380/admin/realms/knora-dev",
       {
         method: "PUT",
         headers,
         body: JSON.stringify({
-          ...currentRealm,
-          ...originalRealmProjection,
+          ...freshRealmForPut,
+          ssoSessionIdleTimeout: 10,
+          ssoSessionMaxLifespan: 30,
+          ssoSessionIdleTimeoutRememberMe: 20,
+          ssoSessionMaxLifespanRememberMe: 60,
+          accessTokenLifespan: 5,
+          clientSessionIdleTimeout: 0,
+          clientSessionMaxLifespan: 0,
         }),
       },
     );
-    if (!restoreRealmRes.ok) {
+    if (!putRealmRes.ok) {
       throw new Error(
-        `Failed to restore realm policy: ${restoreRealmRes.status}`,
+        `Failed to apply accelerated realm policy: ${putRealmRes.status}`,
       );
     }
+    realmMutated = true;
 
-    // Verify restored readback
-    const finalRealmRes = await fetch(
+    // PUT client
+    const freshClientForPut = (await (
+      await fetch(
+        `http://127.0.0.1:8380/admin/realms/knora-dev/clients/${client.id}`,
+        { headers: { Authorization: `Bearer ${adminToken}` } },
+      )
+    ).json()) as {
+      id: string;
+      clientId: string;
+      attributes?: Record<string, string>;
+    };
+
+    const updatedAttributes = {
+      ...(freshClientForPut.attributes ?? {}),
+      "access.token.lifespan": "5",
+    };
+    const putClientRes = await fetch(
+      `http://127.0.0.1:8380/admin/realms/knora-dev/clients/${client.id}`,
+      {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({
+          id: client.id,
+          clientId: client.clientId,
+          attributes: updatedAttributes,
+        }),
+      },
+    );
+    if (!putClientRes.ok) {
+      throw new Error(
+        `Failed to apply accelerated client attribute: ${putClientRes.status}`,
+      );
+    }
+    clientMutated = true;
+
+    // 4. Verify readback before run
+    const readbackRealmRes = await fetch(
       "http://127.0.0.1:8380/admin/realms/knora-dev",
       {
         headers: { Authorization: `Bearer ${adminToken}` },
       },
     );
-    const finalRealm = (await finalRealmRes.json()) as Record<string, unknown>;
-    for (const [key, val] of Object.entries(originalRealmProjection)) {
-      if (finalRealm[key] !== val) {
-        throw new Error(`Restored realm policy readback mismatch on ${key}`);
-      }
+    const verifiedRealm = (await readbackRealmRes.json()) as Record<
+      string,
+      unknown
+    >;
+    if (
+      verifiedRealm.ssoSessionIdleTimeout !== 10 ||
+      verifiedRealm.ssoSessionMaxLifespan !== 30 ||
+      verifiedRealm.ssoSessionIdleTimeoutRememberMe !== 20 ||
+      verifiedRealm.ssoSessionMaxLifespanRememberMe !== 60 ||
+      verifiedRealm.accessTokenLifespan !== 5 ||
+      verifiedRealm.clientSessionIdleTimeout !== 0 ||
+      verifiedRealm.clientSessionMaxLifespan !== 0
+    ) {
+      throw new Error("Accelerated realm policy readback mismatch");
     }
 
-    const finalClientRes = await fetch(
+    const readbackClientRes = await fetch(
       `http://127.0.0.1:8380/admin/realms/knora-dev/clients/${client.id}`,
       { headers: { Authorization: `Bearer ${adminToken}` } },
     );
-    const finalClient = (await finalClientRes.json()) as {
+    const verifiedClient = (await readbackClientRes.json()) as {
       attributes?: Record<string, string>;
     };
-    const finalLifespan = finalClient.attributes?.["access.token.lifespan"];
-    if (originalLifespanPresent && finalLifespan !== originalLifespanValue) {
-      throw new Error(
-        "Restored client access.token.lifespan readback mismatch",
-      );
+    if (verifiedClient.attributes?.["access.token.lifespan"] !== "5") {
+      throw new Error("Accelerated client attribute readback mismatch");
     }
-    if (!originalLifespanPresent && finalLifespan !== undefined) {
-      throw new Error("Restored client access.token.lifespan was not removed");
-    }
+
+    return await run();
+  } finally {
+    await restoreAll();
   }
 }

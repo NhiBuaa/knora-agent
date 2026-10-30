@@ -53,9 +53,11 @@ export function assertFigmaServiceOwnership() {
   }
 }
 
-export async function openFigmaLogin(page: Page) {
+export async function openFigmaLogin(page: Page, forcedReauth = false) {
   assertFigmaServiceOwnership();
-  await page.goto("/api/auth/login");
+  await page.goto(
+    forcedReauth ? "/api/auth/login?prompt=login" : "/api/auth/login",
+  );
   expect(new URL(page.url()).origin).toBe("http://127.0.0.1:8380");
   await expect(page.locator("#kc-form-login")).toBeVisible();
 }
@@ -96,6 +98,7 @@ export async function signInFigmaUser(
   page: Page,
   identity: "m5-user" | "m5-other-workspace" | "m5-no-operator",
   rememberMe = false,
+  forcedReauth = false,
 ): Promise<void> {
   const users = (realm as { users: RealmUser[] }).users;
   const user = users.find((u) => u.username === identity);
@@ -104,7 +107,7 @@ export async function signInFigmaUser(
       `Synthetic identity ${identity} not found in figma-realm.json`,
     );
   }
-  await openFigmaLogin(page);
+  await openFigmaLogin(page, forcedReauth);
   await page.locator("#username").fill(user.username);
   await page.locator("#password").fill(user.credentials[0].value);
   const checkbox = page.locator("#rememberMe");
