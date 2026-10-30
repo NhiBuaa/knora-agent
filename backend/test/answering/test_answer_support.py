@@ -736,6 +736,48 @@ async def test_valid_coverage_ids_do_not_override_unsupported_statement():
 
 
 @pytest.mark.asyncio
+async def test_invalid_coverage_feedback_identifies_the_field_to_correct():
+    import json
+
+    from knora.answering.answer_support import AnswerSupportFailure
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+    answer, projection, evidence, _ = case()
+    calls = []
+
+    async def complete(prompt):
+        data = json.loads(prompt.messages[1]["content"])
+        if prompt.definition.serializer_id == "source-inventory-v1":
+            return _inventory_fixture(data), {}
+        calls.append(data)
+        wire = _audit_fixture(data)
+        if len(calls) == 1:
+            wire["coverage"][0].update(covered=False, statement_ids=["S1"])
+        else:
+            correction = data["recovery_feedback"]["invalid_coverage"]
+            assert correction["id"] == "G1:F1"
+            assert correction["covered"] is False
+            assert correction["statement_ids"] == ["S1"]
+            assert "covered=false requires statement_ids=[]" in correction["expected"]
+        return wire, {}
+
+    verifier = CloudflareAnswerSupportVerifier(complete)
+    kwargs = dict(
+        question="Is a diagram required?",
+        groups=(("G1", "Is a diagram required?"),),
+        answer=answer,
+        answer_projection=projection,
+        evidence=evidence,
+        snapshot_digest="snapshot",
+    )
+    with pytest.raises(AnswerSupportFailure) as caught:
+        await verifier.verify(**kwargs)
+    assert "invalid_coverage" in caught.value.observation
+    proof, _ = await verifier.verify(**kwargs, feedback=caught.value.observation)
+    assert proof.answer_digest == projection.answer_digest
+
+
+@pytest.mark.asyncio
 async def test_unrequested_answer_quote_text_is_rejected():
     import json
 

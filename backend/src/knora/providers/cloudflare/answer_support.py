@@ -706,7 +706,22 @@ class CloudflareAnswerSupportVerifier:
                     or (item.covered and not item.statement_ids)
                     or (not item.covered and item.statement_ids)
                 ):
-                    raise ValueError
+                    raise AnswerSupportFailure(
+                        "GENERATION_OUTPUT_INVALID",
+                        {
+                            "failure": "invalid_verifier_envelope",
+                            "invalid_coverage": {
+                                **item.model_dump(),
+                                "expected": (
+                                    "Use unique candidate statement IDs; covered=false requires "
+                                    "statement_ids=[]; covered=true requires nonempty "
+                                    "statement_ids. "
+                                    "Keep your factual verdict; correct only the invalid fields."
+                                ),
+                            },
+                            "provider": metadata,
+                        },
+                    )
             for fact in verdict.missing_source_facts:
                 if fact.group_id not in {k for k, _ in groups} or any(
                     q not in quotes for q in fact.quote_ids
