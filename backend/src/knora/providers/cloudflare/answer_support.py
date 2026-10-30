@@ -74,7 +74,6 @@ class _InventoryVerdict(_Strict):
 
 class _FactCoverage(_Strict):
     id: str
-    answer_quotes: list[str]
     statement_ids: list[str]
     covered: bool
 
@@ -450,12 +449,12 @@ class CloudflareAnswerSupportVerifier:
             "Preserve subject, relation, scope, numbers, modality, conditions and negation. Source "
             "footer does not impose report length. Examples are not general requirements. Select "
             "exact quote_ids for each supported statement; no invented text or offsets. "
-            "For EVERY supplied required_fact ID, copy EXACT contiguous quotes from the answer "
-            "statements into answer_quotes, without translation, paraphrase or additions. "
-            "Never copy the required fact into that field. Several quoted statements may "
-            "JOINTLY express a fact. Then decide covered: these quotes must express the WHOLE "
+            "For EVERY supplied required_fact ID, select exact statement_ids from the candidate "
+            "answer. The server resolves their immutable answer spans; never transcribe quotes "
+            "or substitute source text. Several selected statements may JOINTLY express a fact. "
+            "Then decide covered: the selected answer statements must express the WHOLE "
             "required fact, not merely overlap words. Empty statement_ids and covered=false when "
-            "missing, with empty answer_quotes. Do not merge, omit or invent required_fact IDs. "
+            "missing. Do not merge, omit or invent required_fact IDs. "
             "A requested count needs only the count, not an unsolicited enumeration. "
             "Check the question too. "
             "A true subset does not cover a requested list. Short answers, translations and "
@@ -538,7 +537,7 @@ class CloudflareAnswerSupportVerifier:
             )
         prompt = BuiltPrompt(
             PromptDefinition(
-                "cloudflare-gpt-oss-source-audit-v3", audit_system, schema, "source-audit-v1"
+                "cloudflare-gpt-oss-source-audit-v4", audit_system, schema, "source-audit-v1"
             ),
             messages,
         )
@@ -588,34 +587,34 @@ class CloudflareAnswerSupportVerifier:
                 ) from None
         try:
             verdict = _SourceAudit.model_validate(raw)
-            invalid_answer_quote = None
             if len(verdict.coverage) != len(required) or {v.id for v in verdict.coverage} != set(
                 required
             ):
                 raise ValueError
             for item in verdict.coverage:
-                for quote in item.answer_quotes if item.covered else ():
-                    if not quote.strip() or not any(
-                        quote in s.text or quote in answer[s.start : s.end]
-                        for s in answer_projection.statements
-                        if s.id in item.statement_ids
-                    ):
-                        invalid_answer_quote = {
-                            "fact_id": item.id,
-                            "quote": quote,
-                            "eligible_statements": [
-                                {"id": s.id, "text": s.text}
-                                for s in answer_projection.statements
-                                if s.id in item.statement_ids
-                            ],
-                        }
                 if (
                     len(set(item.statement_ids)) != len(item.statement_ids)
                     or not set(item.statement_ids) <= set(statement_ids)
                     or (item.covered and not item.statement_ids)
-                    or (item.covered and not item.answer_quotes)
+                    or (not item.covered and item.statement_ids)
                 ):
                     raise ValueError
+            metadata["entailment"]["coverage_spans"] = [
+                {
+                    "id": item.id,
+                    "spans": [
+                        {
+                            "statement_id": s.id,
+                            "start": s.start,
+                            "end": s.end,
+                            "text": answer[s.start : s.end],
+                        }
+                        for s in answer_projection.statements
+                        if s.id in item.statement_ids
+                    ],
+                }
+                for item in verdict.coverage
+            ]
             expanded = verdict.model_dump(exclude={"coverage"})
             for item in expanded["statements"]:
                 item["source_refs"] = [
@@ -662,14 +661,4 @@ class CloudflareAnswerSupportVerifier:
                     "provider": metadata,
                 },
             ) from None
-        if invalid_answer_quote is not None:
-            # A rejected answer needs repair before any irrelevant quote-format correction.
-            raise AnswerSupportFailure(
-                "GENERATION_OUTPUT_INVALID",
-                {
-                    "failure": "invalid_verifier_envelope",
-                    "invalid_answer_quote": invalid_answer_quote,
-                    "provider": metadata,
-                },
-            )
         return proof, metadata

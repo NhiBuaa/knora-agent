@@ -109,7 +109,6 @@ def _audit_fixture(data):
         "coverage": [
             {
                 "id": f["id"],
-                "answer_quotes": [s["text"] for s in data["statements"]],
                 "statement_ids": ids,
                 "covered": True,
             }
@@ -149,7 +148,6 @@ async def test_supported_detail_does_not_need_to_be_a_required_inventory_fact():
             return _inventory_fixture(data), {}
         wire = _audit_fixture(data)
         wire["coverage"][0]["statement_ids"] = ["S1"]
-        wire["coverage"][0]["answer_quotes"] = ["A diagram is required."]
         wire["statements"][1]["source_refs"][0]["quote_id"] = "E1:Q3"
         return wire, {}
 
@@ -406,13 +404,11 @@ async def test_required_source_inventory_is_blind_to_candidate_answer():
             "coverage": [
                 {
                     "id": "G1:F1",
-                    "answer_quotes": [projection.statements[0].text],
                     "statement_ids": ["S1"],
                     "covered": True,
                 },
                 {
                     "id": "G1:F2",
-                    "answer_quotes": [],
                     "statement_ids": [],
                     "covered": False,
                 },
@@ -459,13 +455,9 @@ async def test_required_fact_can_be_covered_across_multiple_answer_statements():
         if prompt.definition.serializer_id == "source-inventory-v1":
             return _inventory_fixture(data, ("The caption is italic and centered.",)), {}
         wire = _audit_fixture(data)
-        wire["coverage"][0]["answer_quotes"] = [
-            "The caption is italic.",
-            "The caption is centered.",
-        ]
         return wire, {}
 
-    proof, _ = await CloudflareAnswerSupportVerifier(complete).verify(
+    proof, metadata = await CloudflareAnswerSupportVerifier(complete).verify(
         question="How is the caption formatted?",
         groups=(("G1", "How is the caption formatted?"),),
         answer=answer,
@@ -474,6 +466,20 @@ async def test_required_fact_can_be_covered_across_multiple_answer_statements():
         snapshot_digest="snapshot",
     )
     assert proof.answer_digest == projection.answer_digest
+    assert metadata["entailment"]["coverage_spans"] == [
+        {
+            "id": "G1:F1",
+            "spans": [
+                {
+                    "statement_id": s.id,
+                    "start": s.start,
+                    "end": s.end,
+                    "text": answer[s.start : s.end],
+                }
+                for s in projection.statements
+            ],
+        }
+    ]
 
 
 @pytest.mark.asyncio
@@ -501,7 +507,6 @@ async def test_coverage_can_quote_rendered_bold_text_from_its_statement():
         if prompt.definition.serializer_id == "source-inventory-v1":
             return _inventory_fixture(data, ("Seven chapters are suggested.",)), {}
         wire = _audit_fixture(data)
-        wire["coverage"][0]["answer_quotes"] = ["**Seven chapters** are suggested."]
         return wire, {}
 
     proof, _ = await CloudflareAnswerSupportVerifier(complete).verify(
@@ -553,7 +558,7 @@ async def test_verifier_cannot_invent_answer_spans_to_cover_a_missing_fact(defec
 
 
 @pytest.mark.asyncio
-async def test_unsupported_answer_is_repaired_before_irrelevant_quote_transcription():
+async def test_valid_coverage_ids_do_not_override_unsupported_statement():
     import json
 
     from knora.answering.answer_support import AnswerSupportFailure
@@ -567,7 +572,6 @@ async def test_unsupported_answer_is_repaired_before_irrelevant_quote_transcript
             return _inventory_fixture(data), {}
         wire = _audit_fixture(data)
         wire["statements"][0].update(verdict="UNKNOWN", source_refs=[])
-        wire["coverage"][0]["answer_quotes"] = ["A paraphrase, not the actual answer."]
         return wire, {}
 
     with pytest.raises(AnswerSupportFailure) as caught:
@@ -585,7 +589,7 @@ async def test_unsupported_answer_is_repaired_before_irrelevant_quote_transcript
 
 
 @pytest.mark.asyncio
-async def test_invalid_answer_quote_explains_the_exact_wire_correction():
+async def test_unrequested_answer_quote_text_is_rejected():
     import json
 
     from knora.answering.answer_support import AnswerSupportFailure
@@ -612,11 +616,6 @@ async def test_invalid_answer_quote_explains_the_exact_wire_correction():
         )
     observation = caught.value.observation
     assert observation["failure"] == "invalid_verifier_envelope"
-    assert observation["invalid_answer_quote"] == {
-        "fact_id": "G1:F1",
-        "quote": "A paraphrase, not the actual answer.",
-        "eligible_statements": [{"id": "S1", "text": projection.statements[0].text}],
-    }
 
 
 @pytest.mark.asyncio
@@ -641,7 +640,7 @@ async def test_independent_audit_rejects_supported_subset_of_requested_contents(
                 data, ("A diagram is required.", "Describe the diagram's components.")
             ), {}
         wire = _audit_fixture(data)
-        wire["coverage"][1].update(covered=False, statement_ids=[], answer_quotes=[])
+        wire["coverage"][1].update(covered=False, statement_ids=[])
         return wire, {}
 
     with pytest.raises(AnswerSupportFailure) as caught:

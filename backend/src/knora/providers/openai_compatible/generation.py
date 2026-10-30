@@ -199,6 +199,7 @@ class OpenAICompatibleGenerationProvider:
             "cloudflare-gpt-oss-source-inventory-v2",
             "cloudflare-gpt-oss-source-audit-v1",
             "cloudflare-gpt-oss-source-audit-v3",
+            "cloudflare-gpt-oss-source-audit-v4",
         }:
             return "@cf/openai/gpt-oss-120b"
         return self._model
@@ -218,6 +219,7 @@ class OpenAICompatibleGenerationProvider:
             "cloudflare-gpt-oss-source-entailment-v2",
             "cloudflare-gpt-oss-source-audit-v1",
             "cloudflare-gpt-oss-source-audit-v3",
+            "cloudflare-gpt-oss-source-audit-v4",
             "cloudflare-gpt-oss-source-inventory-v1",
             "cloudflare-gpt-oss-source-inventory-v2",
             "cloudflare-gpt-oss-source-sufficiency-v1",
@@ -264,7 +266,7 @@ class OpenAICompatibleGenerationProvider:
             request_body["max_tokens"] = (
                 8192
                 if prompt.definition.version.removesuffix(":json-object-v1")
-                == "cloudflare-gpt-oss-source-audit-v3"
+                in {"cloudflare-gpt-oss-source-audit-v3", "cloudflare-gpt-oss-source-audit-v4"}
                 and self._provider_identity == "cloudflare-workers-ai"
                 else 4096
                 if prompt.definition.version.removesuffix(":json-object-v1")
@@ -273,6 +275,7 @@ class OpenAICompatibleGenerationProvider:
                     "cloudflare-gpt-oss-source-inventory-v2",
                     "cloudflare-gpt-oss-source-audit-v1",
                     "cloudflare-gpt-oss-source-audit-v3",
+                    "cloudflare-gpt-oss-source-audit-v4",
                 }
                 and self._provider_identity == "cloudflare-workers-ai"
                 else self._max_tokens
@@ -289,6 +292,7 @@ class OpenAICompatibleGenerationProvider:
             "cloudflare-gpt-oss-source-entailment-v2",
             "cloudflare-gpt-oss-source-audit-v1",
             "cloudflare-gpt-oss-source-audit-v3",
+            "cloudflare-gpt-oss-source-audit-v4",
             "cloudflare-gpt-oss-source-inventory-v1",
             "cloudflare-gpt-oss-source-inventory-v2",
             "cloudflare-gpt-oss-source-sufficiency-v1",
@@ -306,6 +310,7 @@ class OpenAICompatibleGenerationProvider:
                     "cloudflare-gpt-oss-source-entailment-v2",
                     "cloudflare-gpt-oss-source-audit-v1",
                     "cloudflare-gpt-oss-source-audit-v3",
+                    "cloudflare-gpt-oss-source-audit-v4",
                     "cloudflare-gpt-oss-source-sufficiency-v1",
                     "cloudflare-gpt-oss-source-sufficiency-v2",
                 }
