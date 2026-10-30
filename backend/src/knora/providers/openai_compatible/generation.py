@@ -191,8 +191,20 @@ class OpenAICompatibleGenerationProvider:
             recovery_feedback=feedback,
         )
 
+    def _model_for_version(self, version: str) -> str:
+        if self._provider_identity == "cloudflare-workers-ai" and version.removesuffix(
+            ":json-object-v1"
+        ) in {
+            "cloudflare-gpt-oss-source-inventory-v1",
+            "cloudflare-gpt-oss-source-audit-v1",
+        }:
+            return "@cf/openai/gpt-oss-120b"
+        return self._model
+
     def _prepare_prompt(self, prompt: BuiltPrompt) -> BuiltPrompt:
-        if self._model != "@cf/openai/gpt-oss-120b" or prompt.definition.version.removesuffix(
+        if self._model_for_version(
+            prompt.definition.version
+        ) != "@cf/openai/gpt-oss-120b" or prompt.definition.version.removesuffix(
             ":recovery-v1"
         ).removesuffix(":recovery-v2").removesuffix(":recovery-v3") not in {
             "cloudflare-gpt-oss-cited-answer-v23",
@@ -202,7 +214,10 @@ class OpenAICompatibleGenerationProvider:
             "cloudflare-gpt-oss-answer-support-v4",
             "cloudflare-gpt-oss-source-entailment-v1",
             "cloudflare-gpt-oss-source-entailment-v2",
+            "cloudflare-gpt-oss-source-audit-v1",
+            "cloudflare-gpt-oss-source-inventory-v1",
             "cloudflare-gpt-oss-source-sufficiency-v1",
+            "cloudflare-gpt-oss-source-sufficiency-v2",
         }:
             return prompt
         from knora.providers.prompts.versioning import PromptDefinition
@@ -224,7 +239,7 @@ class OpenAICompatibleGenerationProvider:
 
     async def _complete(self, prompt: BuiltPrompt) -> httpx.Response:
         request_body = {
-            "model": self._model,
+            "model": self._model_for_version(prompt.definition.version),
             "messages": prompt.messages,
             "response_format": {
                 "type": "json_schema",
@@ -242,7 +257,16 @@ class OpenAICompatibleGenerationProvider:
         if prompt.definition.version.endswith(":json-object-v1"):
             request_body["response_format"] = {"type": "json_object"}
         if self._max_tokens is not None:
-            request_body["max_tokens"] = self._max_tokens
+            request_body["max_tokens"] = (
+                4096
+                if prompt.definition.version.removesuffix(":json-object-v1")
+                in {
+                    "cloudflare-gpt-oss-source-inventory-v1",
+                    "cloudflare-gpt-oss-source-audit-v1",
+                }
+                and self._provider_identity == "cloudflare-workers-ai"
+                else self._max_tokens
+            )
         if prompt.definition.version.removesuffix(":json-object-v1").removesuffix(
             ":recovery-v1"
         ).removesuffix(":recovery-v2").removesuffix(":recovery-v3") in {
@@ -253,7 +277,10 @@ class OpenAICompatibleGenerationProvider:
             "cloudflare-gpt-oss-cited-answer-v25",
             "cloudflare-gpt-oss-source-entailment-v1",
             "cloudflare-gpt-oss-source-entailment-v2",
+            "cloudflare-gpt-oss-source-audit-v1",
+            "cloudflare-gpt-oss-source-inventory-v1",
             "cloudflare-gpt-oss-source-sufficiency-v1",
+            "cloudflare-gpt-oss-source-sufficiency-v2",
         }:
             request_body["reasoning_effort"] = (
                 "medium"
@@ -265,7 +292,9 @@ class OpenAICompatibleGenerationProvider:
                     "cloudflare-gpt-oss-cited-answer-v25",
                     "cloudflare-gpt-oss-source-entailment-v1",
                     "cloudflare-gpt-oss-source-entailment-v2",
+                    "cloudflare-gpt-oss-source-audit-v1",
                     "cloudflare-gpt-oss-source-sufficiency-v1",
+                    "cloudflare-gpt-oss-source-sufficiency-v2",
                 }
                 else "low"
             )
@@ -296,7 +325,10 @@ class OpenAICompatibleGenerationProvider:
             self._client = httpx.AsyncClient(timeout=self._timeout_seconds)
         prompt = self._prepare_prompt(prompt)
         response = await self._complete(prompt)
-        metadata = {"provider": self._provider_identity, "model": self._model}
+        metadata = {
+            "provider": self._provider_identity,
+            "model": self._model_for_version(prompt.definition.version),
+        }
         try:
             payload = response.json()
             choice = payload["choices"][0]
@@ -330,7 +362,7 @@ class OpenAICompatibleGenerationProvider:
     ) -> dict:
         return {
             "provider": self._provider_identity,
-            "model": str(payload.get("model", self._model)),
+            "model": str(payload.get("model", self._model_for_version(version))),
             "prompt_version": version,
             "finish_reason": choice.get("finish_reason"),
             "provider_request_id": response.headers.get("x-request-id") or payload.get("id"),

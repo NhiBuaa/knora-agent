@@ -1,3 +1,4 @@
+import asyncio
 import json
 from decimal import Decimal
 
@@ -8,6 +9,76 @@ from knora.answering.generation_validation import validate_generation
 from knora.domain.errors import KnoraError
 from knora.providers.generation import GenerationEvidence
 from knora.providers.openai_compatible.generation import OpenAICompatibleGenerationProvider
+
+
+@pytest.mark.asyncio
+async def test_concurrent_generation_and_audit_keep_their_models_and_receipts():
+    from knora.providers.prompts.builder import BuiltPrompt
+    from knora.providers.prompts.versioning import PromptDefinition
+
+    bodies = []
+    both_started = asyncio.Event()
+
+    async def endpoint(request):
+        body = json.loads(request.content)
+        bodies.append(body)
+        if len(bodies) == 2:
+            both_started.set()
+        await asyncio.wait_for(both_started.wait(), 2)
+        audit = body["model"] == "@cf/openai/gpt-oss-120b"
+        result = (
+            {"diagnostic": True}
+            if audit
+            else dict(
+                decision="ANSWER",
+                before=[dict(text="Seven days.", support=["E1"])],
+                items=[],
+                after=[],
+                refusal_reason=None,
+            )
+        )
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"finish_reason": "stop", "message": {"content": json.dumps(result)}}],
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
+        provider = OpenAICompatibleGenerationProvider(
+            base_url="https://provider.example/v1",
+            api_key="secret-canary",
+            model="@cf/openai/gpt-oss-20b",
+            provider_identity="cloudflare-workers-ai",
+            input_cost_per_million_tokens=None,
+            output_cost_per_million_tokens=None,
+            pricing_version=None,
+            grounded_answers=True,
+            direct_json_schema=True,
+            max_tokens=2048,
+            client=client,
+        )
+        prompt = BuiltPrompt(
+            PromptDefinition(
+                "cloudflare-gpt-oss-source-audit-v1",
+                "Audit.",
+                {"type": "object"},
+                "source-audit-v1",
+            ),
+            [{"role": "user", "content": "Audit."}],
+        )
+        generated, (_, metadata) = await asyncio.gather(
+            provider.generate(
+                question="How long?", evidence=(GenerationEvidence("E1", "Seven days."),)
+            ),
+            provider.complete_answer_support(prompt),
+        )
+    assert generated.model == "@cf/openai/gpt-oss-20b"
+    assert metadata["model"] == "@cf/openai/gpt-oss-120b"
+    assert sorted((b["model"], b["max_tokens"]) for b in bodies) == [
+        ("@cf/openai/gpt-oss-120b", 4096),
+        ("@cf/openai/gpt-oss-20b", 2048),
+    ]
 
 
 @pytest.mark.asyncio
