@@ -65,7 +65,10 @@ resource or begin side effect`. Authorization failures must stop before resource
 - Cloudflare Workers AI uses the existing independent provider contracts with no fallback.
   Backend-only account/token settings select fixed native Qwen3 0.6B embedding and GPT-OSS 20B
   generation. Source inventory and independent answer audit use Cloudflare GPT-OSS 120B;
-  generation and source-sufficiency assessment retain 20B. Selection belongs to each call,
+  repair generation and source-sufficiency assessment retain 20B. The V3 source inventory
+  supplies the initial draft, without a discarded preliminary answer call. It reads the whole
+  question so atomic decomposition cannot narrow the requested scope. The audit still checks
+  each atomic question group independently. Selection belongs to each call,
   without mutating shared provider state or adding provider fallback.
   This model selection preserves source validation and the shared 90-second request deadline;
   it does not authorize local inference. Retrieval V3 may recover malformed generation or
