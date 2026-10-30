@@ -96,7 +96,7 @@ foreach ($m in $existingMappers) {
             (-not $hasConflictingClaim)) {
             $existingPolicyMapper = $m
         } else {
-            throw 'KEYCLOAK_SESSION_POLICY_MAPPER_CONFLICT'
+            throw "KEYCLOAK_SESSION_POLICY_MAPPER_CONFLICT: name='$($m.name)' protocol='$($m.protocol)' mapper='$($m.protocolMapper)' isConsent='$isConsent' conflict='$hasConflictingClaim'"
         }
     }
 }
