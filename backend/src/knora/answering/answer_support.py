@@ -23,7 +23,8 @@ def required_answer_groups(groups: tuple[tuple[str, str], ...]) -> tuple[tuple[s
         r"(?:[,;?]\s*(?:(?:và|and)\s+)?|\s+(?:và|and)\s+)"
         r"(?=(?:cần|phải|bao|những|gồm|khi|ở|tại|vì|ai|có|dùng|sử dụng|trình bày|"
         r"mô tả|giải thích|lựa chọn|chọn|(?:được\s+)?đánh số|nếu|if|what|how|when|where|why|"
-        r"which|who|must|should|is|are|do|does|can|numbered)\b)",
+        r"which|who|must|should|is|are|do|does|can|numbered)\b|"
+        r"(?:\w+\s+){1,6}(?:có thể|cần|phải|must|should|can)\b)",
         re.IGNORECASE,
     )
     result = []

@@ -202,6 +202,7 @@ class OpenAICompatibleGenerationProvider:
             "cloudflare-gpt-oss-answer-support-v4",
             "cloudflare-gpt-oss-source-entailment-v1",
             "cloudflare-gpt-oss-source-entailment-v2",
+            "cloudflare-gpt-oss-source-sufficiency-v1",
         }:
             return prompt
         from knora.providers.prompts.versioning import PromptDefinition
@@ -252,6 +253,7 @@ class OpenAICompatibleGenerationProvider:
             "cloudflare-gpt-oss-cited-answer-v25",
             "cloudflare-gpt-oss-source-entailment-v1",
             "cloudflare-gpt-oss-source-entailment-v2",
+            "cloudflare-gpt-oss-source-sufficiency-v1",
         }:
             request_body["reasoning_effort"] = (
                 "medium"
@@ -263,6 +265,7 @@ class OpenAICompatibleGenerationProvider:
                     "cloudflare-gpt-oss-cited-answer-v25",
                     "cloudflare-gpt-oss-source-entailment-v1",
                     "cloudflare-gpt-oss-source-entailment-v2",
+                    "cloudflare-gpt-oss-source-sufficiency-v1",
                 }
                 else "low"
             )

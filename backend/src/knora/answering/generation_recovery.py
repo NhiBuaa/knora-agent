@@ -53,6 +53,8 @@ async def generate_with_recovery(
     rejected_answers = set()
     failures = set()
     pruned = None
+    sufficiency_checked = False
+    assess_sufficiency = getattr(verifier, "assess_sufficiency", None)
     phase = "generation"
     while True:
         revalidate()
@@ -60,6 +62,44 @@ async def generate_with_recovery(
         state.attempts.append(attempt)
         started = loop.time()
         try:
+            if phase == "source_sufficiency":
+                sufficiency_checked = True
+                insufficient, metadata = await assess_sufficiency(
+                    question=question,
+                    groups=groups,
+                    evidence=evidence,
+                    snapshot_digest=digest(binding),
+                    revalidate=revalidate,
+                )
+                attempt["provider"] = metadata
+                revalidate()
+                if insufficient:
+                    generation = replace(
+                        state.generation,
+                        decision="REFUSAL",
+                        answer=None,
+                        cited_evidence_ids=(),
+                        answer_projection=None,
+                        refusal_reason="INSUFFICIENT_EVIDENCE",
+                    )
+                    state.generation = generation
+                    state.support.update(
+                        status="insufficient",
+                        scope="provided_evidence",
+                        coverage="unverified",
+                        sufficiency=metadata,
+                    )
+                    attempt.update(
+                        status="insufficient", operation="verified_insufficiency_refusal"
+                    )
+                    state.stop_reason = "insufficient_evidence"
+                    return generation, validate_generation_structure(
+                        generation, available_evidence_ids=tuple(e.evidence_id for e in evidence)
+                    )
+                attempt["status"] = "answerable_or_unknown"
+                feedback["source_sufficiency"] = metadata.get("result")
+                phase = "repair"
+                continue
             if phase != "verification":
                 if phase == "prune":
                     generation = pruned
@@ -169,6 +209,9 @@ async def generate_with_recovery(
             if error.code != "GENERATION_OUTPUT_INVALID" or state.stop_reason is not None:
                 state.stop_reason = state.stop_reason or error.code
                 raise
+            if phase == "source_sufficiency":
+                state.stop_reason = "invalid_source_sufficiency"
+                raise
             revalidate()
             cloudflare = (
                 state.generation is not None
@@ -255,6 +298,13 @@ async def generate_with_recovery(
                         phase = "prune"
                         continue
             verify_feedback = None
-            phase = "repair"
+            phase = (
+                "source_sufficiency"
+                if phase == "verification"
+                and observation.get("failure") == "unsupported_answer"
+                and assess_sufficiency is not None
+                and not sufficiency_checked
+                else "repair"
+            )
         finally:
             attempt["latency_ms"] = (loop.time() - started) * 1000

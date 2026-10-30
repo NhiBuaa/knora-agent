@@ -598,6 +598,125 @@ def test_verification_retains_each_coordinated_question(question, parts):
     assert len(groups) == parts
 
 
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Báo cáo được gợi ý bao nhiêu chương, và báo cáo quy mô nhỏ có thể đổi cấu trúc thế nào?",
+        "How many chapters are suggested, and a small report can change its structure how?",
+    ],
+)
+def test_subject_before_second_predicate_keeps_both_required_questions(question):
+    from knora.answering.answer_support import required_answer_groups
+
+    groups = required_answer_groups((("question", question),))
+    assert len(groups) == 2
+    assert "small report" in groups[1][1] or "báo cáo quy mô nhỏ" in groups[1][1]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "outcome",
+    ["INSUFFICIENT", "ANSWERABLE", "UNKNOWN", "duplicate", "foreign", "quote", "digest", "timeout"],
+)
+async def test_source_sufficiency_checks_all_evidence_and_fails_closed(outcome):
+    import json
+
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+    ev = (
+        GenerationEvidence("E1", "Writing guide: PAGE 1/12"),
+        GenerationEvidence("E2", "Reports must have at least 20 pages."),
+    )
+
+    async def complete(prompt):
+        data = json.loads(prompt.messages[1]["content"])
+        assert "answer" not in data and "previous_answer" not in data
+        assert data["evidence"] == [
+            {"alias": "E1", "content": ev[0].content},
+            {"alias": "E2", "content": ev[1].content},
+        ]
+        if outcome == "timeout":
+            raise TimeoutError
+        item = {
+            "id": "foreign" if outcome == "foreign" else "G1",
+            "status": outcome
+            if outcome in {"INSUFFICIENT", "ANSWERABLE", "UNKNOWN"}
+            else "ANSWERABLE",
+            "source_fact": "There is a substantive report-length requirement.",
+            "source_refs": [
+                {
+                    "alias": "E2",
+                    "exact_quote": "Reports must have at least 20 pages."
+                    if outcome != "quote"
+                    else "Reports must have 12 pages.",
+                }
+            ],
+        }
+        return {
+            "snapshot_digest": "wrong" if outcome == "digest" else "snapshot",
+            "groups": [item, item] if outcome == "duplicate" else [item],
+        }, {"provider_request_id": "sufficiency-receipt"}
+
+    verifier = CloudflareAnswerSupportVerifier(complete)
+    kwargs = dict(
+        question="What is the required report length?",
+        groups=(("G1", "What is the required report length?"),),
+        evidence=ev,
+        snapshot_digest="snapshot",
+    )
+    if outcome in {"INSUFFICIENT", "ANSWERABLE", "UNKNOWN"}:
+        insufficient, metadata = await verifier.assess_sufficiency(**kwargs)
+        assert insufficient == (outcome == "INSUFFICIENT")
+        assert metadata["scope"] == "provided_evidence"
+        assert metadata["coverage"] == "unverified"
+        assert metadata["provider_request_id"] == "sufficiency-receipt"
+    else:
+        with pytest.raises(
+            KnoraError,
+            match="PROVIDER_REQUEST_FAILED"
+            if outcome == "timeout"
+            else "GENERATION_OUTPUT_INVALID",
+        ):
+            await verifier.assess_sufficiency(**kwargs)
+
+
+@pytest.mark.asyncio
+async def test_sufficiency_retains_completed_receipt_when_snapshot_changes():
+    from knora.answering.answer_support import AnswerSupportFailure
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+    async def complete(prompt):
+        return {
+            "snapshot_digest": "snapshot",
+            "groups": [
+                {
+                    "id": "G1",
+                    "status": "INSUFFICIENT",
+                    "source_fact": "Only a source footer is present.",
+                    "source_refs": [],
+                }
+            ],
+        }, {"provider_request_id": "completed-check"}
+
+    checks = []
+
+    def revalidate():
+        checks.append(True)
+        if len(checks) == 2:
+            raise KnoraError("RETRIEVAL_SNAPSHOT_MISMATCH")
+
+    with pytest.raises(AnswerSupportFailure) as caught:
+        await CloudflareAnswerSupportVerifier(complete).assess_sufficiency(
+            question="Required length?",
+            groups=(("G1", "Required length?"),),
+            evidence=(GenerationEvidence("E1", "PAGE 1/12"),),
+            snapshot_digest="snapshot",
+            revalidate=revalidate,
+        )
+    assert caught.value.code == "RETRIEVAL_SNAPSHOT_MISMATCH"
+    assert caught.value.observation["provider"]["provider_request_id"] == "completed-check"
+
+
 def test_grounded_renderer_owns_formatting_and_preserves_singleton_fact():
     from knora.providers.openai_compatible.answer_blocks import compose_grounded_answer
 

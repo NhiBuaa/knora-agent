@@ -1656,10 +1656,12 @@ class RecoverableVerifier(SupportVerifier):
                 {"failure": "invalid_verifier_envelope", "completion_digest": "wire-1"}
                 if self.malformed
                 else {
+                    "failure": "unsupported_answer",
+                    "failed_id": "S1",
                     "verdict": {
                         "statements": [{"id": "S1", "verdict": "UNKNOWN", "source_refs": []}],
                         "groups": [{"id": "question", "verdict": "MISSING", "statement_ids": []}],
-                    }
+                    },
                 },
             )
         return await super().verify(**kwargs)
@@ -1703,6 +1705,53 @@ async def test_v3_semantic_rejection_gets_corrected_answer_and_fresh_proof():
     )
     assert generator.feedback[0]["verdict"]["statements"][0]["verdict"] == "UNKNOWN"
     assert store.traces[0].provider_metadata["answer_support"]["status"] == "supported"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["insufficient", "answerable", "unavailable", "stale"])
+async def test_semantic_recovery_only_refuses_after_independent_sufficiency_check(outcome):
+    class Verifier(RecoverableVerifier):
+        async def assess_sufficiency(self, **kwargs):
+            assert "answer" not in kwargs
+            if outcome == "unavailable":
+                raise KnoraError("PROVIDER_REQUEST_FAILED")
+            if outcome == "stale":
+                raise KnoraError("RETRIEVAL_PROVENANCE_INVALID")
+            return outcome == "insufficient", {
+                "provider_request_id": "source-check",
+                "result": {"groups": []},
+            }
+
+    generator, verifier = RecoverableGenerator(), Verifier()
+    store, service = generation_repair_case(generator, verifier=verifier)
+    if outcome in {"unavailable", "stale"}:
+        with pytest.raises(
+            KnoraError,
+            match="PROVIDER_REQUEST_FAILED"
+            if outcome == "unavailable"
+            else "RETRIEVAL_PROVENANCE_INVALID",
+        ):
+            await service.execute(
+                QuestionCommand(
+                    workspace_id="workspace-a", question="Đổi trả trong bao nhiêu ngày?"
+                ),
+                WorkspacePrincipal(workspace_id="workspace-a", key_id="test"),
+            )
+        assert not generator.feedback
+        assert store.traces[0].validation_outcome == "invalid"
+    else:
+        result, store = await run_recovery_case(generator, verifier)
+        if outcome == "insufficient":
+            assert result.decision == "REFUSAL" and result.answer is None
+            assert result.refusal_reason == "INSUFFICIENT_EVIDENCE"
+            assert not generator.feedback
+            observation = store.traces[0].provider_metadata["answer_support"]
+            assert observation["coverage"] == "unverified"
+            assert observation["scope"] == "provided_evidence"
+        else:
+            assert result.answer == "Đổi trả trong **7 ngày**. [[E1]]"
+            assert generator.feedback
+        assert store.traces[0].validation_outcome == "valid"
 
 
 @pytest.mark.asyncio
