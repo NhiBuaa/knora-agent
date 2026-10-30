@@ -1709,7 +1709,10 @@ async def test_v3_semantic_rejection_gets_corrected_answer_and_fresh_proof():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("final_outcome", ["supported", "unavailable"])
-async def test_inventory_repair_builds_a_new_candidate_then_requires_fresh_proof(final_outcome):
+@pytest.mark.parametrize("preparation", [False, True])
+async def test_inventory_repair_builds_a_new_candidate_then_requires_fresh_proof(
+    final_outcome, preparation
+):
     from knora.answering.answer_support import AnswerSupportFailure
 
     class Verifier(SupportVerifier):
@@ -1719,7 +1722,9 @@ async def test_inventory_repair_builds_a_new_candidate_then_requires_fresh_proof
                 raise AnswerSupportFailure(
                     "GENERATION_OUTPUT_INVALID",
                     {
-                        "failure": "unsupported_answer",
+                        "failure": "source_candidate_ready"
+                        if preparation
+                        else "unsupported_answer",
                         "failed_id": "S1",
                         "repair_facts": [{"text": "Đổi trả trong 7 ngày.", "support": ["E1"]}],
                         "provider": {"source_inventory": {"binding": "same-snapshot"}},
@@ -1756,6 +1761,48 @@ async def test_inventory_repair_builds_a_new_candidate_then_requires_fresh_proof
     ]
     assert attempts[2]["operation"] == "compose_inventory_candidate"
     assert "provider" not in attempts[2]
+
+
+@pytest.mark.asyncio
+async def test_source_preparation_does_not_reject_an_identical_valid_draft():
+    from knora.answering.answer_support import AnswerSupportFailure
+    from knora.providers.openai_compatible.answer_blocks import compose_grounded_answer
+
+    class SameDraft(RecoverableGenerator):
+        async def generate(self, **kwargs):
+            result = await super().generate(**kwargs)
+            answer, aliases, projection = compose_grounded_answer(
+                dict(
+                    decision="ANSWER",
+                    before=[],
+                    items=[{"text": "Đổi trả trong 7 ngày.", "support": ["E1"]}],
+                    after=[],
+                    refusal_reason=None,
+                ),
+                kwargs["evidence"],
+            )
+            return replace(
+                result, answer=answer, cited_evidence_ids=aliases, answer_projection=projection
+            )
+
+    class Prepare(SupportVerifier):
+        async def verify(self, **kwargs):
+            if not self.calls:
+                self.calls.append(kwargs)
+                raise AnswerSupportFailure(
+                    "GENERATION_OUTPUT_INVALID",
+                    {
+                        "failure": "source_candidate_ready",
+                        "repair_facts": [{"text": "Đổi trả trong 7 ngày.", "support": ["E1"]}],
+                        "provider": {"source_inventory": {"binding": "same"}},
+                    },
+                )
+            assert kwargs["answer"] == self.calls[0]["answer"]
+            return await super().verify(**kwargs)
+
+    result, store = await run_recovery_case(SameDraft(), Prepare())
+    assert result.decision == "ANSWER"
+    assert store.traces[0].provider_metadata["generation_recovery"]["stop_reason"] == "supported"
 
 
 @pytest.mark.asyncio

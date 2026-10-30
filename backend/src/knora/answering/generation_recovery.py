@@ -182,6 +182,8 @@ async def generate_with_recovery(
                     **(verify_feedback or {}),
                     "source_inventory": source_inventory,
                 }
+            else:
+                kwargs["feedback"] = {"prepare_source_candidate": True, **(verify_feedback or {})}
             proof, metadata = await verifier.verify(**kwargs)
             attempt["provider"] = metadata
             revalidate()
@@ -277,9 +279,13 @@ async def generate_with_recovery(
                 verify_feedback = feedback
                 continue
             if state.generation is not None:
-                rejected_answers.add(digest(state.generation.answer))
+                if observation.get("failure") == "source_candidate_ready":
+                    attempt["status"] = "candidate_prepared"
+                    attempt.pop("error_code", None)
+                else:
+                    rejected_answers.add(digest(state.generation.answer))
                 feedback["previous_answer"] = state.generation.answer
-                if observation.get("failure") == "unsupported_answer":
+                if observation.get("failure") in {"unsupported_answer", "source_candidate_ready"}:
                     if (
                         observation.get("repair_facts")
                         and not observation.get("fact_mismatch")

@@ -369,8 +369,9 @@ there is no provider fallback and no unverified final answer. Per-call safe obse
 Verification selects exact supporting quotes, then independently checks whether they
 establish each complete claim. Completeness uses immutable answer-statement IDs;
 the server resolves literal answer spans instead of asking the model to transcribe them.
-A rejected candidate can be rebuilt from preliminary source facts, but that candidate
-still requires fresh verification against original sources and every question group.
+Before the final audit, V3 builds a minimal draft from the blind source inventory.
+That draft is unverified and requires a fresh audit against original sources and every
+question group; preliminary facts never constitute final-answer proof.
 The blind inventory may be reused only within that recovery request with identical
 question, groups, source content and snapshot binding; answer audits always run again.
 Each call is capped at 60 seconds within the same
