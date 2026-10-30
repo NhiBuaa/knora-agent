@@ -2236,6 +2236,18 @@ def test_retrieval_test_parsed_graph_contract() -> None:
         assert (volume["type"], volume["source"], volume["target"]) == ("volume", source, target)
 
 
+def test_retrieval_http_bind_sources_disable_host_path_creation() -> None:
+    source = yaml.safe_load((ROOT / "docker-compose.dev.yml").read_text(encoding="utf-8"))
+    volumes = source["services"]["verification-api"]["volumes"]
+    binds = [volume for volume in volumes if volume.get("type") == "bind"]
+    assert {volume["target"] for volume in binds} == {
+        "/s2-objects",
+        "/app/evals/fixtures/pdf_retrieval_v3_s2",
+    }
+    for volume in binds:
+        assert volume.get("bind", {}).get("create_host_path") is False
+
+
 def test_retrieval_http_test_parsed_graph_contract() -> None:
     graph = compose_graph("retrieval-http-test")
     services = graph["services"]
@@ -2287,7 +2299,8 @@ def test_retrieval_http_test_parsed_graph_contract() -> None:
         "/app/evals/fixtures/pdf_retrieval_v3_s2",
     }
     for b in binds:
-        assert b["bind"]["create_host_path"] is False
+        # Compose versions may omit false bind options from rendered JSON.
+        assert b.get("bind", {}).get("create_host_path", False) is False
         assert b.get("read_only", False) is (b["target"] != "/s2-objects")
 
 
@@ -2339,7 +2352,7 @@ def test_password_reset_test_parsed_graph_contract() -> None:
         "/opt/keycloak/vault",
     }
     for b in binds:
-        assert b["bind"]["create_host_path"] is False
+        assert b.get("bind", {}).get("create_host_path", False) is False
         assert b["read_only"] is True
 
     # Reset API env
