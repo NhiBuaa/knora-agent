@@ -588,6 +588,7 @@ class CloudflareAnswerSupportVerifier:
                 ) from None
         try:
             verdict = _SourceAudit.model_validate(raw)
+            invalid_answer_quote = None
             if len(verdict.coverage) != len(required) or {v.id for v in verdict.coverage} != set(
                 required
             ):
@@ -599,22 +600,15 @@ class CloudflareAnswerSupportVerifier:
                         for s in answer_projection.statements
                         if s.id in item.statement_ids
                     ):
-                        raise AnswerSupportFailure(
-                            "GENERATION_OUTPUT_INVALID",
-                            {
-                                "failure": "invalid_verifier_envelope",
-                                "invalid_answer_quote": {
-                                    "fact_id": item.id,
-                                    "quote": quote,
-                                    "eligible_statements": [
-                                        {"id": s.id, "text": s.text}
-                                        for s in answer_projection.statements
-                                        if s.id in item.statement_ids
-                                    ],
-                                },
-                                "provider": metadata,
-                            },
-                        )
+                        invalid_answer_quote = {
+                            "fact_id": item.id,
+                            "quote": quote,
+                            "eligible_statements": [
+                                {"id": s.id, "text": s.text}
+                                for s in answer_projection.statements
+                                if s.id in item.statement_ids
+                            ],
+                        }
                 if (
                     len(set(item.statement_ids)) != len(item.statement_ids)
                     or not set(item.statement_ids) <= set(statement_ids)
@@ -654,9 +648,19 @@ class CloudflareAnswerSupportVerifier:
                     "source_facts": [
                         {"id": required[v.id]["group_id"], "source_fact": required[v.id]["fact"]}
                         for v in verdict.coverage
-                        if not v.covered
+                        if not v.covered or not any(not c.covered for c in verdict.coverage)
                     ],
                     "provider": metadata,
                 },
             ) from None
+        if invalid_answer_quote is not None:
+            # A rejected answer needs repair before any irrelevant quote-format correction.
+            raise AnswerSupportFailure(
+                "GENERATION_OUTPUT_INVALID",
+                {
+                    "failure": "invalid_verifier_envelope",
+                    "invalid_answer_quote": invalid_answer_quote,
+                    "provider": metadata,
+                },
+            )
         return proof, metadata

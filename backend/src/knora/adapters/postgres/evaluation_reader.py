@@ -629,7 +629,7 @@ class PostgresEvaluationReader:
             if trace is None:
                 raise LookupError("evaluation trace not found")
             v3_refusal = False
-            if trace.trace_schema_version == 3 and trace.decision == "REFUSAL":
+            if trace.trace_schema_version == 3 and getattr(trace, "decision", None) == "REFUSAL":
                 with suppress(ValueError):
                     v3_refusal = resolve_retrieval_configuration(
                         trace.retrieval_configuration_id, vector_min_similarity=None
