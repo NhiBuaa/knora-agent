@@ -365,15 +365,16 @@ async def generate_with_recovery(
                             },
                             evidence,
                         )
-                        pruned = replace(
-                            state.generation,
-                            answer=answer,
-                            cited_evidence_ids=aliases,
-                            answer_projection=projection,
-                        )
-                        verify_feedback = None
-                        phase = "source_repair"
-                        continue
+                        if digest(answer) not in rejected_answers:
+                            pruned = replace(
+                                state.generation,
+                                answer=answer,
+                                cited_evidence_ids=aliases,
+                                answer_projection=projection,
+                            )
+                            verify_feedback = None
+                            phase = "source_repair"
+                            continue
                     rejected_ids = {
                         s["id"]
                         for s in observation.get("verdict", {}).get("statements", [])

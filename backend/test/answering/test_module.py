@@ -1747,6 +1747,64 @@ async def test_empty_source_draft_is_not_itself_proof_of_insufficiency(sufficien
 
 
 @pytest.mark.asyncio
+async def test_recovery_does_not_rebuild_the_same_rejected_inventory_candidate():
+    from knora.answering.answer_support import AnswerSupportFailure
+    from knora.providers.openai_compatible.answer_blocks import compose_grounded_answer
+
+    class SourceVerifier(SupportVerifier):
+        async def prepare_candidate(self, **kwargs):
+            return [{"text": "Đổi trả trong 7 ngày.", "support": ["E1"]}], {
+                "provider": "cloudflare-workers-ai",
+                "source_inventory": {"binding": "same"},
+            }
+
+        async def verify(self, **kwargs):
+            if not self.calls:
+                self.calls.append(kwargs)
+                raise AnswerSupportFailure(
+                    "GENERATION_OUTPUT_INVALID",
+                    {
+                        "failure": "unsupported_answer",
+                        "failed_id": "S1",
+                        "source_facts": [{"id": "question", "source_fact": "Seven days."}],
+                        "repair_facts": [{"text": "Đổi trả trong 7 ngày.", "support": ["E1"]}],
+                        "verdict": {"statements": [{"id": "S1", "verdict": "UNKNOWN"}]},
+                    },
+                )
+            return await super().verify(**kwargs)
+
+    class Repair(RecoverableGenerator):
+        async def repair_grounded_generation(self, *, question, evidence, feedback):
+            self.feedback.append(feedback)
+            result = await ProjectedGenerator.generate(self, question=question, evidence=evidence)
+            answer, aliases, projection = compose_grounded_answer(
+                {
+                    "decision": "ANSWER",
+                    "before": [{"text": "Thời hạn đổi trả là 7 ngày.", "support": ["E1"]}],
+                    "items": [],
+                    "after": [],
+                    "refusal_reason": None,
+                },
+                evidence,
+            )
+            return replace(
+                result, answer=answer, cited_evidence_ids=aliases, answer_projection=projection
+            )
+
+    generator = Repair()
+    result, store = await run_recovery_case(generator, SourceVerifier())
+    assert result.decision == "ANSWER" and len(generator.feedback) == 1
+    assert [
+        a["phase"] for a in store.traces[0].provider_metadata["generation_recovery"]["attempts"]
+    ] == [
+        "source_generation",
+        "verification",
+        "repair",
+        "verification",
+    ]
+
+
+@pytest.mark.asyncio
 async def test_v3_malformed_generation_is_repaired_and_proof_is_persisted():
     from knora.answering.answer_support import validate_trace_support
 
