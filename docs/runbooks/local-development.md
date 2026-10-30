@@ -369,6 +369,9 @@ there is no provider fallback and no unverified final answer. Per-call safe obse
 Verification selects exact supporting quotes, then independently checks whether they
 establish each complete claim. Each call is capped at 60 seconds within the same
 90-second question pipeline; the second call does not reset that deadline.
+When a rejected answer needs repair, a separate source check may confirm insufficient evidence
+and return the existing generic refusal. This checks the supplied excerpts, not absence across
+the entire document; provider errors and timeouts remain operational errors.
 Provider/model changes require restarting the full launcher and checking fresh trace
 model/prompt identities. Paid AI use requires its own authorization; the Issue #153
 owner granted reasonable paid use and conditional 120B integration in the Codex

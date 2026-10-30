@@ -74,6 +74,9 @@ resource or begin side effect`. Authorization failures must stop before resource
   Successful answers still require a fresh source proof; repeated rejected candidates or
   unchanged failures stop recovery. Availability, quota, authorization and provenance failures
   fail closed. Each call is audited; no arbitrary call-count ceiling replaces the time budget.
+  After semantic rejection, recovery may independently check the same evidence for sufficiency
+  once. Only confirmed insufficiency permits a generic insufficient-evidence refusal; its scope
+  stays `provided_evidence` and coverage `unverified`, never document-wide verified absence.
   Unsupported extra statements may be removed before full re-verification on the new answer
   digest. Deletion never establishes source support or coverage of required question parts.
   The immutable Cloudflare embedding profile is
