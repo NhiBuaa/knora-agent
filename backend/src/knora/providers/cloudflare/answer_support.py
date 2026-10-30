@@ -79,8 +79,13 @@ class _FactCoverage(_Strict):
     covered: bool
 
 
+class _MissingSourceFact(_InventoryFact):
+    group_id: str
+
+
 class _SourceAudit(_WireVerdict):
     coverage: list[_FactCoverage]
+    missing_source_facts: list[_MissingSourceFact]
 
 
 def _quotes(content: str) -> list[dict]:
@@ -506,8 +511,16 @@ class CloudflareAnswerSupportVerifier:
             "missing. Do not merge, omit or invent required_fact IDs. "
             "A requested count needs only the count, not an unsolicited enumeration. "
             "Check the question too. "
-            "A true subset does not cover a requested list. Short answers, translations and "
-            "paraphrases are valid when they preserve the needed facts. Resolve an omitted subject "
+            "A true subset does not cover a requested list. "
+            "Independently read ORIGINAL SOURCES for every group, sentence by sentence: the "
+            "preliminary required_facts may themselves omit a requested requirement. Put EVERY "
+            "source-backed requirement missing from the answer into missing_source_facts with "
+            "its group_id and exact quote_ids, even if absent from required_facts. Include only "
+            "the group's actual requested scope. Empty only when no requested source fact is "
+            "missing. A source fact already expressed in the answer is not missing merely "
+            "because it was absent from required_facts. "
+            "Short answers, translations and paraphrases are valid when they preserve the needed "
+            "facts. Resolve an omitted subject "
             "from the current question and surrounding answer when unambiguous; do not require "
             "repeating that subject in every list member. Return one statement, "
             "group and coverage verdict per requested ID and echo both digests exactly."
@@ -534,6 +547,10 @@ class CloudflareAnswerSupportVerifier:
         definitions["GroupVerdict"]["properties"]["statement_ids"]["items"]["enum"] = statement_ids
         definitions["_FactCoverage"]["properties"]["id"]["enum"] = list(required)
         definitions["_FactCoverage"]["properties"]["statement_ids"]["items"]["enum"] = statement_ids
+        definitions["_MissingSourceFact"]["properties"]["group_id"]["enum"] = [k for k, _ in groups]
+        definitions["_MissingSourceFact"]["properties"]["quote_ids"]["items"]["pattern"] = (
+            "^(?:" + "|".join(re.escape(e.evidence_id) for e in evidence) + r"):Q[1-9][0-9]*$"
+        )
         # Scope each statement with a prefix pattern instead of repeating quote-ID enums.
         definitions["_Statement"]["properties"]["id"]["enum"] = statement_ids
         definitions["_Reference"]["properties"]["quote_id"]["enum"] = list(quotes)
@@ -650,6 +667,11 @@ class CloudflareAnswerSupportVerifier:
                     or (not item.covered and item.statement_ids)
                 ):
                     raise ValueError
+            for fact in verdict.missing_source_facts:
+                if fact.group_id not in {k for k, _ in groups} or any(
+                    q not in quotes for q in fact.quote_ids
+                ):
+                    raise ValueError
             metadata["entailment"]["coverage_spans"] = [
                 {
                     "id": item.id,
@@ -671,7 +693,17 @@ class CloudflareAnswerSupportVerifier:
                 item["source_refs"] = [
                     {**quotes[r["quote_id"]], "reason": r["reason"]} for r in item["source_refs"]
                 ]
-            missing = {required[v.id]["group_id"] for v in verdict.coverage if not v.covered}
+            missing = {required[v.id]["group_id"] for v in verdict.coverage if not v.covered} | {
+                f.group_id for f in verdict.missing_source_facts
+            }
+            repair_facts.extend(
+                {
+                    "text": f.fact,
+                    "support": list(dict.fromkeys(quotes[q]["alias"] for q in f.quote_ids)),
+                }
+                for f in verdict.missing_source_facts
+            )
+            expanded.pop("missing_source_facts")
             for group in expanded["groups"]:
                 if group["id"] in missing:
                     group["verdict"] = "MISSING"
@@ -701,6 +733,7 @@ class CloudflareAnswerSupportVerifier:
                         if not v.covered or not any(not c.covered for c in verdict.coverage)
                     ],
                     "repair_facts": repair_facts,
+                    "missing_source_facts": [f.model_dump() for f in verdict.missing_source_facts],
                     "provider": metadata,
                 },
             ) from None

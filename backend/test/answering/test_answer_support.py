@@ -114,6 +114,7 @@ def _audit_fixture(data):
             }
             for f in data["required_facts"]
         ],
+        "missing_source_facts": [],
     }
 
 
@@ -413,6 +414,7 @@ async def test_required_source_inventory_is_blind_to_candidate_answer():
                     "covered": False,
                 },
             ],
+            "missing_source_facts": [],
         }, {"provider_request_id": "independent-audit"}
 
     with pytest.raises(AnswerSupportFailure) as caught:
@@ -427,6 +429,51 @@ async def test_required_source_inventory_is_blind_to_candidate_answer():
     assert len(seen) == 2
     assert caught.value.observation["failure"] == "unsupported_answer"
     assert caught.value.observation["failed_id"] == "G1"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("defect", [None, "foreign_group", "foreign_quote"])
+async def test_source_audit_detects_an_omission_absent_from_preliminary_inventory(defect):
+    import json
+
+    from knora.answering.answer_support import AnswerSupportFailure
+    from knora.providers.cloudflare.answer_support import CloudflareAnswerSupportVerifier
+
+    answer, projection, evidence, _ = case()
+    evidence = (GenerationEvidence("E1", "A diagram is required. Explain the database choice."),)
+
+    async def complete(prompt):
+        data = json.loads(prompt.messages[1]["content"])
+        if prompt.definition.serializer_id == "source-inventory-v1":
+            return _inventory_fixture(data), {}
+        wire = _audit_fixture(data)
+        wire["missing_source_facts"] = [
+            {
+                "group_id": "G2" if defect == "foreign_group" else "G1",
+                "fact": "Explain the database choice.",
+                "quote_ids": ["E99:Q1" if defect == "foreign_quote" else "E1:Q3"],
+            }
+        ]
+        return wire, {}
+
+    with pytest.raises(AnswerSupportFailure) as caught:
+        await CloudflareAnswerSupportVerifier(complete).verify(
+            question="What must be included?",
+            groups=(("G1", "What must be included?"),),
+            answer=answer,
+            answer_projection=projection,
+            evidence=evidence,
+            snapshot_digest="snapshot",
+        )
+    if defect:
+        assert caught.value.observation["failure"] == "invalid_verifier_envelope"
+        return
+    assert caught.value.observation["failure"] == "unsupported_answer"
+    assert caught.value.observation["missing_source_facts"]
+    assert {f["text"] for f in caught.value.observation["repair_facts"]} == {
+        "A diagram is required.",
+        "Explain the database choice.",
+    }
 
 
 @pytest.mark.asyncio
