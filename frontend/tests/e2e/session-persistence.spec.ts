@@ -351,8 +351,10 @@ test.describe("Browser session persistence and recovery", () => {
         }
         if (
           req.method() === "GET" &&
-          url.pathname ===
-            `/api/v1/workspaces/${workspaceId}/conversations/${conversationId}`
+          (url.pathname ===
+            `/api/v1/workspaces/${workspaceId}/conversations/${conversationId}` ||
+            url.pathname ===
+              `/api/v1/workspaces/${workspaceId}/conversations/${conversationId}/turns`)
         ) {
           historyReadCount++;
         }
