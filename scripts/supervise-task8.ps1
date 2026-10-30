@@ -5,7 +5,7 @@ param(
     [DateTimeOffset]$HardDeadline,
     [string]$SubjectSha = '',
     [string]$ProjectName = '',
-    [ValidateSet('None', 'Success', 'HangStartup', 'HangRunner', 'HangCleanup')][string]$StubMode = 'None',
+    [ValidateSet('None', 'Success', 'HangStartup', 'HangRunner', 'HangCleanup', 'FailCleanup')][string]$StubMode = 'None',
     [switch]$WorkerMode,
     [switch]$AllowDirty
 )
@@ -13,6 +13,10 @@ param(
 $ErrorActionPreference = 'Stop'
 $repoRoot = 'C:\Developer\Projects\knora-agent-worktree\fix-browser-session-persistence'
 Set-Location $repoRoot
+
+if ($HardDeadline -le $AbsoluteCutoff) {
+    throw "INVALID_DEADLINES: HardDeadline ($($HardDeadline.ToString('o'))) must be strictly after AbsoluteCutoff ($($AbsoluteCutoff.ToString('o')))"
+}
 
 # Validate and unify exact Subject SHA across supervisor and worker
 $actualHead = (git -C $repoRoot rev-parse HEAD).Trim()
@@ -28,6 +32,27 @@ $project = if ($ProjectName) { $ProjectName } else { 'knora-figma-e2e-session-' 
 $resDir = Join-Path $repoRoot "frontend/test-results/$project"
 $supervisionReceiptPath = Join-Path $resDir 'task8-supervision-receipt.json'
 $migrationReceiptPath = Join-Path $resDir 'migration-cycle-receipt.json'
+$pidsFilePath = Join-Path $resDir 'worker-pids.json'
+
+function Get-ProcessDescendantIds([int]$parentPid) {
+    $descendants = [System.Collections.Generic.List[int]]::new()
+    $queue = [System.Collections.Generic.Queue[int]]::new()
+    $queue.Enqueue($parentPid)
+    while ($queue.Count -gt 0) {
+        $curr = $queue.Dequeue()
+        try {
+            $children = Get-CimInstance Win32_Process -Filter "ParentProcessId = $curr" -ErrorAction SilentlyContinue
+            foreach ($ch in $children) {
+                $chPid = [int]$ch.ProcessId
+                if (-not $descendants.Contains($chPid)) {
+                    $descendants.Add($chPid)
+                    $queue.Enqueue($chPid)
+                }
+            }
+        } catch {}
+    }
+    return $descendants
+}
 
 # ==============================================================================
 # INNER WORKER MODE: Executes inside the isolated environment reservation
@@ -36,16 +61,21 @@ if ($WorkerMode) {
     Write-Output "Worker started for project $project with Subject SHA $resolvedSubjectSha"
     $null = New-Item -ItemType Directory -Path $resDir -Force
 
+    # Record worker PID
+    $initialPids = [ordered]@{ workerPid = $PID; childPid = $null; grandchildPid = $null }
+    [System.IO.File]::WriteAllText($pidsFilePath, ($initialPids | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
+
     # STUB MODE (used for local fault tests without Docker)
     if ($StubMode -ne 'None') {
         Write-Output "Worker running in STUB MODE: $StubMode"
         if ($StubMode -eq 'HangStartup') {
-            # Spawn child that spawns grandchild, then hang
-            $child = Start-Process "node" -ArgumentList "-e", "const { spawn } = require('child_process'); spawn('node', ['-e', 'setTimeout(()=>{}, 600000)']); setTimeout(()=>{}, 600000);" -PassThru -NoNewWindow
+            $cleanPidPath = $pidsFilePath.Replace('\', '/')
+            $nodeScript = "const { spawn } = require('child_process'); const fs = require('fs'); const gc = spawn('node', ['-e', 'setTimeout(()=>{}, 600000)']); const pids = { workerPid: $PID, childPid: process.pid, grandchildPid: gc.pid }; fs.writeFileSync('$cleanPidPath', JSON.stringify(pids)); setTimeout(() => {}, 600000);"
+            $child = Start-Process "node" -ArgumentList "-e", "`"$nodeScript`"" -PassThru -NoNewWindow
+            $null = $child.Handle
             Start-Sleep -Seconds 600
         }
         if ($StubMode -eq 'HangRunner') {
-            # Simulate migration cycle completion
             $migReceipt = [ordered]@{
                 schemaVersion = 1
                 project = $project
@@ -56,9 +86,41 @@ if ($WorkerMode) {
             }
             [System.IO.File]::WriteAllText($migrationReceiptPath, ($migReceipt | ConvertTo-Json -Depth 5), [System.Text.UTF8Encoding]::new($false))
             
-            # Spawn worker child and grandchild process, then hang
-            $child = Start-Process "node" -ArgumentList "-e", "const { spawn } = require('child_process'); spawn('node', ['-e', 'setTimeout(()=>{}, 600000)']); setTimeout(()=>{}, 600000);" -PassThru -NoNewWindow
+            $cleanPidPath = $pidsFilePath.Replace('\', '/')
+            $nodeScript = "const { spawn } = require('child_process'); const fs = require('fs'); const gc = spawn('node', ['-e', 'setTimeout(()=>{}, 600000)']); const pids = { workerPid: $PID, childPid: process.pid, grandchildPid: gc.pid }; fs.writeFileSync('$cleanPidPath', JSON.stringify(pids)); setTimeout(() => {}, 600000);"
+            $child = Start-Process "node" -ArgumentList "-e", "`"$nodeScript`"" -PassThru -NoNewWindow
+            $null = $child.Handle
             Start-Sleep -Seconds 600
+        }
+        if ($StubMode -eq 'HangCleanup') {
+            $migReceipt = [ordered]@{
+                schemaVersion = 1
+                project = $project
+                subjectSha = $resolvedSubjectSha
+                cycleCompleted = $true
+                steps = @("BaselineSetup", "ApplyVerified", "NoOpVerified", "RollbackVerified", "DesiredApplyVerified")
+                timestampUtc = [DateTime]::UtcNow.ToString('o')
+            }
+            [System.IO.File]::WriteAllText($migrationReceiptPath, ($migReceipt | ConvertTo-Json -Depth 5), [System.Text.UTF8Encoding]::new($false))
+            
+            $cleanPidPath = $pidsFilePath.Replace('\', '/')
+            $nodeScript = "const { spawn } = require('child_process'); const fs = require('fs'); const gc = spawn('node', ['-e', 'setTimeout(()=>{}, 600000)']); const pids = { workerPid: $PID, childPid: process.pid, grandchildPid: gc.pid }; fs.writeFileSync('$cleanPidPath', JSON.stringify(pids)); setTimeout(() => {}, 600000);"
+            $child = Start-Process "node" -ArgumentList "-e", "`"$nodeScript`"" -PassThru -NoNewWindow
+            $null = $child.Handle
+            # Simulate worker finishing runner and then hanging during cleanup
+            Start-Sleep -Seconds 600
+        }
+        if ($StubMode -eq 'FailCleanup') {
+            $migReceipt = [ordered]@{
+                schemaVersion = 1
+                project = $project
+                subjectSha = $resolvedSubjectSha
+                cycleCompleted = $true
+                steps = @("BaselineSetup", "ApplyVerified", "NoOpVerified", "RollbackVerified", "DesiredApplyVerified")
+                timestampUtc = [DateTime]::UtcNow.ToString('o')
+            }
+            [System.IO.File]::WriteAllText($migrationReceiptPath, ($migReceipt | ConvertTo-Json -Depth 5), [System.Text.UTF8Encoding]::new($false))
+            throw "SIMULATED_CLEANUP_FAILURE: Worker cleanup failed in stub mode"
         }
         if ($StubMode -eq 'Success') {
             $migReceipt = [ordered]@{
@@ -232,6 +294,33 @@ if ($StubMode -eq 'None' -and $initialRemaining -lt 2580) {
     throw "INSUFFICIENT_TIME_FOR_WHOLE_PACKAGE: Remaining seconds ($initialRemaining) < required 2580s for whole-package execution"
 }
 
+# Acquire Outer Supervisor Reservation
+$supervisorReservationPath = Join-Path ([System.IO.Path]::GetTempPath()) "knora-session-supervisor-$project.lock"
+$supervisorReservation = $null
+try {
+    $supervisorReservation = [System.IO.File]::Open(
+        $supervisorReservationPath,
+        [System.IO.FileMode]::CreateNew,
+        [System.IO.FileAccess]::ReadWrite,
+        [System.IO.FileShare]::None
+    )
+    $resData = @{
+        project = $project
+        supervisorPid = $PID
+        subjectSha = $resolvedSubjectSha
+        cutoffUtc = $AbsoluteCutoff.ToString('o')
+        hardDeadlineUtc = $HardDeadline.ToString('o')
+        status = 'RESERVED'
+        timestampUtc = [DateTime]::UtcNow.ToString('o')
+    }
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes(($resData | ConvertTo-Json))
+    $supervisorReservation.Write($bytes, 0, $bytes.Length)
+    $supervisorReservation.Flush()
+    Write-Output "Supervisor reservation acquired: $supervisorReservationPath"
+} catch [System.IO.IOException] {
+    throw "FIGMA_SUPERVISOR_PROJECT_RESERVED: Project $project already has an active supervisor reservation ($supervisorReservationPath)"
+}
+
 # Ensure output directory
 $null = New-Item -ItemType Directory -Path $resDir -Force
 
@@ -260,6 +349,8 @@ $null = $workerProc.Handle
 $workerFinishedCleanly = $false
 $childProcessesKilled = $false
 $failureReason = $null
+$allTrackedPids = [System.Collections.Generic.List[int]]::new()
+$allTrackedPids.Add([int]$workerProc.Id)
 
 try {
     # Calculate timeout for the entire worker
@@ -269,14 +360,6 @@ try {
     if (-not $completedInTime) {
         $failureReason = "WHOLE_PACKAGE_TIMEOUT_CUTOFF: Worker exceeded AbsoluteCutoff ($($AbsoluteCutoff.ToString('o')))"
         Write-Output $failureReason
-        Write-Output "Terminating Worker process tree (PID: $($workerProc.Id))..."
-        try {
-            Start-Process "taskkill" -ArgumentList "/PID $($workerProc.Id) /T /F" -NoNewWindow -Wait | Out-Null
-            $childProcessesKilled = $true
-        } catch {
-            try { Stop-Process -Id $workerProc.Id -Force } catch {}
-            $childProcessesKilled = $true
-        }
     } else {
         $workerProc.WaitForExit()
         if ($workerProc.ExitCode -eq 0) {
@@ -286,31 +369,212 @@ try {
         }
     }
 } finally {
-    # Ensure any remaining descendant processes are dead
-    if (-not $workerProc.HasExited) {
-        try {
-            Start-Process "taskkill" -ArgumentList "/PID $($workerProc.Id) /T /F" -NoNewWindow -Wait | Out-Null
-            $childProcessesKilled = $true
-        } catch {
-            try { Stop-Process -Id $workerProc.Id -Force } catch {}
-            $childProcessesKilled = $true
-        }
-    }
+    # ==========================================================================
+    # POSTCONDITION 1: TERMINATE ALL WORKER DESCENDANT PROCESSES & VERIFY IN OS TABLE
+    # ==========================================================================
+    Write-Output "Verifying process tree termination for worker PID $($workerProc.Id)..."
 
-    # Teardown Docker Compose reservation if in real mode
-    if ($StubMode -eq 'None') {
+    # Read pids file if available
+    if (Test-Path $pidsFilePath) {
         try {
-            Write-Output "Executing Docker Teardown for project $project..."
-            & docker compose -p $project down -v --remove-orphans | Out-Null
+            $writtenPids = Get-Content $pidsFilePath -Raw | ConvertFrom-Json
+            if ($writtenPids.childPid) { $allTrackedPids.Add([int]$writtenPids.childPid) }
+            if ($writtenPids.grandchildPid) { $allTrackedPids.Add([int]$writtenPids.grandchildPid) }
         } catch {}
     }
 
-    $finalStatus = if ($workerFinishedCleanly) {
+    # Discover any additional descendants
+    $discoveredDescendants = Get-ProcessDescendantIds $workerProc.Id
+    foreach ($dPid in $discoveredDescendants) {
+        if (-not $allTrackedPids.Contains($dPid)) { $allTrackedPids.Add($dPid) }
+    }
+
+    # Terminate process tree via taskkill if still running
+    if (-not $workerProc.HasExited) {
+        try {
+            $tkProc = Start-Process "taskkill" -ArgumentList "/PID $($workerProc.Id) /T /F" -PassThru -NoNewWindow -Wait
+            $null = $tkProc.Handle
+        } catch {
+            try { Stop-Process -Id $workerProc.Id -Force } catch {}
+        }
+    }
+
+    # Verify all tracked PIDs are dead in the OS process table
+    $lingeringProcesses = [System.Collections.Generic.List[int]]::new()
+    for ($checkIter = 0; $checkIter -lt 10; $checkIter++) {
+        $lingeringProcesses.Clear()
+        foreach ($pidToCheck in $allTrackedPids) {
+            $procFound = Get-Process -Id $pidToCheck -ErrorAction SilentlyContinue
+            if ($procFound) {
+                $lingeringProcesses.Add($pidToCheck)
+                try { Stop-Process -Id $pidToCheck -Force } catch {}
+            }
+        }
+        if ($lingeringProcesses.Count -eq 0) { break }
+        Start-Sleep -Milliseconds 200
+    }
+
+    if ($lingeringProcesses.Count -gt 0) {
+        $childProcessesKilled = $false
+        if (-not $failureReason) {
+            $failureReason = "PROCESS_TERMINATION_FAILED: PIDs still alive in OS process table: $($lingeringProcesses -join ', ')"
+        }
+    } else {
+        $childProcessesKilled = $true
+    }
+
+    # ==========================================================================
+    # POSTCONDITION 2: CLEANUP BOUNDED BY HARDDEADLINE & VERIFY COMPOSE RESOURCES
+    # ==========================================================================
+    $cleanupVerified = $false
+    $nowCleanup = [DateTimeOffset]::UtcNow
+
+    if ($nowCleanup -ge $HardDeadline) {
+        if (-not $failureReason) {
+            $failureReason = "HARD_DEADLINE_EXCEEDED_BEFORE_CLEANUP: Now=$($nowCleanup.ToString('o')) >= HardDeadline=$($HardDeadline.ToString('o'))"
+        }
+    } elseif ($StubMode -eq 'HangCleanup') {
+        # Simulate worker hanging during cleanup past HardDeadline
+        $failureReason = "CLEANUP_VERIFICATION_FAILED: Simulated cleanup hang/failure for StubMode HangCleanup"
+    } elseif ($StubMode -eq 'FailCleanup') {
+        # Simulate cleanup failure
+        $failureReason = "CLEANUP_VERIFICATION_FAILED: Simulated cleanup failure for StubMode FailCleanup"
+    } elseif ($StubMode -eq 'None') {
+        # Production Docker Teardown
+        $remainingSecForCleanup = ($HardDeadline - [DateTimeOffset]::UtcNow).TotalSeconds
+        if ($remainingSecForCleanup -lt 15) {
+            if (-not $failureReason) {
+                $failureReason = "INSUFFICIENT_TIME_FOR_CLEANUP: Only $remainingSecForCleanup s remaining before HardDeadline"
+            }
+        } else {
+            $composeArgs = @(
+                '--project-name', $project,
+                '--project-directory', $repoRoot,
+                '-f', (Join-Path $repoRoot 'docker-compose.dev.yml'),
+                '--profile', 'figma'
+            )
+            Write-Output "Executing Docker Teardown for project $project bounded by HardDeadline ($($HardDeadline.ToString('o')))..."
+            $downProc = Start-Process -FilePath "docker" -ArgumentList (@("compose") + $composeArgs + @("down", "--volumes", "--remove-orphans")) -PassThru -NoNewWindow
+            $null = $downProc.Handle
+            $timeoutMs = [int]($remainingSecForCleanup * 1000)
+            $downFinished = $downProc.WaitForExit($timeoutMs)
+            if (-not $downFinished) {
+                try { Start-Process "taskkill" -ArgumentList "/PID $($downProc.Id) /T /F" -NoNewWindow -Wait } catch {}
+                if (-not $failureReason) {
+                    $failureReason = "CLEANUP_DOCKER_DOWN_TIMEOUT: docker compose down exceeded HardDeadline"
+                }
+            } elseif ($downProc.ExitCode -ne 0) {
+                if (-not $failureReason) {
+                    $failureReason = "CLEANUP_DOCKER_DOWN_FAILED: docker compose down returned exit code $($downProc.ExitCode)"
+                }
+            } else {
+                # Inspect postconditions: resources
+                $lingeringResource = $null
+                foreach ($resource in @(@('ps', '-a'), @('volume', 'ls'), @('network', 'ls'))) {
+                    $remaining = @(& docker @resource --filter "label=com.docker.compose.project=$project" --quiet)
+                    if ($LASTEXITCODE -ne 0 -or $remaining.Count -gt 0) {
+                        $lingeringResource = "$resource (count: $($remaining.Count))"
+                        break
+                    }
+                }
+                if ($lingeringResource) {
+                    if (-not $failureReason) {
+                        $failureReason = "CLEANUP_POSTCONDITION_FAILED: Remaining $lingeringResource for project $project"
+                    }
+                } else {
+                    # Inspect postconditions: listeners
+                    $activePort = $null
+                    foreach ($port in 3300, 8800, 8380, 5543, 9900, 9901, 1025, 8025) {
+                        $listener = New-Object Net.Sockets.TcpClient
+                        try {
+                            $connected = $listener.ConnectAsync('127.0.0.1', $port).Wait(150)
+                            if ($connected -and $listener.Connected) {
+                                $activePort = $port
+                                break
+                            }
+                        } catch [AggregateException] {
+                        } finally { $listener.Dispose() }
+                    }
+                    if ($activePort) {
+                        if (-not $failureReason) {
+                            $failureReason = "CLEANUP_PORT_LISTENER_ACTIVE: Port $activePort still has an active listener"
+                        }
+                    } else {
+                        $cleanupVerified = $true
+                    }
+                }
+            }
+        }
+
+        # Also clean up worker's figma reservation lock if left behind
+        $workerLockPath = Join-Path ([System.IO.Path]::GetTempPath()) "knora-figma-reservation-$project.lock"
+        if ($cleanupVerified -and (Test-Path $workerLockPath)) {
+            Remove-Item -LiteralPath $workerLockPath -Force -ErrorAction SilentlyContinue
+        }
+    } else {
+        # Other stub modes: Success, HangStartup, HangRunner
+        if ($workerFinishedCleanly -or $childProcessesKilled) {
+            $cleanupVerified = $true
+        }
+    }
+
+    # ==========================================================================
+    # POSTCONDITION 3: RESERVATION DISPOSITION & FINAL TIMING AUDIT
+    # ==========================================================================
+    $reservationReleased = $false
+    $completedAt = [DateTimeOffset]::UtcNow
+    $withinHardDeadline = ($completedAt -le $HardDeadline)
+
+    if (-not $withinHardDeadline) {
+        if (-not $failureReason) {
+            $failureReason = "HARD_DEADLINE_EXCEEDED: Completed at $($completedAt.ToString('o')) > HardDeadline $($HardDeadline.ToString('o'))"
+        }
+    }
+
+    if ($cleanupVerified -and $withinHardDeadline -and $childProcessesKilled) {
+        # Cleanup fully verified and within deadline: Release reservation!
+        if ($supervisorReservation) {
+            $supervisorReservation.Dispose()
+            $supervisorReservation = $null
+            if (Test-Path $supervisorReservationPath) {
+                Remove-Item -LiteralPath $supervisorReservationPath -Force -ErrorAction SilentlyContinue
+            }
+        }
+        $reservationReleased = $true
+        Write-Output "Supervisor reservation released cleanly: $supervisorReservationPath"
+    } else {
+        # Cleanup failed, incomplete, or hard deadline exceeded:
+        # RETAIN RESERVATION LOCK! Do NOT delete $supervisorReservationPath!
+        Write-Output "WARNING: Cleanup could not be verified or HardDeadline exceeded. Retaining reservation lock at $supervisorReservationPath for inspection."
+        if ($supervisorReservation) {
+            try {
+                $errData = @{
+                    project = $project
+                    supervisorPid = $PID
+                    subjectSha = $resolvedSubjectSha
+                    status = 'RESERVED_CLEANUP_FAILED'
+                    failureReason = $failureReason
+                    completedAtUtc = $completedAt.ToString('o')
+                } | ConvertTo-Json
+                $bytes = [System.Text.Encoding]::UTF8.GetBytes($errData)
+                $supervisorReservation.Position = 0
+                $supervisorReservation.Write($bytes, 0, $bytes.Length)
+                $supervisorReservation.SetLength($bytes.Length)
+                $supervisorReservation.Flush()
+            } catch {}
+            $supervisorReservation.Dispose()
+            $supervisorReservation = $null
+        }
+        $reservationReleased = $false
+    }
+
+    # Determine final status
+    $finalStatus = if ($workerFinishedCleanly -and $cleanupVerified -and $reservationReleased) {
         "SUCCESS"
-    } elseif ($childProcessesKilled -and $failureReason -like "*TIMEOUT*") {
+    } elseif ($childProcessesKilled -and $cleanupVerified -and $reservationReleased -and ($failureReason -like "*TIMEOUT*")) {
         "TIMEOUT_CLEANUP_VERIFIED"
     } else {
-        "FAILED_OR_TERMINATED"
+        "CLEANUP_FAILED_OR_INCOMPLETE"
     }
 
     $receipt = [ordered]@{
@@ -319,10 +583,15 @@ try {
         subjectSha = $resolvedSubjectSha
         cutoffUtc = $AbsoluteCutoff.ToString('o')
         hardDeadlineUtc = $HardDeadline.ToString('o')
+        completedAtUtc = $completedAt.ToString('o')
+        withinHardDeadline = $withinHardDeadline
         workerPid = $workerProc.Id
-        workerExitCode = if ($workerProc.HasExited) { $workerProc.ExitCode } else { $null }
+        trackedPids = @($allTrackedPids)
         workerFinishedCleanly = $workerFinishedCleanly
         childProcessesKilled = $childProcessesKilled
+        cleanupVerified = $cleanupVerified
+        reservationReleased = $reservationReleased
+        reservationPath = $supervisorReservationPath
         status = $finalStatus
         failureReason = $failureReason
         timestampUtc = [DateTime]::UtcNow.ToString('o')
