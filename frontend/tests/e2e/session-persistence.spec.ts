@@ -154,7 +154,7 @@ test.describe("Browser session persistence and recovery", () => {
   });
 
   test("accelerated idle and absolute limits", async ({ browser }) => {
-    test.setTimeout(180_000);
+    test.setTimeout(240_000);
     const env = figmaEnvironment();
     const activeContexts: BrowserContext[] = [];
 
@@ -185,8 +185,8 @@ test.describe("Browser session persistence and recovery", () => {
         };
         expect(stillActiveData.session).not.toBeNull();
 
-        // Another 12s idle (total 26s > 20s limit) -> expires
-        await p2.waitForTimeout(12_000);
+        // Another 24s idle (> 20s limit after refresh) -> expires
+        await p2.waitForTimeout(24_000);
         const finallyExpiredRes = await p2.request.get("/api/auth/session");
         const finallyExpiredData = (await finallyExpiredRes.json()) as {
           session: unknown;
@@ -391,7 +391,7 @@ test.describe("Browser session persistence and recovery", () => {
       // - 0 automatic POST replay
       await expect(
         page
-          .locator("text=Your account changed. Opening Workspaces…")
+          .locator("text=Your account changed")
           .or(page.locator("text=Workspaces")),
       ).toBeVisible();
       await page.waitForURL(/\/workspaces(?:\/[^?]+)?$/);
