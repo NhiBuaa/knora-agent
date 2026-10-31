@@ -2,14 +2,27 @@
 **
 
 # Re-include Dockerfile and dockerignore
-!backend/Dockerfile
-!backend/Dockerfile.dockerignore
 
 # Re-include backend config files
-!backend/pyproject.toml
-!backend/alembic.ini
 
 # Exact tracked migrations (53 files)
+
+# Exact tracked backend src files (177 files)
+
+# Exact 16 sibling force-include resources (16 files)
+
+# Explicit defensive exclusion
+**/.env
+**/.env.*
+**/*.pyc
+**/__pycache__
+**/.git
+**/node_modules
+**/*.log
+**/*.xml
+!backend/Dockerfile
+!backend/Dockerfile.dockerignore
+!backend/alembic.ini
 !backend/migrations/env.py
 !backend/migrations/script.py.mako
 !backend/migrations/versions/20260731_0001_initial_schema.py
@@ -61,10 +74,10 @@
 !backend/migrations/versions/20261016_0155_ingestion_parent_link.py
 !backend/migrations/versions/20261018_0156_lexical_rollback_revision.py
 !backend/migrations/versions/20261022_0157_merge_evaluation_workbench_heads.py
+!backend/migrations/versions/20261022_0158_canonical_document_structure.py
 !backend/migrations/versions/4949b27855f4_conversation_turn_runtime.py
 !backend/migrations/versions/e032cc86f4ca_durable_conversations.py
-
-# Exact tracked backend src files (177 files)
+!backend/pyproject.toml
 !backend/src/knora/__init__.py
 !backend/src/knora/access/__init__.py
 !backend/src/knora/access/api_keys.py
@@ -97,6 +110,7 @@
 !backend/src/knora/adapters/pdf/_pypdf_chunking.py
 !backend/src/knora/adapters/pdf/_pypdf_limits.py
 !backend/src/knora/adapters/pdf/_pypdf_process.py
+!backend/src/knora/adapters/pdf/docling.py
 !backend/src/knora/adapters/pdf/pypdf.py
 !backend/src/knora/adapters/postgres/__init__.py
 !backend/src/knora/adapters/postgres/answering_store.py
@@ -194,6 +208,8 @@
 !backend/src/knora/ingestion/object_store.py
 !backend/src/knora/ingestion/operational_observability.py
 !backend/src/knora/ingestion/pdf.py
+!backend/src/knora/ingestion/pdf_chunking.py
+!backend/src/knora/ingestion/pdf_structure.py
 !backend/src/knora/ingestion/processing.py
 !backend/src/knora/ingestion/search_indexing.py
 !backend/src/knora/ingestion/store.py
@@ -201,6 +217,7 @@
 !backend/src/knora/providers/__init__.py
 !backend/src/knora/providers/cloudflare/__init__.py
 !backend/src/knora/providers/cloudflare/embedding.py
+!backend/src/knora/providers/cloudflare/pdf_understanding.py
 !backend/src/knora/providers/demo.py
 !backend/src/knora/providers/deterministic/__init__.py
 !backend/src/knora/providers/deterministic/embedding.py
@@ -242,8 +259,6 @@
 !backend/src/knora/workspaces/ports.py
 !backend/src/knora/workspaces/service.py
 !backend/src/knora/workspaces/types.py
-
-# Exact 16 sibling force-include resources (16 files)
 !docs/design/m3-improvement-claim-rule-v1.policy.json
 !evals/corpora/milestone_3/account-security.txt
 !evals/corpora/milestone_3/billing-policy.txt
@@ -260,13 +275,3 @@
 !evals/runners/milestone_3_comparison.py
 !evals/runners/ragas_review.py
 !evals/scorers/deepeval_cloudflare.py
-
-# Explicit defensive exclusion
-**/.env
-**/.env.*
-**/*.pyc
-**/__pycache__
-**/.git
-**/node_modules
-**/*.log
-**/*.xml

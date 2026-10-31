@@ -22,6 +22,7 @@ from knora.adapters.http.workspaces import router as workspaces_router
 from knora.adapters.object_store.filesystem import FileSystemObjectStore
 from knora.adapters.object_store.inventory import JsonlObjectInventory
 from knora.adapters.object_store.s3 import BotoS3CapabilityClient, S3CapabilityClient, S3ObjectStore
+from knora.adapters.pdf.docling import DoclingTextExtractor
 from knora.adapters.pdf.pypdf import PypdfTextExtractor
 from knora.adapters.postgres.answering_store import PostgresAnsweringStore
 from knora.adapters.postgres.conversation_store import PostgresConversationStore
@@ -96,9 +97,10 @@ from knora.ingestion.operational_observability import (
     OperationalObservability,
     OperationalTelemetry,
 )
-from knora.ingestion.pdf import PdfExtractionConfiguration
+from knora.ingestion.pdf import PdfExtractionConfiguration, PdfTextExtractor
 from knora.ingestion.processing import DocumentProcessor
 from knora.ingestion.search_indexing import DerivationJobHandler, LexicalIndexHandler
+from knora.providers.cloudflare.pdf_understanding import CloudflarePdfUnderstandingProvider
 from knora.providers.embedding import EmbeddingConfiguration
 from knora.tools import (
     CapabilityRegistry,
@@ -210,9 +212,19 @@ def create_app(
 
     application = FastAPI(title="Knora Agent", version="0.1.0", lifespan=lifespan)
     selected_embedding_configuration = embedding_configuration or providers.embedding_configuration
-    dense_pdf_configuration = PdfSubmissionConfiguration.layout_preserving(
-        embedding_configuration=selected_embedding_configuration
+    use_docling = (
+        settings.pdf_parser_driver == "docling"
+        and bool(settings.cloudflare_account_id)
+        and bool(settings.cloudflare_api_token)
     )
+    if use_docling:
+        dense_pdf_configuration = PdfSubmissionConfiguration.docling_native(
+            embedding_configuration=selected_embedding_configuration
+        )
+    else:
+        dense_pdf_configuration = PdfSubmissionConfiguration.layout_preserving(
+            embedding_configuration=selected_embedding_configuration
+        )
     application.state.pdf_submission_configuration = (
         PdfExtractionSubmissionConfiguration(
             parser_configuration_id=dense_pdf_configuration.parser_configuration_id,
@@ -292,9 +304,24 @@ def create_app(
         admission_store=workspace_admissions,
         deployed_embedding_configuration=selected_embedding_configuration,
     )
+    if (
+        settings.pdf_parser_driver == "docling"
+        and settings.cloudflare_account_id
+        and settings.cloudflare_api_token
+    ):
+        cf_pdf_provider = CloudflarePdfUnderstandingProvider(
+            account_id=settings.cloudflare_account_id,
+            api_token=settings.cloudflare_api_token.get_secret_value(),
+            ocr_model=settings.cloudflare_ocr_model,
+            timeout_seconds=settings.cloudflare_timeout_seconds,
+        )
+        extractor: PdfTextExtractor = DoclingTextExtractor(cf_provider=cf_pdf_provider)
+    else:
+        extractor = PypdfTextExtractor()
+
     pdf_handler = PdfDerivationHandler(
         object_store=selected_object_store,
-        extractor=PypdfTextExtractor(),
+        extractor=extractor,
         embedding_provider=providers.embedding_provider,
         profile_resolver=job_store.pdf_profile_for_work,
         runtime_embedding_configuration=selected_embedding_configuration,
