@@ -83,11 +83,11 @@ def scorer(saved, score=None, kind="offline"):
         from evals.scorers.deepeval_cloudflare import _scoring_input_sha256
 
         captures.append(deepcopy(capture))
-        return {
+        res = {
             "run_id": capture["run_id"],
             "case_id": capture["case_id"],
             "trace_id": capture["trace_id"],
-            "attempt": 1,
+            "attempt": capture["attempt"],
             "input_sha256": _scoring_input_sha256(capture),
             "tool": "deepeval-4.2.8",
             "model": "offline-fixture",
@@ -98,6 +98,11 @@ def scorer(saved, score=None, kind="offline"):
             },
             "http_attempts": 0,
         }
+        if "attempt_id" in capture:
+            res["attempt_id"] = capture["attempt_id"]
+        if "validation_origin" in capture:
+            res["validation_origin"] = capture["validation_origin"]
+        return res
 
     service = EvaluationScoringService(
         runs,
@@ -226,6 +231,18 @@ def test_read_only_and_wrong_workspace_are_denied_before_lookup(saved):
         service.preflight(owner.workspace_id, reader, "missing", ("answer",), "fixture")
     with pytest.raises(KnoraError, match="WORKSPACE_ACCESS_DENIED"):
         service.read("other", owner, run["run_id"])
+
+
+def test_saved_capture_preserves_native_attempt(saved):
+    from knora.evaluation.scoring import capture_saved_cases
+
+    runs, _, run, owner = saved
+    run = deepcopy(run)
+    run["observations"]["answer"].update(attempt=2, attempt_id="saved-run:answer:2")
+    item = capture_saved_cases(runs, run, owner, ("answer",))[0]
+    assert item["status"] == "READY"
+    assert item["capture"]["attempt"] == 2
+    assert item["capture"]["attempt_id"] == "saved-run:answer:2"
 
 
 def test_missing_trace_and_unsupported_observations_stay_in_population(saved):

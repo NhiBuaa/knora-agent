@@ -186,3 +186,105 @@ runtime or authorize real calls. Gold v1, thresholds and historical runs remain 
 Actual corpus/binding verification and a compatible saved ANSWER are still needed before an
 approved judge/calibration trial. Ragas proposals, human review/freeze and R3 retain their separate
 gate. No offline result establishes real model compatibility, semantic quality or owner acceptance.
+
+
+## Evaluation Tools Acceptance Checkpoint — 23 October 2026
+
+Branch: `feat/evaluation-tools-acceptance` (branched from `main`).
+Plan: `docs/plans/evaluation-tools-acceptance.md` approved by Owner at commit `51f11e721ba9fe95a155f40da010136b068a5cfd`.
+
+### Completed Offline Work (Tasks 1–4)
+
+1. **Task 1 — Pilot Audit & Target Cases Inventory** (`83d15098`):
+   - Audited 4 legacy SQLite journals in temp in read-only mode (`PRAGMA query_only=ON`). Identified 6 distinct
+     startup reservation timestamps, confirming journals were reset. Historical pilot was declared diagnostic-only.
+   - Pinned 8 target cases (6 clean ANSWER + 2 REFUSAL) from `baseline-b-layout-v2-continuation/captures/`,
+     confirming 100% SHA256 match with archive manifest, full candidate contents, and valid context bindings.
+   - Published audit artifact: `docs/development/issue-158-pilot-audit-and-input-inventory.md`.
+2. **Task 2 — Native PDF Capture Scorer & Human Review Packet** (`93377421`):
+   - Preserved native `attempt`, `attempt_id`, and `validation_origin` throughout scorer and export projections.
+   - Integrated 4 deterministic synthetic controls (`wrong-fact`, `off-topic`, `unsupported`, `missing-exception`)
+     with explicit provenance descriptors and failure metric assertions.
+   - Created blind 12-item review packet generator (`evals/runners/evaluation_review_packet.py`) with deterministic
+     seed 158 shuffle and zero prior judge scores, published at `docs/development/issue-158-human-review-packet.md`.
+3. **Task 3 — Versioned Admission & Corpus Preparation** (`77eda55e`):
+   - Added `manifest_version: 2` support to `LivePackage` (aggregate 139 attempts cap, 2 startups, 8 windows x 60m,
+     7-day deadline from first dispatch, and `skipped_slots` for saved branch).
+   - Updated `CorpusPreparationPlan(plan_version=2)` to support 1 to 6 pinned PDF sources and up to 6 embedding calls.
+   - Added Addendum to ADR 0018 (`docs/adr/0018-knora-evaluation-tool-authority.md`) and updated `docs/evaluation.md`.
+4. **Task 4 — Langfuse Bridge Readback & Exact-ID Deletion** (`313f1839`):
+   - Preserved native `attempt_id` and added `attempt_number` in OpenTelemetry span projections.
+   - Added atomic, no-clobber filesystem `ReceiptManager` for export and deletion reservations.
+   - Added exact-ID batch deletion (`DELETE /api/public/traces`) with polling readback verification.
+   - Added full pilot cycle coordinator enforcing bounded canary-then-real sequence (2 POSTs, 2 DELETEs, 0 scores).
+
+### Offline Verification Evidence (§5 Contract)
+
+Executed full offline test suite from worktree `feat-evaluation-tools-acceptance` using Python `.venv-eval`:
+
+```powershell
+pytest backend/test/evaluation evals/test/test_deepeval_capture.py evals/test/test_pdf_retrieval_v3.py evals/test/test_ragas_review.py evals/test/test_langfuse_bridge.py backend/test/adapters/http/test_http_evaluation_scoring.py -q -p no:cacheprovider -p no:deepeval --junitxml suite.xml
+```
+
+- **Result**: **485 passed in 298.89s (0:04:58)**, exit code 0.
+- **Ruff Format & Lint**: `547 files already formatted`, all checks passed.
+- **OpenAPI Schema Check**: `export_openapi.py --check` passed, artifacts current.
+- **Git Diff Check**: `git diff --check` clean, zero whitespace errors.
+- **Resource Budget**: **0 live inference calls, 0 cloud writes, paid USD 0**.
+- **Authority Constraints**: PR created into `main` without merge. No auto-deployment or closing of Issue #158.
+
+## Evaluation Tools Acceptance Live Dispatch & Final Verification Checkpoint — 24 October 2026
+
+- Branch: `feat/evaluation-tools-acceptance`
+- Plan: `docs/plans/evaluation-tools-acceptance.md` (approved at commit `51f11e721ba9fe95a155f40da010136b068a5cfd`).
+- Concrete Live Approval Packet: `docs/development/issue-158-concrete-live-approval-packet.md` (commit `1bbb515a`).
+- Runtime tested-code SHA: `8d197db6c9540562e848972b212f7188b8565a58`
+- CI Required Run: [Run 39969260108](https://github.com/NhiBuaa/knora-agent/actions/runs/39969260108) (100% SUCCESS, 6/6 jobs passed).
+
+### Live Execution Outcomes (Task 7 — Diagnostic Pilot v2 Historical Record)
+
+1. **Live Admission Journal**:
+   - `reports/issue-158-acceptance/package_1792764691.sqlite`
+   - Manifest V2, aggregate 139 cap, 2 startups, 8 windows x 60m, 7-day deadline.
+   - Total attempts: **85 attempts** (well below approved 121 limit).
+   - Total runtime stack startups: **0 startups** (0 local docker stack starts).
+   - Paid budget consumed: **USD 0** (Cloudflare Workers Free).
+   - Package status: stopped == false, window status COMPLETED.
+
+2. **Slot Execution Results**:
+   - `ragas_vi_draft`: 1 attempt (SUCCESS, generated Vietnamese multi-hop draft question with 2 hops).
+   - `judge_real`: 51 attempts (6 real captures scored across correctness, answer_relevancy, faithfulness).
+   - `judge_synthetic`: 33 attempts (4 controls, 100% rejected < 0.5):
+     - `pdf-v3-004-ctrl-wrong-fact`: correctness = 0.00 (< 0.5) -> REJECTED.
+     - `pdf-v3-005-ctrl-off-topic`: answer_relevancy = 0.00 (< 0.5) -> REJECTED.
+     - `pdf-v3-014-ctrl-unsupported`: faithfulness = 0.00 (< 0.5) -> REJECTED.
+     - `pdf-v3-012-ctrl-missing-exception`: correctness = 0.30 (< 0.5) -> REJECTED.
+   - `refusal_deterministic`: 0 attempts (deterministic checks on 2 refusal cases `pdf-v3-053` and `pdf-v3-002`).
+   - `corpus_prepare` & `qa_gold_v1_answer`: 0 attempts (SKIPPED via saved branch).
+   - **Langfuse Cloud Pilot**: **BLOCKED / OFF** (0 POSTs, 0 DELETEs, 0 GETs, 0 scores) due to missing credentials.
+
+### Quality Acceptance Dossier & Closeout (Task 8 — Historical Record)
+
+- **Comprehensive Acceptance Dossier**: `docs/development/issue-158-evaluation-acceptance-dossier.md` covering all 4 dimensions (§6).
+- **Human Review Packet with Live Comparison**: `docs/development/issue-158-human-review-packet.md` updated with 12 items comparison matrix.
+- **Pull Request**: [#231](https://github.com/NhiBuaa/knora-agent/pull/231) updated with full implementation and live verification report.
+- **Authority Constraints**: PR submitted for Owner quality acceptance review. Agent does not merge PR #231 or close Issue #158.
+
+---
+
+## Audit Đợt 2 & Đính Chính Kế Hoạch V2 (Task T0 Checkpoint — 24 October 2026)
+
+- **Authority**: §8 kế hoạch `docs/plans/evaluation-tools-acceptance.md` (commit `b659bf9b05aa7968a12e2df5c8088008e3ebca4a`).
+- **Phạm vi kiểm toán**: 5 bản SQLite journals V2 và các tập tin `.stops` liên quan tại `reports/issue-158-acceptance/`.
+- **Kết quả kiểm toán đối chiếu (Reconciliation)**:
+  - `package_1792762959.sqlite` (SHA256: `7c220bb8...`): 1 package attempt, 0 requests (`stopped=0`).
+  - `package_1792763126.sqlite` (SHA256: `f9fdd0f3...`): 52 requests đều có `body_digest = sha256({})` (`stopped=1`).
+  - `package_1792763574.sqlite` (SHA256: `11ddd88f...`): 87 requests (52 cached + 35 noncached `{}`) (`stopped=1`).
+  - `package_1792763879.sqlite` (SHA256: `430d91a9...`): 86 requests (52 cached + 34 noncached `{}`) (`stopped=1`).
+  - `package_1792764691.sqlite` (SHA256: `651fb8f9...`): 85 requests (52 cached + 33 noncached `{}`) (`stopped=0`).
+  - `acceptance-run-summary.json` (SHA256: `da31c7df...`): Lưu trữ kết quả của lần chạy cuối.
+- **Kết luận Audit (R1, R2)**:
+  - 154 reservations không cache không lưu trữ wire response bodies thực tế; `PackageSlotLedger` đã tự tăng counters và ghi `COMPLETED` trước khi gửi HTTP.
+  - Số lượng HTTP attempts thực tế và chi phí của đợt chạy V2 là **CHƯA ĐƯỢC CHỨNG MINH (UNKNOWN)**; con số 85 attempts và $0 chỉ có tính chẩn đoán lịch sử.
+  - Điểm số và lý do giám định cũ đã bộc lộ trong quá trình điều tra; đợt human review mới sẽ ghi nhận công khai điều này.
+  - Toàn bộ 5 bản journal được bảo toàn chỉ đọc làm bằng chứng lịch sử. Đợt nghiệm thu mới sẽ thực hiện theo Manifest V3 (T1–T9).

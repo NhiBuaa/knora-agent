@@ -359,8 +359,16 @@ class PostgresCorpusPreparationStore:
             self._activation_guard(session, plan, admission, claim, False)
 
     def activate_batch(self, plan, admission, items):
+        if plan.plan_version == 1:
+            _require(len(items) == 2)
+        elif plan.plan_version == 2:
+            _require(1 <= len(items) <= 6)
+        else:
+            raise ValueError("CORPUS_STATE_CHANGED")
+
         _require(
-            len(items) == 2
+            len(items) == len(plan.sources)
+            and len({claim.token.job_id for claim, _ in items}) == len(items)
             and {claim.token.job_id for claim, _ in items} == {pin.job_id for pin in plan.sources}
         )
 

@@ -169,6 +169,7 @@ class CloudflareJudge(DeepEvalBaseLLM):
         max_output_tokens: int,
         ledger: AttemptLedger,
         client: httpx.Client | None = None,
+        truths_extraction_limit: int = 10,
     ) -> None:
         if (
             not re.fullmatch(
@@ -184,6 +185,7 @@ class CloudflareJudge(DeepEvalBaseLLM):
         super().__init__(model=model)
         self.endpoint, self.token, self.ledger = endpoint, token, ledger
         self.max_output_tokens = max_output_tokens
+        self.truths_extraction_limit = truths_extraction_limit
         self.client = client or httpx.Client(timeout=30, follow_redirects=False)
 
     def load_model(self):
@@ -198,11 +200,12 @@ class CloudflareJudge(DeepEvalBaseLLM):
             prompt, schema, model=self.model, max_tokens=self.max_output_tokens
         )
         try:
+            timeout = self.client.timeout if self.client is not None else 30
             response = self.client.post(
                 self.endpoint,
                 headers={"Authorization": f"Bearer {self.token}"},
                 json=body,
-                timeout=30,
+                timeout=timeout,
                 follow_redirects=False,
             )
             response.raise_for_status()
@@ -212,7 +215,21 @@ class CloudflareJudge(DeepEvalBaseLLM):
             content = choice["message"]["content"]
             if not isinstance(content, str):
                 raise JudgeError("JUDGE_RESPONSE_INVALID")
-            return schema.model_validate_json(content) if schema else content
+            if schema:
+                try:
+                    raw_dict = json.loads(content)
+                except Exception as error:
+                    raise JudgeError("JUDGE_RESPONSE_INVALID") from error
+                if not isinstance(raw_dict, dict):
+                    raise JudgeError("JUDGE_RESPONSE_INVALID")
+                model_fields = set(getattr(schema, "model_fields", {}))
+                if model_fields and not set(raw_dict).issubset(model_fields):
+                    raise JudgeError("JUDGE_RESPONSE_INVALID")
+                try:
+                    return schema.model_validate(raw_dict, strict=True)
+                except Exception as error:
+                    raise JudgeError("JUDGE_RESPONSE_INVALID") from error
+            return content
         except JudgeError:
             raise
         except httpx.TimeoutException as error:
@@ -224,24 +241,104 @@ class CloudflareJudge(DeepEvalBaseLLM):
         return self.generate(prompt, schema)
 
 
+SYNTHETIC_CONTROLS = {
+    "wrong-fact": {
+        "parent_case_id": "pdf-v3-004",
+        "answer": "Cảnh báo P1 phải báo trực trong 150 phút.",
+        "target_rejected_metric": "correctness",
+        "transformation_version": "v1",
+        "description": "Thay đáp án bằng 'Cảnh báo P1 phải báo trực trong 150 phút.'",
+    },
+    "off-topic": {
+        "parent_case_id": "pdf-v3-005",
+        "answer": "Màu yêu thích của tôi là xanh dương. Tôi thích thời tiết đẹp.",
+        "target_rejected_metric": "answer_relevancy",
+        "transformation_version": "v1",
+        "description": (
+            "Thay đáp án bằng 'Màu yêu thích của tôi là xanh dương. Tôi thích thời tiết đẹp.'"
+        ),
+    },
+    "unsupported": {
+        "parent_case_id": "pdf-v3-014",
+        "answer": (
+            "Evidence means approval by the Tokyo office within 3 minutes. "
+            "Citation means a mandatory payment of 500 USD to that office."
+        ),
+        "target_rejected_metric": "faithfulness",
+        "transformation_version": "v1",
+        "description": (
+            "Thay đáp án bằng 'Evidence means approval by the Tokyo office within 3 minutes. "
+            "Citation means a mandatory payment of 500 USD to that office.'; "
+            "xác minh các claim này không có trong exact evidence."
+        ),
+    },
+    "missing-exception": {
+        "parent_case_id": "pdf-v3-012",
+        "answer": "Bản nháp thường giữ 30 ngày. Hồ sơ tranh chấp không có quy định riêng.",
+        "target_rejected_metric": "correctness",
+        "transformation_version": "v1",
+        "description": (
+            "Thay đáp án bằng 'Bản nháp thường giữ 30 ngày. "
+            "Hồ sơ tranh chấp không có quy định riêng.'; bỏ và phủ nhận ngoại lệ 90 ngày."
+        ),
+    },
+}
+
+
+def build_synthetic_control(
+    parent_capture: dict, variant_id: str, parent_capture_bytes: bytes | None = None
+) -> dict:
+    from copy import deepcopy
+
+    if variant_id not in SYNTHETIC_CONTROLS:
+        raise JudgeError(f"UNKNOWN_SYNTHETIC_VARIANT: {variant_id}")
+    spec = SYNTHETIC_CONTROLS[variant_id]
+    if parent_capture.get("case_id") != spec["parent_case_id"]:
+        raise JudgeError("PARENT_CASE_MISMATCH")
+    if parent_capture_bytes is not None:
+        parent_sha = "sha256:" + hashlib.sha256(parent_capture_bytes).hexdigest()
+    else:
+        parent_sha = (
+            "sha256:"
+            + hashlib.sha256(
+                json.dumps(parent_capture, sort_keys=True, ensure_ascii=False).encode("utf-8")
+            ).hexdigest()
+        )
+    answer_bytes = spec["answer"].encode("utf-8")
+    transformation_digest = "sha256:" + hashlib.sha256(answer_bytes).hexdigest()
+    validation_origin = {
+        "validation_variant_id": variant_id,
+        "parent_case_id": spec["parent_case_id"],
+        "parent_capture_sha256": parent_sha,
+        "transformation_version": spec["transformation_version"],
+        "transformation_digest": transformation_digest,
+        "target_rejected_metric": spec["target_rejected_metric"],
+        "description": spec["description"],
+    }
+    control = dict(deepcopy(parent_capture))
+    control["case_id"] = f"{spec['parent_case_id']}-ctrl-{variant_id}"
+    control["answer"] = spec["answer"]
+    control["validation_origin"] = validation_origin
+    return control
+
+
 def _scoring_input_sha256(capture: dict) -> str:
+    payload = {
+        key: capture.get(key)
+        for key in (
+            "question",
+            "answer",
+            "reference_answer",
+            "generation_evidence",
+            "evidence_status",
+        )
+    }
+    if "validation_origin" in capture:
+        payload["validation_origin"] = capture["validation_origin"]
     return (
         "sha256:"
         + hashlib.sha256(
-            json.dumps(
-                {
-                    key: capture.get(key)
-                    for key in (
-                        "question",
-                        "answer",
-                        "reference_answer",
-                        "generation_evidence",
-                        "evidence_status",
-                    )
-                },
-                sort_keys=True,
-                ensure_ascii=False,
-            ).encode()
+            json.dumps(payload, sort_keys=True, ensure_ascii=False).encode()
         ).hexdigest()
     )
 
@@ -293,7 +390,12 @@ def score_capture(capture: dict, judge, *, measure: bool = True) -> dict:
             "answer_relevancy": AnswerRelevancyMetric(
                 model=judge, eval_mode="llm", async_mode=False
             ),
-            "faithfulness": FaithfulnessMetric(model=judge, eval_mode="llm", async_mode=False),
+            "faithfulness": FaithfulnessMetric(
+                model=judge,
+                eval_mode="llm",
+                async_mode=False,
+                truths_extraction_limit=getattr(judge, "truths_extraction_limit", 10),
+            ),
         }
         for name, scorer in scorers.items():
             if metrics[name]["status"] == "not_applicable":
@@ -319,7 +421,7 @@ def score_capture(capture: dict, judge, *, measure: bool = True) -> dict:
                     "rationale": None,
                     "error": str(error),
                 }
-    return {
+    res = {
         "run_id": capture.get("run_id"),
         "case_id": capture.get("case_id"),
         "trace_id": capture.get("trace_id"),
@@ -333,12 +435,21 @@ def score_capture(capture: dict, judge, *, measure: bool = True) -> dict:
         "input_sha256": _scoring_input_sha256(capture),
         "http_attempts": judge.ledger.count() - attempts_before if measure else 0,
     }
+    if "attempt_id" in capture:
+        res["attempt_id"] = capture["attempt_id"]
+    if "validation_origin" in capture:
+        res["validation_origin"] = capture["validation_origin"]
+    return res
 
 
-def derive_captures(source: dict, cases: list | tuple, *, run_id: str) -> list[dict]:
+def derive_captures(
+    source: dict, cases: list | tuple, *, run_id: str, capture_format: str = "m3-native-v1"
+) -> list[dict]:
     """Build scorer inputs solely from the bound dataset and persisted observations."""
-    by_case = {case.id: case for case in cases}
+    by_case = {getattr(c, "case_id", getattr(c, "id", None)): c for c in cases}
     observations = source.get("observations")
+    if isinstance(observations, dict):
+        observations = list(observations.values())
     if (
         not run_id
         or not isinstance(observations, list)
@@ -348,31 +459,73 @@ def derive_captures(source: dict, cases: list | tuple, *, run_id: str) -> list[d
         raise JudgeError("CAPTURE_CASE_MISMATCH")
     captures = []
     for item in observations:
-        if item.get("status") != "observed" or item.get("decision") != "ANSWER":
+        if item.get("status") not in {"observed", "OBSERVED"} or item.get("decision") != "ANSWER":
             continue
         case = by_case[item["case_id"]]
         if not isinstance(item.get("public_answer"), str):
             raise JudgeError("CAPTURE_TRACE_MISMATCH")
-        evidence = (
-            item.get("generation_evidence")
-            if item.get("generation_evidence_status") == "exact"
-            else []
-        )
-        if not isinstance(evidence, list):
+        raw_evidence = item.get("generation_evidence")
+        if "generation_evidence_status" in item:
+            evidence = (
+                raw_evidence
+                if item.get("generation_evidence_status") == "exact"
+                and isinstance(raw_evidence, list)
+                else []
+            )
+        elif isinstance(raw_evidence, list) and raw_evidence:
+            evidence = raw_evidence
+        else:
+            evidence = []
+        if not isinstance(evidence, list) or any(
+            not isinstance(e, (dict, list, tuple))
+            or (
+                isinstance(e, dict)
+                and (not isinstance(e.get("alias"), str) or not isinstance(e.get("content"), str))
+            )
+            or (
+                isinstance(e, (list, tuple))
+                and (len(e) != 2 or not isinstance(e[0], str) or not isinstance(e[1], str))
+            )
+            for e in evidence
+        ):
             raise JudgeError("CAPTURE_EVIDENCE_INVALID")
-        captures.append(
-            {
-                "run_id": run_id,
-                "case_id": case.id,
-                "attempt": 1,
-                "trace_id": item["trace_id"],
-                "question": case.question,
-                "answer": item["public_answer"],
-                "reference_answer": case.answer_expectations.reference_answer,
-                "generation_evidence": evidence,
-                "evidence_status": "exact" if evidence else "unavailable",
-            }
-        )
+        normalized_evidence = []
+        for e in evidence:
+            if isinstance(e, dict):
+                normalized_evidence.append({"alias": e["alias"], "content": e["content"]})
+            else:
+                normalized_evidence.append({"alias": e[0], "content": e[1]})
+        if hasattr(case, "answer_expectations"):
+            ref_answer = case.answer_expectations.reference_answer
+        elif hasattr(case, "reference_answer"):
+            ref_answer = case.reference_answer
+        elif isinstance(case, dict):
+            ref_answer = case.get(
+                "reference_answer", case.get("answer_expectations", {}).get("reference_answer")
+            )
+        else:
+            ref_answer = None
+
+        question = case.question if hasattr(case, "question") else case.get("question")
+        attempt = item.get("attempt", 1)
+        attempt_id = item.get("attempt_id") or f"{run_id}:{item['case_id']}:{attempt}"
+        cap = {
+            "run_id": run_id,
+            "case_id": item["case_id"],
+            "attempt": attempt,
+            "attempt_id": attempt_id,
+            "trace_id": item["trace_id"],
+            "question": question,
+            "answer": item["public_answer"],
+            "reference_answer": ref_answer,
+            "generation_evidence": normalized_evidence,
+            "evidence_status": "exact" if normalized_evidence else "unavailable",
+        }
+        if "validation_origin" in item:
+            cap["validation_origin"] = item["validation_origin"]
+        if "workspace_id" in item:
+            cap["workspace_id"] = item["workspace_id"]
+        captures.append(cap)
     return captures
 
 
@@ -414,7 +567,8 @@ def validate_free_preflight(record: dict, *, run_id: str, capture_sha256: str) -
 
 
 def publish_supplement(path: Path, source: dict, captures: list[dict], results: list[dict]) -> dict:
-    observed = {item["case_id"]: item for item in source.get("observations", [])}
+    raw_obs = source.get("observations", [])
+    observed = raw_obs if isinstance(raw_obs, dict) else {item["case_id"]: item for item in raw_obs}
     if any(
         item.get("case_id") not in observed
         or item.get("trace_id") != observed[item["case_id"]].get("trace_id")
@@ -428,6 +582,12 @@ def publish_supplement(path: Path, source: dict, captures: list[dict], results: 
     for capture in captures:
         result = by_case[capture["case_id"]]
         if any(result.get(key) != capture[key] for key in ("run_id", "attempt", "trace_id")):
+            raise JudgeError("RESULT_IDENTITY_MISMATCH")
+        if (
+            "attempt_id" in capture
+            and result.get("attempt_id") is not None
+            and result.get("attempt_id") != capture["attempt_id"]
+        ):
             raise JudgeError("RESULT_IDENTITY_MISMATCH")
         if result.get("input_sha256") != _scoring_input_sha256(capture):
             raise JudgeError("RESULT_INPUT_MISMATCH")

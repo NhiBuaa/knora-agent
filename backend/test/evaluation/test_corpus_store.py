@@ -860,3 +860,329 @@ def test_ordinary_claim_replay_rejects_corpus_job(corpus_db, tmp_path):
             worker_id=claim.token.worker_id,
             timing=timing,
         )
+
+
+def _make_v2_corpus(num_sources: int):
+    from dataclasses import replace
+
+    from sqlalchemy import create_engine, event
+    from sqlalchemy.dialects.postgresql import TSVECTOR
+    from sqlalchemy.ext.compiler import compiles
+    from sqlalchemy.pool import StaticPool
+    from test_pdf_runs import frozen_dataset
+
+    from knora.evaluation.contracts import PdfSource, digest_json, freeze_dataset
+    from knora.evaluation.corpus_preparation import CorpusPreparationPlan, CorpusSourcePin
+    from knora.ingestion.jobs import PdfSubmissionConfiguration
+    from knora.providers.embedding import EmbeddingConfiguration
+
+    original = frozen_dataset()
+    gold_sources = [
+        PdfSource(f"document-{n}", f"version-{n}", chr(ord("a") + (n - 1)) * 64)
+        for n in range(1, num_sources + 1)
+    ]
+    gold = replace(
+        original.gold,
+        sources=tuple(gold_sources),
+    )
+    frozen = freeze_dataset(gold, replace(original.approval, gold_digest=gold.digest))
+    pins = tuple(
+        CorpusSourcePin(
+            source_id=f"source-{n}",
+            job_id=f"job-{n}",
+            document_id=f"document-{n}",
+            document_version_id=f"version-{n}",
+            source_key=f"evaluation/pdf-set/source-{n}",
+            raw_sha256=chr(ord("a") + (n - 1)) * 64,
+            byte_size=100,
+            object_key=f"object-{n}",
+            original_source_object_id=f"original-{n}",
+            snapshot_id=f"snapshot-{n}",
+            snapshot_sha256="d" * 64,
+            snapshot_configuration_sha256="c" * 64,
+            expected_revision=0,
+            expected_current_version_id=None,
+            expected_active_set_id=None,
+        )
+        for n in range(1, num_sources + 1)
+    )
+    plan = CorpusPreparationPlan(
+        "corpus-v2-test",
+        frozen.to_json(),
+        8,
+        0,
+        "issuer",
+        "owner",
+        pins,
+        PdfSubmissionConfiguration.milestone_two(
+            embedding_configuration=EmbeddingConfiguration.cloudflare_qwen3_06b()
+        ),
+        (digest_json({"documents": ["The sky is blue."]}),),
+        num_sources,
+        plan_version=2,
+    )
+
+    engine = create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+
+    @event.listens_for(engine, "connect")
+    def sqlite_clock(dbapi, _):
+        dbapi.create_function("clock_timestamp", 0, lambda: NOW.strftime("%Y-%m-%d %H:%M:%S.%f"))
+        dbapi.create_function("to_tsvector", 2, lambda config, content: content, deterministic=True)
+        dbapi.create_function(
+            "json_typeof", 1, lambda val: "object" if val is not None else None, deterministic=True
+        )
+
+    @compiles(TSVECTOR, "sqlite")
+    def sqlite_vector(type_, compiler, **kw):
+        return "TEXT"
+
+    Base.metadata.create_all(
+        engine,
+        tables=[
+            c.__table__
+            for c in (
+                WorkspaceIdentityTable,
+                WorkspaceTable,
+                DocumentTable,
+                DocumentVersionTable,
+                OriginalSourceObjectTable,
+                ChunkingConfigurationTable,
+                EmbeddingConfigurationTable,
+                IngestionJobTable,
+                IngestionJobAttemptTable,
+                LexicalGenerationTable,
+                LexicalHeadTable,
+                DatasetDraftTable,
+                DatasetSourceTable,
+                EvaluationGoldVersionTable,
+                ExtractionSnapshotTable,
+                ChunkSetTable,
+                ChunkTable,
+                EmbeddingSetTable,
+                ChunkEmbeddingTable,
+                WorkspaceAdmissionTable,
+                ObjectLifecycleWorkTable,
+            )
+        ],
+    )
+
+    class OfflineSession(Session):
+        pass
+
+    @event.listens_for(OfflineSession, "loaded_as_persistent")
+    def restore_utc(session, instance):
+        from datetime import UTC, datetime
+
+        for column in instance.__table__.columns:
+            value = getattr(instance, column.name)
+            if isinstance(value, datetime) and value.tzinfo is None:
+                attributes.set_committed_value(instance, column.name, value.replace(tzinfo=UTC))
+
+    factory = sessionmaker(engine, class_=OfflineSession, expire_on_commit=False)
+    ref = plan.frozen.reference
+    with factory.begin() as s:
+        s.add(WorkspaceIdentityTable(id="identity", issuer="issuer", subject="owner"))
+        s.add(
+            WorkspaceTable(
+                id=ref.workspace_id, name="Offline", owner_identity_id="identity", revision=0
+            )
+        )
+        s.add(
+            DatasetDraftTable(
+                id=ref.dataset_id,
+                workspace_id=ref.workspace_id,
+                name="Frozen",
+                status="FROZEN",
+                revision=8,
+                reference=asdict(ref),
+            )
+        )
+        s.add(
+            EvaluationGoldVersionTable(
+                id="gold",
+                workspace_id=ref.workspace_id,
+                dataset_id=ref.dataset_id,
+                version=1,
+                digest=ref.digest,
+                frozen_json=plan.frozen_json,
+                reviews=[],
+                draft_revision=7,
+            )
+        )
+        for p in plan.sources:
+            s.add(
+                DocumentTable(
+                    id=p.document_id,
+                    workspace_id=ref.workspace_id,
+                    source_key=p.source_key,
+                    source_name="fixture.pdf",
+                    revision=0,
+                )
+            )
+            s.add(
+                DocumentVersionTable(
+                    id=p.document_version_id,
+                    document_id=p.document_id,
+                    raw_sha256=p.raw_sha256,
+                    media_type="application/pdf",
+                    version_number=1,
+                )
+            )
+            s.add(
+                OriginalSourceObjectTable(
+                    id=p.original_source_object_id,
+                    workspace_id=ref.workspace_id,
+                    document_version_id=p.document_version_id,
+                    object_key=p.object_key,
+                    raw_sha256=p.raw_sha256,
+                    byte_size=p.byte_size,
+                    media_type="application/pdf",
+                )
+            )
+            s.add(
+                DatasetSourceTable(
+                    id=p.source_id,
+                    dataset_id=ref.dataset_id,
+                    workspace_id=ref.workspace_id,
+                    document_id=p.document_id,
+                    document_version_id=p.document_version_id,
+                    original_source_object_id=p.original_source_object_id,
+                    filename="fixture.pdf",
+                    raw_sha256=p.raw_sha256,
+                    byte_size=p.byte_size,
+                    object_key=p.object_key,
+                    idempotency_key=p.source_id,
+                    status="READY",
+                    snapshot_id=p.snapshot_id,
+                )
+            )
+            s.add(
+                ExtractionSnapshotTable(
+                    id=p.snapshot_id,
+                    workspace_id=ref.workspace_id,
+                    source_id=p.source_id,
+                    configuration_sha256="c" * 64,
+                    extraction_sha256="d" * 64,
+                    parser_version="test",
+                    extraction_options_version="test",
+                    normalizer_version="test",
+                    pages=[],
+                )
+            )
+    return plan, factory
+
+
+@pytest.mark.parametrize("num_sources", (1, 3, 6))
+def test_activate_batch_v2_supports_one_three_and_six_sources(num_sources, tmp_path):
+    from knora.ingestion.job_processing import FinalizationApplied, PdfDerivationSuccess
+    from knora.ingestion.pdf import PdfExtractionConfiguration
+
+    plan, factory = _make_v2_corpus(num_sources)
+    subpath = tmp_path / f"sources_{num_sources}"
+    subpath.mkdir()
+    store, gate = adapter(factory), admitted(subpath, plan)
+    extraction = derivation_handler(plan, None)._extractor.extract(
+        None, PdfExtractionConfiguration.milestone_two()
+    )
+    config = plan.configuration.embedding_configuration
+    success = PdfDerivationSuccess(
+        extraction, ((1.0,) + (0.0,) * 1023,), config.provider, config.model
+    )
+    with gate.corpus_operation(plan.scope(), plan.payload()):
+        claims = store.begin(plan, gate)
+        items = tuple((claim, success) for claim in claims)
+        results = store.activate_batch(plan, gate, items)
+    assert len(results) == num_sources
+    assert all(isinstance(r, FinalizationApplied) and r.outcome == "succeeded" for r in results)
+    with factory() as s:
+        for pin in plan.sources:
+            doc = s.get(DocumentTable, pin.document_id)
+            assert doc.active_embedding_set_id is not None
+            active = s.get(EmbeddingSetTable, doc.active_embedding_set_id)
+            assert active.status == "completed"
+
+
+def test_activate_batch_rejects_cardinality_and_identity_mismatches(tmp_path):
+    from knora.ingestion.job_processing import PdfDerivationSuccess
+    from knora.ingestion.pdf import PdfExtractionConfiguration
+
+    # Plan V1 rejects items != 2
+    plan_v2, factory_v2 = _make_v2_corpus(3)
+    subpath_v2 = tmp_path / "v2"
+    subpath_v2.mkdir()
+    store_v2, gate_v2 = adapter(factory_v2), admitted(subpath_v2, plan_v2)
+    extraction = derivation_handler(plan_v2, None)._extractor.extract(
+        None, PdfExtractionConfiguration.milestone_two()
+    )
+    config = plan_v2.configuration.embedding_configuration
+    success = PdfDerivationSuccess(
+        extraction, ((1.0,) + (0.0,) * 1023,), config.provider, config.model
+    )
+    with gate_v2.corpus_operation(plan_v2.scope(), plan_v2.payload()):
+        claims = store_v2.begin(plan_v2, gate_v2)
+
+        # 0 items rejects
+        with pytest.raises(ValueError, match="CORPUS_STATE_CHANGED"):
+            store_v2.activate_batch(plan_v2, gate_v2, ())
+
+        # Mismatched length (2 items instead of 3) rejects
+        with pytest.raises(ValueError, match="CORPUS_STATE_CHANGED"):
+            store_v2.activate_batch(plan_v2, gate_v2, ((claims[0], success), (claims[1], success)))
+
+        # Duplicate item rejects
+        with pytest.raises(ValueError, match="CORPUS_STATE_CHANGED"):
+            store_v2.activate_batch(
+                plan_v2,
+                gate_v2,
+                ((claims[0], success), (claims[0], success), (claims[1], success)),
+            )
+
+        # Foreign item rejects
+        from dataclasses import replace
+
+        foreign_token = replace(claims[0].token, job_id="foreign-job")
+        foreign_claim = replace(claims[0], token=foreign_token)
+        with pytest.raises(ValueError, match="CORPUS_STATE_CHANGED"):
+            store_v2.activate_batch(
+                plan_v2,
+                gate_v2,
+                ((claims[0], success), (claims[1], success), (foreign_claim, success)),
+            )
+
+
+def test_activate_batch_v2_mid_batch_failure_rolls_back_entire_batch(tmp_path):
+    from dataclasses import replace
+
+    from knora.ingestion.job_processing import CoordinationInvariantError, PdfDerivationSuccess
+    from knora.ingestion.pdf import PdfExtractionConfiguration
+
+    plan, factory = _make_v2_corpus(3)
+    subpath = tmp_path / "rollback"
+    subpath.mkdir()
+    store, gate = adapter(factory), admitted(subpath, plan)
+    extraction = derivation_handler(plan, None)._extractor.extract(
+        None, PdfExtractionConfiguration.milestone_two()
+    )
+    config = plan.configuration.embedding_configuration
+    success = PdfDerivationSuccess(
+        extraction, ((1.0,) + (0.0,) * 1023,), config.provider, config.model
+    )
+    bad_success = replace(success, vectors=((1.0,),))  # Invalid vector dimension
+
+    with (
+        pytest.raises(CoordinationInvariantError, match="invalid vectors"),
+        gate.corpus_operation(plan.scope(), plan.payload()),
+    ):
+        claims = store.begin(plan, gate)
+        items = ((claims[0], success), (claims[1], bad_success), (claims[2], success))
+        store.activate_batch(plan, gate, items)
+
+    with factory() as s:
+        assert s.scalars(select(ChunkSetTable)).all() == []
+        assert s.scalars(select(ChunkEmbeddingTable)).all() == []
+        for pin in plan.sources:
+            assert s.get(DocumentTable, pin.document_id).active_embedding_set_id is None
+            assert s.get(IngestionJobTable, pin.job_id).status == "processing"
+            assert s.get(IngestionJobAttemptTable, (pin.job_id, 1)).closed_at is None

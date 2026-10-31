@@ -518,3 +518,117 @@ def test_live_trial_rejects_more_than_two_cases_before_preflight(tmp_path) -> No
         run_capture(
             source, cases, run_id="run-1", output=tmp_path / "supplement.json", preflight={}
         )
+
+
+def test_synthetic_controls_generation_and_validation_origin() -> None:
+    from evals.scorers.deepeval_cloudflare import (
+        SYNTHETIC_CONTROLS,
+        _scoring_input_sha256,
+        build_synthetic_control,
+    )
+
+    parents = {
+        "pdf-v3-004": _capture(case_id="pdf-v3-004", question="P1 window?", answer="P1: 15 min."),
+        "pdf-v3-005": _capture(case_id="pdf-v3-005", question="Quota?", answer="14 runs."),
+        "pdf-v3-014": _capture(
+            case_id="pdf-v3-014", question="Evidence definition?", answer="Evidence is data source."
+        ),
+        "pdf-v3-012": _capture(
+            case_id="pdf-v3-012", question="Retention?", answer="Draft: 30 days, dispute: 5 years."
+        ),
+    }
+
+    for variant_id, spec in SYNTHETIC_CONTROLS.items():
+        parent = parents[spec["parent_case_id"]]
+        ctrl = build_synthetic_control(parent, variant_id)
+        assert ctrl["case_id"] == f"{spec['parent_case_id']}-ctrl-{variant_id}"
+        assert ctrl["answer"] == spec["answer"]
+        origin = ctrl["validation_origin"]
+        assert origin["validation_variant_id"] == variant_id
+        assert origin["parent_case_id"] == spec["parent_case_id"]
+        assert origin["target_rejected_metric"] == spec["target_rejected_metric"]
+        assert origin["parent_capture_sha256"].startswith("sha256:")
+        assert origin["transformation_digest"].startswith("sha256:")
+
+        # Input SHA incorporates validation_origin
+        assert _scoring_input_sha256(ctrl) != _scoring_input_sha256(parent)
+
+        # score_capture preserves validation_origin in offline mode
+        judge = type("OfflineModel", (), {"get_model_name": lambda self: "offline"})()
+        scored = score_capture(ctrl, judge, measure=False)
+        assert scored["validation_origin"] == origin
+        assert scored["attempt"] == parent["attempt"]
+
+    # Negative: wrong parent case
+    with pytest.raises(JudgeError, match="PARENT_CASE_MISMATCH"):
+        build_synthetic_control(parents["pdf-v3-004"], "off-topic")
+
+    # Negative: unknown variant
+    with pytest.raises(JudgeError, match="UNKNOWN_SYNTHETIC_VARIANT"):
+        build_synthetic_control(parents["pdf-v3-004"], "unknown-variant")
+
+
+def test_serializer_and_diagnostics_prevent_secret_leak(tmp_path) -> None:
+    secret = "sk-super-secret-knora-cf-token-xyz-123"
+    case = SimpleNamespace(
+        id="case-1",
+        question="What is the refund window?",
+        answer_expectations=SimpleNamespace(reference_answer="30 days."),
+    )
+    source = {
+        "observations": [
+            {
+                "case_id": "case-1",
+                "status": "observed",
+                "trace_id": "trace-1",
+                "decision": "ANSWER",
+                "public_answer": "Thirty days.",
+                "generation_evidence_status": "exact",
+                "generation_evidence": [{"alias": "E1", "content": "Refunds: 30 days."}],
+            }
+        ]
+    }
+    output = tmp_path / "supplement-safe.json"
+    report = run_capture(source, [case], run_id="run-safe", output=output)
+    report_text = json.dumps(report)
+    assert secret not in report_text
+    assert secret not in output.read_text(encoding="utf-8")
+
+
+def test_environment_telemetry_and_dotenv_disabled() -> None:
+    import os
+
+    assert os.environ.get("DEEPEVAL_DISABLE_DOTENV") == "1"
+    assert os.environ.get("DEEPEVAL_DISABLE_LEGACY_KEYFILE") == "1"
+    assert os.environ.get("DEEPEVAL_TELEMETRY_OPT_OUT") == "1"
+    assert os.environ.get("DEEPEVAL_UPDATE_WARNING_OPT_IN") == "0"
+
+
+def test_derive_captures_preserves_native_attempt_and_workspace() -> None:
+    case = SimpleNamespace(
+        id="case-1",
+        question="What is the refund window?",
+        answer_expectations=SimpleNamespace(reference_answer="30 days."),
+    )
+    source = {
+        "run_id": "native-run-99",
+        "observations": [
+            {
+                "case_id": "case-1",
+                "status": "observed",
+                "attempt": 2,
+                "attempt_id": "native-run-99:case-1:2",
+                "workspace_id": "ws-123",
+                "trace_id": "trace-1",
+                "decision": "ANSWER",
+                "public_answer": "Thirty days.",
+                "generation_evidence_status": "exact",
+                "generation_evidence": [{"alias": "E1", "content": "Refunds: 30 days."}],
+            }
+        ],
+    }
+    captures = derive_captures(source, [case], run_id="native-run-99")
+    assert captures[0]["attempt"] == 2
+    assert captures[0]["attempt_id"] == "native-run-99:case-1:2"
+    assert captures[0]["workspace_id"] == "ws-123"
+    assert captures[0]["run_id"] == "native-run-99"

@@ -639,3 +639,25 @@ changing it changes the projected IDs. Preview is a local review artifact, not a
 See [implementation evidence](development/issue-158-evaluation-verification.md) for compatibility,
 test isolation, mocked versus live results, and remaining owner acceptance.
 
+
+## Evaluation Tools Acceptance Envelope (Issue #158)
+
+Issue #158 implements the versioned acceptance package (`manifest_version: 2`) governed by
+`backend/src/knora/evaluation/live_admission.py` and `docs/plans/evaluation-tools-acceptance.md`:
+
+- **Execution Package & Envelope**:
+  - `manifest_version: 2`, `max_attempts: 139`, `startup_cap: 2`, `window_cap: 8`.
+  - Operations slots: `corpus_prepare` (6), `qa_gold_v1_answer` (12), `ragas_vi_draft` (1),
+    `judge_real` (72), `judge_synthetic` (48), `refusal_deterministic` (0). Total = 139 calls.
+  - Windows: at most 8 execution windows up to 60 minutes each, strictly bounded by the 7-day
+    deadline from first dispatch.
+  - `skipped_slots`: supports skipping fallback corpus and answering stages when using verified
+    saved captures, without transferring spared calls to scoring.
+- **Unified Review Packet**:
+  - Runner `evals/runners/evaluation_review_packet.py` creates a blind review packet containing
+    12 items (6 real captures, 2 refusal controls, 4 synthetic controls) with deterministic
+    shuffle (seed 158) and clean inputs without prior judge scores.
+  - Generates human review packet artifact at `docs/development/issue-158-human-review-packet.md`.
+- **Corpus Plan V2**:
+  - `CorpusPreparationPlan(plan_version=2)` supports 1 to 6 pinned PDF sources and up to 6 embedding
+    calls, retaining exact identity verification and atomic batch activation.
