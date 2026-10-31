@@ -20,6 +20,11 @@ from knora.answering.lexical import (
     validate_dense_result,
     validate_hybrid_result,
 )
+from knora.answering.reranking import combine_reranking_scores
+from knora.answering.reranking_configuration import (
+    RerankingConfigurationResolver,
+    resolve_reranking_configuration,
+)
 from knora.answering.retrieval_configuration import RetrievalConfigurationResolver
 from knora.answering.sequential_dependence import (
     CorpusStatistics,
@@ -37,6 +42,7 @@ from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 from knora.providers.embedding import EmbeddingBatch, EmbeddingConfiguration, EmbeddingProvider
 from knora.providers.generation import GenerationEvidence, GenerationProvider, GenerationResult
+from knora.providers.reranking import RerankingCandidate, RerankingProvider
 from knora.workspaces.ports import WorkspaceAdmission, WorkspaceAdmissionStore
 
 
@@ -50,6 +56,8 @@ class AnswerQuestion:
         embedding_configuration: EmbeddingConfiguration | None,
         retrieval_configuration: RetrievalConfiguration | None = None,
         retrieval_configuration_resolver: RetrievalConfigurationResolver | None = None,
+        reranking_provider: RerankingProvider | None = None,
+        reranking_configuration_resolver: RerankingConfigurationResolver | None = None,
         clock: Callable[[], float] | None = None,
         clock_resolution_ms: float | None = None,
         admission_store: WorkspaceAdmissionStore | None = None,
@@ -62,6 +70,8 @@ class AnswerQuestion:
             retrieval_configuration or RetrievalConfiguration.milestone_one()
         )
         self._retrieval_configuration_resolver = retrieval_configuration_resolver
+        self._reranking_provider = reranking_provider
+        self._reranking_configuration_resolver = reranking_configuration_resolver
         self._clock = clock or perf_counter
         self._clock_resolution_ms = (
             get_clock_info("perf_counter").resolution * 1000
@@ -301,10 +311,89 @@ class AnswerQuestion:
                     "candidates_count": 0,
                     "duration_ms": 0.0,
                 }
+        reranking_observation: dict[str, object] = {"status": "not_run"}
+        rerank_config = None
+        if retrieval_configuration.reranking_policy_id is not None:
+            rerank_started = self._clock()
+            rerank_config = (
+                self._reranking_configuration_resolver.resolve()
+                if self._reranking_configuration_resolver is not None
+                else resolve_reranking_configuration(retrieval_configuration.reranking_policy_id)
+            )
+            if candidates and rerank_config is not None and self._reranking_provider is not None:
+                if (lexical or dense_or_hybrid_v3) and lexical_generations:
+                    self._store.revalidate_lexical_snapshot(
+                        command.workspace_id,
+                        retrieval_configuration.lexical_policy_id,
+                        lexical_generations,
+                    )
+                rerank_candidates = [
+                    RerankingCandidate(
+                        chunk_id=c.chunk_id,
+                        document_version_id=c.document_version_id,
+                        content=c.content,
+                        content_checksum=c.content_checksum,
+                    )
+                    for c in candidates
+                ]
+                try:
+                    rerank_result = self._reranking_provider.rerank(
+                        command.question, rerank_candidates
+                    )
+                    rerank_scores_by_chunk = {
+                        sc.candidate.chunk_id: sc.rerank_score
+                        for sc in rerank_result.scored_candidates
+                    }
+                    combined_candidates = combine_reranking_scores(
+                        candidates, rerank_scores_by_chunk, rerank_config
+                    )
+                    candidates = tuple(combined_candidates)
+                    rerank_ended = self._clock()
+                    reranking_observation = {
+                        "status": "completed",
+                        "policy_id": rerank_config.id,
+                        "model": rerank_result.model,
+                        "candidates_count": len(candidates),
+                        "duration_ms": (rerank_ended - rerank_started) * 1000,
+                        "weight_reranker": rerank_config.weight_reranker,
+                        "weight_retrieval": rerank_config.weight_retrieval,
+                        "mmr_enabled": rerank_config.mmr_enabled,
+                        "mmr_lambda": rerank_config.mmr_lambda,
+                    }
+                except Exception as exc:
+                    if rerank_config.fallback_policy == "fallback_dbsf_sdm":
+                        rerank_ended = self._clock()
+                        reranking_observation = {
+                            "status": "fallback_dbsf_sdm",
+                            "policy_id": rerank_config.id,
+                            "error": str(exc),
+                            "duration_ms": (rerank_ended - rerank_started) * 1000,
+                            "candidates_count": len(candidates),
+                        }
+                    else:
+                        raise
+            elif not candidates:
+                reranking_observation = {
+                    "status": "completed",
+                    "policy_id": retrieval_configuration.reranking_policy_id,
+                    "candidates_count": 0,
+                    "duration_ms": 0.0,
+                }
         retrieval_ended = self._clock()
         if stage_callback is not None:
             stage_callback("selecting_evidence")
-        selection = select_evidence(candidates, retrieval_configuration)
+        selection = select_evidence(
+            candidates,
+            retrieval_configuration,
+            reranking_configuration=(
+                rerank_config
+                if (
+                    retrieval_configuration.reranking_policy_id is not None
+                    and reranking_observation.get("status") == "completed"
+                )
+                else None
+            ),
+        )
         selection_ended = self._clock()
         retrieval_latency_ms = (selection_ended - retrieval_started) * 1000
         phase_timings = self._phase_timings(
@@ -333,6 +422,7 @@ class AnswerQuestion:
                     retrieval_chunk_set_ids=retrieval_chunk_set_ids,
                     lexical_generations=lexical_generations,
                     sdm_observation=sdm_observation,
+                    reranking_observation=reranking_observation,
                     phase_timings=phase_timings,
                 )
             )
@@ -404,6 +494,7 @@ class AnswerQuestion:
                     retrieval_chunk_set_ids=retrieval_chunk_set_ids,
                     lexical_generations=lexical_generations,
                     sdm_observation=sdm_observation,
+                    reranking_observation=reranking_observation,
                     phase_timings=phase_timings,
                 )
             )
@@ -448,6 +539,7 @@ class AnswerQuestion:
                 retrieval_chunk_set_ids=retrieval_chunk_set_ids,
                 lexical_generations=lexical_generations,
                 sdm_observation=sdm_observation,
+                reranking_observation=reranking_observation,
                 phase_timings=phase_timings,
             )
         )
@@ -590,6 +682,7 @@ class AnswerQuestion:
         retrieval_chunk_set_ids: tuple[str, ...] = (),
         lexical_generations: tuple[LexicalGeneration, ...] = (),
         sdm_observation: dict[str, object] | None = None,
+        reranking_observation: dict[str, object] | None = None,
         phase_timings: dict[str, object] | None = None,
         ended_at: float | None = None,
     ) -> QuestionTraceRecord:
@@ -615,6 +708,14 @@ class AnswerQuestion:
             )
         ):
             provider_metadata["retrieval"]["sdm"] = sdm_observation
+        if reranking_observation is not None and (
+            retrieval_configuration is not None
+            and (
+                retrieval_configuration.reranking_policy_id is not None
+                or reranking_observation.get("status") != "not_run"
+            )
+        ):
+            provider_metadata["retrieval"]["reranking"] = reranking_observation
         lexical = retrieval_configuration.strategy == "bm25-only"
         if lexical:
             native_full_window = sorted(
@@ -754,6 +855,12 @@ class AnswerQuestion:
                     "sdm_score": item.candidate.sdm_score,
                     "sdm_rank": item.candidate.sdm_rank,
                     **(item.candidate.sdm_contribution or {}),
+                }
+            if item.candidate.rerank_score is not None:
+                candidate_decisions[-1]["rerank_contribution"] = {
+                    "rerank_score": item.candidate.rerank_score,
+                    "rerank_rank": item.candidate.rerank_rank,
+                    **(item.candidate.rerank_contribution or {}),
                 }
         return QuestionTraceRecord(
             workspace_id=command.workspace_id,

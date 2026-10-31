@@ -112,7 +112,8 @@ def test_load_profile_with_explicit_file(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize(
-    "configuration_id", ["retrieval-hybrid-top8-v3", "retrieval-hybrid-sdm-top8-v3"]
+    "configuration_id",
+    ["retrieval-hybrid-top8-v3", "retrieval-hybrid-sdm-top8-v3", "retrieval-hybrid-rerank-top8-v3"],
 )
 def test_load_profile_v3_uses_live_corpus_without_s2_population(
     monkeypatch, configuration_id
