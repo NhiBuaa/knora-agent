@@ -188,7 +188,7 @@ foreach ($name in @('KNORA_RESET_REALM_FILE', 'KNORA_RESET_VAULT_DIR', 'DOCKER_H
 function Get-Identity($value) { return ($value | ConvertTo-Json -Depth 25 -Compress) }
 function Get-ContainerIdentity($c) {
     $networks = @($c.NetworkSettings.Networks.PSObject.Properties | Sort-Object Name | ForEach-Object { "$($_.Name)=$($_.Value.NetworkID)" })
-    return Get-Identity ([ordered]@{ Id=$c.Id; Image=$c.Image; Created=$c.Created; Labels=$c.Config.Labels; Mounts=$c.Mounts; Networks=$networks; PortBindings=$c.HostConfig.PortBindings })
+    return Get-Identity ([ordered]@{ Id=$c.Id; Image=$c.Image; Created=$c.Created; Labels=$c.Config.Labels; Mounts=@($c.Mounts | Sort-Object Destination); Networks=$networks; PortBindings=$c.HostConfig.PortBindings })
 }
 function Assert-ResetContainer($c) {
     $l = $c.Config.Labels

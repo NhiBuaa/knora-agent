@@ -173,7 +173,7 @@ $dockerHostArgs = if ($IsWindows) { @('--host', 'npipe:////./pipe/dockerDesktopL
         if ($networks.Count -ne 1 -or $networks[0].Name -ne $expectedNet -or
             -not (Test-OwnedNetwork $networks[0].Value.NetworkID)) { return $false }
         $networkIds = @($networks | ForEach-Object { "$($_.Name)=$($_.Value.NetworkID)" })
-        $identity = @($cData.Id, $labels, $mounts, $networkIds) | ConvertTo-Json -Depth 20 -Compress
+        $identity = @($cData.Id, $labels, @($mounts | Sort-Object Destination), $networkIds) | ConvertTo-Json -Depth 20 -Compress
         if ($cData.Id -ne $cId) { return $false }
         if ($containerIdentity.ContainsKey($cId) -and $containerIdentity[$cId] -ne $identity) { return $false }
         $containerIdentity[$cId] = $identity

@@ -215,10 +215,10 @@ $prepCases = @(
     'long-valid-key', 'unexpected-flow'
 )
 $runCases = @(
-    'run-success', 'run-retained-refusal', 'run-port-3400-busy',
+    'run-success', 'run-reordered-mounts', 'run-retained-refusal', 'run-port-3400-busy',
     'run-relative-evidence', 'run-partial-startup-failure',
     'run-callback-failure', 'run-cleanup-failure', 'run-lock-contention',
-    'run-volume-only', 'run-network-only', 'run-inspect-failure', 'run-replaced-volume', 'run-foreign-mount',
+    'run-volume-only', 'run-network-only', 'run-inspect-failure', 'run-replaced-volume', 'run-foreign-mount', 'run-changed-mount-source', 'run-changed-mount-rw',
     'default-startup-failure', 'run-existing-evidence', 'run-wrong-port', 'run-foreign-network', 'run-recovery-inspect-failure', 'run-callback-cleanup-failure',
     'run-callback-receipt-failure', 'run-success-receipt-failure',
     'run-callback-evidence-missing', 'run-success-evidence-missing', 'run-native-callback-failure', 'run-native-callback-cleanup-failure', 'run-stale-lastexitcode-success'
@@ -343,13 +343,24 @@ try {
                 $lockPath = Join-Path ([IO.Path]::GetTempPath()) 'knora-reset-reservation-knora-issue162.lock'
                 [IO.File]::WriteAllText($lockPath, 'another-owner-sentinel')
                 & "$copy/scripts/prepare-password-reset-regression.ps1" -RunId $runGuid -EvidenceRoot $evidenceDir -Run { throw 'CALLBACK_MUST_NOT_RUN' } | Out-Null
-            } elseif ($case -in 'run-volume-only','run-network-only','run-inspect-failure','run-replaced-volume','run-foreign-mount') {
+            } elseif ($case -in 'run-volume-only','run-network-only','run-inspect-failure','run-replaced-volume','run-foreign-mount','run-changed-mount-source','run-changed-mount-rw') {
                 & "$copy/scripts/prepare-password-reset-regression.ps1" -RunId $runGuid -EvidenceRoot $evidenceDir -Run {
                     if ($case -eq 'run-replaced-volume') { $v=@($global:resetPrepState.mockVolumes)[0]; $global:resetPrepState.volumeData[$v].CreatedAt='2026-10-25T11:00:00Z' }
                     if ($case -eq 'run-foreign-mount') { $id=@($global:resetPrepState.mockContainers)[0]; $global:resetPrepState.containerData[$id].Mounts=@(@{Type='bind';Source='C:/foreign';Destination='/foreign';RW=$true}) }
+                    $kcId = @($global:resetPrepState.mockContainers | Where-Object { $global:resetPrepState.containerData[$_].Config.Labels.'com.docker.compose.service' -eq 'reset-keycloak' })[0]
+                    if ($case -eq 'run-changed-mount-source') { $global:resetPrepState.containerData[$kcId].Mounts[0].Source = 'C:/foreign' }
+                    if ($case -eq 'run-changed-mount-rw') { $global:resetPrepState.containerData[$kcId].Mounts[0].RW = $true }
                 } | Out-Null
-            } elseif ($case -eq 'run-success') {
-                & "$copy/scripts/prepare-password-reset-regression.ps1" -RunId $runGuid -EvidenceRoot $evidenceDir -Run { $global:resetPrepState.callbackRan=$true; if ($env:DOCKER_HOST -ne 'npipe:////./pipe/dockerDesktopLinuxEngine') { throw 'CALLBACK_ENDPOINT_WRONG' }; Write-Output 'INNER_OK' } | Out-Null
+            } elseif ($case -in 'run-success','run-reordered-mounts') {
+                & "$copy/scripts/prepare-password-reset-regression.ps1" -RunId $runGuid -EvidenceRoot $evidenceDir -Run {
+                    $global:resetPrepState.callbackRan = $true
+                    if ($env:DOCKER_HOST -ne 'npipe:////./pipe/dockerDesktopLinuxEngine') { throw 'CALLBACK_ENDPOINT_WRONG' }
+                    if ($case -eq 'run-reordered-mounts') {
+                        $kcId = @($global:resetPrepState.mockContainers | Where-Object { $global:resetPrepState.containerData[$_].Config.Labels.'com.docker.compose.service' -eq 'reset-keycloak' })[0]
+                        $global:resetPrepState.containerData[$kcId].Mounts = @($global:resetPrepState.containerData[$kcId].Mounts[1], $global:resetPrepState.containerData[$kcId].Mounts[0])
+                    }
+                    Write-Output 'INNER_OK'
+                } | Out-Null
             } elseif ($case -eq 'run-retained-refusal') {
                 & "$copy/scripts/prepare-password-reset-regression.ps1" -RunId $runGuid -EvidenceRoot $evidenceDir -Run { $global:resetPrepState.callbackRan=$true; Write-Output 'INNER_OK' } | Out-Null
             } elseif ($case -eq 'run-port-3400-busy') {
@@ -392,7 +403,7 @@ try {
             $caught -like 'RESET_TEST_PREPARATION_FAILED_REQUIRE_EXECUTIONS_*' -and -not $global:resetPrepState.bound
         } elseif ($case -eq 'health-unavailable') {
             $caught -like 'RESET_TEST_PREPARATION_FAILED_API_HEALTH_*' -and $global:resetPrepState.healthCalls -eq 60
-        } elseif ($case -eq 'run-success') {
+        } elseif ($case -in 'run-success','run-reordered-mounts') {
             $receipt = Get-Content -Raw "$evidenceDir/cleanup-receipt.json" | ConvertFrom-Json
             -not $caught -and $global:resetPrepState.callbackRan -and $global:resetPrepState.correctUp -and $global:resetPrepState.containersRemoved -eq 5 -and $global:resetPrepState.volumesRemoved -eq 2 -and $global:resetPrepState.mockContainers.Count -eq 0 -and $global:resetPrepState.mockVolumes.Count -eq 0 -and $receipt.cleanup_succeeded -and -not (Test-Path -LiteralPath (Join-Path ([IO.Path]::GetTempPath()) 'knora-reset-reservation-knora-issue162.lock'))
         } elseif ($case -eq 'run-retained-refusal') {
@@ -441,6 +452,16 @@ try {
         } elseif ($case -in 'run-replaced-volume','run-foreign-mount') {
             $receipt=Get-Content -Raw "$evidenceDir/cleanup-receipt.json" | ConvertFrom-Json
             $caught -like '*RESET_TEST_CLEANUP_FAILED*' -and -not $receipt.cleanup_succeeded -and $global:resetPrepState.mockContainers.Count -gt 0 -and (Test-Path -LiteralPath (Join-Path ([IO.Path]::GetTempPath()) 'knora-reset-reservation-knora-issue162.lock'))
+        } elseif ($case -in 'run-changed-mount-source','run-changed-mount-rw') {
+            $receipt = Get-Content -Raw "$evidenceDir/cleanup-receipt.json" | ConvertFrom-Json
+            $kcId = '2'.PadLeft(64,'0')
+            $kcRetained = $global:resetPrepState.mockContainers.Contains($kcId)
+            $noStopRm = @($global:resetPrepState.dockerCalls | Where-Object {
+                $call = @($_)
+                $call.Count -ge 4 -and $call[2] -in 'stop','rm' -and $call[-1] -eq $kcId
+            }).Count -eq 0
+            $lockPath = Join-Path ([IO.Path]::GetTempPath()) 'knora-reset-reservation-knora-issue162.lock'
+            $caught -like '*RESET_TEST_CLEANUP_FAILED*' -and -not $receipt.cleanup_succeeded -and $kcRetained -and $noStopRm -and (Test-Path -LiteralPath $lockPath)
         } elseif ($case -eq 'run-lock-contention') {
             $lockPath = Join-Path ([IO.Path]::GetTempPath()) 'knora-reset-reservation-knora-issue162.lock'
             $unchanged = [IO.File]::ReadAllText($lockPath) -eq 'another-owner-sentinel'

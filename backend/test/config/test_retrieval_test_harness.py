@@ -885,3 +885,45 @@ def test_retrieval_launcher_evidence_root_moved_fails_and_retains_claim(
     )
     if throw_inner:
         assert "INNER_FAIL" in proc.stderr
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell runner unavailable")
+@pytest.mark.parametrize("mutation", ["reverse", "source", "rw"])
+def test_retrieval_launcher_http_mount_mutations(retrieval_runner, mutation):
+    run_launcher, events, project, claim, evidence, _ = retrieval_runner
+    api_cid = "3" * 64
+    changes = {
+        "reverse": "$api.Mounts = @($api.Mounts[1], $api.Mounts[0])",
+        "source": "$api.Mounts[0].Source = 'C:/foreign'",
+        "rw": "$api.Mounts[1].RW = $true",
+    }
+    callback = (
+        "{ $p = Get-Content -Raw $env:TEST_PAYLOADS | ConvertFrom-Json; "
+        f"$api = $p.'{api_cid}'; "
+        + changes[mutation]
+        + '; $name = "$env:TEST_PROJECT-verification-api-1"; '
+        + "if ($p.PSObject.Properties[$name]) { $p.$name.Mounts = $api.Mounts }; "
+        + "$p | ConvertTo-Json -Depth 12 | "
+        + "Set-Content -LiteralPath $env:TEST_PAYLOADS -Encoding utf8; "
+        + "Write-Output 'INNER_RUN_OK' }"
+    )
+    proc = run_launcher(mode="Http", test_mode="http", custom_run=callback)
+    log = events.read_text(encoding="utf-8")
+    receipt_path = evidence / "cleanup-receipt.json"
+
+    if mutation == "reverse":
+        assert proc.returncode == 0, proc.stderr
+        assert "INNER_RUN_OK" in proc.stdout
+        assert "RETRIEVAL_TEST_CLEANED" in proc.stdout
+        assert f"rm-called {api_cid}" in log
+        assert not claim.exists()
+        assert receipt_path.exists()
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8-sig"))
+        assert receipt["cleanup_succeeded"]
+    else:
+        assert proc.returncode != 0
+        assert f"rm-called {api_cid}" not in log
+        assert claim.exists()
+        assert receipt_path.exists()
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8-sig"))
+        assert not receipt["cleanup_succeeded"]
