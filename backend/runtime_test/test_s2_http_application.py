@@ -3,7 +3,6 @@
 import hashlib
 import json
 import os
-import re
 import subprocess
 import sys
 from pathlib import Path
@@ -11,8 +10,8 @@ from uuid import UUID, uuid4
 
 import httpx
 from backend.runtime_test.s2_runtime_guard import (
+    require_owned_s2_application_rows,
     require_owned_s2_database,
-    require_owned_s2_storage,
     require_reference_file,
     selected_s2_volumes,
 )
@@ -27,6 +26,12 @@ from knora.infrastructure.lexical_configuration import load_lexical_population
 
 def _owned_application(root):
     selected_s2_volumes()
+    run_id = os.environ.get("KNORA_S2_RUN_ID")
+    project = (
+        f"knora-retrieval-test-{run_id}"
+        if run_id
+        else os.environ.get("KNORA_S2_PROJECT", "knora-153-s2")
+    )
     command = ["docker", "--host", "npipe:////./pipe/dockerDesktopLinuxEngine"]
     environment = {
         key: value
@@ -37,9 +42,9 @@ def _owned_application(root):
         command
         + [
             "inspect",
-            "knora-153-s2-application-1",
-            "knora-153-s2-postgres-1",
-            "knora-153-s2-qdrant-1",
+            f"{project}-verification-api-1",
+            f"{project}-verification-postgres-1",
+            f"{project}-verification-qdrant-1",
         ],
         env=environment,
         capture_output=True,
@@ -48,47 +53,8 @@ def _owned_application(root):
         timeout=15,
     )
     rows = json.loads(inspected.stdout)
-    assert len(rows) == 3
-    require_owned_s2_storage(rows[1:], root)
-    row = rows[0]
-    assert re.fullmatch(r"[a-f0-9]{64}", row["Id"])
-    assert re.fullmatch(r"sha256:[a-f0-9]{64}", row["Image"])
-    assert row["State"]["Running"] and not row["State"]["Restarting"]
-    labels = row["Config"]["Labels"]
-    assert labels["com.docker.compose.project"] == "knora-153-s2"
-    assert labels["com.docker.compose.service"] == "application"
-    assert Path(labels["com.docker.compose.project.working_dir"]).resolve() == root.resolve()
-    assert (
-        Path(labels["com.docker.compose.project.config_files"]).resolve()
-        == (root / "docker-compose.s2.yml").resolve()
-    )
-    assert row["HostConfig"]["NanoCpus"] == 1_000_000_000
-    assert row["HostConfig"]["Memory"] == 768 * 1024 * 1024
-    assert row["NetworkSettings"]["Ports"] == {
-        "8000/tcp": [{"HostIp": "127.0.0.1", "HostPort": "18053"}]
-    }
-    settings = dict(value.split("=", 1) for value in row["Config"]["Env"])
-    for name in ("PROVIDER_MODE", "EMBEDDING_PROVIDER", "GENERATION_PROVIDER"):
-        assert settings["KNORA_" + name] == "deterministic-local"
-    assert settings["KNORA_DATABASE_URL"] == (
-        "postgresql+psycopg://knora_s2:isolated_s2@postgres:5432/knora_153_s2"
-    )
-    assert settings["KNORA_RETRIEVAL_CONFIGURATION_ID"] == "retrieval-bm25-upload-fixture-top8-v1"
-    assert settings["KNORA_LEXICAL_QDRANT_URL"] == "http://qdrant:6333"
-    assert settings["KNORA_LEXICAL_POPULATION_MANIFEST"] == (
-        "/app/evals/fixtures/pdf_retrieval_v3_s2/upload-lexical-population-v1.json"
-    )
-    assert settings["KNORA_OBJECT_STORE_BACKEND"] == "filesystem"
-    assert settings["KNORA_OBJECT_STORE_ROOT"] == "/s2-objects"
-    object_root = Path(os.environ["KNORA_S2_OBJECT_STORE_ROOT"]).resolve()
-    assert object_root == Path(os.environ["KNORA_S2_EVIDENCE_ROOT"]).resolve() / "http-objects"
-    mounts = [mount for mount in row["Mounts"] if mount["Destination"] == "/s2-objects"]
-    assert len(mounts) == 1 and mounts[0]["Type"] == "bind" and mounts[0]["RW"]
-    assert Path(mounts[0]["Source"]).resolve() == object_root
-    assert (
-        settings["KNORA_LEXICAL_QDRANT_COLLECTION"] == os.environ["KNORA_S2_APPLICATION_COLLECTION"]
-    )
-    return command, environment, row["Id"], row["Image"]
+    api_row = require_owned_s2_application_rows(rows, root)
+    return command, environment, api_row["Id"], api_row["Image"]
 
 
 def _windows_worker_environment(root, environment):

@@ -150,9 +150,23 @@ jobs:
         env:
           KNORA_CANONICAL_MINIO_ACCESS_KEY: ci-synthetic-access
           KNORA_CANONICAL_MINIO_SECRET_KEY: ci-synthetic-secret
+          KNORA_PROVIDER_TEST_ACCESS_KEY: ci-synthetic-access
+          KNORA_PROVIDER_TEST_SECRET_KEY: ci-synthetic-secret
         run: |
-          docker compose config --quiet
-          docker compose -f docker-compose.dev.yml config --quiet
+          set -o pipefail
+          docker compose version
+          docker compose config --help 2>&1 | grep -E -- '--format' > /dev/null || { echo "Docker Compose missing --format flag"; exit 1; }
+          docker compose --help 2>&1 | grep -E -- '--profile' > /dev/null || { echo "Docker Compose missing --profile flag"; exit 1; }
+          docker compose -f docker-compose.yml --env-file /dev/null config --quiet
+          docker compose -f docker-compose.dev.yml --env-file /dev/null config --quiet
+          for profiles in "" "figma" "figma otp-proof" "figma commit-reply-fault" "figma otp-proof commit-reply-fault" "provider-test" "retrieval-test" "retrieval-http-test" "password-reset-test"; do
+            profile_args=()
+            for profile in $profiles; do
+              profile_args+=(--profile "$profile")
+            done
+            docker compose -f docker-compose.dev.yml --env-file /dev/null "${profile_args[@]}" config --format json > /dev/null
+          done
+
       - name: Upload backend reports
         if: ${{ always() }}
         uses: actions/upload-artifact@v4

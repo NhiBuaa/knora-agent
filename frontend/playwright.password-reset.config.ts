@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { defineConfig } from "@playwright/test";
 
 // Separate ports/project keep recovery tests away from the Figma acceptance realm.
@@ -12,7 +13,9 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: "list",
-  outputDir: "../.verification/password-reset/playwright",
+  outputDir:
+    process.env.KNORA_RESET_PLAYWRIGHT_OUTPUT_DIR ||
+    "../.verification/password-reset/playwright-" + randomUUID(),
   use: {
     actionTimeout: 10_000,
     navigationTimeout: 20_000,

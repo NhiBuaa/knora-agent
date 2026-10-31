@@ -205,6 +205,8 @@ def test_jobs_cli_rejects_malformed_json(tmp_path: Path) -> None:
             "backend/test/test_s2_http_admission.py::test_application_admission_pins_local_daemon_and_owned_container[None]",
             "backend",
         ),
+        ("backend/test/config/test_compose_inventory.py::test_inventory", "backend"),
+        ("backend/test/config/test_retrieval_test_harness.py::test_launcher", "windows"),
         ("evals/test/test_process_probe.py::test_probe", "windows"),
         ("evals/test/test_ollama_process_probe.py::test_probe", "windows"),
         (

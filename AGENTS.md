@@ -86,6 +86,19 @@ The sole container for every future non-primary Git worktree is
 - Do not edit `frontend/generated/knora-openapi.ts` manually; regenerate with the repository exporter and verify with `python scripts/export_openapi.py --check`.
 - Formatting runs inside component jobs in the unified `CI` workflow. `CI required` is mandatory for every update to `main`; do not bypass a failing or missing result.
 
+## Docker Compose policy
+
+The repository maintains at most two operational Compose sources: `docker-compose.yml` and
+`docker-compose.dev.yml`. Each entry point is independent (no base-plus-override composition).
+This rule applies across the repository, including nested fixtures, generated files, and Compose
+`include` or `extends` directives; introducing any third operational Compose source requires an
+explicit approved exception. Test topologies use capability profiles (`retrieval-test`,
+`retrieval-http-test`, `password-reset-test`) and launchers must target explicit services rather
+than starting unselected graphs. Daily development databases and volumes must never be used as
+automated test or QA fixtures. Route launcher, runtime environment, and cleanup procedures to
+[Agent environment](docs/runbooks/agent-environment.md) and verify limits using the Compose
+inventory test (`backend/test/config/test_compose_inventory.py`).
+
 ## Verification
 
 For every code change and before a completion claim, follow the
