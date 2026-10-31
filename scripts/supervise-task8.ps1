@@ -35,6 +35,22 @@ $migrationReceiptPath = Join-Path $resDir 'migration-cycle-receipt.json'
 $pidsFilePath = Join-Path $resDir 'worker-pids.json'
 $ownershipPath = Join-Path $resDir 'worker-ownership.json'
 
+function Unwrap-Items($items) {
+    if ($items -is [System.Collections.IEnumerable] -and $items -isnot [string] -and $items -isnot [System.Collections.IDictionary] -and $items -isnot [System.Management.Automation.PSCustomObject]) {
+        foreach ($sub in $items) {
+            if ($sub -is [System.Collections.IEnumerable] -and $sub -isnot [string] -and $sub -isnot [System.Collections.IDictionary] -and $sub -isnot [System.Management.Automation.PSCustomObject]) {
+                foreach ($subsub in $sub) {
+                    $subsub
+                }
+            } else {
+                $sub
+            }
+        }
+    } else {
+        $items
+    }
+}
+
 function Get-ProcessDescendantIds([int]$parentPid) {
     $descendants = [System.Collections.Generic.List[int]]::new()
     $queue = [System.Collections.Generic.Queue[int]]::new()
@@ -253,14 +269,18 @@ if ($WorkerMode) {
         $kcHeaders = @{ Authorization = "Bearer $($tokenRes.access_token)" }
 
         # Setup baseline projection
-        $clientList = @(Invoke-RestMethod -Uri "http://127.0.0.1:8380/admin/realms/knora-dev/clients?clientId=knora-web" -Headers $kcHeaders)
+        $clientRaw = Invoke-RestMethod -Uri "http://127.0.0.1:8380/admin/realms/knora-dev/clients?clientId=knora-web" -Headers $kcHeaders
+        $clientList = @(Unwrap-Items $clientRaw)
         $clientUuid = $clientList[0].id
         
         # Delete policy mapper if present
-        $mappers = @(Invoke-RestMethod -Uri "http://127.0.0.1:8380/admin/realms/knora-dev/clients/$clientUuid/protocol-mappers/models" -Headers $kcHeaders)
+        $mappersRaw = Invoke-RestMethod -Uri "http://127.0.0.1:8380/admin/realms/knora-dev/clients/$clientUuid/protocol-mappers/models" -Headers $kcHeaders
+        $mappers = @(Unwrap-Items $mappersRaw)
         foreach ($m in $mappers) {
-            if ($m.name -eq 'knora-session-policy') {
-                Invoke-RestMethod -Method Delete -Uri "http://127.0.0.1:8380/admin/realms/knora-dev/clients/$clientUuid/protocol-mappers/models/$($m.id)" -Headers $kcHeaders | Out-Null
+            if ($m -and $m.name -eq 'knora-session-policy' -and $m.id) {
+                try {
+                    Invoke-RestMethod -Method Delete -Uri "http://127.0.0.1:8380/admin/realms/knora-dev/clients/$clientUuid/protocol-mappers/models/$($m.id)" -Headers $kcHeaders -ErrorAction Stop | Out-Null
+                } catch {}
             }
         }
 
