@@ -168,6 +168,10 @@ def test_jobs_cli_rejects_malformed_json(tmp_path: Path) -> None:
         ("backend/test/adapters/cli/test_dev_launcher.py::test_launcher", "windows"),
         ("backend/test/adapters/cli/test_ollama_launcher.py::test_launcher", "windows"),
         ("backend/test/config/test_keycloak_email_otp.py::test_acl", "windows"),
+        (
+            "backend/test/adapters/pdf/test_docling.py::test_docling_config_defaults_and_pins",
+            "windows",
+        ),
         ("backend/test/adapters/pdf/test_pypdf.py::test_child_eof", "windows"),
         (
             "backend/test/evaluation/test_datasets.py::test_upload_prepares_real_pdf_without_activation",
