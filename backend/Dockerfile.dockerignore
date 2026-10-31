@@ -7,7 +7,7 @@
 
 # Exact tracked migrations (55 files)
 
-# Exact tracked backend src files (183 files)
+# Exact tracked backend src files (185 files)
 
 # Exact 16 sibling force-include resources (16 files)
 
@@ -161,6 +161,7 @@
 !backend/src/knora/answering/reembedding_v2.py
 !backend/src/knora/answering/retrieval_configuration.py
 !backend/src/knora/answering/retrieval_v2.py
+!backend/src/knora/answering/sequential_dependence.py
 !backend/src/knora/answering/stores.py
 !backend/src/knora/api/__init__.py
 !backend/src/knora/api/m5_e2e_faults.py
@@ -206,6 +207,7 @@
 !backend/src/knora/ingestion/job_processing.py
 !backend/src/knora/ingestion/jobs.py
 !backend/src/knora/ingestion/lexical_population.py
+!backend/src/knora/ingestion/lexical_positions.py
 !backend/src/knora/ingestion/module.py
 !backend/src/knora/ingestion/object_lifecycle.py
 !backend/src/knora/ingestion/object_store.py

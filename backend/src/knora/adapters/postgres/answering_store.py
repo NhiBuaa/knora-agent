@@ -56,6 +56,13 @@ class PostgresAnsweringStore(AnsweringStore):
         self._lexical_index = lexical_index
         self._lexical_population = lexical_population
 
+    def read_corpus_statistics(self, workspace_id: str, lexical_policy_id: str) -> object:
+        with self._session_factory.begin() as session:
+            authority = PostgresSearchIndexStore(self._session_factory)
+            return authority.read_corpus_statistics_in_transaction(
+                session, workspace_id, lexical_policy_id
+            )
+
     def revalidate_lexical_snapshot(
         self,
         workspace_id: str,
@@ -114,8 +121,11 @@ class PostgresAnsweringStore(AnsweringStore):
                 raise ValueError("missing lexical trace snapshot")
             if any(
                 not isinstance(item, dict)
-                or len(item) != 6
-                or any(not isinstance(value, str) or not value for value in item.values())
+                or len(item) not in (6, 7)
+                or any(
+                    k != "statistics_digest" and (not isinstance(value, str) or not value)
+                    for k, value in item.items()
+                )
                 for item in data
             ):
                 raise ValueError("invalid lexical trace snapshot")

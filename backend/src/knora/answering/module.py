@@ -21,6 +21,11 @@ from knora.answering.lexical import (
     validate_hybrid_result,
 )
 from knora.answering.retrieval_configuration import RetrievalConfigurationResolver
+from knora.answering.sequential_dependence import (
+    CorpusStatistics,
+    SequentialDependenceConfig,
+    SequentialDependenceScorer,
+)
 from knora.answering.stores import (
     AnsweringStore,
     LexicalGeneration,
@@ -239,6 +244,63 @@ class AnswerQuestion:
             )
         ):
             raise KnoraError("RETRIEVAL_PROVENANCE_INVALID")
+        sdm_observation: dict[str, object] = {"status": "not_run"}
+        if retrieval_configuration.sdm_policy_id is not None:
+            sdm_started = self._clock()
+            if candidates:
+                sdm_config = SequentialDependenceConfig(
+                    policy_id=retrieval_configuration.sdm_policy_id
+                )
+                policy_id = retrieval_configuration.lexical_policy_id or (
+                    lexical_generations[0].lexical_policy_id if lexical_generations else ""
+                )
+                corpus_stats: CorpusStatistics | None = None
+                if hasattr(self._store, "read_corpus_statistics"):
+                    try:
+                        res = self._store.read_corpus_statistics(command.workspace_id, policy_id)
+                        if isinstance(res, CorpusStatistics):
+                            corpus_stats = res
+                    except Exception as err:
+                        raise KnoraError("CORPUS_STATISTICS_UNAVAILABLE") from err
+
+                if corpus_stats is None:
+                    raise KnoraError("CORPUS_STATISTICS_UNAVAILABLE")
+
+                expected_digest = (
+                    getattr(lexical_generations[0], "statistics_digest", None)
+                    if lexical_generations
+                    else None
+                )
+                if corpus_stats.statistics_digest is None or (
+                    expected_digest is not None
+                    and corpus_stats.statistics_digest != expected_digest
+                    and getattr(corpus_stats, "base_statistics_digest", None) != expected_digest
+                ):
+                    raise KnoraError("CORPUS_STATISTICS_UNAVAILABLE")
+
+                scorer = SequentialDependenceScorer(config=sdm_config, corpus_stats=corpus_stats)
+                sdm_results = scorer.score_candidates(retrieval_query, candidates)
+                candidates = tuple(res.candidate for res in sdm_results)
+                sdm_ended = self._clock()
+                sdm_observation = {
+                    "status": "completed",
+                    "policy_id": retrieval_configuration.sdm_policy_id,
+                    "candidates_count": len(candidates),
+                    "duration_ms": (sdm_ended - sdm_started) * 1000,
+                    "lambda_t": sdm_config.lambda_t,
+                    "lambda_o": sdm_config.lambda_o,
+                    "lambda_u": sdm_config.lambda_u,
+                    "window_size": sdm_config.window_size,
+                    "blend_alpha": sdm_config.blend_alpha,
+                    "statistics_digest": corpus_stats.statistics_digest,
+                }
+            else:
+                sdm_observation = {
+                    "status": "completed",
+                    "policy_id": retrieval_configuration.sdm_policy_id,
+                    "candidates_count": 0,
+                    "duration_ms": 0.0,
+                }
         retrieval_ended = self._clock()
         if stage_callback is not None:
             stage_callback("selecting_evidence")
@@ -270,6 +332,7 @@ class AnswerQuestion:
                     retrieval_embedding_set_ids=retrieval_embedding_set_ids,
                     retrieval_chunk_set_ids=retrieval_chunk_set_ids,
                     lexical_generations=lexical_generations,
+                    sdm_observation=sdm_observation,
                     phase_timings=phase_timings,
                 )
             )
@@ -340,6 +403,7 @@ class AnswerQuestion:
                     retrieval_embedding_set_ids=retrieval_embedding_set_ids,
                     retrieval_chunk_set_ids=retrieval_chunk_set_ids,
                     lexical_generations=lexical_generations,
+                    sdm_observation=sdm_observation,
                     phase_timings=phase_timings,
                 )
             )
@@ -383,6 +447,7 @@ class AnswerQuestion:
                 retrieval_embedding_set_ids=retrieval_embedding_set_ids,
                 retrieval_chunk_set_ids=retrieval_chunk_set_ids,
                 lexical_generations=lexical_generations,
+                sdm_observation=sdm_observation,
                 phase_timings=phase_timings,
             )
         )
@@ -524,6 +589,7 @@ class AnswerQuestion:
         retrieval_embedding_set_ids: tuple[str, ...] = (),
         retrieval_chunk_set_ids: tuple[str, ...] = (),
         lexical_generations: tuple[LexicalGeneration, ...] = (),
+        sdm_observation: dict[str, object] | None = None,
         phase_timings: dict[str, object] | None = None,
         ended_at: float | None = None,
     ) -> QuestionTraceRecord:
@@ -541,6 +607,14 @@ class AnswerQuestion:
             },
             "timing": phase_timings or {},
         }
+        if sdm_observation is not None and (
+            retrieval_configuration is not None
+            and (
+                retrieval_configuration.sdm_policy_id is not None
+                or retrieval_configuration.strategy in {"dense-only", "hybrid"}
+            )
+        ):
+            provider_metadata["retrieval"]["sdm"] = sdm_observation
         lexical = retrieval_configuration.strategy == "bm25-only"
         if lexical:
             native_full_window = sorted(
@@ -674,6 +748,12 @@ class AnswerQuestion:
                     "fusion_score": item.candidate.fusion_score,
                     "branch_rank": index,
                     "index_generation_id": item.candidate.index_generation_id,
+                }
+            if item.candidate.sdm_score is not None:
+                candidate_decisions[-1]["sdm_contribution"] = {
+                    "sdm_score": item.candidate.sdm_score,
+                    "sdm_rank": item.candidate.sdm_rank,
+                    **(item.candidate.sdm_contribution or {}),
                 }
         return QuestionTraceRecord(
             workspace_id=command.workspace_id,

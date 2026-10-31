@@ -457,6 +457,68 @@ def test_reader_fails_closed_when_profiles_mismatched() -> None:
     assert exc.value.code == "LEXICAL_RETRIEVAL_UNAVAILABLE"
 
 
+def test_read_corpus_statistics_transition_and_revocation() -> None:
+    store, session, ctx = build_harness()
+    profile_a = ctx["profile_a"]
+    # 1. Read initial statistics before transition
+    stats_a = store.read_corpus_statistics("workspace-1", profile_a.id)
+    assert stats_a.base_statistics_digest == profile_a.statistics_digest
+    assert stats_a.total_chunks == 2
+    assert stats_a.total_tokens > 0
+
+    # 2. Stage updated snapshot B with altered token counts
+    snapshot_b = CorpusStatisticsSnapshot.build(
+        population_id="corpus-dynamic-v1",
+        documents=[
+            (DOC_1, [(CHUNK_1_HASH, 4)]),
+            (DOC_2, [(CHUNK_2_HASH, 6)]),
+        ],
+    )
+    profile_b = snapshot_b.profile
+    gen1_b = LexicalGeneration(
+        generation_id="gen-1-b",
+        workspace_id="workspace-1",
+        document_id="doc-1",
+        document_version_id="ver-1",
+        chunk_set_id="cs-1",
+        lexical_profile=profile_b,
+        revision=2,
+        chunks=(LexicalChunk("c-1", 0, CHUNK_1_HASH),),
+    )
+    gen2_b = LexicalGeneration(
+        generation_id="gen-2-b",
+        workspace_id="workspace-1",
+        document_id="doc-2",
+        document_version_id="ver-2",
+        chunk_set_id="cs-2",
+        lexical_profile=profile_b,
+        revision=2,
+        chunks=(LexicalChunk("c-2", 0, CHUNK_2_HASH),),
+    )
+    store.stage_corpus_transition([gen1_b, gen2_b])
+
+    # During staging, reader still returns stats for profile A
+    stats_during = store.read_corpus_statistics("workspace-1", profile_a.id)
+    assert stats_during.base_statistics_digest == profile_a.statistics_digest
+
+    # Commit transition atomically
+    receipt1 = StageReceipt("gen-1-b", 1, gen1_b.content_digest())
+    receipt2 = StageReceipt("gen-2-b", 1, gen2_b.content_digest())
+    store.commit_corpus_transition([(gen1_b, receipt1), (gen2_b, receipt2)])
+
+    # Reader now returns stats for profile B
+    stats_after = store.read_corpus_statistics("workspace-1", profile_b.id)
+    assert stats_after.base_statistics_digest == profile_b.statistics_digest
+    assert stats_after.statistics_digest != stats_a.statistics_digest
+
+    # Revoke documents causes read_corpus_statistics to fail closed
+    store.revoke(workspace_id="workspace-1", document_id="doc-1")
+    store.revoke(workspace_id="workspace-1", document_id="doc-2")
+    with pytest.raises(KnoraError) as exc:
+        store.read_corpus_statistics("workspace-1", profile_b.id)
+    assert exc.value.code == "LEXICAL_RETRIEVAL_UNAVAILABLE"
+
+
 class CorpusTransitionHarness:
     def __init__(self, store, session, ctx):
         self.store = store
@@ -539,6 +601,72 @@ def test_corpus_switch_requires_every_member_receipt(corpus_case: CorpusTransiti
     corpus_case.finish_last_child(prepared)
     assert corpus_case.active_snapshot() == prepared.snapshot_id
     assert corpus_case.active_member_ids() == prepared.all_member_ids
+
+
+class StatisticsCase:
+    def __init__(self, store, session, ctx):
+        self.store = store
+        self.session = session
+        self.ctx = ctx
+        self.profile_a = ctx["profile_a"]
+
+    def read_worker_a(self):
+        try:
+            target_id = getattr(self, "profile_b", self.profile_a).id
+            active = self.store.read_active_generations("workspace-1", target_id)
+            prof = active[0].lexical_profile
+            return self.store.read_corpus_statistics("workspace-1", prof.id)
+        except Exception:
+            return self.store.read_corpus_statistics("workspace-1", self.profile_a.id)
+
+    def activate_two_member_snapshot(self):
+        snapshot_b = CorpusStatisticsSnapshot.build(
+            population_id="corpus-dynamic-v1",
+            documents=[
+                (DOC_1, [(CHUNK_1_HASH, 8)]),
+                (DOC_2, [(CHUNK_2_HASH, 12)]),
+            ],
+        )
+        self.profile_b = snapshot_b.profile
+        gen1_b = LexicalGeneration(
+            generation_id="gen-1-b2",
+            workspace_id="workspace-1",
+            document_id="doc-1",
+            document_version_id="ver-1",
+            chunk_set_id="cs-1",
+            lexical_profile=self.profile_b,
+            revision=2,
+            chunks=(LexicalChunk("c-1", 0, CHUNK_1_HASH),),
+        )
+        gen2_b = LexicalGeneration(
+            generation_id="gen-2-b2",
+            workspace_id="workspace-1",
+            document_id="doc-2",
+            document_version_id="ver-2",
+            chunk_set_id="cs-2",
+            lexical_profile=self.profile_b,
+            revision=2,
+            chunks=(LexicalChunk("c-2", 0, CHUNK_2_HASH),),
+        )
+        self.store.stage_corpus_transition([gen1_b, gen2_b])
+        receipt1 = StageReceipt("gen-1-b2", 1, gen1_b.content_digest())
+        receipt2 = StageReceipt("gen-2-b2", 1, gen2_b.content_digest())
+        self.store.commit_corpus_transition([(gen1_b, receipt1), (gen2_b, receipt2)])
+
+
+@pytest.fixture
+def statistics_case():
+    store, session, ctx = build_harness()
+    return StatisticsCase(store, session, ctx)
+
+
+def test_statistics_follow_serving_snapshot_not_process_cache(
+    statistics_case: StatisticsCase,
+) -> None:
+    old = statistics_case.read_worker_a()
+    statistics_case.activate_two_member_snapshot()
+    new = statistics_case.read_worker_a()
+    assert old.statistics_digest != new.statistics_digest
 
 
 def test_cold_corpus_transition_requires_every_staged_document_receipt() -> None:

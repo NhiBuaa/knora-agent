@@ -22,6 +22,7 @@ from knora.adapters.postgres.tables import (
     OriginalSourceObjectTable,
     WorkspaceTable,
 )
+from knora.answering.sequential_dependence import CorpusStatistics, tokenize_lexical_text
 from knora.answering.stores import LexicalGeneration as RetrievedLexicalGeneration
 from knora.domain.errors import KnoraError
 from knora.ingestion.job_processing import IngestionWork
@@ -35,10 +36,116 @@ from knora.ingestion.search_indexing import (
     StaleGenerationError,
 )
 
+_CORPUS_STATS_CACHE: dict[tuple[str, str, str, str], CorpusStatistics] = {}
+
 
 class PostgresSearchIndexStore:
     def __init__(self, session_factory: sessionmaker) -> None:
         self._sessions = session_factory
+
+    def read_corpus_statistics(self, workspace_id: str, lexical_policy_id: str) -> CorpusStatistics:
+        with self._sessions.begin() as session:
+            return self.read_corpus_statistics_in_transaction(
+                session, workspace_id, lexical_policy_id
+            )
+
+    def read_corpus_statistics_in_transaction(
+        self, session: Session, workspace_id: str, lexical_policy_id: str
+    ) -> CorpusStatistics:
+        workspace = session.scalar(select(WorkspaceTable).where(WorkspaceTable.id == workspace_id))
+        if workspace is None or workspace.archived:
+            raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+
+        generations = self.read_active_generations_in_snapshot(
+            session, workspace_id, lexical_policy_id
+        )
+        if not generations:
+            raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+
+        profile = generations[0].lexical_profile
+        stats_digest = profile.statistics_digest
+        if not stats_digest or stats_digest == "0" * 64:
+            raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+        for g in generations:
+            if g.lexical_profile.statistics_digest != stats_digest:
+                raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+
+        membership_items = [
+            f"{g.chunk_set_id}:{getattr(g, 'document_version_id', '')}" for g in generations
+        ]
+        membership_digest = hashlib.sha256("".join(membership_items).encode("utf-8")).hexdigest()
+        cache_key = (workspace_id, lexical_policy_id, membership_digest, stats_digest)
+
+        chunks: list[ChunkTable] = []
+        for g in generations:
+            chunks.extend(
+                session.scalars(
+                    select(ChunkTable)
+                    .where(ChunkTable.chunk_set_id == g.chunk_set_id)
+                    .order_by(ChunkTable.ordinal)
+                ).all()
+            )
+
+        for chunk in chunks:
+            expected_checksum = getattr(chunk, "content_checksum", None)
+            if expected_checksum:
+                actual_checksum = hashlib.sha256(chunk.content.encode("utf-8")).hexdigest()
+                if actual_checksum != expected_checksum:
+                    _CORPUS_STATS_CACHE.pop(cache_key, None)
+                    raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+
+        if cache_key in _CORPUS_STATS_CACHE:
+            return _CORPUS_STATS_CACHE[cache_key]
+
+        freqs: dict[str, int] = {}
+        ordered_pair_freqs: dict[tuple[str, str], int] = {}
+        window_pair_freqs: dict[tuple[str, str], int] = {}
+        total_tokens = 0
+        window_size = 8
+        for chunk in chunks:
+            expected_checksum = getattr(chunk, "content_checksum", None)
+            if expected_checksum:
+                actual_checksum = hashlib.sha256(chunk.content.encode("utf-8")).hexdigest()
+                if actual_checksum != expected_checksum:
+                    raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+
+            tokens = tokenize_lexical_text(chunk.content)
+            total_tokens += len(tokens)
+            for tok in tokens:
+                freqs[tok] = freqs.get(tok, 0) + 1
+            for i in range(len(tokens) - 1):
+                pair = (tokens[i], tokens[i + 1])
+                ordered_pair_freqs[pair] = ordered_pair_freqs.get(pair, 0) + 1
+            for i in range(len(tokens)):
+                t1 = tokens[i]
+                for j in range(i + 1, min(len(tokens), i + window_size)):
+                    t2 = tokens[j]
+                    upair = (t1, t2) if t1 <= t2 else (t2, t1)
+                    window_pair_freqs[upair] = window_pair_freqs.get(upair, 0) + 1
+
+        content_checksum = hashlib.sha256(
+            "".join(
+                f"{chunk.content}:{getattr(chunk, 'content_checksum', '')}" for chunk in chunks
+            ).encode("utf-8")
+        ).hexdigest()
+
+        bound_stats_digest = hashlib.sha256(
+            f"{stats_digest}:{membership_digest}:{content_checksum}".encode()
+        ).hexdigest()
+
+        stats = CorpusStatistics(
+            total_tokens=max(1, total_tokens),
+            total_chunks=len(chunks),
+            unigram_frequencies=freqs,
+            average_chunk_length=total_tokens / len(chunks) if chunks else 0.0,
+            statistics_digest=bound_stats_digest,
+            snapshot_id=f"snap-{membership_digest[:8]}-{content_checksum[:8]}",
+            base_statistics_digest=stats_digest,
+            ordered_pair_frequencies=ordered_pair_freqs,
+            window_pair_frequencies=window_pair_freqs,
+        )
+        _CORPUS_STATS_CACHE[cache_key] = stats
+        return stats
 
     def dynamic_workspace_ids(self, embedding_configuration_id: str) -> tuple[str, ...]:
         with self._sessions() as session:
