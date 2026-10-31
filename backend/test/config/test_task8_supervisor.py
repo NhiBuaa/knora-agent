@@ -11,6 +11,7 @@ from pathlib import Path
 import pytest
 
 POWERSHELL = shutil.which("pwsh") or shutil.which("powershell")
+WIN_POWERSHELL = shutil.which("powershell") or POWERSHELL
 ROOT = Path(__file__).resolve().parents[3]
 SUPERVISOR_SCRIPT = ROOT / "scripts/supervise-task8.ps1"
 
@@ -468,3 +469,180 @@ def test_supervisor_fail_preflight_skips_teardown(tmp_path: Path) -> None:
     # Cleanup retained test artifact
     Path(receipt["reservationPath"]).unlink(missing_ok=True)
     shutil.rmtree(ROOT / f"frontend/test-results/{proj}", ignore_errors=True)
+
+
+@pytest.mark.skipif(WIN_POWERSHELL is None, reason="Windows PowerShell runner unavailable")
+def test_supervisor_real_baseline_projection_path_regression(tmp_path: Path) -> None:
+    runner_ps1 = tmp_path / "test_baseline_regression.ps1"
+    runner_code = r"""
+$ErrorActionPreference = 'Stop'
+$scriptPath = '__SUPERVISOR_SCRIPT__'
+$tokens = $null; $parseErrors = $null
+$ast = [System.Management.Automation.Language.Parser]::ParseFile($scriptPath, [ref]$tokens, [ref]$parseErrors)
+if ($parseErrors.Count) { throw $parseErrors[0] }
+$func = $ast.FindAll({param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Unwrap-Items'}, $true)[0]
+. ([scriptblock]::Create($func.Extent.Text))
+
+$source = [IO.File]::ReadAllText($scriptPath)
+$start = $source.IndexOf('        # Setup baseline projection')
+$end = $source.IndexOf('        # Set baseline realm', $start)
+$block = [scriptblock]::Create($source.Substring($start, $end - $start))
+
+$results = [ordered]@{}
+
+# Case 1: Nested multi-mapper selects only policy ID, successful delete + absent readback passes
+$script:deleteCalls = [System.Collections.Generic.List[string]]::new()
+$script:callCount = 0
+function Invoke-RestMethod {
+    param($Uri, $Headers, $Method, $ErrorAction)
+    if ($Method -eq 'Delete') {
+        $script:deleteCalls.Add($Uri)
+        return $null
+    }
+    if ($Uri -like '*clients?clientId=*') {
+        return ,@(@([pscustomobject]@{id='client-123'}))
+    }
+    if ($Uri -like '*protocol-mappers/models') {
+        $script:callCount++
+        if ($script:callCount -eq 1) {
+            return ,@(@(
+                [pscustomobject]@{id='mapper-other';name='other-mapper'},
+                [pscustomobject]@{id='mapper-target';name='knora-session-policy'}
+            ))
+        } else {
+            return ,@(@([pscustomobject]@{id='mapper-other';name='other-mapper'}))
+        }
+    }
+    throw "Unexpected URI: $Uri"
+}
+$kcHeaders = @{ Authorization = 'Bearer token' }
+. $block
+$results['case1_clientUuid'] = $clientUuid
+$results['case1_deleteCalls'] = @($script:deleteCalls)
+
+# Case 2: Failed delete 403 aborts
+$script:attemptedDeleteUri = $null
+function Invoke-RestMethod {
+    param($Uri, $Headers, $Method, $ErrorAction)
+    if ($Method -eq 'Delete') {
+        $script:attemptedDeleteUri = $Uri
+        throw 'SIMULATED_HTTP_403_DELETE_DENIED'
+    }
+    if ($Uri -like '*clients?clientId=*') { return ,@([pscustomobject]@{id='client-123'}) }
+    return ,@(@([pscustomobject]@{id='mapper-target';name='knora-session-policy'}))
+}
+$continued2 = $false
+try {
+    . $block
+    $continued2 = $true
+} catch {
+    $results['case2_caught'] = $_.Exception.Message
+}
+$results['case2_continued'] = $continued2
+$results['case2_deleteUri'] = $script:attemptedDeleteUri
+
+# Case 3: Failed delete 500 aborts
+function Invoke-RestMethod {
+    param($Uri, $Headers, $Method, $ErrorAction)
+    if ($Method -eq 'Delete') { throw 'SIMULATED_HTTP_500_SERVER_ERROR' }
+    if ($Uri -like '*clients?clientId=*') { return ,@([pscustomobject]@{id='client-123'}) }
+    return ,@(@([pscustomobject]@{id='mapper-target';name='knora-session-policy'}))
+}
+$continued3 = $false
+try {
+    . $block
+    $continued3 = $true
+} catch {
+    $results['case3_caught'] = $_.Exception.Message
+}
+$results['case3_continued'] = $continued3
+
+# Case 4: Preexisting no-policy case works
+$script:deleteCalled4 = $false
+function Invoke-RestMethod {
+    param($Uri, $Headers, $Method, $ErrorAction)
+    if ($Method -eq 'Delete') {
+        $script:deleteCalled4 = $true
+        throw 'DELETE_SHOULD_NOT_BE_CALLED'
+    }
+    if ($Uri -like '*clients?clientId=*') { return ,@([pscustomobject]@{id='client-123'}) }
+    return ,@(@([pscustomobject]@{id='mapper-other';name='other-mapper'}))
+}
+. $block
+$results['case4_deleteCalled'] = $script:deleteCalled4
+$results['case4_clientUuid'] = $clientUuid
+
+# Case 5: Ambiguous client (2 clients) aborts
+function Invoke-RestMethod {
+    param($Uri, $Headers, $Method, $ErrorAction)
+    if ($Uri -like '*clients?clientId=*') {
+        return @([pscustomobject]@{id='c1'}, [pscustomobject]@{id='c2'})
+    }
+    return @()
+}
+$continued5 = $false
+try {
+    . $block
+    $continued5 = $true
+} catch {
+    $results['case5_caught'] = $_.Exception.Message
+}
+$results['case5_continued'] = $continued5
+
+# Case 6: Residual mapper on readback aborts
+function Invoke-RestMethod {
+    param($Uri, $Headers, $Method, $ErrorAction)
+    if ($Method -eq 'Delete') { return $null }
+    if ($Uri -like '*clients?clientId=*') { return ,@([pscustomobject]@{id='client-123'}) }
+    return ,@(@([pscustomobject]@{id='mapper-target';name='knora-session-policy'}))
+}
+$continued6 = $false
+try {
+    . $block
+    $continued6 = $true
+} catch {
+    $results['case6_caught'] = $_.Exception.Message
+}
+$results['case6_continued'] = $continued6
+
+$results | ConvertTo-Json -Depth 5
+""".replace("__SUPERVISOR_SCRIPT__", SUPERVISOR_SCRIPT.as_posix())
+
+    runner_ps1.write_text(runner_code, encoding="utf-8")
+
+    res = subprocess.run(
+        [
+            WIN_POWERSHELL,
+            "-NoProfile",
+            "-File",
+            str(runner_ps1),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+    assert res.returncode == 0, f"Runner failed:\nSTDOUT: {res.stdout}\nSTDERR: {res.stderr}"
+    data = json.loads(res.stdout)
+
+    assert data["case1_clientUuid"] == "client-123"
+    assert len(data["case1_deleteCalls"]) == 1
+    assert "mapper-target" in data["case1_deleteCalls"][0]
+    assert "mapper-other" not in data["case1_deleteCalls"][0]
+
+    assert data["case2_continued"] is False
+    assert "SIMULATED_HTTP_403_DELETE_DENIED" in data["case2_caught"]
+    assert "mapper-target" in data["case2_deleteUri"]
+
+    assert data["case3_continued"] is False
+    assert "SIMULATED_HTTP_500_SERVER_ERROR" in data["case3_caught"]
+
+    assert data["case4_deleteCalled"] is False
+    assert data["case4_clientUuid"] == "client-123"
+
+    assert data["case5_continued"] is False
+    assert "BASELINE_CLIENT_AMBIGUOUS_OR_MISSING" in data["case5_caught"]
+
+    assert data["case6_continued"] is False
+    assert "BASELINE_MAPPER_RESIDUAL" in data["case6_caught"]
+

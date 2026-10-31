@@ -271,17 +271,42 @@ if ($WorkerMode) {
         # Setup baseline projection
         $clientRaw = Invoke-RestMethod -Uri "http://127.0.0.1:8380/admin/realms/knora-dev/clients?clientId=knora-web" -Headers $kcHeaders
         $clientList = @(Unwrap-Items $clientRaw)
+        if ($clientList.Count -ne 1 -or -not $clientList[0] -or [string]::IsNullOrWhiteSpace($clientList[0].id)) {
+            throw "BASELINE_CLIENT_AMBIGUOUS_OR_MISSING: Expected exactly 1 client for clientId=knora-web, found $($clientList.Count)"
+        }
         $clientUuid = $clientList[0].id
         
         # Delete policy mapper if present
         $mappersRaw = Invoke-RestMethod -Uri "http://127.0.0.1:8380/admin/realms/knora-dev/clients/$clientUuid/protocol-mappers/models" -Headers $kcHeaders
         $mappers = @(Unwrap-Items $mappersRaw)
-        foreach ($m in $mappers) {
-            if ($m -and $m.name -eq 'knora-session-policy' -and $m.id) {
-                try {
-                    Invoke-RestMethod -Method Delete -Uri "http://127.0.0.1:8380/admin/realms/knora-dev/clients/$clientUuid/protocol-mappers/models/$($m.id)" -Headers $kcHeaders -ErrorAction Stop | Out-Null
-                } catch {}
+        $targetMappers = @($mappers | Where-Object { $_ -and $_.name -eq 'knora-session-policy' })
+        foreach ($m in $targetMappers) {
+            if (-not $m -or [string]::IsNullOrWhiteSpace($m.id)) {
+                throw "BASELINE_MAPPER_INVALID_ID: Target mapper has empty or missing id"
             }
+            try {
+                Invoke-RestMethod -Method Delete -Uri "http://127.0.0.1:8380/admin/realms/knora-dev/clients/$clientUuid/protocol-mappers/models/$($m.id)" -Headers $kcHeaders -ErrorAction Stop | Out-Null
+            } catch {
+                $is404 = $false
+                if ($_.Exception -and $_.Exception.Response) {
+                    try {
+                        if ([int]$_.Exception.Response.StatusCode -eq 404) {
+                            $is404 = $true
+                        }
+                    } catch {}
+                }
+                if (-not $is404) {
+                    throw
+                }
+            }
+        }
+
+        # Readback confirming absence: verify no target mapper remains
+        $verifyMappersRaw = Invoke-RestMethod -Uri "http://127.0.0.1:8380/admin/realms/knora-dev/clients/$clientUuid/protocol-mappers/models" -Headers $kcHeaders
+        $remainingMappers = @(Unwrap-Items $verifyMappersRaw)
+        $residual = @($remainingMappers | Where-Object { $_ -and $_.name -eq 'knora-session-policy' })
+        if ($residual.Count -gt 0) {
+            throw "BASELINE_MAPPER_RESIDUAL: Found $($residual.Count) residual 'knora-session-policy' mapper(s) after deletion"
         }
 
         # Set baseline realm (§1)
