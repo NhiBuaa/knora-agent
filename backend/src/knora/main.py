@@ -99,7 +99,11 @@ from knora.ingestion.operational_observability import (
 )
 from knora.ingestion.pdf import PdfExtractionConfiguration, PdfTextExtractor
 from knora.ingestion.processing import DocumentProcessor
-from knora.ingestion.search_indexing import DerivationJobHandler, LexicalIndexHandler
+from knora.ingestion.search_indexing import (
+    DerivationJobHandler,
+    DynamicSearchIndexHandler,
+    LexicalIndexHandler,
+)
 from knora.providers.cloudflare.pdf_understanding import CloudflarePdfUnderstandingProvider
 from knora.providers.embedding import EmbeddingConfiguration
 from knora.tools import (
@@ -180,6 +184,7 @@ def create_app(
     ):
         raise ValueError("lexical runtime requires Qdrant URL and collection")
     providers = build_provider_selection(settings)
+    selected_embedding_configuration = embedding_configuration or providers.embedding_configuration
     lexical_client = None
     lexical_index = None
     if lexical_population is not None:
@@ -190,6 +195,24 @@ def create_app(
         )
         lexical_index = NativeQdrantSearchIndex(
             index=QdrantSearchIndex(settings.lexical_qdrant_collection, lexical_population.profile),
+            client=lexical_client,
+        )
+    elif (
+        deployed_retrieval_configuration.strategy in ("dense-only", "hybrid", "bm25-only")
+        and bool(settings.lexical_qdrant_url)
+        and bool(settings.lexical_qdrant_collection)
+    ):
+        lexical_client = httpx.Client(
+            base_url=settings.lexical_qdrant_url,
+            timeout=10,
+            trust_env=False,
+        )
+        lexical_index = NativeQdrantSearchIndex(
+            index=QdrantSearchIndex(
+                settings.lexical_qdrant_collection,
+                profile=None,
+                embedding_configuration=selected_embedding_configuration,
+            ),
             client=lexical_client,
         )
 
@@ -211,7 +234,6 @@ def create_app(
                 await close_generation()
 
     application = FastAPI(title="Knora Agent", version="0.1.0", lifespan=lifespan)
-    selected_embedding_configuration = embedding_configuration or providers.embedding_configuration
     use_docling = (
         settings.pdf_parser_driver == "docling"
         and bool(settings.cloudflare_account_id)
@@ -344,6 +366,22 @@ def create_app(
         timing=AttemptTimingV1.standard(),
         retry_policy=RetryPolicyV1(SystemRandomSource()),
         runner=FixedCapacityThreadAttemptRunner(max_concurrency=1),
+    )
+    application.state.search_index_maintenance = (
+        DynamicSearchIndexHandler(
+            store=PostgresSearchIndexStore(SessionFactory),
+            index=lexical_index,
+            lexical_policy_id=deployed_retrieval_configuration.lexical_policy_id
+            or "lexical-bm25-v1",
+            embedding_configuration_id=selected_embedding_configuration.id,
+        )
+        if lexical_index is not None
+        and lexical_population is None
+        and (
+            deployed_retrieval_configuration.strategy == "dense-only"
+            or deployed_retrieval_configuration.fusion_policy_id == "dbsf-v1"
+        )
+        else None
     )
     application.state.dataset_service = DatasetService(
         store=PostgresDatasetStore(SessionFactory),

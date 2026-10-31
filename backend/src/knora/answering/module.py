@@ -15,7 +15,11 @@ from knora.answering.interface import (
     QuestionEvent,
     QuestionResult,
 )
-from knora.answering.lexical import validate_bm25_result
+from knora.answering.lexical import (
+    validate_bm25_result,
+    validate_dense_result,
+    validate_hybrid_result,
+)
 from knora.answering.retrieval_configuration import RetrievalConfigurationResolver
 from knora.answering.stores import (
     AnsweringStore,
@@ -122,20 +126,55 @@ class AnswerQuestion:
             )
 
         lexical = retrieval_configuration.strategy == "bm25-only"
+        dense_or_hybrid_v3 = retrieval_configuration.strategy in {
+            "dense-only",
+            "hybrid",
+        } and (
+            retrieval_configuration.strategy == "dense-only"
+            or retrieval_configuration.fusion_policy_id == "dbsf-v1"
+        )
         query_batch = None
         if lexical:
             self._store.require_lexical_corpus(
                 command.workspace_id, retrieval_configuration.lexical_policy_id
             )
             embedding_ended = started
+        elif dense_or_hybrid_v3:
+            if self._embedding_configuration is None or self._embedding_provider is None:
+                raise KnoraError("EMBEDDING_CONFIGURATION_REQUIRED")
+            self._store.require_lexical_corpus(
+                command.workspace_id, retrieval_configuration.lexical_policy_id
+            )
+            embed_fn = getattr(self._embedding_provider, "embed_queries", None) or getattr(
+                self._embedding_provider, "embed", None
+            )
+            query_batch = await asyncio.to_thread(
+                embed_fn,
+                [retrieval_query],
+                self._embedding_configuration,
+            )
+            if len(query_batch.vectors) != 1 or any(
+                len(vector) != self._embedding_configuration.dimensions
+                for vector in query_batch.vectors
+            ):
+                raise KnoraError("EMBEDDING_DIMENSION_MISMATCH")
+            if (
+                query_batch.provider != self._embedding_configuration.provider
+                or query_batch.model != self._embedding_configuration.model
+            ):
+                raise KnoraError("EMBEDDING_CONFIGURATION_MISMATCH")
+            embedding_ended = self._clock()
         else:
             if self._embedding_configuration is None or self._embedding_provider is None:
                 raise KnoraError("EMBEDDING_CONFIGURATION_REQUIRED")
             self._store.require_compatible_corpus(
                 command.workspace_id, self._embedding_configuration.id
             )
+            embed_fn = getattr(self._embedding_provider, "embed_queries", None) or getattr(
+                self._embedding_provider, "embed", None
+            )
             query_batch = await asyncio.to_thread(
-                getattr(self._embedding_provider, "embed_queries", self._embedding_provider.embed),
+                embed_fn,
                 [retrieval_query],
                 self._embedding_configuration,
             )
@@ -164,6 +203,19 @@ class AnswerQuestion:
                 retrieval, workspace_id=command.workspace_id, configuration=retrieval_configuration
             )
             lexical_generations = retrieval.lexical_generations
+        elif retrieval_configuration.strategy == "dense-only":
+            validate_dense_result(
+                retrieval, workspace_id=command.workspace_id, configuration=retrieval_configuration
+            )
+            lexical_generations = retrieval.lexical_generations
+        elif (
+            retrieval_configuration.strategy == "hybrid"
+            and retrieval_configuration.fusion_policy_id == "dbsf-v1"
+        ):
+            validate_hybrid_result(
+                retrieval, workspace_id=command.workspace_id, configuration=retrieval_configuration
+            )
+            lexical_generations = retrieval.lexical_generations
         if isinstance(retrieval, RetrievalResult):
             candidates = retrieval.candidates
             branch_observations = tuple(item.as_mapping() for item in retrieval.branch_observations)
@@ -174,13 +226,17 @@ class AnswerQuestion:
             branch_observations = ()
             retrieval_embedding_set_ids = ()
             retrieval_chunk_set_ids = ()
-        if not lexical and any(
-            not c.embedding_set_id
-            or c.embedding_configuration_id != self._embedding_configuration.id
-            or c.bm25_score is not None
-            or c.bm25_rank is not None
-            or c.index_generation_id is not None
-            for c in candidates
+        if (
+            not lexical
+            and not dense_or_hybrid_v3
+            and any(
+                not c.embedding_set_id
+                or c.embedding_configuration_id != self._embedding_configuration.id
+                or c.bm25_score is not None
+                or c.bm25_rank is not None
+                or c.index_generation_id is not None
+                for c in candidates
+            )
         ):
             raise KnoraError("RETRIEVAL_PROVENANCE_INVALID")
         retrieval_ended = self._clock()
@@ -231,7 +287,7 @@ class AnswerQuestion:
         }
         if stage_callback is not None:
             stage_callback("generating")
-        if lexical:
+        if lexical or dense_or_hybrid_v3:
             self._store.revalidate_lexical_snapshot(
                 command.workspace_id, retrieval_configuration.lexical_policy_id, lexical_generations
             )
@@ -509,6 +565,55 @@ class AnswerQuestion:
                 },
             )
             provider_metadata["timing"]["phases"]["query_embedding"]["status"] = "not_run"
+        elif retrieval_configuration.strategy == "dense-only":
+            native_full_window = sorted(
+                observation["branch_rank"]
+                for observation in branch_observations
+                if observation["status"] != "NO_CONTRIBUTION"
+            ) == list(range(1, 201))
+            provider_metadata["retrieval"].update(
+                mode="dense-only",
+                lexical_generations=[asdict(g) for g in lexical_generations],
+                score_policy={
+                    "id": "dense-cosine-calibrated-v3",
+                    "score_kind": "cosine_similarity",
+                    "numeric_cutoff": retrieval_configuration.min_similarity,
+                    "cutoff_status": "calibrated",
+                    "candidate_limit": retrieval_configuration.candidate_k,
+                    "query_limit": 200,
+                    "observed_scope": "authorized_top_200",
+                    "tie_order": "native" if native_full_window else "score_desc_chunk_id_asc",
+                    "tie_boundary": "unknown" if native_full_window else "complete",
+                    "beyond_limit": "unknown" if native_full_window else "none",
+                },
+            )
+        elif (
+            retrieval_configuration.strategy == "hybrid"
+            and retrieval_configuration.fusion_policy_id == "dbsf-v1"
+        ):
+            native_full_window = sorted(
+                observation["branch_rank"]
+                for observation in branch_observations
+                if observation["status"] != "NO_CONTRIBUTION"
+            ) == list(range(1, 101))
+            provider_metadata["retrieval"].update(
+                mode="hybrid",
+                lexical_generations=[asdict(g) for g in lexical_generations],
+                score_policy={
+                    "id": "hybrid-dbsf-calibrated-v3",
+                    "score_kind": "dbsf",
+                    "numeric_cutoff": None,
+                    "cutoff_status": "calibrated",
+                    "candidate_limit": retrieval_configuration.candidate_k,
+                    "query_limit": 100,
+                    "dense_limit": retrieval_configuration.vector_candidate_k or 200,
+                    "sparse_limit": retrieval_configuration.fts_candidate_k or 200,
+                    "observed_scope": "authorized_top_100",
+                    "tie_order": "native" if native_full_window else "score_desc_chunk_id_asc",
+                    "tie_boundary": "unknown" if native_full_window else "complete",
+                    "beyond_limit": "unknown" if native_full_window else "none",
+                },
+            )
         if command.conversation_context is not None:
             provider_metadata["conversation_context"] = {
                 "policy_id": command.conversation_context.policy_id,
@@ -552,6 +657,22 @@ class AnswerQuestion:
                 candidate_decisions[-1]["bm25_contribution"] = {
                     "raw_score": item.candidate.bm25_score,
                     "branch_rank": item.candidate.bm25_rank,
+                    "index_generation_id": item.candidate.index_generation_id,
+                }
+            elif retrieval_configuration.strategy == "dense-only":
+                candidate_decisions[-1]["dense_contribution"] = {
+                    "similarity": item.candidate.similarity,
+                    "cosine_distance": item.candidate.cosine_distance,
+                    "branch_rank": index,
+                    "index_generation_id": item.candidate.index_generation_id,
+                }
+            elif (
+                retrieval_configuration.strategy == "hybrid"
+                and retrieval_configuration.fusion_policy_id == "dbsf-v1"
+            ):
+                candidate_decisions[-1]["hybrid_contribution"] = {
+                    "fusion_score": item.candidate.fusion_score,
+                    "branch_rank": index,
                     "index_generation_id": item.candidate.index_generation_id,
                 }
         return QuestionTraceRecord(

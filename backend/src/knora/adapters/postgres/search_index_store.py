@@ -1,18 +1,21 @@
 """Transactional generation requests and activation; no projection I/O."""
 
 import hashlib
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict
+from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
 
 from knora.adapters.postgres.tables import (
+    ChunkEmbeddingTable,
     ChunkingConfigurationTable,
     ChunkSetTable,
     ChunkTable,
     DocumentTable,
     DocumentVersionTable,
+    EmbeddingSetTable,
     IngestionJobTable,
     LexicalGenerationTable,
     LexicalHeadTable,
@@ -36,6 +39,148 @@ from knora.ingestion.search_indexing import (
 class PostgresSearchIndexStore:
     def __init__(self, session_factory: sessionmaker) -> None:
         self._sessions = session_factory
+
+    def dynamic_workspace_ids(self, embedding_configuration_id: str) -> tuple[str, ...]:
+        with self._sessions() as session:
+            return tuple(
+                session.scalars(
+                    select(DocumentTable.workspace_id)
+                    .join(WorkspaceTable, WorkspaceTable.id == DocumentTable.workspace_id)
+                    .where(
+                        WorkspaceTable.archived.is_(False),
+                        DocumentTable.archived.is_(False),
+                        DocumentTable.active_embedding_configuration_id
+                        == embedding_configuration_id,
+                    )
+                    .distinct()
+                    .order_by(DocumentTable.workspace_id)
+                ).all()
+            )
+
+    def prepare_dynamic_corpus(
+        self, workspace_id: str, lexical_policy_id: str, embedding_configuration_id: str
+    ) -> tuple[LexicalIndexInput, ...]:
+        """Persist a whole-corpus request before projection I/O; resume requests after a crash."""
+        from knora.ingestion.lexical_population import CorpusStatisticsSnapshot
+
+        with self._sessions.begin() as session:
+            workspace = session.scalar(
+                select(WorkspaceTable)
+                .where(WorkspaceTable.id == workspace_id, WorkspaceTable.archived.is_(False))
+                .with_for_update(skip_locked=True)
+            )
+            if workspace is None:
+                return ()
+            documents = session.scalars(
+                select(DocumentTable)
+                .where(
+                    DocumentTable.workspace_id == workspace_id, DocumentTable.archived.is_(False)
+                )
+                .order_by(DocumentTable.id)
+                .with_for_update()
+            ).all()
+            if not documents:
+                return ()
+            members = []
+            corpus = []
+            for document in documents:
+                if document.active_embedding_set_id is None:
+                    return ()
+                embedding_set = session.get(EmbeddingSetTable, document.active_embedding_set_id)
+                if (
+                    embedding_set is None
+                    or embedding_set.status != "completed"
+                    or embedding_set.embedding_configuration_id != embedding_configuration_id
+                    or document.active_embedding_configuration_id != embedding_configuration_id
+                ):
+                    return ()
+                chunk_set = session.get(ChunkSetTable, embedding_set.chunk_set_id)
+                if (
+                    chunk_set is None
+                    or chunk_set.status != "completed"
+                    or chunk_set.document_version_id != document.current_document_version_id
+                ):
+                    return ()
+                chunks = session.scalars(
+                    select(ChunkTable)
+                    .where(ChunkTable.chunk_set_id == chunk_set.id)
+                    .order_by(ChunkTable.ordinal)
+                ).all()
+                if not chunks:
+                    return ()
+                if any(
+                    hashlib.sha256(c.content.encode("utf-8")).hexdigest() != c.content_checksum
+                    for c in chunks
+                ):
+                    raise LexicalGenerationError("authoritative chunk text checksum is invalid")
+                # Distinct source keys remain distinct corpus members even for identical PDFs.
+                member_id = hashlib.sha256(document.id.encode("utf-8")).hexdigest()
+                corpus.append((member_id, [(c.content_checksum, c.token_count) for c in chunks]))
+                members.append((document, embedding_set, chunk_set, chunks))
+            profile = CorpusStatisticsSnapshot.build(
+                population_id=lexical_policy_id, documents=corpus
+            ).profile
+            prepared = []
+            all_ready = True
+            for document, embedding_set, chunk_set, chunks in members:
+                head = session.get(LexicalHeadTable, document.id)
+                desired = (
+                    session.get(LexicalGenerationTable, head.desired_generation_id)
+                    if head and head.desired_generation_id
+                    else None
+                )
+                if (
+                    desired is not None
+                    and desired.status in ("requested", "active")
+                    and desired.document_version_id == document.current_document_version_id
+                    and desired.chunk_set_id == chunk_set.id
+                    and desired.source_revision == document.revision
+                    and desired.workspace_revision == workspace.revision
+                    and desired.profile_digest == profile.digest()
+                    and desired.revision == head.revision
+                ):
+                    generation = self._decode_generation(desired)
+                    ready = desired.status == "active" and head.active_generation_id == desired.id
+                else:
+                    generation = LexicalGeneration(
+                        generation_id=str(uuid4()),
+                        workspace_id=workspace_id,
+                        document_id=document.id,
+                        document_version_id=document.current_document_version_id,
+                        chunk_set_id=chunk_set.id,
+                        lexical_profile=profile,
+                        revision=head.revision + 1 if head else 1,
+                        chunks=tuple(
+                            LexicalChunk(c.id, c.ordinal, c.content_checksum) for c in chunks
+                        ),
+                    )
+                    ready = False
+                all_ready = all_ready and ready
+                prepared.append((generation, embedding_set, chunks))
+            if all_ready:
+                return ()
+            inputs = []
+            for generation, embedding_set, chunks in prepared:
+                embeddings = session.scalars(
+                    select(ChunkEmbeddingTable).where(
+                        ChunkEmbeddingTable.embedding_set_id == embedding_set.id
+                    )
+                ).all()
+                if len(embeddings) != len(chunks) or {e.chunk_id for e in embeddings} != {
+                    c.id for c in chunks
+                }:
+                    raise LexicalGenerationError("incomplete authoritative chunk embeddings")
+                inputs.append(
+                    LexicalIndexInput(
+                        generation,
+                        tuple((c.id, c.content) for c in chunks),
+                        tuple(
+                            (e.chunk_id, tuple(float(v) for v in e.embedding)) for e in embeddings
+                        ),
+                    )
+                )
+            self.stage_corpus_transition_in_transaction(session, [i.generation for i in inputs])
+            return tuple(inputs)
 
     def read_active_generations(
         self, workspace_id: str, lexical_policy_id: str
@@ -318,6 +463,178 @@ class PostgresSearchIndexStore:
         row.status = "active"
         head.active_generation_id = row.id
 
+    def stage_corpus_transition(self, generations: Sequence[LexicalGeneration]) -> None:
+        """Stage generations for a corpus snapshot transition without disrupting active serving."""
+        with self._sessions.begin() as session:
+            self.stage_corpus_transition_in_transaction(session, generations)
+
+    def stage_corpus_transition_in_transaction(
+        self, session: Session, generations: Sequence[LexicalGeneration]
+    ) -> None:
+        if not generations:
+            raise StaleGenerationError("corpus transition batch cannot be empty")
+        profile_digests = {g.lexical_profile.digest() for g in generations}
+        if len(profile_digests) != 1:
+            raise StaleGenerationError("corpus transition contains mixed profile digests")
+        ordered = sorted(generations, key=lambda g: g.document_id)
+        for generation in ordered:
+            workspace, document = self._lock_document(
+                session, generation.workspace_id, generation.document_id
+            )
+            existing = session.get(LexicalGenerationTable, generation.generation_id)
+            if existing is not None:
+                if (
+                    existing.content_digest != generation.content_digest()
+                    or existing.status == "revoked"
+                ):
+                    raise StaleGenerationError("generation identity cannot be reused")
+                continue
+            if document.current_document_version_id != generation.document_version_id:
+                raise StaleGenerationError("generation targets an obsolete source version")
+            chunk_set = session.get(ChunkSetTable, generation.chunk_set_id)
+            if (
+                chunk_set is None
+                or chunk_set.document_version_id != generation.document_version_id
+                or chunk_set.status != "completed"
+            ):
+                raise StaleGenerationError("generation targets an incomplete chunk set")
+            chunks = session.scalars(
+                select(ChunkTable)
+                .where(ChunkTable.chunk_set_id == generation.chunk_set_id)
+                .order_by(ChunkTable.ordinal)
+            ).all()
+            if [(c.id, c.ordinal, c.content_checksum) for c in chunks] != [
+                (c.chunk_id, c.ordinal, c.content_checksum) for c in generation.chunks
+            ]:
+                raise StaleGenerationError("generation manifest differs from authoritative chunks")
+            head = session.get(LexicalHeadTable, document.id)
+            if head is None:
+                head = LexicalHeadTable(document_id=document.id, revision=0)
+                session.add(head)
+            if generation.revision != head.revision + 1:
+                raise StaleGenerationError("desired generation compare-and-set failed")
+            row = LexicalGenerationTable(
+                id=generation.generation_id,
+                workspace_id=generation.workspace_id,
+                document_id=document.id,
+                document_version_id=generation.document_version_id,
+                chunk_set_id=generation.chunk_set_id,
+                revision=generation.revision,
+                source_revision=document.revision,
+                workspace_revision=workspace.revision,
+                profile_digest=generation.lexical_profile.digest(),
+                content_digest=generation.content_digest(),
+                expected_count=len(generation.chunks),
+                manifest=asdict(generation),
+                status="requested",
+            )
+            session.add(row)
+            session.flush()
+            head.revision = generation.revision
+            head.desired_generation_id = generation.generation_id
+
+    def commit_corpus_transition(
+        self, items: Sequence[tuple[LexicalGeneration, StageReceipt]]
+    ) -> None:
+        """Atomically transition serving generations to a new consistent corpus profile."""
+        with self._sessions.begin() as session:
+            self.commit_corpus_transition_in_transaction(session, items)
+
+    def commit_corpus_transition_in_transaction(
+        self, session: Session, items: Sequence[tuple[LexicalGeneration, StageReceipt]]
+    ) -> None:
+        if not items:
+            raise StaleGenerationError("corpus transition batch cannot be empty")
+        profile_digests = {g.lexical_profile.digest() for g, _ in items}
+        if len(profile_digests) != 1:
+            raise StaleGenerationError("corpus transition contains mixed profile digests")
+        target_profile_digest = next(iter(profile_digests))
+        workspace_ids = {g.workspace_id for g, _ in items}
+        if len(workspace_ids) != 1:
+            raise StaleGenerationError("corpus transition contains mixed workspaces")
+        workspace_id = next(iter(workspace_ids))
+
+        # Check full persisted membership: all active documents in this workspace
+        # must transition together when switching to a new corpus profile digest
+        active_doc_ids = set(
+            session.scalars(
+                select(DocumentTable.id)
+                .join(LexicalHeadTable, LexicalHeadTable.document_id == DocumentTable.id)
+                .where(
+                    DocumentTable.workspace_id == workspace_id,
+                    DocumentTable.archived.is_(False),
+                    LexicalHeadTable.active_generation_id.is_not(None),
+                )
+            ).all()
+        )
+        current_active_profile_digests = set()
+        for doc_id in active_doc_ids:
+            head = session.get(LexicalHeadTable, doc_id)
+            if head and head.active_generation_id:
+                active_row = session.get(LexicalGenerationTable, head.active_generation_id)
+                if active_row:
+                    current_active_profile_digests.add(active_row.profile_digest)
+
+        is_profile_transition = bool(
+            current_active_profile_digests
+            and target_profile_digest not in current_active_profile_digests
+        )
+        canonical_doc_ids = set(
+            session.scalars(
+                select(DocumentTable.id).where(
+                    DocumentTable.workspace_id == workspace_id,
+                    DocumentTable.archived.is_(False),
+                )
+            ).all()
+        )
+        submitted_doc_ids = {g.document_id for g, _ in items}
+        is_cold_activation = not active_doc_ids
+
+        if (
+            (is_profile_transition or is_cold_activation)
+            and canonical_doc_ids
+            and submitted_doc_ids != canonical_doc_ids
+        ):
+            missing = canonical_doc_ids - submitted_doc_ids
+            if missing:
+                prefix = "cold corpus activation" if is_cold_activation else "corpus transition"
+                raise StaleGenerationError(
+                    f"{prefix} requires receipts for all canonical "
+                    f"documents in corpus; missing: {missing}"
+                )
+            extra = submitted_doc_ids - canonical_doc_ids
+            prefix = "cold corpus activation" if is_cold_activation else "corpus transition"
+            raise StaleGenerationError(f"{prefix} contains unexpected documents; extra: {extra}")
+
+        for generation, receipt in items:
+            receipt.validate(generation)
+        ordered_items = sorted(items, key=lambda pair: pair[0].document_id)
+        for generation, receipt in ordered_items:
+            workspace, document = self._lock_document(
+                session, generation.workspace_id, generation.document_id
+            )
+            head = session.get(LexicalHeadTable, document.id)
+            row = session.get(LexicalGenerationTable, generation.generation_id)
+            if (
+                head is None
+                or row is None
+                or head.desired_generation_id != row.id
+                or head.revision != generation.revision
+                or row.revision != generation.revision
+                or row.status == "revoked"
+                or row.source_revision != document.revision
+                or row.workspace_revision != workspace.revision
+                or document.current_document_version_id != row.document_version_id
+                or row.content_digest != receipt.content_digest
+                or row.expected_count != receipt.point_count
+            ):
+                raise StaleGenerationError("transition compare-and-set failed")
+            if row.acknowledged_count not in (None, receipt.point_count):
+                raise StaleGenerationError("conflicting acknowledgement replay")
+            row.acknowledged_count = receipt.point_count
+            row.status = "active"
+            head.active_generation_id = row.id
+
     def revoke(self, *, workspace_id: str, document_id: str) -> None:
         with self._sessions.begin() as session:
             self.revoke_in_transaction(session, workspace_id=workspace_id, document_id=document_id)
@@ -347,7 +664,7 @@ class PostgresSearchIndexStore:
         try:
             profile_data = manifest["lexical_profile"]
             chunks_data = manifest["chunks"]
-            if not isinstance(profile_data, Mapping) or not isinstance(chunks_data, list):
+            if not isinstance(profile_data, Mapping) or not isinstance(chunks_data, (list, tuple)):
                 raise TypeError
             generation = LexicalGeneration(
                 generation_id=manifest["generation_id"],
@@ -468,8 +785,13 @@ class PostgresSearchIndexStore:
             version.document_id != document.id
             or source.workspace_id != workspace.id
             or source.document_version_id != version.id
-            or source.raw_sha256 != version.raw_sha256
-            or source.media_type != version.media_type
+            or source.raw_sha256
+            != (
+                version.raw_sha256
+                if version.raw_sha256 is not None
+                else version.normalized_content_checksum
+            )
+            or (version.media_type is not None and source.media_type != version.media_type)
             or source.object_key != work.source_object_key
             or source.media_type != work.source_media_type
             or source.raw_sha256 != work.source_sha256
@@ -483,8 +805,14 @@ class PostgresSearchIndexStore:
             chunk_set is None
             or chunking is None
             or chunk_set.document_version_id != version.id
-            or chunk_set.parser_configuration_id != job.parser_configuration_id
-            or chunk_set.normalizer_configuration_id != job.normalizer_configuration_id
+            or (
+                chunk_set.parser_configuration_id is not None
+                and chunk_set.parser_configuration_id != job.parser_configuration_id
+            )
+            or (
+                chunk_set.normalizer_configuration_id is not None
+                and chunk_set.normalizer_configuration_id != job.normalizer_configuration_id
+            )
             or chunk_set.chunking_configuration_id != job.chunking_configuration_id
         ):
             raise LexicalGenerationError("lexical chunk set provenance differs from its job")
@@ -506,7 +834,48 @@ class PostgresSearchIndexStore:
             for chunk in chunks
         ):
             raise LexicalGenerationError("authoritative chunk text checksum is invalid")
+        chunk_vectors: tuple[tuple[str, tuple[float, ...]], ...] | None = None
+        target_set_id = document.active_embedding_set_id
+        target_config_id = (
+            document.active_embedding_configuration_id or job.embedding_configuration_id
+        )
+
+        if target_set_id is not None or target_config_id is not None:
+            emb_set_query = select(EmbeddingSetTable).where(
+                EmbeddingSetTable.chunk_set_id == generation.chunk_set_id,
+                EmbeddingSetTable.status == "completed",
+            )
+            if target_set_id is not None:
+                emb_set_query = emb_set_query.where(EmbeddingSetTable.id == target_set_id)
+            if target_config_id is not None:
+                emb_set_query = emb_set_query.where(
+                    EmbeddingSetTable.embedding_configuration_id == target_config_id
+                )
+            emb_set = session.scalar(emb_set_query)
+            if emb_set is not None:
+                if (
+                    target_config_id is not None
+                    and emb_set.embedding_configuration_id != target_config_id
+                ):
+                    raise LexicalGenerationError("active embedding configuration mismatch")
+                chunk_embs = session.scalars(
+                    select(ChunkEmbeddingTable)
+                    .where(ChunkEmbeddingTable.embedding_set_id == emb_set.id)
+                    .order_by(ChunkEmbeddingTable.chunk_id)
+                ).all()
+                if chunk_embs:
+                    if len(chunk_embs) != len(chunks):
+                        raise LexicalGenerationError("incomplete chunk embeddings")
+                    emb_chunk_ids = {ce.chunk_id for ce in chunk_embs}
+                    expected_chunk_ids = {chunk.id for chunk in chunks}
+                    if emb_chunk_ids != expected_chunk_ids:
+                        raise LexicalGenerationError("chunk embeddings mismatch generation chunks")
+                    chunk_vectors = tuple(
+                        (ce.chunk_id, tuple(float(x) for x in ce.embedding)) for ce in chunk_embs
+                    )
+
         return LexicalIndexInput(
             generation,
             tuple((chunk.id, chunk.content) for chunk in chunks),
+            chunk_vectors=chunk_vectors,
         )

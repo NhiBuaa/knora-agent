@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "status": "approved",
+  "owner": "NhiBuaa",
+  "decision_url": "https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6185163833",
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "derivation_sha256": "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2",
+  "dataset_sha256": "9391a784d2e8f87e9a53fd135a49add8cbaccd051b213bc56bd6be9bf6583c40",
+  "approved_commit": "a4b9bd87bff2627a7e42d096d9e297a0b8a247f5",
+  "approved_on": "2026-10-21"
+}
