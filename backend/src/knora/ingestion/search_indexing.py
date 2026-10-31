@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from collections.abc import Mapping
 from dataclasses import dataclass
 from math import isfinite
@@ -40,17 +41,24 @@ class LexicalProjectionUnavailable(RuntimeError):
 
 
 def lexical_point_id(generation_id: str, chunk_id: str) -> str:
+
     return str(uuid5(NAMESPACE_URL, json.dumps(["knora-lexical-v1", generation_id, chunk_id])))
 
 
 @dataclass(frozen=True, slots=True)
 class LexicalProfile:
     id: str
+
     tokenizer: str
+
     tokenizer_version: str
+
     k1: float
+
     b: float
+
     avg_len: float
+
     statistics_digest: str
 
     @classmethod
@@ -65,8 +73,10 @@ class LexicalProfile:
         token_counts: tuple[int, ...],
         statistics_digest: str,
     ) -> LexicalProfile:
+
         if not token_counts or any(type(count) is not int or count < 1 for count in token_counts):
             raise LexicalGenerationError("native tokenizer counts are required for avg_len")
+
         return cls(
             id,
             tokenizer,
@@ -78,6 +88,7 @@ class LexicalProfile:
         )
 
     def __post_init__(self) -> None:
+
         if not all(
             isinstance(value, str) and value
             for value in (
@@ -88,14 +99,18 @@ class LexicalProfile:
             )
         ):
             raise LexicalGenerationError("lexical profile identifiers must be non-empty")
+
         if not isfinite(self.k1) or self.k1 <= 0:
             raise LexicalGenerationError("BM25 k1 must be finite and positive")
+
         if not isfinite(self.b) or not 0 <= self.b <= 1:
             raise LexicalGenerationError("BM25 b must be between zero and one")
+
         if not isfinite(self.avg_len) or self.avg_len <= 0:
             raise LexicalGenerationError("BM25 avg_len must be finite and positive")
 
     def digest(self) -> str:
+
         payload = {
             "b": self.b,
             "avg_len": self.avg_len,
@@ -105,6 +120,7 @@ class LexicalProfile:
             "tokenizer": self.tokenizer,
             "tokenizer_version": self.tokenizer_version,
         }
+
         return hashlib.sha256(
             json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
         ).hexdigest()
@@ -113,12 +129,16 @@ class LexicalProfile:
 @dataclass(frozen=True, slots=True)
 class LexicalChunk:
     chunk_id: str
+
     ordinal: int
+
     content_checksum: str
 
     def __post_init__(self) -> None:
+
         if not self.chunk_id or not self.content_checksum:
             raise LexicalGenerationError("chunk identity and checksum are required")
+
         if type(self.ordinal) is not int or self.ordinal < 0:
             raise LexicalGenerationError("chunk ordinal must be non-negative")
 
@@ -126,15 +146,23 @@ class LexicalChunk:
 @dataclass(frozen=True, slots=True)
 class LexicalGeneration:
     generation_id: str
+
     workspace_id: str
+
     document_id: str
+
     document_version_id: str
+
     chunk_set_id: str
+
     lexical_profile: LexicalProfile
+
     revision: int
+
     chunks: tuple[LexicalChunk, ...]
 
     def __post_init__(self) -> None:
+
         if not all(
             isinstance(value, str) and value
             for value in (
@@ -146,14 +174,20 @@ class LexicalGeneration:
             )
         ):
             raise LexicalGenerationError("generation identity fields are required")
+
         if type(self.revision) is not int or self.revision < 1:
             raise LexicalGenerationError("generation revision must be positive")
+
         if not self.chunks:
             raise LexicalGenerationError("lexical generation cannot be empty")
+
         chunk_ids = [chunk.chunk_id for chunk in self.chunks]
+
         ordinals = [chunk.ordinal for chunk in self.chunks]
+
         if len(set(chunk_ids)) != len(chunk_ids):
             raise LexicalGenerationError("chunk IDs must be unique")
+
         if sorted(ordinals) != list(range(len(self.chunks))):
             raise LexicalGenerationError("chunk ordinals must be contiguous")
 
@@ -163,6 +197,7 @@ class LexicalGeneration:
         return tuple(lexical_point_id(self.generation_id, chunk.chunk_id) for chunk in self.chunks)
 
     def content_digest(self) -> str:
+
         payload = {
             "chunk_set_id": self.chunk_set_id,
             "chunks": [
@@ -180,6 +215,7 @@ class LexicalGeneration:
             "revision": self.revision,
             "workspace_id": self.workspace_id,
         }
+
         return hashlib.sha256(
             json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
         ).hexdigest()
@@ -188,10 +224,13 @@ class LexicalGeneration:
 @dataclass(frozen=True, slots=True)
 class StageReceipt:
     generation_id: str
+
     point_count: int
+
     content_digest: str
 
     def validate(self, generation: LexicalGeneration) -> None:
+
         if (
             self.generation_id != generation.generation_id
             or type(self.point_count) is not int
@@ -204,28 +243,94 @@ class StageReceipt:
 @dataclass(frozen=True, slots=True)
 class LexicalIndexInput:
     generation: LexicalGeneration
+
     chunk_texts: tuple[tuple[str, str], ...]
+
+    chunk_vectors: tuple[tuple[str, tuple[float, ...]], ...] | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class LexicalIndexSuccess:
     generation: LexicalGeneration
+
     receipt: StageReceipt
 
     def __post_init__(self) -> None:
+
         self.receipt.validate(self.generation)
 
 
 class LexicalIndexStore(Protocol):
     def load_generation(self, work: IngestionWork) -> LexicalIndexInput:
         """Load authoritative text and reject a stale enqueue snapshot."""
+
         ...
 
 
 class LexicalIndexPort(Protocol):
     def stage_generation(
-        self, generation: LexicalGeneration, chunk_texts: Mapping[str, str]
+        self,
+        generation: LexicalGeneration,
+        chunk_texts: Mapping[str, str],
+        chunk_vectors: Mapping[str, tuple[float, ...] | list[float]] | None = None,
     ) -> StageReceipt: ...
+
+
+class DynamicSearchIndexStore(Protocol):
+    def dynamic_workspace_ids(self, embedding_configuration_id: str) -> tuple[str, ...]: ...
+
+    def prepare_dynamic_corpus(
+        self, workspace_id: str, lexical_policy_id: str, embedding_configuration_id: str
+    ) -> tuple[LexicalIndexInput, ...]: ...
+
+    def commit_corpus_transition(
+        self, items: tuple[tuple[LexicalGeneration, StageReceipt], ...]
+    ) -> None: ...
+
+
+class DynamicSearchIndexHandler:
+    """Rebuild dynamic projections between ingestion jobs, using retained vectors only."""
+
+    def __init__(
+        self,
+        *,
+        store: DynamicSearchIndexStore,
+        index: LexicalIndexPort,
+        lexical_policy_id: str,
+        embedding_configuration_id: str,
+    ) -> None:
+        self._store = store
+        self._index = index
+        self._policy_id = lexical_policy_id
+        self._embedding_id = embedding_configuration_id
+
+    def reconcile_workspace(self, workspace_id: str) -> int:
+        inputs = self._store.prepare_dynamic_corpus(
+            workspace_id, self._policy_id, self._embedding_id
+        )
+        if not inputs:
+            return 0
+        receipts = tuple(
+            (
+                item.generation,
+                self._index.stage_generation(
+                    item.generation, dict(item.chunk_texts), dict(item.chunk_vectors or ())
+                ),
+            )
+            for item in inputs
+        )
+        self._store.commit_corpus_transition(receipts)
+        return len(receipts)
+
+    def run_once(self) -> None:
+        for workspace_id in self._store.dynamic_workspace_ids(self._embedding_id):
+            try:
+                self.reconcile_workspace(workspace_id)
+            except Exception as error:
+                # Pending PG requests survive retries; one workspace cannot starve the others.
+                logging.getLogger(__name__).warning(
+                    "SEARCH_PROJECTION_RETRY error_type=%s", type(error).__name__
+                )
 
 
 class LexicalIndexHandler:
@@ -238,21 +343,29 @@ class LexicalIndexHandler:
         index: LexicalIndexPort,
         lexical_population: VerifiedLexicalPopulation | None = None,
     ) -> None:
+
         self._store = store
+
         self._index = index
+
         self._lexical_population = lexical_population
 
     def execute(
         self, work: IngestionWork, cancellation: CancellationToken
     ) -> WorkOutcome[LexicalIndexSuccess]:
+
         from knora.ingestion.lexical_population import LexicalPopulationError
 
         del cancellation
+
         if work.derivation_kind != "lexical_index":
             return WorkFailed(HandlerFailureKindV1.CONFIGURATION_INVALID, "configuration_invalid")
+
         try:
             loaded = self._store.load_generation(work)
+
             generation = loaded.generation
+
             if (
                 generation.generation_id != work.lexical_generation_id
                 or generation.workspace_id != work.workspace_id
@@ -264,37 +377,60 @@ class LexicalIndexHandler:
                 )
             ):
                 raise LexicalGenerationError("generation does not match claimed work")
+
             texts = dict(loaded.chunk_texts)
+
             if len(texts) != len(loaded.chunk_texts) or set(texts) != {
                 chunk.chunk_id for chunk in generation.chunks
             }:
                 raise LexicalGenerationError("authoritative texts differ from generation")
+
             for chunk in generation.chunks:
                 text = texts[chunk.chunk_id]
+
                 if (
                     not isinstance(text, str)
                     or not text.strip()
                     or hashlib.sha256(text.encode("utf-8")).hexdigest() != chunk.content_checksum
                 ):
                     raise LexicalGenerationError("authoritative text checksum is invalid")
-            if self._lexical_population is None:
-                raise LexicalGenerationError("verified lexical population is required")
-            self._lexical_population.validate_document(
-                work.source_sha256,
-                tuple(
-                    texts[chunk.chunk_id]
-                    for chunk in sorted(generation.chunks, key=lambda c: c.ordinal)
-                ),
-                generation.lexical_profile,
-            )
-            receipt = self._index.stage_generation(generation, texts)
+
+            if self._lexical_population is not None:
+                self._lexical_population.validate_document(
+                    work.source_sha256,
+                    tuple(
+                        texts[chunk.chunk_id]
+                        for chunk in sorted(generation.chunks, key=lambda c: c.ordinal)
+                    ),
+                    generation.lexical_profile,
+                )
+            elif generation.lexical_profile.id in (
+                "bm25-word-frozen47-population-v1",
+                "bm25-word-upload-fixture-population-v1",
+            ):
+                raise LexicalGenerationError("lexical population is required for S2 profile")
+
+            chunk_vectors = dict(loaded.chunk_vectors) if loaded.chunk_vectors is not None else None
+
+            try:
+                receipt = self._index.stage_generation(
+                    generation, texts, chunk_vectors=chunk_vectors
+                )
+
+            except TypeError:
+                receipt = self._index.stage_generation(generation, texts)
+
             if not isinstance(receipt, StageReceipt):
                 raise LexicalGenerationError("projection receipt is missing")
+
             return WorkSucceeded(LexicalIndexSuccess(generation, receipt))
+
         except StaleGenerationError:
             return WorkSuperseded(terminal_outcome_code="stale_derivation_snapshot")
+
         except (LexicalGenerationError, LexicalPopulationError):
             return WorkFailed(HandlerFailureKindV1.CONFIGURATION_INVALID, "configuration_invalid")
+
         except LexicalProjectionUnavailable:
             return WorkFailed(HandlerFailureKindV1.STORAGE_TRANSIENT, "storage_transient")
 
@@ -308,12 +444,16 @@ class DerivationJobHandler:
         pdf_handler: WorkHandler[PdfDerivationSuccess | PdfExtractionSuccess],
         index_handler: WorkHandler[LexicalIndexSuccess],
     ) -> None:
+
         self._pdf_handler = pdf_handler
+
         self._index_handler = index_handler
 
     def execute(
         self, work: IngestionWork, cancellation: CancellationToken
     ) -> WorkOutcome[PdfDerivationSuccess | PdfExtractionSuccess | LexicalIndexSuccess]:
+
         if work.derivation_kind == "lexical_index":
             return self._index_handler.execute(work, cancellation)
+
         return self._pdf_handler.execute(work, cancellation)

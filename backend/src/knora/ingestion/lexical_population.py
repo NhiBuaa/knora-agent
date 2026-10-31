@@ -13,6 +13,7 @@ import json
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from unicodedata import normalize
 
 from knora.ingestion.search_indexing import LexicalGenerationError, LexicalProfile
 
@@ -191,3 +192,159 @@ class VerifiedLexicalPopulation:
                 raise LexicalPopulationError("duplicate population source")
             seen.add(source_sha)
             self.validate_document(source_sha, chunk_texts, profile)
+
+
+_WORD_PATTERN = re.compile(r"\w+", re.UNICODE)
+
+
+def count_qdrant_word_tokens(text: str) -> int:
+    """Count tokens matching Qdrant 'word' tokenizer behavior (NFKC lower unicode words)."""
+    normalized = normalize("NFKC", text).lower()
+    matches = _WORD_PATTERN.findall(normalized)
+    return max(1, len(matches))
+
+
+@dataclass(frozen=True, slots=True)
+class DocumentCorpusMember:
+    source_sha256: str
+    chunks: tuple[tuple[str, int], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class CorpusStatisticsSnapshot:
+    """Authoritative dynamic corpus statistics snapshot for serving corpus."""
+
+    snapshot_id: str
+    statistics_digest: str
+    tokenizer: str
+    tokenizer_version: str
+    k1: float
+    b: float
+    total_documents: int
+    total_chunks: int
+    total_tokens: int
+    avg_len: float
+    profile: LexicalProfile
+    documents: tuple[DocumentCorpusMember, ...]
+
+    @classmethod
+    def build(
+        cls,
+        *,
+        population_id: str,
+        tokenizer: str = "word",
+        tokenizer_version: str = "qdrant-1.19.2",
+        k1: float = 1.2,
+        b: float = 0.75,
+        documents: Sequence[tuple[str, Sequence[tuple[str, int]]]],
+    ) -> CorpusStatisticsSnapshot:
+        if not documents:
+            raise LexicalPopulationError("corpus documents cannot be empty")
+        parsed_docs: list[DocumentCorpusMember] = []
+        seen_sources: set[str] = set()
+        for doc in documents:
+            if not isinstance(doc, (list, tuple)) or len(doc) != 2:
+                raise LexicalPopulationError("invalid document tuple in corpus")
+            source_sha, chunks = doc
+            if not isinstance(source_sha, str) or _SHA256.fullmatch(source_sha) is None:
+                raise LexicalPopulationError("invalid source sha256")
+            if source_sha in seen_sources:
+                raise LexicalPopulationError("duplicate source in corpus snapshot")
+            seen_sources.add(source_sha)
+            if not isinstance(chunks, (list, tuple)) or not chunks:
+                raise LexicalPopulationError("document chunks cannot be empty")
+            parsed_chunks: list[tuple[str, int]] = []
+            for chunk in chunks:
+                if not isinstance(chunk, (list, tuple)) or len(chunk) != 2:
+                    raise LexicalPopulationError("invalid chunk tuple")
+                checksum, count = chunk
+                if not isinstance(checksum, str) or _SHA256.fullmatch(checksum) is None:
+                    raise LexicalPopulationError("invalid chunk content checksum")
+                if type(count) is not int or count < 1:
+                    raise LexicalPopulationError("native token count must be positive integer")
+                parsed_chunks.append((checksum, count))
+            parsed_docs.append(DocumentCorpusMember(source_sha, tuple(parsed_chunks)))
+
+        parsed_docs.sort(key=lambda d: d.source_sha256)
+        all_counts = [count for doc in parsed_docs for _, count in doc.chunks]
+        total_chunks = len(all_counts)
+        total_tokens = sum(all_counts)
+        avg_len = total_tokens / total_chunks
+
+        statistics = {
+            "documents": [
+                {
+                    "chunks": [
+                        {
+                            "content_checksum": checksum,
+                            "native_token_count": count,
+                        }
+                        for checksum, count in doc.chunks
+                    ],
+                    "source_sha256": doc.source_sha256,
+                }
+                for doc in parsed_docs
+            ],
+            "tokenizer": tokenizer,
+            "tokenizer_version": tokenizer_version,
+        }
+        statistics_digest = hashlib.sha256(
+            json.dumps(statistics, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+
+        profile = LexicalProfile(
+            id=population_id,
+            tokenizer=tokenizer,
+            tokenizer_version=tokenizer_version,
+            k1=k1,
+            b=b,
+            avg_len=avg_len,
+            statistics_digest=statistics_digest,
+        )
+
+        snapshot_id = f"corpus-stats-{statistics_digest[:24]}"
+        return cls(
+            snapshot_id=snapshot_id,
+            statistics_digest=statistics_digest,
+            tokenizer=tokenizer,
+            tokenizer_version=tokenizer_version,
+            k1=k1,
+            b=b,
+            total_documents=len(parsed_docs),
+            total_chunks=total_chunks,
+            total_tokens=total_tokens,
+            avg_len=avg_len,
+            profile=profile,
+            documents=tuple(parsed_docs),
+        )
+
+    def as_verified_population(self) -> VerifiedLexicalPopulation:
+        manifest_data = {
+            "schema_version": "lexical-population-v1",
+            "id": self.snapshot_id,
+            "native_evidence_sha256": self.statistics_digest,
+            "profile": {
+                "id": self.profile.id,
+                "tokenizer": self.profile.tokenizer,
+                "tokenizer_version": self.profile.tokenizer_version,
+                "k1": self.profile.k1,
+                "b": self.profile.b,
+                "avg_len": self.profile.avg_len,
+                "statistics_digest": self.profile.statistics_digest,
+            },
+            "profile_digest": self.profile.digest(),
+            "documents": [
+                {
+                    "source_sha256": doc.source_sha256,
+                    "chunks": [
+                        {
+                            "content_checksum": checksum,
+                            "native_token_count": count,
+                        }
+                        for checksum, count in doc.chunks
+                    ],
+                }
+                for doc in self.documents
+            ],
+        }
+        return VerifiedLexicalPopulation.from_mapping(manifest_data)

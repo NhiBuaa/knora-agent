@@ -192,7 +192,7 @@ class PostgresDocumentReader:
                     IngestionJobTable.derivation_kind == "lexical_index",
                 )
             )
-            if latest_job is not None and latest_job.derivation_kind == "pdf_extraction"
+            if latest_job is not None and latest_job.derivation_kind in ("pdf_extraction", "dense")
             else None
         )
         last_processed_at = (

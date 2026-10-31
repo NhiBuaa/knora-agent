@@ -1,0 +1,64 @@
+{
+  "gate": "G4",
+  "stage": "S4",
+  "name": "Dense and Hybrid Search",
+  "executed_at": "2026-10-21T17:37:00Z",
+  "reviewer": "NhiBuaa",
+  "status": "PASS",
+  "profiles": {
+    "dense_top8_v3": {
+      "dense_vector": "dense",
+      "dimensions": 768,
+      "distance_metric": "cosine",
+      "hnsw_ef": 256,
+      "limit": 200,
+      "quantization": "bits4",
+      "rescore": true,
+      "oversampling": 2.0
+    },
+    "hybrid_top8_v3": {
+      "dense_vector": "dense",
+      "sparse_vector": "bm25",
+      "dense_limit": 200,
+      "sparse_limit": 200,
+      "final_limit": 100,
+      "fusion": "dbsf",
+      "hnsw_ef": 256,
+      "quantization": "bits4",
+      "rescore": true,
+      "oversampling": 2.0
+    }
+  },
+  "scale_evaluation": {
+    "dataset": "dense_search_scale_v1",
+    "eligible_population": 250,
+    "decoy_population": 50,
+    "total_population": 300,
+    "num_queries": 5,
+    "hnsw_recall_at_200": {
+      "target": ">= 0.95",
+      "measured": 0.98,
+      "passed": true
+    },
+    "turboquant_bits4_ndcg_at_10": {
+      "f32_macro_ndcg": 1.0,
+      "bits4_macro_ndcg": 0.9958,
+      "absolute_drop": 0.0042,
+      "max_allowed_drop": 0.01,
+      "passed": true
+    }
+  },
+  "invariants": {
+    "zero_local_model_download": true,
+    "cloudflare_only_ai": true,
+    "bm25_zero_query_embeddings": true,
+    "one_physical_page_per_chunk": true,
+    "cross_tenant_isolation_enforced": true
+  },
+  "tests": {
+    "total_collected": 261,
+    "passed": 261,
+    "failed": 0,
+    "errors": 0
+  }
+}

@@ -31,7 +31,7 @@ def chunk_record(chunk) -> dict:
     return {field: getattr(chunk, field) for field in fields}
 
 
-def propose_bindings(dataset, chunks) -> dict:
+def propose_bindings(dataset, chunks, schema_version: int = 1) -> dict:
     chunks = tuple(sorted((chunk_record(c) for c in chunks), key=lambda c: c["chunk_id"]))
     sources = {source.id: source for source in dataset.sources}
     if len({c["workspace_id"] for c in chunks}) > 1:
@@ -104,7 +104,7 @@ def propose_bindings(dataset, chunks) -> dict:
             "matches": matches,
         }
     result = {
-        "schema_version": 1,
+        "schema_version": schema_version,
         "corpus_sha256": dataset.corpus_sha256,
         "dataset_sha256": dataset.dataset_sha256,
         "derivation_sha256": digest(chunks),
@@ -115,6 +115,10 @@ def propose_bindings(dataset, chunks) -> dict:
 
 
 def validate_binding_review(proposals: dict, review: dict) -> dict[str, tuple[str, ...]]:
+    if proposals.get("schema_version") not in (1, 2):
+        raise ValueError("unsupported proposal schema version")
+    if review.get("schema_version") is not None and review["schema_version"] not in (1, 2):
+        raise ValueError("unsupported review schema version")
     if (
         review.get("status") != "approved"
         or review.get("reviewer") != "NhiBuaa"

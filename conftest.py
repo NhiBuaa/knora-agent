@@ -19,6 +19,7 @@ SECURITY_SHADOW_FILES = {
 DATABASE_FILES = {
     "backend/test/adapters/cli/test_ingest.py",
     "backend/test/adapters/cli/test_ingestion_worker.py",
+    "backend/test/adapters/cli/test_reindex_search.py",
     "backend/test/adapters/http/test_ingestion.py",
     "backend/test/adapters/http/test_questions.py",
     "backend/test/ingestion/test_issue_19_application_e2e.py",
@@ -32,6 +33,7 @@ WINDOWS_FILES = {
     "backend/test/adapters/cli/test_ollama_launcher.py",
     "backend/test/config/test_keycloak_email_otp.py",
     "backend/test/config/test_retrieval_test_harness.py",
+    "backend/test/adapters/pdf/test_docling.py",
     "backend/test/adapters/pdf/test_pypdf.py",
     "backend/test/ingestion/test_s2_upload_population.py",
     "evals/test/test_process_probe.py",
