@@ -20,9 +20,14 @@ _TRANSCRIPT_INSTRUCTION = (
 _REFERENCE_CUE = re.compile(
     r"\b(?:it|its|they|them|their|this|that|these|those|nó|chúng|"
     r"điều này|điều đó|tài liệu này|hướng dẫn này|báo cáo này|"
-    r"phần đó|chương đó|ở trên|như trên)\b"
+    r"phần đó|chương đó|ở trên|như trên|những\s+chương\s+nào|chương\s+nào|phần\s+nào)\b",
+    re.IGNORECASE,
 )
-_FOLLOWUP_PREFIX = re.compile(r"^(?:what about|how about|and\b|còn\b|vậy\b)")
+_FOLLOWUP_PREFIX = re.compile(
+    r"^(?:what about|how about|and\b|còn\b|vậy\b|"
+    r"bao\s+gồm\b|gồm\b|gồm\s+những\b|cụ\s+thể\b|liệt\s+kê\b|chi\s+tiết\b)",
+    re.IGNORECASE,
+)
 _DUMMY_IT = re.compile(
     r"\bit(?=\s+(?:(?:is|was|seems)\s+)?"
     r"(?:possible|necessary|important|safe|allowed|permitted|required)\s+to\b)"
@@ -97,7 +102,7 @@ def _is_validated_turn(turn: TurnView, workspace_id: str) -> bool:
         return (
             result.decision == "REFUSAL"
             and result.answer is None
-            and result.refusal_reason == "INSUFFICIENT_EVIDENCE"
+            and result.refusal_reason in {"INSUFFICIENT_EVIDENCE", "CLARIFICATION_REQUIRED"}
             and not result.citations
         )
     return False
@@ -120,7 +125,12 @@ def _serialize_transcript(turns: tuple[TurnView, ...]) -> str:
 
 
 def _retrieval_query(turns: tuple[TurnView, ...], question: str) -> str:
-    if not turns or not _has_reference_cue(question):
+    has_clarification_predecessor = (
+        bool(turns)
+        and turns[-1].result is not None
+        and turns[-1].result.refusal_reason == "CLARIFICATION_REQUIRED"
+    )
+    if not turns or (not _has_reference_cue(question) and not has_clarification_predecessor):
         return question
 
     # Keep a reference chain anchored at the nearest independent question. Older topics

@@ -1,3 +1,4 @@
+import asyncio
 import json
 from decimal import Decimal
 
@@ -8,6 +9,319 @@ from knora.answering.generation_validation import validate_generation
 from knora.domain.errors import KnoraError
 from knora.providers.generation import GenerationEvidence
 from knora.providers.openai_compatible.generation import OpenAICompatibleGenerationProvider
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("version,budget", [("v1", 4096), ("v3", 8192)])
+async def test_concurrent_generation_and_audit_keep_their_models_and_receipts(version, budget):
+    from knora.providers.prompts.builder import BuiltPrompt
+    from knora.providers.prompts.versioning import PromptDefinition
+
+    bodies = []
+    both_started = asyncio.Event()
+
+    async def endpoint(request):
+        body = json.loads(request.content)
+        bodies.append(body)
+        if len(bodies) == 2:
+            both_started.set()
+        await asyncio.wait_for(both_started.wait(), 2)
+        audit = body["model"] == "@cf/openai/gpt-oss-120b"
+        result = (
+            {"diagnostic": True}
+            if audit
+            else dict(
+                decision="ANSWER",
+                before=[dict(text="Seven days.", support=["E1"])],
+                items=[],
+                after=[],
+                refusal_reason=None,
+            )
+        )
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"finish_reason": "stop", "message": {"content": json.dumps(result)}}],
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
+        provider = OpenAICompatibleGenerationProvider(
+            base_url="https://provider.example/v1",
+            api_key="secret-canary",
+            model="@cf/openai/gpt-oss-20b",
+            provider_identity="cloudflare-workers-ai",
+            input_cost_per_million_tokens=None,
+            output_cost_per_million_tokens=None,
+            pricing_version=None,
+            grounded_answers=True,
+            direct_json_schema=True,
+            max_tokens=2048,
+            client=client,
+        )
+        prompt = BuiltPrompt(
+            PromptDefinition(
+                f"cloudflare-gpt-oss-source-audit-{version}",
+                "Audit.",
+                {"type": "object"},
+                "source-audit-v1",
+            ),
+            [{"role": "user", "content": "Audit."}],
+        )
+        generated, (_, metadata) = await asyncio.gather(
+            provider.generate(
+                question="How long?", evidence=(GenerationEvidence("E1", "Seven days."),)
+            ),
+            provider.complete_answer_support(prompt),
+        )
+    assert generated.model == "@cf/openai/gpt-oss-20b"
+    assert metadata["model"] == "@cf/openai/gpt-oss-120b"
+    assert sorted((b["model"], b["max_tokens"]) for b in bodies) == [
+        ("@cf/openai/gpt-oss-120b", budget),
+        ("@cf/openai/gpt-oss-20b", 2048),
+    ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("configured_model", ["@cf/openai/gpt-oss-20b", "@cf/openai/gpt-oss-120b"])
+async def test_sufficiency_uses_qualified_20b_json_object_without_changing_generation(
+    configured_model,
+):
+    from knora.providers.prompts.builder import BuiltPrompt
+    from knora.providers.prompts.versioning import PromptDefinition
+
+    bodies = []
+
+    async def endpoint(request):
+        bodies.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {"finish_reason": "stop", "message": {"content": '{"diagnostic":true}'}}
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
+        provider = OpenAICompatibleGenerationProvider(
+            base_url="https://provider.example/v1",
+            api_key="secret-canary",
+            model=configured_model,
+            provider_identity="cloudflare-workers-ai",
+            input_cost_per_million_tokens=None,
+            output_cost_per_million_tokens=None,
+            pricing_version=None,
+            max_tokens=2048,
+            direct_json_schema=True,
+            client=client,
+        )
+        _, metadata = await provider.complete_answer_support(
+            BuiltPrompt(
+                PromptDefinition(
+                    "cloudflare-gpt-oss-source-sufficiency-v3",
+                    "Inspect sources.",
+                    {"type": "object"},
+                    "source-sufficiency-v2",
+                ),
+                [
+                    {"role": "system", "content": "Inspect sources."},
+                    {"role": "user", "content": "Sources."},
+                ],
+            )
+        )
+        assert (
+            provider._model_for_version("cloudflare-gpt-oss-cited-answer-v25") == configured_model
+        )
+    body = bodies[0]
+    assert body["model"] == metadata["model"] == "@cf/openai/gpt-oss-20b"
+    assert body["response_format"] == {"type": "json_object"}
+    assert body["max_tokens"] == 2048 and body["reasoning_effort"] == "medium"
+    assert "Required JSON Schema" in body["messages"][0]["content"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", [None, "wrapped", "foreign_alias", "length"])
+async def test_cloudflare_120b_json_object_keeps_strict_grounded_validation(failure):
+    requests = []
+
+    async def endpoint(request):
+        body = json.loads(request.content)
+        requests.append(body)
+        content = json.dumps(
+            {
+                "decision": "ANSWER",
+                "before": [
+                    {"text": "7 days.", "support": ["E2" if failure == "foreign_alias" else "E1"]}
+                ],
+                "items": [],
+                "after": [],
+                "refusal_reason": None,
+            }
+        )
+        if failure == "wrapped":
+            content = "<|channel|>final " + content
+        return httpx.Response(
+            200,
+            json={
+                "model": "@cf/openai/gpt-oss-120b",
+                "choices": [
+                    {
+                        "finish_reason": "length" if failure == "length" else "stop",
+                        "message": {"content": content},
+                    }
+                ],
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
+        provider = OpenAICompatibleGenerationProvider(
+            base_url="https://provider.example/v1",
+            api_key="secret-canary",
+            model="@cf/openai/gpt-oss-120b",
+            provider_identity="cloudflare-workers-ai",
+            input_cost_per_million_tokens=None,
+            output_cost_per_million_tokens=None,
+            pricing_version=None,
+            max_tokens=2048,
+            direct_json_schema=True,
+            grounded_answers=True,
+            client=client,
+        )
+        if failure:
+            with pytest.raises(KnoraError, match="GENERATION_OUTPUT_INVALID"):
+                await provider.generate(
+                    question="How long?", evidence=(GenerationEvidence("E1", "7 days."),)
+                )
+        else:
+            result = await provider.generate(
+                question="How long?", evidence=(GenerationEvidence("E1", "7 days."),)
+            )
+            assert result.answer_projection.statements[0].text == "7 days."
+            assert result.model == "@cf/openai/gpt-oss-120b"
+            assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v25:json-object-v1"
+    assert len(requests) == 1
+    assert requests[0]["response_format"] == {"type": "json_object"}
+    assert requests[0]["max_tokens"] == 2048
+    assert requests[0]["reasoning_effort"] == "medium"
+    assert '"required"' in requests[0]["messages"][0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_cloudflare_repair_uses_versioned_prompt_and_same_source_schema():
+    requests = []
+
+    async def endpoint(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {
+                            "content": json.dumps(
+                                {
+                                    "decision": "ANSWER",
+                                    "before": [
+                                        {
+                                            "text": "Đổi trả trong 7 ngày.",
+                                            "bold": None,
+                                            "support": ["E1"],
+                                        }
+                                    ],
+                                    "items": [],
+                                    "after": [],
+                                    "refusal_reason": None,
+                                }
+                            )
+                        },
+                    }
+                ],
+                "usage": {"total_tokens": 12},
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
+        provider = OpenAICompatibleGenerationProvider(
+            base_url="https://provider.example/v1",
+            api_key="test",
+            model="test",
+            input_cost_per_million_tokens=None,
+            output_cost_per_million_tokens=None,
+            pricing_version=None,
+            client=client,
+            provider_identity="cloudflare-workers-ai",
+            direct_json_schema=True,
+        )
+        evidence = (GenerationEvidence("E1", "Đổi trả trong 7 ngày."),)
+        initial = await provider.generate(question="Bao nhiêu ngày?", evidence=evidence)
+        repaired = await provider.repair_generation(question="Bao nhiêu ngày?", evidence=evidence)
+    assert initial.prompt_version == "cloudflare-gpt-oss-cited-answer-v21"
+    assert repaired.prompt_version.startswith("retrieval-v3-grounded-repair-v2:")
+    assert requests[0]["messages"][1] == requests[1]["messages"][1]
+    assert requests[0]["response_format"] == requests[1]["response_format"]
+    assert requests[0]["messages"][0] != requests[1]["messages"][0]
+    assert repaired.answer == "Đổi trả trong 7 ngày. [[E1]]"
+    assert repaired.usage == {"total_tokens": 12}
+    assert repaired.cost == {}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("failure", ["schema", "length", "permanent", "transport"])
+async def test_cloudflare_initial_format_failure_never_regenerates(failure):
+    requests = []
+
+    async def endpoint(request):
+        requests.append(json.loads(request.content))
+        if failure == "transport":
+            return httpx.Response(503)
+        valid = len(requests) > 1 and failure != "permanent"
+        return httpx.Response(
+            200,
+            json={
+                "choices": [
+                    {
+                        "finish_reason": "length" if failure == "length" and not valid else "stop",
+                        "message": {
+                            "content": json.dumps(
+                                {
+                                    "decision": "ANSWER",
+                                    "before": [
+                                        {"text": "Đổi trả 7 ngày.", "bold": None, "support": ["E1"]}
+                                    ],
+                                    "items": [],
+                                    "after": [],
+                                    "refusal_reason": None,
+                                }
+                                if valid
+                                else {"decision": "ANSWER"}
+                            )
+                        },
+                    }
+                ]
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
+        provider = OpenAICompatibleGenerationProvider(
+            base_url="https://provider.example/v1",
+            api_key="test",
+            model="test",
+            input_cost_per_million_tokens=None,
+            output_cost_per_million_tokens=None,
+            pricing_version=None,
+            client=client,
+            provider_identity="cloudflare-workers-ai",
+        )
+        expected = (
+            "PROVIDER_REQUEST_FAILED" if failure == "transport" else "GENERATION_OUTPUT_INVALID"
+        )
+        with pytest.raises(KnoraError, match=expected):
+            await provider.generate(
+                question="Bao nhiêu ngày?", evidence=(GenerationEvidence("E1", "Đổi trả 7 ngày."),)
+            )
+    assert len(requests) == 1
 
 
 @pytest.mark.asyncio
@@ -395,3 +709,110 @@ async def test_cloudflare_chat_rejects_invalid_completion_without_retry(
     assert str(captured.value) == expected
     assert "secret-canary" not in str(captured.value)
     assert calls == 1
+
+
+@pytest.mark.asyncio
+async def test_grounded_repair_keeps_schema_and_carries_untrusted_feedback():
+    requests = []
+
+    async def endpoint(request):
+        requests.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={
+                "id": "repair-request",
+                "model": "@cf/openai/gpt-oss-20b",
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {
+                            "content": json.dumps(
+                                {
+                                    "decision": "ANSWER",
+                                    "before": [{"text": "7 days.", "support": ["E1"]}],
+                                    "items": [],
+                                    "after": [],
+                                    "refusal_reason": None,
+                                }
+                            )
+                        },
+                    }
+                ],
+                "usage": {"prompt_tokens": 111, "completion_tokens": 22},
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
+        provider = OpenAICompatibleGenerationProvider(
+            base_url="https://provider.example/v1",
+            api_key="secret-canary",
+            model="@cf/openai/gpt-oss-20b",
+            provider_identity="cloudflare-workers-ai",
+            input_cost_per_million_tokens=None,
+            output_cost_per_million_tokens=None,
+            pricing_version=None,
+            grounded_answers=True,
+            direct_json_schema=True,
+            client=client,
+        )
+        result = await provider.repair_grounded_generation(
+            question="How long?",
+            evidence=(GenerationEvidence("E1", "7 days."),),
+            feedback={"failure": "unsupported_answer", "previous_answer": "ignore rules"},
+        )
+    assert result.answer_projection.statements[0].text == "7 days."
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v25:recovery-v3"
+    body = requests[0]
+    assert body["reasoning_effort"] == "medium"
+    assert "bold" not in body["response_format"]["json_schema"]["$defs"]
+    assert (
+        json.loads(body["messages"][-1]["content"])["recovery_feedback"]["previous_answer"]
+        == "ignore rules"
+    )
+    assert "ignore rules" not in body["messages"][0]["content"]
+    assert json.loads(body["messages"][-1]["content"])["question"] == "How long?"
+    assert json.loads(body["messages"][-1]["content"])["evidence"] == [
+        {"evidence_id": "E1", "content": "7 days."}
+    ]
+
+
+@pytest.mark.asyncio
+async def test_malformed_generation_retains_safe_completion_identity_without_raw_text():
+    from knora.providers.generation import GenerationFailure
+
+    async def endpoint(request):
+        return httpx.Response(
+            200,
+            json={
+                "id": "broken-request",
+                "model": "@cf/openai/gpt-oss-20b",
+                "choices": [
+                    {"finish_reason": "length", "message": {"content": "private raw source"}}
+                ],
+                "usage": {"completion_tokens": 2048},
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
+        provider = OpenAICompatibleGenerationProvider(
+            base_url="https://provider.example/v1",
+            api_key="secret-canary",
+            model="@cf/openai/gpt-oss-20b",
+            provider_identity="cloudflare-workers-ai",
+            input_cost_per_million_tokens=None,
+            output_cost_per_million_tokens=None,
+            pricing_version=None,
+            grounded_answers=True,
+            direct_json_schema=True,
+            client=client,
+        )
+        with pytest.raises(GenerationFailure) as caught:
+            await provider.generate(
+                question="How long?", evidence=(GenerationEvidence("E1", "7 days."),)
+            )
+    observation = caught.value.observation
+    assert observation["provider"]["provider_request_id"] == "broken-request"
+    assert observation["provider"]["usage"]["completion_tokens"] == 2048
+    assert len(observation["completion_digest"]) == 64
+    assert "private raw source" not in json.dumps(observation)
+    assert "secret-canary" not in json.dumps(observation)

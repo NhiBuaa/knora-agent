@@ -357,6 +357,33 @@ the parent environment. Submit a new Turn and verify its server trace records th
 selected provider/model/profile, then inspect facts, citations and refusal. Old
 Turns remain unchanged. Successful preflight does not certify answer quality.
 
+The conversation-approved 120B trial has not qualified a model replacement. Application
+bootstrap retains `@cf/openai/gpt-oss-20b`; low-level 120B transport tests are diagnostic only.
+Malformed output remains rejected. Owner-approved Retrieval V3 recovery can correct generation
+or verifier format, or regenerate an unsupported answer from the same source snapshot with
+specific feedback. Unsupported extra statements can be removed, followed by fresh verification
+of the entire remaining answer and all required question parts. It stops on repeated failed
+content, provider unavailability or deadline;
+there is no provider fallback and no unverified final answer. Per-call safe observations are in
+`QuestionTrace.provider_metadata.generation_recovery`; malformed generation also retains a trace.
+Verification selects exact supporting quotes, then independently checks whether they
+establish each complete claim. Completeness uses immutable answer-statement IDs;
+the server resolves literal answer spans instead of asking the model to transcribe them.
+Before the final audit, V3 builds a minimal draft from the blind source inventory.
+That draft is unverified and requires a fresh audit against original sources and every
+question group; preliminary facts never constitute final-answer proof.
+The blind inventory may be reused only within that recovery request with identical
+question, groups, source content and snapshot binding; answer audits always run again.
+Each call is capped at 60 seconds within the same
+90-second question pipeline; the second call does not reset that deadline.
+When a rejected answer needs repair, a separate source check may confirm insufficient evidence
+and return the existing generic refusal. This checks the supplied excerpts, not absence across
+the entire document; provider errors and timeouts remain operational errors.
+Provider/model changes require restarting the full launcher and checking fresh trace
+model/prompt identities. Paid AI use requires its own authorization; the Issue #153
+owner granted reasonable paid use and conditional 120B integration in the Codex
+conversation on 2026-10-29. This is not release acceptance or deployment approval.
+
 ### Re-index a retained corpus for Cloudflare
 
 Only the operator of an isolated, quiesced target corpus should run this workflow.
@@ -712,7 +739,6 @@ and loads through PowerShell's `Add-Type`; it requires no additional dependency.
 Use `-ApiPort`, `-FrontendPort`, `-PostgresPort`, `-PythonExe`, `-OllamaBaseUrl`, `-EnvFile`, `-DatabaseName`, or `-NoBrowser` when a temporary local override is required. Process/command values take precedence over root `.env` where the launcher exposes an override.
 
 An explicit `-FrontendPort` also sets the local `KEYCLOAK_REDIRECT_URI` and `NEXT_PUBLIC_APP_ORIGIN` to that port. The Keycloak client must allow the resulting exact callback URI (for example `http://127.0.0.1:3001/api/auth/callback`); changing the app port does not change Keycloak's redirect allowlist.
-
 
 ## Referencing a shared `.env` from an isolated Git worktree
 

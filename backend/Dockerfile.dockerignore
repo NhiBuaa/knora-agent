@@ -7,7 +7,7 @@
 
 # Exact tracked migrations (55 files)
 
-# Exact tracked backend src files (190 files)
+# Exact tracked backend src files (196 files)
 
 # Exact 16 sibling force-include resources (16 files)
 
@@ -106,6 +106,7 @@
 !backend/src/knora/adapters/http/workspaces.py
 !backend/src/knora/adapters/langchain/embedding.py
 !backend/src/knora/adapters/langchain/generation.py
+!backend/src/knora/adapters/langchain/query_planning.py
 !backend/src/knora/adapters/object_store/__init__.py
 !backend/src/knora/adapters/object_store/filesystem.py
 !backend/src/knora/adapters/object_store/inventory.py
@@ -149,22 +150,29 @@
 !backend/src/knora/adapters/qdrant/native_search_index.py
 !backend/src/knora/adapters/qdrant/search_index.py
 !backend/src/knora/answering/__init__.py
+!backend/src/knora/answering/answer_support.py
 !backend/src/knora/answering/calibration_independence_v2.py
 !backend/src/knora/answering/calibration_v2.py
 !backend/src/knora/answering/corpus_cutover_v2.py
 !backend/src/knora/answering/evidence.py
 !backend/src/knora/answering/evidence_closure_v2.py
+!backend/src/knora/answering/evidence_support.py
 !backend/src/knora/answering/excerpt.py
+!backend/src/knora/answering/generation_recovery.py
 !backend/src/knora/answering/generation_validation.py
 !backend/src/knora/answering/interface.py
 !backend/src/knora/answering/lexical.py
 !backend/src/knora/answering/module.py
+!backend/src/knora/answering/query_correction.py
+!backend/src/knora/answering/query_planning.py
+!backend/src/knora/answering/query_results.py
 !backend/src/knora/answering/reembedding_v2.py
 !backend/src/knora/answering/reranking.py
 !backend/src/knora/answering/reranking_configuration.py
 !backend/src/knora/answering/retrieval_configuration.py
 !backend/src/knora/answering/retrieval_v2.py
 !backend/src/knora/answering/sequential_dependence.py
+!backend/src/knora/answering/source_verification.py
 !backend/src/knora/answering/stores.py
 !backend/src/knora/api/__init__.py
 !backend/src/knora/api/m5_e2e_faults.py
@@ -224,6 +232,7 @@
 !backend/src/knora/main.py
 !backend/src/knora/providers/__init__.py
 !backend/src/knora/providers/cloudflare/__init__.py
+!backend/src/knora/providers/cloudflare/answer_support.py
 !backend/src/knora/providers/cloudflare/embedding.py
 !backend/src/knora/providers/cloudflare/pdf_understanding.py
 !backend/src/knora/providers/cloudflare/reranking.py

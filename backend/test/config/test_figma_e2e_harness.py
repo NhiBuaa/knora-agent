@@ -1669,7 +1669,7 @@ def test_dockerignore_exact_allowlist_matches_tracked_and_resources() -> None:
         ["git", "ls-files", "-z", "--", "backend/src"], cwd=ROOT, text=True
     ).split("\0")
     src_files = sorted([f.replace("\\", "/") for f in src_files if f])
-    assert len(src_files) == 190
+    assert len(src_files) == 199
     for f in src_files:
         assert f.endswith(".py"), f"Src file must be .py: {f}"
 
@@ -1749,7 +1749,7 @@ def test_docker_build_probe_enforces_exact_context_exclusion(tmp_path: Path) -> 
     (ctx / "backend/Dockerfile.dockerignore").write_bytes(dockerignore_bytes)
     (ctx / ".dockerignore").write_bytes(b"!**\n")
 
-    # 1. Independent expected payload files (248 files)
+    # 1. Independent expected payload files from tracked sources and declared resources.
     src_files = subprocess.check_output(
         ["git", "ls-files", "-z", "--", "backend/src"], cwd=ROOT, text=True
     ).split("\0")
@@ -1775,7 +1775,7 @@ def test_docker_build_probe_enforces_exact_context_exclusion(tmp_path: Path) -> 
     payload_list = (
         ["backend/pyproject.toml", "backend/alembic.ini"] + mig_files + src_files + res_files
     )
-    assert len(payload_list) == 263, f"Expected exactly 263 payload files, got {len(payload_list)}"
+    assert len(payload_list) == 272, f"Expected exactly 272 payload files, got {len(payload_list)}"
 
     expected_payloads: dict[str, bytes] = {}
     for rel in payload_list:
@@ -1788,8 +1788,8 @@ def test_docker_build_probe_enforces_exact_context_exclusion(tmp_path: Path) -> 
     expected_allowlist = set(
         payload_list + ["backend/Dockerfile", "backend/Dockerfile.dockerignore"]
     )
-    assert len(expected_allowlist) == 265, (
-        f"Expected 265 total allowlist files, got {len(expected_allowlist)}"
+    assert len(expected_allowlist) == 274, (
+        f"Expected 274 total allowlist files, got {len(expected_allowlist)}"
     )
 
     # 2. Sentinels outside allowlist
