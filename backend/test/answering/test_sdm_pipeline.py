@@ -117,7 +117,7 @@ def test_sdm_pipeline_stage_order_and_reranking():
             0,
             result=GenerationResult(
                 decision="ANSWER",
-                answer="Exact match [[E1]].",
+                answer="Sequential dependence [[E1]].",
                 cited_evidence_ids=("E1",),
                 refusal_reason=None,
                 provider="cf",
@@ -162,7 +162,7 @@ def test_sdm_pipeline_stage_order_and_reranking():
 
     result = asyncio.run(answer_question.execute(command, principal))
     assert result.decision == "ANSWER"
-    assert result.answer == "Exact match [[E1]]."
+    assert result.answer == "Sequential dependence [[E1]]."
 
     # Verify trace persisted has SDM status completed
     assert store.persist_trace.called
@@ -194,7 +194,7 @@ def test_sdm_pipeline_unrun_records_not_run():
             0,
             result=GenerationResult(
                 decision="ANSWER",
-                answer="Exact match [[E1]].",
+                answer="Some text content [[E1]].",
                 cited_evidence_ids=("E1",),
                 refusal_reason=None,
                 provider="cf",
@@ -344,7 +344,7 @@ def test_sdm_distractor_invariance_and_statistics_digest_trace():
             0,
             result=GenerationResult(
                 decision="ANSWER",
-                answer="Exact match [[E1]].",
+                answer="Sequential dependence [[E1]].",
                 cited_evidence_ids=("E1",),
                 refusal_reason=None,
                 provider="cf",

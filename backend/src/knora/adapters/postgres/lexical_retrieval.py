@@ -453,9 +453,13 @@ def retrieve_dense_candidates(
 
             document = session.get(DocumentTable, generation.document_id)
 
-            active_emb_cfg = document.active_embedding_configuration_id if document else None
+            active_emb_cfg = (
+                getattr(document, "active_embedding_configuration_id", None) if document else None
+            )
 
-            active_emb_set = document.active_embedding_set_id if document else None
+            active_emb_set = (
+                getattr(document, "active_embedding_set_id", None) if document else None
+            )
 
             if (
                 embedding_configuration
@@ -656,9 +660,13 @@ def retrieve_hybrid_candidates(
 
             document = session.get(DocumentTable, generation.document_id)
 
-            active_emb_cfg = document.active_embedding_configuration_id if document else None
+            active_emb_cfg = (
+                getattr(document, "active_embedding_configuration_id", None) if document else None
+            )
 
-            active_emb_set = document.active_embedding_set_id if document else None
+            active_emb_set = (
+                getattr(document, "active_embedding_set_id", None) if document else None
+            )
 
             if (
                 embedding_configuration

@@ -65,8 +65,12 @@ def _sample_generation(profile: LexicalProfile) -> LexicalGeneration:
 
 def test_scale_dataset_ann_recall_and_quantization_gate():
     """Evaluate ANN Recall@200 and TurboQuant bits4 nDCG@10 drop on dense_search_scale_v1."""
-    manifest_path = Path("evals/datasets/dense_search_scale_v1.manifest.json")
-    dataset_path = Path("evals/datasets/dense_search_scale_v1.jsonl")
+    repo_root = Path(__file__).resolve().parents[2]
+    manifest_path = repo_root / "evals" / "datasets" / "dense_search_scale_v1.manifest.json"
+    dataset_path = repo_root / "evals" / "datasets" / "dense_search_scale_v1.jsonl"
+    if not manifest_path.exists():
+        manifest_path = Path("evals/datasets/dense_search_scale_v1.manifest.json")
+        dataset_path = Path("evals/datasets/dense_search_scale_v1.jsonl")
 
     dataset = load_dense_scale_dataset(manifest_path, dataset_path)
     assert dataset.eligible_population >= 201
@@ -75,19 +79,36 @@ def test_scale_dataset_ann_recall_and_quantization_gate():
     bits4_ndcg_scores = []
     hnsw_recall_at_200_list = []
 
+    def dot_product(v1: tuple[float, ...], v2: tuple[float, ...]) -> float:
+        return sum(a * b for a, b in zip(v1, v2, strict=True))
+
+    def quantize_4bit(vector: tuple[float, ...]) -> tuple[float, ...]:
+        min_v = min(vector)
+        max_v = max(vector)
+        scale = (max_v - min_v) / 15.0 if max_v > min_v else 1.0
+        return tuple(min_v + round((x - min_v) / scale) * scale for x in vector)
+
     for query in dataset.queries:
         exact_top200 = query.exact_top200
+        tenant_points = [p for p in dataset.points if p.workspace_id == query.workspace_id]
 
-        # Simulate HNSW ANN search with ef=256: captures 98%+ of exact top-200 neighbors
-        hnsw_retrieved = (
-            list(exact_top200[:196])
-            + list(query.exact_top200[198:200])
-            + ["point-tenant-248", "point-tenant-249"]
-        )
-        hnsw_recall_200 = len(set(exact_top200).intersection(hnsw_retrieved)) / len(exact_top200)
+        # Verify float32 dot product rankings match exact_top200
+        f32_scored = [(p.point_id, dot_product(query.vector, p.vector)) for p in tenant_points]
+        f32_scored.sort(key=lambda x: x[1], reverse=True)
+        computed_exact = tuple(x[0] for x in f32_scored[:200])
+        assert computed_exact == exact_top200
+
+        # Compute 4-bit scalar quantized vectors and dot product ranking (TurboQuant simulation)
+        q_b4 = quantize_4bit(query.vector)
+        b4_scored = [
+            (p.point_id, dot_product(q_b4, quantize_4bit(p.vector))) for p in tenant_points
+        ]
+        b4_scored.sort(key=lambda x: x[1], reverse=True)
+        b4_top200 = [x[0] for x in b4_scored[:200]]
+
+        hnsw_recall_200 = len(set(exact_top200).intersection(b4_top200)) / len(exact_top200)
         hnsw_recall_at_200_list.append(hnsw_recall_200)
 
-        # Simulate TurboQuant bits4 with rescore=true and oversampling=2.0
         judgments = {p_id: 1 if idx < 15 else 0 for idx, p_id in enumerate(exact_top200)}
 
         # Full float32 ranking
@@ -95,8 +116,14 @@ def test_scale_dataset_ann_recall_and_quantization_gate():
         assert f32_res.ndcg is not None
         f32_ndcg_scores.append(f32_res.ndcg)
 
-        # Bits4 with rescore=true: small reordering at lower ranks
-        bits4_ranking = list(exact_top200[:8]) + [exact_top200[9], exact_top200[8]]
+        # Bits4 with rescore=true on oversampled candidate set (top-20 rescored to top-10)
+        top20_candidates = [x[0] for x in b4_scored[:20]]
+        rescored = [
+            (p_id, dot_product(query.vector, dataset.points_by_id[p_id].vector))
+            for p_id in top20_candidates
+        ]
+        rescored.sort(key=lambda x: x[1], reverse=True)
+        bits4_ranking = [x[0] for x in rescored[:10]]
         bits4_res = score_ranking_case(query.query_id, bits4_ranking, judgments, k=10)
         assert bits4_res.ndcg is not None
         bits4_ndcg_scores.append(bits4_res.ndcg)
@@ -183,6 +210,8 @@ def test_dense_candidates_retrieval_wire_contract_and_hydration(monkeypatch):
                     source_key="src-1",
                     source_name="src-1",
                     archived=False,
+                    active_embedding_configuration_id="cloudflare-bge-base-en-v1.5",
+                    active_embedding_set_id="emb-set-1",
                 )
             return None
 
@@ -312,6 +341,8 @@ def test_hybrid_candidates_retrieval_wire_contract_and_dbsf(monkeypatch):
                     source_key="src-1",
                     source_name="src-1",
                     archived=False,
+                    active_embedding_configuration_id="cloudflare-bge-base-en-v1.5",
+                    active_embedding_set_id="emb-set-1",
                 )
             return None
 

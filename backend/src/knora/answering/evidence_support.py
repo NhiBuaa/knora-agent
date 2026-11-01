@@ -136,7 +136,7 @@ def assess_evidence_support(
             ):
                 continue
 
-            # 6. Keyword presence check with exact boundary
+            # 6. Keyword presence check (for multi-subquestion decomposition)
             if sq_keywords:
                 matched_kw = sum(
                     1 for kw in sq_keywords if _matches_constraint(kw, full_cand_context)
