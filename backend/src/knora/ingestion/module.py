@@ -104,6 +104,7 @@ class IngestDocument:
                     chunking_configuration=command.chunking_configuration,
                     embedding_configuration=command.embedding_configuration,
                     embedding_batch=embedding_batch,
+                    media_type=command.media_type,
                 ),
                 expected_revision=head.revision if head is not None else 0,
             )

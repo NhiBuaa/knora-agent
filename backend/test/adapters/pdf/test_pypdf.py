@@ -559,6 +559,68 @@ def test_rejects_child_output_sent_after_the_extraction_deadline() -> None:
     assert raised.value.reason == "EXTRACTION_TIMEOUT"
 
 
+def test_late_success_cannot_finalize_and_cleans_up_resources(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from pathlib import Path
+    from typing import BinaryIO
+
+    import psutil
+
+    source = pdf_with_pages("ordinary text")
+    configuration = replace(
+        PdfExtractionConfiguration.milestone_two(),
+        extraction_timeout_seconds=0.05,
+    )
+
+    probed_pids: list[int] = []
+    original_install = pypdf_process._install_hard_memory_limit
+
+    def probe_install_hard_memory_limit(process, memory_limit):
+        if process.pid is not None:
+            probed_pids.append(process.pid)
+        return original_install(process, memory_limit)
+
+    monkeypatch.setattr(
+        "knora.adapters.pdf._pypdf_process._install_hard_memory_limit",
+        probe_install_hard_memory_limit,
+    )
+
+    class ProbedLateOutputExtractor(LateOutputExtractor):
+        def __init__(self) -> None:
+            super().__init__()
+            self.temp_path: Path | None = None
+
+        def _copy_to_temporary_file(self, stream: BinaryIO, max_raw_bytes: int) -> tuple[Path, str]:
+            path, raw_hash = super()._copy_to_temporary_file(stream, max_raw_bytes)
+            self.temp_path = path
+            return path, raw_hash
+
+    extractor = ProbedLateOutputExtractor()
+    with pytest.raises(PdfExtractionError) as raised:
+        extractor.extract(BytesIO(source), configuration)
+
+    assert raised.value.code == "PDF_RESOURCE_LIMIT_EXCEEDED"
+    assert raised.value.reason == "EXTRACTION_TIMEOUT"
+
+    # F03 check 1: Temporary PDF file must be deleted completely
+    assert extractor.temp_path is not None
+    assert not extractor.temp_path.exists(), "Temporary PDF file leaked after late timeout"
+
+    # F03 check 2: Child process must be cleanly terminated without orphans
+    assert len(probed_pids) == 1
+    child_pid = probed_pids[0]
+    time.sleep(0.1)
+    if psutil.pid_exists(child_pid):
+        try:
+            proc = psutil.Process(child_pid)
+            assert not proc.is_running() or proc.status() == psutil.STATUS_ZOMBIE, (
+                f"Child process {child_pid} is still active"
+            )
+        except psutil.NoSuchProcess:
+            pass
+
+
 def test_normalization_contract_and_pinned_metadata_are_observable() -> None:
     configuration = PdfExtractionConfiguration.milestone_two()
     expected_text = "Café au lait\nsecond\nline\n\nlast"
@@ -914,3 +976,34 @@ def test_locked_baseline_timeout_and_memory_ceiling_keep_parent_healthy() -> Non
     assert PypdfTextExtractor().extract(BytesIO(source), configuration).pages[0].text == (
         "ordinary parent follow-up"
     )
+
+
+def test_pypdf_plain_and_layout_parity_and_canonical_structure() -> None:
+    raw = pdf_with_pages("Page 1 paragraph 1.\n\nPage 1 paragraph 2.", "Page 2 text.")
+    expected_hash = hashlib.sha256(raw).hexdigest()
+
+    for config in (
+        PdfExtractionConfiguration.milestone_two(),
+        PdfExtractionConfiguration.layout_preserving(),
+    ):
+        result = PypdfTextExtractor().extract(BytesIO(raw), config)
+
+        # Legacy fields parity
+        assert len(result.pages) == 2
+        assert len(result.chunks) >= 2
+        assert result.derivation_identity == config.derivation_identity
+
+        # Canonical structure presence & validation
+        assert result.structure is not None
+        assert result.structure.raw_source_hash == expected_hash
+        assert result.structure.derivation_identity == config.derivation_identity
+        assert result.structure.parser_version == config.parser_version
+        assert len(result.structure.pages) == 2
+
+        for page, canonical_page in zip(result.pages, result.structure.pages, strict=True):
+            assert page.page_number == canonical_page.page_number
+            assert page.text == canonical_page.text
+            assert page.content_checksum == canonical_page.content_checksum
+            assert len(canonical_page.blocks) > 0
+            for block in canonical_page.blocks:
+                assert canonical_page.text[block.start_offset : block.end_offset] == block.text

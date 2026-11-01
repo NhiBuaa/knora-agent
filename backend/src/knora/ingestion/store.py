@@ -22,6 +22,7 @@ class PreparedDerivation:
     chunking_configuration: ChunkingConfiguration
     embedding_configuration: EmbeddingConfiguration
     embedding_batch: EmbeddingBatch
+    media_type: str | None = None
 
 
 class IngestionStore(Protocol):

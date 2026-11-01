@@ -1,4 +1,7 @@
-from uuid import uuid4
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+from uuid import NAMESPACE_URL, uuid4, uuid5
 
 from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
@@ -13,16 +16,34 @@ from knora.adapters.postgres.tables import (
     DocumentVersionTable,
     EmbeddingConfigurationTable,
     EmbeddingSetTable,
+    IngestionJobTable,
+    LexicalGenerationTable,
+    OriginalSourceObjectTable,
     WorkspaceTable,
 )
 from knora.domain.errors import KnoraError
 from knora.ingestion.interface import IngestionResult
+from knora.ingestion.search_indexing import LexicalChunk, LexicalGeneration, LexicalProfile
 from knora.ingestion.store import DocumentHead, IngestionStore, PreparedDerivation
+
+if TYPE_CHECKING:
+    from knora.adapters.postgres.search_index_store import PostgresSearchIndexStore
+    from knora.ingestion.lexical_population import VerifiedLexicalPopulation
 
 
 class PostgresIngestionStore(IngestionStore):
-    def __init__(self, session_factory: sessionmaker) -> None:
+    def __init__(
+        self,
+        session_factory: sessionmaker,
+        *,
+        search_index_store: PostgresSearchIndexStore | None = None,
+        lexical_population: VerifiedLexicalPopulation | None = None,
+        lexical_profile: LexicalProfile | None = None,
+    ) -> None:
         self._session_factory = session_factory
+        self._search_index_store = search_index_store
+        self._lexical_population = lexical_population
+        self._lexical_profile = lexical_profile
 
     def read_document_head(self, *, workspace_id: str, source_key: str) -> DocumentHead | None:
         with self._session_factory() as session:
@@ -180,6 +201,148 @@ class PostgresIngestionStore(IngestionStore):
                 )
                 if updated.rowcount != 1:
                     raise KnoraError("DOCUMENT_CONCURRENTLY_UPDATED")
+
+                profile = self._lexical_profile or (
+                    self._lexical_population.profile
+                    if self._lexical_population is not None
+                    else None
+                )
+                if self._search_index_store is not None and profile is not None:
+                    source_object = session.scalar(
+                        select(OriginalSourceObjectTable).where(
+                            OriginalSourceObjectTable.document_version_id == version.id
+                        )
+                    )
+                    if source_object is None:
+                        source_object = OriginalSourceObjectTable(
+                            id=str(uuid4()),
+                            workspace_id=prepared.workspace_id,
+                            document_version_id=version.id,
+                            object_key=f"{prepared.workspace_id}/text/{version.id}",
+                            raw_sha256=prepared.processed.normalized_content_checksum,
+                            byte_size=len(prepared.processed.normalized_content.encode("utf-8")),
+                            media_type=prepared.media_type or "text/plain",
+                        )
+                        session.add(source_object)
+                        session.flush()
+
+                    parent_fingerprint = (
+                        f"text-dense-parent-v1\n"
+                        f"{prepared.workspace_id}\n"
+                        f"{version.id}\n"
+                        f"{embedding_config.id}"
+                    )
+                    parent_job = session.scalar(
+                        select(IngestionJobTable).where(
+                            IngestionJobTable.workspace_id == prepared.workspace_id,
+                            IngestionJobTable.target_document_version_id == version.id,
+                            IngestionJobTable.derivation_kind == "dense",
+                            IngestionJobTable.parent_ingestion_job_id.is_(None),
+                        )
+                    )
+                    database_now = session.scalar(select(func.now()))
+                    if parent_job is None:
+                        parent_job = IngestionJobTable(
+                            id=str(uuid4()),
+                            workspace_id=prepared.workspace_id,
+                            operation="ingest_document",
+                            document_id=document.id,
+                            target_document_version_id=version.id,
+                            source_object_id=source_object.id,
+                            content_fingerprint=parent_fingerprint,
+                            parser_configuration_id="text-parser-m1",
+                            normalizer_configuration_id="text-normalizer-m1",
+                            chunking_configuration_id=chunking.id,
+                            derivation_kind="dense",
+                            embedding_configuration_id=embedding_config.id,
+                            source_revision=None,
+                            workspace_revision=None,
+                            status="succeeded",
+                            attempt_count=1,
+                            max_attempts=4,
+                            created_at=database_now,
+                            updated_at=database_now,
+                            started_at=database_now,
+                            terminal_at=database_now,
+                            terminal_outcome_code="succeeded",
+                        )
+                        session.add(parent_job)
+                        session.flush()
+
+                    existing_gen = session.scalar(
+                        select(LexicalGenerationTable).where(
+                            LexicalGenerationTable.document_id == document.id,
+                            LexicalGenerationTable.document_version_id == version.id,
+                            LexicalGenerationTable.profile_digest == profile.digest(),
+                            LexicalGenerationTable.status.in_(("requested", "active")),
+                        )
+                    )
+                    if existing_gen is None:
+                        generation_id = str(
+                            uuid5(
+                                NAMESPACE_URL,
+                                f"knora-text-lexical-{version.id}-{profile.digest()}",
+                            )
+                        )
+                        chunks = session.scalars(
+                            select(ChunkTable)
+                            .where(ChunkTable.chunk_set_id == chunk_set.id)
+                            .order_by(ChunkTable.ordinal)
+                        ).all()
+                        lexical_chunks = tuple(
+                            LexicalChunk(c.id, c.ordinal, c.content_checksum) for c in chunks
+                        )
+                        generation = LexicalGeneration(
+                            generation_id=generation_id,
+                            workspace_id=prepared.workspace_id,
+                            document_id=document.id,
+                            document_version_id=version.id,
+                            chunk_set_id=chunk_set.id,
+                            lexical_profile=profile,
+                            revision=expected_revision + 1,
+                            chunks=lexical_chunks,
+                        )
+                        self._search_index_store.request_generation_in_transaction(
+                            session, generation, expected_revision=expected_revision
+                        )
+
+                        child_job = session.scalar(
+                            select(IngestionJobTable).where(
+                                IngestionJobTable.parent_ingestion_job_id == parent_job.id,
+                                IngestionJobTable.derivation_kind == "lexical_index",
+                            )
+                        )
+                        if child_job is None:
+                            child_fingerprint = (
+                                f"lexical_index-v1\n{generation.generation_id}\n"
+                                f"{generation.content_digest()}\n{profile.digest()}"
+                            )
+                            child_job = IngestionJobTable(
+                                id=str(uuid4()),
+                                workspace_id=prepared.workspace_id,
+                                operation="ingest_document",
+                                document_id=document.id,
+                                target_document_version_id=version.id,
+                                source_object_id=source_object.id,
+                                content_fingerprint=child_fingerprint,
+                                parser_configuration_id="text-parser-m1",
+                                normalizer_configuration_id="text-normalizer-m1",
+                                chunking_configuration_id=chunking.id,
+                                derivation_kind="lexical_index",
+                                embedding_configuration_id=None,
+                                lexical_profile=None,
+                                lexical_generation_id=generation.generation_id,
+                                parent_ingestion_job_id=parent_job.id,
+                                source_revision=expected_revision + 1,
+                                workspace_revision=workspace.revision,
+                                status="queued",
+                                attempt_count=0,
+                                max_attempts=4,
+                                created_at=database_now,
+                                updated_at=database_now,
+                            )
+                            session.add(child_job)
+                            session.flush()
 
                 return IngestionResult(
                     outcome="created" if created else "reused",

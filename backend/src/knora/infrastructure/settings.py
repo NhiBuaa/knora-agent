@@ -95,6 +95,10 @@ class Settings(BaseSettings):
     cloudflare_embedding_configuration_id: str = "embedding-cloudflare-qwen3-06b-v1"
     cloudflare_generation_model: str = "@cf/openai/gpt-oss-20b"
     cloudflare_timeout_seconds: float = 60.0
+    cloudflare_ocr_model: str = "@cf/moondream/moondream3.1-9B-A2B"
+    cloudflare_reranker_model: str = "@cf/baai/bge-reranker-base"
+    reranking_configuration_id: str | None = None
+    pdf_parser_driver: str = "pypdf"
 
     # The root .env is shared by backend, frontend and local launchers. Ignore entries
     # owned by another process while keeping Knora settings typed and explicit here.

@@ -56,6 +56,19 @@ async def test_once_worker_never_claims_a_second_job(idle) -> None:
 
 
 @pytest.mark.asyncio
+async def test_worker_reconciles_dynamic_search_after_job_without_claiming_another():
+    runner = _FakeRunner(lambda _worker_id, _calls: NoEligibleJob())
+    maintenance_calls = []
+    app = _fake_app(runner)
+    app.state.search_index_maintenance = SimpleNamespace(
+        run_once=lambda: maintenance_calls.append(runner.calls)
+    )
+    assert await run_worker(once=True, poll_seconds=0.01, application=app) is False
+    assert maintenance_calls == [1]
+    assert runner.calls == 1
+
+
+@pytest.mark.asyncio
 async def test_idle_worker_restarts_without_claiming_a_second_job(tmp_path: Path) -> None:
     source = tmp_path / "source.py"
     source.write_text("value = 1\n", encoding="utf-8")

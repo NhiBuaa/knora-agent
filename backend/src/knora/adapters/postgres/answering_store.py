@@ -1,13 +1,17 @@
+import re
 from contextlib import contextmanager
 from dataclasses import replace
 from uuid import uuid4
 
-from sqlalchemy import and_, case, exists, func, select
+from sqlalchemy import String, and_, case, exists, func, or_, select
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session, sessionmaker
 
 from knora.adapters.postgres.lexical_retrieval import (
+    retrieve_dense_candidates,
+    retrieve_hybrid_candidates,
     retrieve_lexical_candidates,
+    validate_dynamic_population_in_transaction,
     validate_population_in_transaction,
 )
 from knora.adapters.postgres.search_index_store import PostgresSearchIndexStore
@@ -22,6 +26,7 @@ from knora.adapters.postgres.tables import (
     RetrievalV2CutoverTable,
 )
 from knora.adapters.qdrant.native_search_index import NativeQdrantSearchIndex
+from knora.answering.answer_support import validate_trace_support
 from knora.answering.excerpt import citation_excerpt
 from knora.answering.generation_validation import validate_generation
 from knora.answering.interface import CitationProjection, QuestionResult
@@ -53,16 +58,26 @@ class PostgresAnsweringStore(AnsweringStore):
         self._lexical_index = lexical_index
         self._lexical_population = lexical_population
 
+    def read_corpus_statistics(self, workspace_id: str, lexical_policy_id: str) -> object:
+        with self._session_factory.begin() as session:
+            authority = PostgresSearchIndexStore(self._session_factory)
+            return authority.read_corpus_statistics_in_transaction(
+                session, workspace_id, lexical_policy_id
+            )
+
     def revalidate_lexical_snapshot(
         self,
         workspace_id: str,
-        lexical_policy_id: str,
+        lexical_policy_id: str | None,
         generations: tuple[LexicalGeneration, ...],
     ) -> None:
+        policy_id = (
+            lexical_policy_id
+            or (generations[0].lexical_policy_id if generations else None)
+            or (self._lexical_index.index.profile.id if self._lexical_index else "")
+        )
         with self._session_factory.begin() as session:
-            self._revalidate_lexical_population(
-                session, workspace_id, lexical_policy_id, generations
-            )
+            self._revalidate_lexical_population(session, workspace_id, policy_id, generations)
 
     def _revalidate_lexical_population(
         self,
@@ -80,22 +95,122 @@ class PostgresAnsweringStore(AnsweringStore):
         )
         if {g.generation_id for g in current} != {g.index_generation_id for g in generations}:
             raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
-        validate_population_in_transaction(session, workspace_id, current, self._lexical_population)
+        if self._lexical_population is not None:
+            validate_population_in_transaction(
+                session, workspace_id, current, self._lexical_population
+            )
+        elif lexical_policy_id in {
+            "bm25-word-frozen47-population-v1",
+            "bm25-word-upload-fixture-population-v1",
+        }:
+            raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+        else:
+            validate_dynamic_population_in_transaction(session, workspace_id, current)
+
+    def read_canonical_chunks_for_scope(
+        self,
+        workspace_id: str,
+        target_item: str,
+        snapshot: object,
+        *,
+        cursor: int = 0,
+        limit: int = 1024,
+    ) -> list[RetrievalCandidate]:
+        if not target_item or not target_item.strip():
+            return []
+        if snapshot is None:
+            return []
+        term = target_item.strip()
+        with self._session_factory() as session:
+            statement = (
+                select(DocumentTable, DocumentVersionTable, ChunkSetTable, ChunkTable)
+                .join(
+                    DocumentVersionTable,
+                    DocumentVersionTable.id == DocumentTable.current_document_version_id,
+                )
+                .join(ChunkSetTable, ChunkSetTable.document_version_id == DocumentVersionTable.id)
+                .join(ChunkTable, ChunkTable.chunk_set_id == ChunkSetTable.id)
+                .where(
+                    DocumentTable.workspace_id == workspace_id,
+                    DocumentTable.archived.is_(False),
+                    ChunkSetTable.status == "completed",
+                    or_(
+                        ChunkTable.content.ilike(f"%{term}%"),
+                        func.cast(ChunkTable.heading_path, String).ilike(f"%{term}%"),
+                    ),
+                )
+            )
+            if not isinstance(snapshot, (tuple, list)) or not snapshot:
+                return []
+            cset_ids = [
+                getattr(item, "chunk_set_id", None)
+                for item in snapshot
+                if getattr(item, "chunk_set_id", None)
+            ]
+            if not cset_ids:
+                return []
+            statement = statement.where(ChunkSetTable.id.in_(cset_ids))
+            statement = statement.order_by(ChunkTable.ordinal.asc()).limit(1000)
+            rows = session.execute(statement).all()
+            pattern = re.compile(
+                rf"(?<![0-9A-Za-zÀ-ỹ]){re.escape(term)}(?![0-9A-Za-zÀ-ỹ])", re.IGNORECASE
+            )
+            filtered_rows = []
+            for doc, ver, cs, chunk in rows:
+                headings = " ".join(chunk.heading_path) if chunk.heading_path else ""
+                if pattern.search(chunk.content) or pattern.search(headings):
+                    filtered_rows.append((doc, ver, cs, chunk))
+            paged_rows = filtered_rows[cursor : cursor + limit]
+            return [
+                RetrievalCandidate(
+                    document_id=document.id,
+                    document_version_id=version.id,
+                    source_key=document.source_key,
+                    source_name=document.source_name,
+                    chunk_set_id=chunk_set.id,
+                    embedding_set_id=None,
+                    embedding_configuration_id=None,
+                    chunk_id=chunk.id,
+                    chunk_ordinal=chunk.ordinal,
+                    heading_path=tuple(chunk.heading_path) if chunk.heading_path else (),
+                    start_line=chunk.start_line,
+                    end_line=chunk.end_line,
+                    content=chunk.content,
+                    content_checksum=chunk.content_checksum,
+                    token_count=chunk.token_count,
+                    cosine_distance=None,
+                    similarity=None,
+                    page_start=chunk.page_start,
+                    page_end=chunk.page_end,
+                    start_offset=chunk.start_offset,
+                    end_offset=chunk.end_offset,
+                )
+                for document, version, chunk_set, chunk in paged_rows
+            ]
 
     def _revalidate_lexical_trace(self, session: Session, trace: QuestionTraceRecord) -> None:
-        if trace.trace_schema_version != 3:
+        if trace.trace_schema_version not in {3, 4}:
+            return
+        if trace.decision == "REFUSAL" and trace.refusal_reason == "CLARIFICATION_REQUIRED":
             return
         try:
             retrieval = trace.provider_metadata["retrieval"]
-            if not isinstance(retrieval, dict) or retrieval.get("mode") != "bm25-only":
+            if not isinstance(retrieval, dict) or retrieval.get("mode") not in {
+                "bm25-only",
+                "dense-only",
+                "hybrid",
+            }:
                 raise ValueError("invalid lexical trace mode")
             data = retrieval["lexical_generations"]
             if not isinstance(data, list) or not data:
                 raise ValueError("missing lexical trace snapshot")
             if any(
                 not isinstance(item, dict)
-                or len(item) != 6
-                or any(not isinstance(value, str) or not value for value in item.values())
+                or len(item) not in (6, 7)
+                or any(
+                    k != "statistics_digest" and (not isinstance(value, str) or not value)
+                    for k, value in item.items()
+                )
                 for item in data
             ):
                 raise ValueError("invalid lexical trace snapshot")
@@ -105,14 +220,31 @@ class PostgresAnsweringStore(AnsweringStore):
         self._revalidate_lexical_population(
             session, trace.workspace_id, generations[0].lexical_policy_id, generations
         )
+        if (
+            trace.trace_schema_version == 4
+            and trace.validation_outcome == "valid"
+            and trace.decision == "ANSWER"
+        ):
+            rows = session.execute(
+                select(ChunkTable.id, ChunkTable.content, ChunkTable.content_checksum).where(
+                    ChunkTable.id.in_(trace.alias_mapping.values()),
+                    ChunkTable.chunk_set_id.in_([g.chunk_set_id for g in generations]),
+                )
+            ).all()
+            validate_trace_support(
+                trace, {cid: (content, checksum) for cid, content, checksum in rows}
+            )
 
-    def require_lexical_corpus(self, workspace_id: str, lexical_policy_id: str) -> None:
+    def require_lexical_corpus(
+        self, workspace_id: str, lexical_policy_id: str | None = None
+    ) -> None:
         if self._lexical_index is None:
             raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
         with self._session_factory.begin() as session:
+            policy_id = lexical_policy_id or self._lexical_index.index.profile.id
             current = PostgresSearchIndexStore(
                 self._session_factory
-            ).read_active_generations_in_snapshot(session, workspace_id, lexical_policy_id)
+            ).read_active_generations_in_snapshot(session, workspace_id, policy_id)
             snapshots = tuple(
                 LexicalGeneration(
                     g.workspace_id,
@@ -124,7 +256,7 @@ class PostgresAnsweringStore(AnsweringStore):
                 )
                 for g in current
             )
-            self._revalidate_lexical_population(session, workspace_id, lexical_policy_id, snapshots)
+            self._revalidate_lexical_population(session, workspace_id, policy_id, snapshots)
 
     def require_compatible_corpus(self, workspace_id: str, embedding_configuration_id: str) -> None:
         with self._session_factory() as session:
@@ -167,6 +299,42 @@ class PostgresAnsweringStore(AnsweringStore):
                 query_text,
                 retrieval_configuration,
                 self._lexical_index,
+                population=self._lexical_population,
+            )
+        if retrieval_configuration.strategy == "dense-only":
+            if self._lexical_index is None:
+                raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+            if query_vector is None or embedding_configuration is None:
+                raise KnoraError("EMBEDDING_CONFIGURATION_REQUIRED")
+            if len(query_vector) != embedding_configuration.dimensions:
+                raise KnoraError("EMBEDDING_DIMENSION_MISMATCH")
+            return retrieve_dense_candidates(
+                self._session_factory,
+                workspace_id,
+                query_vector,
+                retrieval_configuration,
+                self._lexical_index,
+                embedding_configuration=embedding_configuration,
+                population=self._lexical_population,
+            )
+        if (
+            retrieval_configuration.strategy == "hybrid"
+            and retrieval_configuration.fusion_policy_id == "dbsf-v1"
+        ):
+            if self._lexical_index is None:
+                raise KnoraError("LEXICAL_RETRIEVAL_UNAVAILABLE")
+            if query_vector is None or embedding_configuration is None:
+                raise KnoraError("EMBEDDING_CONFIGURATION_REQUIRED")
+            if len(query_vector) != embedding_configuration.dimensions:
+                raise KnoraError("EMBEDDING_DIMENSION_MISMATCH")
+            return retrieve_hybrid_candidates(
+                self._session_factory,
+                workspace_id,
+                query_text,
+                query_vector,
+                retrieval_configuration,
+                self._lexical_index,
+                embedding_configuration=embedding_configuration,
                 population=self._lexical_population,
             )
         if query_vector is None or embedding_configuration is None:
@@ -832,12 +1000,17 @@ class PostgresAnsweringStore(AnsweringStore):
                 return None
             if not self._trace_is_recoverable(trace):
                 return None
+            if trace.trace_schema_version == 4:
+                try:
+                    self._revalidate_lexical_trace(session, trace)
+                except KnoraError:
+                    return None
             if trace.decision == "REFUSAL":
                 return QuestionResult(
                     decision="REFUSAL",
                     answer=None,
                     citations=(),
-                    refusal_reason="INSUFFICIENT_EVIDENCE",
+                    refusal_reason=trace.refusal_reason or "INSUFFICIENT_EVIDENCE",
                     trace_id=trace.id,
                     workspace_id=workspace_id,
                 )
@@ -924,8 +1097,10 @@ class PostgresAnsweringStore(AnsweringStore):
             or not trace.answer.strip()
         ):
             return False
-        if trace.refusal_reason != (
-            "INSUFFICIENT_EVIDENCE" if trace.decision == "REFUSAL" else None
+        if trace.refusal_reason not in (
+            {"INSUFFICIENT_EVIDENCE", "CLARIFICATION_REQUIRED"}
+            if trace.decision == "REFUSAL"
+            else {None}
         ):
             return False
 
@@ -955,3 +1130,45 @@ class PostgresAnsweringStore(AnsweringStore):
         except (KnoraError, TypeError, ValueError):
             return False
         return True
+
+    def has_complete_scope_proof(self, workspace_id: str, snapshot: object) -> bool:
+        if not isinstance(snapshot, (tuple, list)) or not snapshot:
+            return False
+        try:
+            with self._sessions.begin() as session:
+                canonical_doc_ids = set(
+                    session.scalars(
+                        select(DocumentTable.id).where(
+                            DocumentTable.workspace_id == workspace_id,
+                            DocumentTable.archived.is_(False),
+                        )
+                    ).all()
+                )
+                if not canonical_doc_ids:
+                    return False
+                snapshot_doc_ids = {
+                    getattr(item, "document_id", None)
+                    for item in snapshot
+                    if getattr(item, "document_id", None)
+                }
+                if not snapshot_doc_ids:
+                    cset_ids = [
+                        getattr(item, "chunk_set_id", None)
+                        for item in snapshot
+                        if getattr(item, "chunk_set_id", None)
+                    ]
+                    if cset_ids:
+                        docs_from_cs = set(
+                            session.scalars(
+                                select(DocumentVersionTable.document_id)
+                                .join(
+                                    ChunkSetTable,
+                                    ChunkSetTable.document_version_id == DocumentVersionTable.id,
+                                )
+                                .where(ChunkSetTable.id.in_(cset_ids))
+                            ).all()
+                        )
+                        snapshot_doc_ids = docs_from_cs
+                return bool(snapshot_doc_ids and canonical_doc_ids.issubset(snapshot_doc_ids))
+        except Exception:
+            return False

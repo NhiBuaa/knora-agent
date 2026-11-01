@@ -24,9 +24,11 @@ class RetrievalConfiguration:
     fts_candidate_k: int | None = None
     lexical_policy_id: str | None = None
     fusion_policy_id: str | None = None
+    sdm_policy_id: str | None = None
+    reranking_policy_id: str | None = None
 
     def __post_init__(self) -> None:
-        if self.strategy != "bm25-only" and self.min_similarity is None:
+        if self.strategy not in {"bm25-only"} and self.min_similarity is None:
             raise ValueError("dense/hybrid retrieval requires its vector threshold")
         if self.strategy == "bm25-only" and (
             self.min_similarity is not None
@@ -35,6 +37,27 @@ class RetrievalConfiguration:
             or self.fusion_policy_version is not None
         ):
             raise ValueError("BM25 requires a lexical policy and no vector threshold or fusion")
+        if self.strategy in {"vector-only", "dense-only"} and (
+            self.lexical_policy_id is not None
+            or self.fusion_policy_id is not None
+            or self.fusion_policy_version is not None
+        ):
+            raise ValueError("dense-only retrieval requires no lexical policy or fusion policy")
+        if self.strategy == "hybrid" and (
+            self.lexical_policy_id is not None or self.fusion_policy_id is not None
+        ):
+            if self.lexical_policy_id is None:
+                raise ValueError("hybrid retrieval requires a lexical policy")
+            if self.fusion_policy_id is None:
+                raise ValueError("hybrid retrieval requires a fusion policy")
+
+    @property
+    def is_v3_retrieval(self) -> bool:
+        if bool(self.id) and self.id.endswith("-v3"):
+            return True
+        if self.fusion_policy_id == "dbsf-v1":
+            return True
+        return bool(self.sdm_policy_id) or bool(self.reranking_policy_id)
 
     @classmethod
     def bm25_diagnostic_v1(cls) -> "RetrievalConfiguration":
@@ -66,6 +89,95 @@ class RetrievalConfiguration:
             cls.bm25_top8_v1(),
             id="retrieval-bm25-upload-fixture-top8-v1",
             lexical_policy_id="bm25-word-upload-fixture-population-v1",
+        )
+
+    @classmethod
+    def dense_top8_v3(cls, *, min_similarity: float = 0.65) -> "RetrievalConfiguration":
+        """Dense-only Top8 from Qdrant HNSW/TurboQuant; requires calibrated threshold."""
+        if not isinstance(min_similarity, (int, float)) or isinstance(min_similarity, bool):
+            raise TypeError("calibrated min_similarity must be numeric")
+        if not -1.0 <= min_similarity <= 1.0:
+            raise ValueError("calibrated min_similarity is outside cosine similarity bounds")
+        return cls(
+            id="retrieval-dense-top8-v3",
+            candidate_k=8,
+            min_similarity=float(min_similarity),
+            max_evidence_chunks=5,
+            max_evidence_tokens=3000,
+            overlap_policy="adjacent-content-containment-v1",
+            strategy="dense-only",
+            vector_candidate_k=200,
+        )
+
+    @classmethod
+    def hybrid_top8_v3(
+        cls,
+        *,
+        candidate_k: int = 100,
+        min_similarity: float = 0.65,
+        lexical_policy_id: str = "lexical-bm25-v1",
+        fusion_policy_id: str = "dbsf-v1",
+        sdm_policy_id: str | None = None,
+    ) -> "RetrievalConfiguration":
+        """Hybrid Top8 from native DBSF fusion (Top200 dense + Top200 BM25 to Top100 candidates)."""
+        if not isinstance(min_similarity, (int, float)) or isinstance(min_similarity, bool):
+            raise TypeError("calibrated min_similarity must be numeric")
+        if not -1.0 <= min_similarity <= 1.0:
+            raise ValueError("calibrated min_similarity is outside cosine similarity bounds")
+        return cls(
+            id="retrieval-hybrid-top8-v3",
+            candidate_k=candidate_k,
+            min_similarity=float(min_similarity),
+            max_evidence_chunks=5,
+            max_evidence_tokens=3000,
+            overlap_policy="adjacent-content-containment-v1",
+            strategy="hybrid",
+            vector_candidate_k=200,
+            fts_candidate_k=200,
+            lexical_policy_id=lexical_policy_id,
+            fusion_policy_id=fusion_policy_id,
+            sdm_policy_id=sdm_policy_id,
+        )
+
+    @classmethod
+    def hybrid_sdm_top8_v3(
+        cls,
+        *,
+        min_similarity: float = 0.65,
+        lexical_policy_id: str = "lexical-bm25-v1",
+        fusion_policy_id: str = "dbsf-v1",
+        sdm_policy_id: str = "sdm-metzler-croft-2005-v1",
+    ) -> "RetrievalConfiguration":
+        """Hybrid Top8 with Sequential Dependence Model (SDM) reranking after native DBSF."""
+        base = cls.hybrid_top8_v3(
+            min_similarity=min_similarity,
+            lexical_policy_id=lexical_policy_id,
+            fusion_policy_id=fusion_policy_id,
+            sdm_policy_id=sdm_policy_id,
+        )
+        return replace(base, id="retrieval-hybrid-sdm-top8-v3")
+
+    @classmethod
+    def hybrid_rerank_top8_v3(
+        cls,
+        *,
+        min_similarity: float = 0.65,
+        lexical_policy_id: str = "lexical-bm25-v1",
+        fusion_policy_id: str = "dbsf-v1",
+        sdm_policy_id: str = "sdm-metzler-croft-2005-v1",
+        reranking_policy_id: str = "reranking-cloudflare-bge-base-v1",
+    ) -> "RetrievalConfiguration":
+        """Hybrid Top8 with SDM reranking and cross-encoder evidence selection."""
+        base = cls.hybrid_sdm_top8_v3(
+            min_similarity=min_similarity,
+            lexical_policy_id=lexical_policy_id,
+            fusion_policy_id=fusion_policy_id,
+            sdm_policy_id=sdm_policy_id,
+        )
+        return replace(
+            base,
+            id="retrieval-hybrid-rerank-top8-v3",
+            reranking_policy_id=reranking_policy_id,
         )
 
     def parity_semantics(self) -> dict[str, object]:
@@ -211,6 +323,12 @@ class RetrievalCandidate:
     bm25_score: float | None = None
     bm25_rank: int | None = None
     index_generation_id: str | None = None
+    sdm_score: float | None = None
+    sdm_rank: int | None = None
+    sdm_contribution: dict[str, object] | None = None
+    rerank_score: float | None = None
+    rerank_rank: int | None = None
+    rerank_contribution: dict[str, object] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -246,7 +364,7 @@ class BranchObservation:
             "normalized_lexemes": list(self.normalized_lexemes),
             "omitted_lexemes": list(self.omitted_lexemes),
         }
-        if self.branch == "bm25":
+        if self.branch in {"bm25", "dense", "fused"}:
             mapping.update(
                 schema_version=2,
                 raw_score=self.raw_score,
@@ -267,6 +385,7 @@ class LexicalGeneration:
     chunk_set_id: str
     index_generation_id: str
     lexical_policy_id: str
+    statistics_digest: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -347,7 +466,23 @@ class AnsweringStore(Protocol):
         retrieval_configuration: RetrievalConfiguration,
     ) -> RetrievalResult: ...
 
+    def read_corpus_statistics(
+        self,
+        workspace_id: str,
+        lexical_policy_id: str,
+    ) -> object | None: ...
+
     def persist_trace(self, trace: QuestionTraceRecord) -> str: ...
+
+    def read_canonical_chunks_for_scope(
+        self,
+        workspace_id: str,
+        target_item: str,
+        snapshot: object,
+        *,
+        cursor: int = 0,
+        limit: int = 1024,
+    ) -> list[RetrievalCandidate]: ...
 
     def read_conversation_result(
         self, workspace_id: str, turn_id: str

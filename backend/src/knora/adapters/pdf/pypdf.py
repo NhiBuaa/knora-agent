@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 import tempfile
 from contextlib import suppress
@@ -17,7 +18,11 @@ from pypdf.errors import (
     PyPdfError,
 )
 
-from knora.adapters.pdf._pypdf_chunking import _chunk_pages, _normalize_page
+from knora.adapters.pdf._pypdf_chunking import (
+    _build_pypdf_canonical_document,
+    _chunk_pages,
+    _normalize_page,
+)
 from knora.adapters.pdf._pypdf_limits import (
     _page_count,
     _page_stream_bytes,
@@ -142,7 +147,9 @@ class PypdfTextExtractor:
         configuration: PdfExtractionConfiguration,
     ) -> PdfExtractionResult:
         try:
-            path = self._copy_to_temporary_file(stream, configuration.max_raw_bytes)
+            path, raw_source_hash = self._copy_to_temporary_file(
+                stream, configuration.max_raw_bytes
+            )
         except PdfExtractionError:
             raise
         except OSError as error:
@@ -165,6 +172,7 @@ class PypdfTextExtractor:
                 reason="INSUFFICIENT_EXTRACTABLE_TEXT",
             )
         chunks = _chunk_pages(pages, configuration)
+        structure = _build_pypdf_canonical_document(raw_source_hash, pages, configuration)
         return PdfExtractionResult(
             pages=pages,
             chunks=chunks,
@@ -175,11 +183,13 @@ class PypdfTextExtractor:
             tokenizer_version=configuration.tokenizer_version,
             chunking_policy_version=configuration.chunking_policy_version,
             derivation_identity=configuration.derivation_identity,
+            structure=structure,
         )
 
     @staticmethod
-    def _copy_to_temporary_file(stream: BinaryIO, max_raw_bytes: int) -> Path:
+    def _copy_to_temporary_file(stream: BinaryIO, max_raw_bytes: int) -> tuple[Path, str]:
         total = 0
+        hasher = hashlib.sha256()
         path: Path | None = None
         try:
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temporary:
@@ -191,8 +201,9 @@ class PypdfTextExtractor:
                             "PDF_RESOURCE_LIMIT_EXCEEDED",
                             reason="RAW_FILE_SIZE",
                         )
+                    hasher.update(chunk)
                     temporary.write(chunk)
-            return path
+            return path, hasher.hexdigest()
         except BaseException:
             if path is not None:
                 with suppress(OSError):

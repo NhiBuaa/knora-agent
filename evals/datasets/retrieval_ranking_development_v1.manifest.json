@@ -1,0 +1,497 @@
+{
+  "schema_version": 1,
+  "version": "retrieval-ranking-development-v1",
+  "status": "approved",
+  "owner": "NhiBuaa",
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "derivation_sha256": "fd5711d2ce76e40dae231cc441feddce61aa36451ae073e4a55f3bbfda3f46f2",
+  "dataset_sha256": "9391a784d2e8f87e9a53fd135a49add8cbaccd051b213bc56bd6be9bf6583c40",
+  "candidate_universe_size": 47,
+  "candidate_universe": [
+    {
+      "chunk_id": "0d6c4295-e1b1-4b08-9a2a-4250fe61c3d0",
+      "source_key": "clean-01",
+      "document_version_id": "94421f96-6437-40d9-892c-f1590d5a16bb",
+      "chunk_set_id": "63e0aba0-b5e9-4a72-b273-757fcdc6cb82",
+      "raw_sha256": "85c08b53d95346cce7d03d456b9d83058d4914326b148f1388c553413453877a",
+      "content_checksum": "51ed27fe249971e76c334741194b736c99d5715d798b5020a6430db3b0207d0d",
+      "page_start": 1,
+      "page_end": 1
+    },
+    {
+      "chunk_id": "0fc54469-7f1a-43e8-b633-8ba08b007141",
+      "source_key": "columns-02",
+      "document_version_id": "d0f48886-f87c-4467-b69e-530a03ada95a",
+      "chunk_set_id": "3b7ed650-a7d4-4a12-a2db-5c8f4e5b6605",
+      "raw_sha256": "ca50184d9188af7bbd3a69f597bf130c8d51b4a4f33c0cca7b62d253f2d30593",
+      "content_checksum": "5fc40236ce546ce78c37b9d06f832813cd541cca9cb08da05f7ee5af8923e5d9",
+      "page_start": 1,
+      "page_end": 1
+    },
+    {
+      "chunk_id": "1694b5b2-cc87-4b8e-8c32-ab028485b615",
+      "source_key": "table-01",
+      "document_version_id": "37d006e3-b836-4866-a828-b6397c4b0f8f",
+      "chunk_set_id": "0747d763-da35-474d-af4e-8d1ca9e7e94a",
+      "raw_sha256": "25b53becb4a4b665d26643f17e465d090500a5eebcea9c6ff0fb25d6fbb5c21f",
+      "content_checksum": "30ef2cbb9647c61fb9245adf430e3513816c57d368a15edef9d9c8a7820c5970",
+      "page_start": 1,
+      "page_end": 1
+    },
+    {
+      "chunk_id": "23bc70a5-df7d-4399-b0b7-61a5bf6feb7e",
+      "source_key": "academic-phonlp",
+      "document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7",
+      "chunk_set_id": "6be52f91-8799-43d2-8f92-8bf06d37cc5e",
+      "raw_sha256": "61e6b8c8bf8a9e0191320fd971989c98ababfe775b43b7bd1bd81eced67e2371",
+      "content_checksum": "145f53aed990b66dccd715e08e9a5166bf6f589b973e41b543fef0a577ecd3ea",
+      "page_start": 3,
+      "page_end": 3
+    },
+    {
+      "chunk_id": "2a6a6919-8b44-4b2a-ac17-c54946a0f32c",
+      "source_key": "academic-phonlp",
+      "document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7",
+      "chunk_set_id": "6be52f91-8799-43d2-8f92-8bf06d37cc5e",
+      "raw_sha256": "61e6b8c8bf8a9e0191320fd971989c98ababfe775b43b7bd1bd81eced67e2371",
+      "content_checksum": "2bc04827b8e893960e881e41ce5dba587b49239f85eab20ead61e78b1d33a0d5",
+      "page_start": 4,
+      "page_end": 4
+    },
+    {
+      "chunk_id": "2a75ba7d-e80e-4123-8474-e5b62e94761d",
+      "source_key": "academic-phonlp",
+      "document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7",
+      "chunk_set_id": "6be52f91-8799-43d2-8f92-8bf06d37cc5e",
+      "raw_sha256": "61e6b8c8bf8a9e0191320fd971989c98ababfe775b43b7bd1bd81eced67e2371",
+      "content_checksum": "69b902288fa3fc78daeacb20296fd55c76f8a24ae191019a93bfc780ec67f5c4",
+      "page_start": 4,
+      "page_end": 4
+    },
+    {
+      "chunk_id": "2b8031ca-a049-43d7-a96e-70cac81c7710",
+      "source_key": "hierarchy-01",
+      "document_version_id": "5cfde5e6-9ea8-4159-8aaf-e5c079c8e9af",
+      "chunk_set_id": "96d754c7-3ce4-464e-8068-f484945df3ef",
+      "raw_sha256": "da0597a1ea5b2100ecc49d7fd2ab917250a30ef63958e8bca3b458a89f5a723d",
+      "content_checksum": "754d16c089017e24353f3d9cbea39e4bdee3d6fa8fce7f5b82bb76375b97b4e2",
+      "page_start": 1,
+      "page_end": 1
+    },
+    {
+      "chunk_id": "2c54d222-7131-4fa7-b4fb-ff4afae66385",
+      "source_key": "hierarchy-02",
+      "document_version_id": "3172814d-ea76-4213-af46-947fe702a103",
+      "chunk_set_id": "6d7bc64f-9d30-4b19-9ece-bca60ad9c7c6",
+      "raw_sha256": "3a3d97a4014436e54a87c4d2ba44909449dae1a9d98c60142aedfee2451643ec",
+      "content_checksum": "fa850438f7607eb9ea5750954f0927d8d4a87052ef313130312f66fcfdf3d2bc",
+      "page_start": 1,
+      "page_end": 1
+    },
+    {
+      "chunk_id": "2e8a6fe9-ce8b-4879-9498-1591c97b6543",
+      "source_key": "academic-phobert",
+      "document_version_id": "ea4412cb-3849-4f3d-b714-0f2c40a29257",
+      "chunk_set_id": "406d8bc2-e7c3-46fe-8080-8ac46f0dbe1e",
+      "raw_sha256": "6be99661b7b7d8ee9372ea6177f399c6649e049fa750e8dacb5cfd47eac5abd8",
+      "content_checksum": "5c905c258a2fe2f7938a6b6b4e000d87b8c6b9503db812de769b191c01ac9627",
+      "page_start": 2,
+      "page_end": 2
+    },
+    {
+      "chunk_id": "2e994324-cc48-4585-b743-d81f69549c82",
+      "source_key": "academic-vit5",
+      "document_version_id": "19dfce39-a9df-421d-b5f2-48f21937d199",
+      "chunk_set_id": "d0661c8a-cde0-4179-a285-1030c08eba89",
+      "raw_sha256": "69af79f8d2f033a3b6c7c689c1b97d43bd242c8f030b9c8b0b4c53f617457f43",
+      "content_checksum": "2c7d5490e6050836f8f2f0d496b1c8d6a38d4ffac2b898e6e77751bdcd20ebf5",
+      "page_start": 6,
+      "page_end": 6
+    },
+    {
+      "chunk_id": "2f76e65f-99ff-473f-b508-47de0d74ca7c",
+      "source_key": "hierarchy-03",
+      "document_version_id": "c0b35b48-be5f-4b26-b16b-3e02a1d92cf6",
+      "chunk_set_id": "411bd4e5-c3f5-493f-b172-e50cb7b4e50b",
+      "raw_sha256": "80fea16d50bc82418d5fdb8a5a53588e4bd62f236abdf886853ed478cbbf1180",
+      "content_checksum": "8252f171843476f5aef207d102c6c07bea62a6225cd1f6384d7a2a5676fb136c",
+      "page_start": 2,
+      "page_end": 2
+    },
+    {
+      "chunk_id": "3135daa5-c546-4888-be65-ee8f073a6fc4",
+      "source_key": "academic-phonlp",
+      "document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7",
+      "chunk_set_id": "6be52f91-8799-43d2-8f92-8bf06d37cc5e",
+      "raw_sha256": "61e6b8c8bf8a9e0191320fd971989c98ababfe775b43b7bd1bd81eced67e2371",
+      "content_checksum": "edb6810d2485f4469abd143267830f890aed84e890d3573b2eeb80bb27c1dc0e",
+      "page_start": 5,
+      "page_end": 5
+    },
+    {
+      "chunk_id": "3407744f-9af2-422e-8e8e-e1ceb86e2730",
+      "source_key": "academic-phobert",
+      "document_version_id": "ea4412cb-3849-4f3d-b714-0f2c40a29257",
+      "chunk_set_id": "406d8bc2-e7c3-46fe-8080-8ac46f0dbe1e",
+      "raw_sha256": "6be99661b7b7d8ee9372ea6177f399c6649e049fa750e8dacb5cfd47eac5abd8",
+      "content_checksum": "045e4203d2d074d889f1f305b7d3cc7af93223dc185d8910ed0e89def2a1c472",
+      "page_start": 5,
+      "page_end": 5
+    },
+    {
+      "chunk_id": "342113b8-cb30-4597-a5a3-aa1b9ab535dc",
+      "source_key": "academic-phonlp",
+      "document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7",
+      "chunk_set_id": "6be52f91-8799-43d2-8f92-8bf06d37cc5e",
+      "raw_sha256": "61e6b8c8bf8a9e0191320fd971989c98ababfe775b43b7bd1bd81eced67e2371",
+      "content_checksum": "7d8b0af5749376e556e90ef1224fe975b283f480d81c002ac0c573342e562e87",
+      "page_start": 2,
+      "page_end": 2
+    },
+    {
+      "chunk_id": "395c073c-f6e9-4e0f-91aa-c59806c318da",
+      "source_key": "academic-phobert",
+      "document_version_id": "ea4412cb-3849-4f3d-b714-0f2c40a29257",
+      "chunk_set_id": "406d8bc2-e7c3-46fe-8080-8ac46f0dbe1e",
+      "raw_sha256": "6be99661b7b7d8ee9372ea6177f399c6649e049fa750e8dacb5cfd47eac5abd8",
+      "content_checksum": "3b972cf4f29bdfa73bb6f24c7d153ab299051650a7f2d4c3aab8a580dd2e3ff3",
+      "page_start": 5,
+      "page_end": 5
+    },
+    {
+      "chunk_id": "3caed1b0-823a-4d67-9cce-46d5fa71fd93",
+      "source_key": "clean-01",
+      "document_version_id": "94421f96-6437-40d9-892c-f1590d5a16bb",
+      "chunk_set_id": "63e0aba0-b5e9-4a72-b273-757fcdc6cb82",
+      "raw_sha256": "85c08b53d95346cce7d03d456b9d83058d4914326b148f1388c553413453877a",
+      "content_checksum": "353ab5f3d5c6f24da75c5ab6a20343a5e8a0933afc76c73c58737de7d5cabca8",
+      "page_start": 2,
+      "page_end": 2
+    },
+    {
+      "chunk_id": "3f4bada3-b719-4e21-ad44-4f9434aad9dc",
+      "source_key": "academic-phobert",
+      "document_version_id": "ea4412cb-3849-4f3d-b714-0f2c40a29257",
+      "chunk_set_id": "406d8bc2-e7c3-46fe-8080-8ac46f0dbe1e",
+      "raw_sha256": "6be99661b7b7d8ee9372ea6177f399c6649e049fa750e8dacb5cfd47eac5abd8",
+      "content_checksum": "561ecde6680e4cf88f7e4aa547ecf5d5307a6f4bba9813ca23db5ab4b86111e3",
+      "page_start": 1,
+      "page_end": 1
+    },
+    {
+      "chunk_id": "4d6df350-fe8d-418f-a82a-49aa8a911a00",
+      "source_key": "scan-02",
+      "document_version_id": "9a585b5d-ef32-4ca3-b684-5ceac4dad00e",
+      "chunk_set_id": "7d5627c8-9152-46cd-851a-46d2c85e50dd",
+      "raw_sha256": "062ed4ce382e92227439643a9b45b9f0e4a760666f4afad9e136a80a0cff3fb8",
+      "content_checksum": "2db0a03ee50c3af7984ae65cf194ab2e56cb7e0b7e6465712015e91dc0272d4e",
+      "page_start": 1,
+      "page_end": 1
+    },
+    {
+      "chunk_id": "5d9c99fb-7da4-417b-b1f5-aa9823fcef03",
+      "source_key": "academic-phonlp",
+      "document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7",
+      "chunk_set_id": "6be52f91-8799-43d2-8f92-8bf06d37cc5e",
+      "raw_sha256": "61e6b8c8bf8a9e0191320fd971989c98ababfe775b43b7bd1bd81eced67e2371",
+      "content_checksum": "de5def166c6f9c68dca58a36aad2cae84bd7e9318302e3bc5629db9428ea23b1",
+      "page_start": 6,
+      "page_end": 6
+    },
+    {
+      "chunk_id": "5f08dfa9-e5c4-4205-a14e-9e0c84bef84c",
+      "source_key": "table-02",
+      "document_version_id": "dbb9ce41-fa02-4281-aa60-0d7c3015bd08",
+      "chunk_set_id": "96760c3c-d2e8-4664-bfac-e022a527d082",
+      "raw_sha256": "06ea98d9fa8172caba88c9175b879d10d433f62867812edb7b993877bd333105",
+      "content_checksum": "f5ab55c696dbb42f6e6e25637744c2b27ab2fdf7259ed62f92e7ddcec1863382",
+      "page_start": 1,
+      "page_end": 1
+    },
+    {
+      "chunk_id": "66a3b490-0f34-4ff6-be7a-36eae9b14667",
+      "source_key": "academic-phonlp",
+      "document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7",
+      "chunk_set_id": "6be52f91-8799-43d2-8f92-8bf06d37cc5e",
+      "raw_sha256": "61e6b8c8bf8a9e0191320fd971989c98ababfe775b43b7bd1bd81eced67e2371",
+      "content_checksum": "efe56896ff326cc0d9af0b0365d69e1476729b33201f6a9f5ad34dc1d4b84a62",
+      "page_start": 1,
+      "page_end": 1
+    },
+    {
+      "chunk_id": "6adec9ea-1956-41d0-a9f1-0dadab2aee58",
+      "source_key": "academic-vit5",
+      "document_version_id": "19dfce39-a9df-421d-b5f2-48f21937d199",
+      "chunk_set_id": "d0661c8a-cde0-4179-a285-1030c08eba89",
+      "raw_sha256": "69af79f8d2f033a3b6c7c689c1b97d43bd242c8f030b9c8b0b4c53f617457f43",
+      "content_checksum": "d4ee9f58e5860574ca98e3b4839391e7a356328d4bd6afecefc2381df5f5b41b",
+      "page_start": 7,
+      "page_end": 7
+    },
+    {
+      "chunk_id": "6ea1c37d-315b-432a-b333-2e2fd212ade2",
+      "source_key": "academic-phobert",
+      "document_version_id": "ea4412cb-3849-4f3d-b714-0f2c40a29257",
+      "chunk_set_id": "406d8bc2-e7c3-46fe-8080-8ac46f0dbe1e",
+      "raw_sha256": "6be99661b7b7d8ee9372ea6177f399c6649e049fa750e8dacb5cfd47eac5abd8",
+      "content_checksum": "5c3455644d9e2606cc3cfeee5da4a1b908ce03e74e0151c6b32a37b5eb385d46",
+      "page_start": 4,
+      "page_end": 4
+    },
+    {
+      "chunk_id": "75de1620-c8ce-434a-b031-ea46d8570c27",
+      "source_key": "academic-phonlp",
+      "document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7",
+      "chunk_set_id": "6be52f91-8799-43d2-8f92-8bf06d37cc5e",
+      "raw_sha256": "61e6b8c8bf8a9e0191320fd971989c98ababfe775b43b7bd1bd81eced67e2371",
+      "content_checksum": "9014fd90f7b46ee8d59346d20c428ab0c8a6787266bc14cb4ad70ed2c5cf64e9",
+      "page_start": 6,
+      "page_end": 6
+    },
+    {
+      "chunk_id": "7df32db9-751c-4a92-b058-9c9d753dbdd3",
+      "source_key": "academic-phobert",
+      "document_version_id": "ea4412cb-3849-4f3d-b714-0f2c40a29257",
+      "chunk_set_id": "406d8bc2-e7c3-46fe-8080-8ac46f0dbe1e",
+      "raw_sha256": "6be99661b7b7d8ee9372ea6177f399c6649e049fa750e8dacb5cfd47eac5abd8",
+      "content_checksum": "0f650f5f8dfcb10e0b7440a892f6dec00994583fd58895b660b64847612c49fb",
+      "page_start": 3,
+      "page_end": 3
+    },
+    {
+      "chunk_id": "858b4ca6-7586-43fc-91f7-954ca4f50529",
+      "source_key": "academic-vit5",
+      "document_version_id": "19dfce39-a9df-421d-b5f2-48f21937d199",
+      "chunk_set_id": "d0661c8a-cde0-4179-a285-1030c08eba89",
+      "raw_sha256": "69af79f8d2f033a3b6c7c689c1b97d43bd242c8f030b9c8b0b4c53f617457f43",
+      "content_checksum": "4a5dabb1d48223998250a4ab3ff2da474dbc8181f0624615d61a36ef26cdde91",
+      "page_start": 1,
+      "page_end": 1
+    },
+    {
+      "chunk_id": "85d9ea36-bd07-4802-800a-1e3a7506a019",
+      "source_key": "academic-vit5",
+      "document_version_id": "19dfce39-a9df-421d-b5f2-48f21937d199",
+      "chunk_set_id": "d0661c8a-cde0-4179-a285-1030c08eba89",
+      "raw_sha256": "69af79f8d2f033a3b6c7c689c1b97d43bd242c8f030b9c8b0b4c53f617457f43",
+      "content_checksum": "8d27ba37c5d810106b55f3fd6cdb35842007e88754184bfc0e6035f9bcede633",
+      "page_start": 4,
+      "page_end": 4
+    },
+    {
+      "chunk_id": "91a3c13a-861a-4cf6-b3c2-cf1fe71296d7",
+      "source_key": "academic-vit5",
+      "document_version_id": "19dfce39-a9df-421d-b5f2-48f21937d199",
+      "chunk_set_id": "d0661c8a-cde0-4179-a285-1030c08eba89",
+      "raw_sha256": "69af79f8d2f033a3b6c7c689c1b97d43bd242c8f030b9c8b0b4c53f617457f43",
+      "content_checksum": "dbae772db29058a88f9bd830e957c695347c41b6162a7eb9a9ea13def34be56b",
+      "page_start": 5,
+      "page_end": 5
+    },
+    {
+      "chunk_id": "a1a278bc-62ed-4b40-9eca-25a003312c5d",
+      "source_key": "columns-01",
+      "document_version_id": "3ca50a31-2cf7-48a9-893f-584eccc324db",
+      "chunk_set_id": "7b67bcc3-96b3-42e3-a8e4-277fa4c285dc",
+      "raw_sha256": "e95641f14b2013e7729573118d381031cf6138a7fccb416602cf3e602f934f05",
+      "content_checksum": "7e8aeb61760f58c7c8b94f4c0f6c1c6474171178af5aa015775b7482232c457c",
+      "page_start": 1,
+      "page_end": 1
+    },
+    {
+      "chunk_id": "a4d19643-4905-4cff-a86d-baefbc12557f",
+      "source_key": "academic-phobert",
+      "document_version_id": "ea4412cb-3849-4f3d-b714-0f2c40a29257",
+      "chunk_set_id": "406d8bc2-e7c3-46fe-8080-8ac46f0dbe1e",
+      "raw_sha256": "6be99661b7b7d8ee9372ea6177f399c6649e049fa750e8dacb5cfd47eac5abd8",
+      "content_checksum": "a59e7c7e4c9fc424bc58ec2bcb6a63db2c7d89b15467d3293bfa263a225078bd",
+      "page_start": 5,
+      "page_end": 5
+    },
+    {
+      "chunk_id": "a747ce32-dc6e-4bdd-8b28-2b57f79ccc8a",
+      "source_key": "table-03",
+      "document_version_id": "deba71fb-59ed-4851-8dc5-267ddcf578f3",
+      "chunk_set_id": "a9a4d23b-845d-42e3-956c-8033015930bc",
+      "raw_sha256": "68c0826bb6b2d20442725f063ba909688bb1acfd6d101bb8759f13ca224c41b4",
+      "content_checksum": "32af660aca258d56622d3d9fbc4b7a787182651ed9b7bafe8fbeef812b67c70b",
+      "page_start": 1,
+      "page_end": 1
+    },
+    {
+      "chunk_id": "ab31322c-7555-498c-aa8b-7b2181201f91",
+      "source_key": "academic-phonlp",
+      "document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7",
+      "chunk_set_id": "6be52f91-8799-43d2-8f92-8bf06d37cc5e",
+      "raw_sha256": "61e6b8c8bf8a9e0191320fd971989c98ababfe775b43b7bd1bd81eced67e2371",
+      "content_checksum": "dd79055d92fa4e99f10b8370ee3d5da85d81a4b9225411051760ef215d6ecb23",
+      "page_start": 5,
+      "page_end": 5
+    },
+    {
+      "chunk_id": "b6d2219f-3ada-4695-b026-0c435e2144b3",
+      "source_key": "academic-phonlp",
+      "document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7",
+      "chunk_set_id": "6be52f91-8799-43d2-8f92-8bf06d37cc5e",
+      "raw_sha256": "61e6b8c8bf8a9e0191320fd971989c98ababfe775b43b7bd1bd81eced67e2371",
+      "content_checksum": "6da77096e3b9fa8bf6b8ed89446ffd9cfee9d20c0c185a1592308f20356f180b",
+      "page_start": 1,
+      "page_end": 1
+    },
+    {
+      "chunk_id": "b6e9c961-01e0-4974-819f-5171a8122d5f",
+      "source_key": "academic-phobert",
+      "document_version_id": "ea4412cb-3849-4f3d-b714-0f2c40a29257",
+      "chunk_set_id": "406d8bc2-e7c3-46fe-8080-8ac46f0dbe1e",
+      "raw_sha256": "6be99661b7b7d8ee9372ea6177f399c6649e049fa750e8dacb5cfd47eac5abd8",
+      "content_checksum": "3e8e0a48d534733955a2eb53b170372ef479d3a69dbae4e9efb2f88a04e2cec6",
+      "page_start": 2,
+      "page_end": 2
+    },
+    {
+      "chunk_id": "b75a9997-9248-4268-adea-7e6dc100e0b5",
+      "source_key": "clean-02",
+      "document_version_id": "28008827-fc3a-43dc-9d5b-713b86da62e9",
+      "chunk_set_id": "6122619d-dab8-405f-b807-0d381e1b6449",
+      "raw_sha256": "a015d5a8cd0f4a76398c167dc9a4e7ccbba82ba8957dfc8900ef9d6bf6f3fbbf",
+      "content_checksum": "a59e008f514818311fe90970e1b6fbb0398df49bda3beb7fca3a2a3be9d1e68c",
+      "page_start": 1,
+      "page_end": 1
+    },
+    {
+      "chunk_id": "bad4b9ff-4e60-4e71-bdf3-2cf6acbf1747",
+      "source_key": "academic-phobert",
+      "document_version_id": "ea4412cb-3849-4f3d-b714-0f2c40a29257",
+      "chunk_set_id": "406d8bc2-e7c3-46fe-8080-8ac46f0dbe1e",
+      "raw_sha256": "6be99661b7b7d8ee9372ea6177f399c6649e049fa750e8dacb5cfd47eac5abd8",
+      "content_checksum": "044b082d34e4e40b2f2e1017235f2a17bcea33519e2d5cc5d65ffb727904a146",
+      "page_start": 4,
+      "page_end": 4
+    },
+    {
+      "chunk_id": "c5899d23-27fd-4e11-942e-2fcbf770f880",
+      "source_key": "academic-phonlp",
+      "document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7",
+      "chunk_set_id": "6be52f91-8799-43d2-8f92-8bf06d37cc5e",
+      "raw_sha256": "61e6b8c8bf8a9e0191320fd971989c98ababfe775b43b7bd1bd81eced67e2371",
+      "content_checksum": "80090e7b5ae6b029d3667c04bf29fd03dbfb09403cd6bb95e8611566d0505e28",
+      "page_start": 3,
+      "page_end": 3
+    },
+    {
+      "chunk_id": "cd18c8b2-34b0-4a27-b6bb-08869d8dbc36",
+      "source_key": "academic-vit5",
+      "document_version_id": "19dfce39-a9df-421d-b5f2-48f21937d199",
+      "chunk_set_id": "d0661c8a-cde0-4179-a285-1030c08eba89",
+      "raw_sha256": "69af79f8d2f033a3b6c7c689c1b97d43bd242c8f030b9c8b0b4c53f617457f43",
+      "content_checksum": "d80eae6e96d148b3b2abbbc6760077b66c4ea071f847dab573d507a32c4d99a5",
+      "page_start": 2,
+      "page_end": 2
+    },
+    {
+      "chunk_id": "e1479453-1fac-4e99-889f-77835ead19f6",
+      "source_key": "academic-phobert",
+      "document_version_id": "ea4412cb-3849-4f3d-b714-0f2c40a29257",
+      "chunk_set_id": "406d8bc2-e7c3-46fe-8080-8ac46f0dbe1e",
+      "raw_sha256": "6be99661b7b7d8ee9372ea6177f399c6649e049fa750e8dacb5cfd47eac5abd8",
+      "content_checksum": "5a1b0a623f91b225f95dc025436b0d03155454338d1017aa569f22e3204c0469",
+      "page_start": 3,
+      "page_end": 3
+    },
+    {
+      "chunk_id": "e21cfab7-b94b-4e66-9a1e-f766b348b289",
+      "source_key": "academic-phobert",
+      "document_version_id": "ea4412cb-3849-4f3d-b714-0f2c40a29257",
+      "chunk_set_id": "406d8bc2-e7c3-46fe-8080-8ac46f0dbe1e",
+      "raw_sha256": "6be99661b7b7d8ee9372ea6177f399c6649e049fa750e8dacb5cfd47eac5abd8",
+      "content_checksum": "1d59a332eab39dd4978284761cdab4fb0f7571f22253edc71f0de111c50c1f0e",
+      "page_start": 4,
+      "page_end": 4
+    },
+    {
+      "chunk_id": "e2a128da-e242-49f2-8d37-05cfa450d800",
+      "source_key": "academic-phobert",
+      "document_version_id": "ea4412cb-3849-4f3d-b714-0f2c40a29257",
+      "chunk_set_id": "406d8bc2-e7c3-46fe-8080-8ac46f0dbe1e",
+      "raw_sha256": "6be99661b7b7d8ee9372ea6177f399c6649e049fa750e8dacb5cfd47eac5abd8",
+      "content_checksum": "df09f98e0e8f09a915f1a7339ee9a5ee95bb3816fd7b70e7cabd2188dcec0836",
+      "page_start": 1,
+      "page_end": 1
+    },
+    {
+      "chunk_id": "ea729197-060f-4519-8371-19b38afd2c5e",
+      "source_key": "academic-phonlp",
+      "document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7",
+      "chunk_set_id": "6be52f91-8799-43d2-8f92-8bf06d37cc5e",
+      "raw_sha256": "61e6b8c8bf8a9e0191320fd971989c98ababfe775b43b7bd1bd81eced67e2371",
+      "content_checksum": "e438c11514a4e2a2188a0d405ef58e13706a60ffec023442b623e7a1d6c329ab",
+      "page_start": 5,
+      "page_end": 5
+    },
+    {
+      "chunk_id": "ed744d7b-fb5b-432c-9df0-b873b49225c4",
+      "source_key": "academic-vit5",
+      "document_version_id": "19dfce39-a9df-421d-b5f2-48f21937d199",
+      "chunk_set_id": "d0661c8a-cde0-4179-a285-1030c08eba89",
+      "raw_sha256": "69af79f8d2f033a3b6c7c689c1b97d43bd242c8f030b9c8b0b4c53f617457f43",
+      "content_checksum": "d6a4031733610bb080d0bfa794fcc9dbdcff74834aeaab7c6b927e21e9754037",
+      "page_start": 3,
+      "page_end": 3
+    },
+    {
+      "chunk_id": "f84a5ec5-e0fc-4543-9383-aaa8f87a0a46",
+      "source_key": "academic-phobert",
+      "document_version_id": "ea4412cb-3849-4f3d-b714-0f2c40a29257",
+      "chunk_set_id": "406d8bc2-e7c3-46fe-8080-8ac46f0dbe1e",
+      "raw_sha256": "6be99661b7b7d8ee9372ea6177f399c6649e049fa750e8dacb5cfd47eac5abd8",
+      "content_checksum": "92202a3e28dcd9ed225a977a849f9b4d382eaa27ff5a764b48fd008f418fb0f9",
+      "page_start": 3,
+      "page_end": 3
+    },
+    {
+      "chunk_id": "f8721b9d-028b-4427-b829-654fb24587d6",
+      "source_key": "academic-phonlp",
+      "document_version_id": "d12ebe0c-e77c-4d58-b3a7-694b3518e5e7",
+      "chunk_set_id": "6be52f91-8799-43d2-8f92-8bf06d37cc5e",
+      "raw_sha256": "61e6b8c8bf8a9e0191320fd971989c98ababfe775b43b7bd1bd81eced67e2371",
+      "content_checksum": "47b899687869e0abed0e1e90e038ea2788278a7bc981f59996ad4f66f9842613",
+      "page_start": 7,
+      "page_end": 7
+    },
+    {
+      "chunk_id": "fa72b492-2e18-4ebe-ac88-c8733e8859a3",
+      "source_key": "academic-phobert",
+      "document_version_id": "ea4412cb-3849-4f3d-b714-0f2c40a29257",
+      "chunk_set_id": "406d8bc2-e7c3-46fe-8080-8ac46f0dbe1e",
+      "raw_sha256": "6be99661b7b7d8ee9372ea6177f399c6649e049fa750e8dacb5cfd47eac5abd8",
+      "content_checksum": "f60700a7d03c4a7e8c64c954ed034fc3b27c50b2e101f53c334a78eb1dcf8737",
+      "page_start": 6,
+      "page_end": 6
+    },
+    {
+      "chunk_id": "fc30cda0-54ff-4726-a4ee-90c84256ced4",
+      "source_key": "hierarchy-03",
+      "document_version_id": "c0b35b48-be5f-4b26-b16b-3e02a1d92cf6",
+      "chunk_set_id": "411bd4e5-c3f5-493f-b172-e50cb7b4e50b",
+      "raw_sha256": "80fea16d50bc82418d5fdb8a5a53588e4bd62f236abdf886853ed478cbbf1180",
+      "content_checksum": "aa38434ec8a2b8c0a30ec53b566ea207c9a97ec311c0eb65f10d0d07feecc505",
+      "page_start": 1,
+      "page_end": 1
+    }
+  ],
+  "case_count": 60,
+  "metric_policy": {
+    "metric": "nDCG@10",
+    "k": 10,
+    "discount_formula": "(2**grade - 1) / log2(rank + 1)",
+    "rank_base": 1,
+    "grade_scale": [
+      0,
+      1
+    ],
+    "zero_idcg_handling": "not_applicable",
+    "unjudged_handling": "reject",
+    "duplicate_handling": "reject",
+    "macro_average_denominator": "evaluable_cases"
+  }
+}

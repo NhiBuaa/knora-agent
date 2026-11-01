@@ -74,6 +74,20 @@ class EmbeddingConfiguration:
             output_dimensionality=1024,
         )
 
+    @classmethod
+    def cloudflare_bge_base_en(cls) -> "EmbeddingConfiguration":
+        return cls(
+            id="embedding-cloudflare-bge-base-en-v1.5",
+            provider="cloudflare-workers-ai",
+            model="@cf/baai/bge-base-en-v1.5",
+            dimensions=768,
+            distance_metric="cosine",
+            deployment_identity="cloudflare-workers-ai-api-v1",
+            api_contract_version="cloudflare-workers-ai-run-bge-base-en-v1.5",
+            input_normalization="utf8-nfkc-v1",
+            output_dimensionality=768,
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class EmbeddingBatch:

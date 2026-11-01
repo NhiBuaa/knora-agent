@@ -3,9 +3,12 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import asdict, dataclass, replace
-from typing import BinaryIO, Protocol
+from typing import TYPE_CHECKING, BinaryIO, Protocol
 
 from knora.domain.errors import KnoraError
+
+if TYPE_CHECKING:
+    from knora.ingestion.pdf_structure import CanonicalDocument
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,6 +101,10 @@ class PreparedPdfChunk:
     content: str
     content_checksum: str
     token_count: int
+    heading_path: tuple[str, ...] = ()
+    block_ids: tuple[str, ...] = ()
+    table_ids: tuple[str, ...] = ()
+    search_context: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,6 +118,7 @@ class PdfExtractionResult:
     tokenizer_version: str
     chunking_policy_version: str
     derivation_identity: str
+    structure: CanonicalDocument | None = None
 
 
 class PdfExtractionError(KnoraError):

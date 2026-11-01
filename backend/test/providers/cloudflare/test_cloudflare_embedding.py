@@ -135,3 +135,22 @@ def test_cloudflare_embedding_requires_exact_configuration_and_role() -> None:
         provider.embed_documents(["hello"], EmbeddingConfiguration.gemini_m3())
     with pytest.raises(KnoraError, match="EMBEDDING_INPUT_ROLE_REQUIRED"):
         provider.embed(["hello"], PROFILE)
+
+
+def test_cloudflare_embedding_bge_uses_text_field() -> None:
+    observed_bodies = []
+    bge_profile = EmbeddingConfiguration.cloudflare_bge_base_en()
+
+    def endpoint(request: httpx.Request) -> httpx.Response:
+        observed_bodies.append(json.loads(request.content))
+        return httpx.Response(
+            200,
+            json={"result": {"data": [[0.1] * 768], "shape": [1, 768]}},
+        )
+
+    provider = _provider(endpoint)
+    provider.embed_documents(["document text"], bge_profile)
+    provider.embed_queries(["query text"], bge_profile)
+
+    assert observed_bodies[0] == {"text": ["document text"]}
+    assert observed_bodies[1] == {"text": ["query text"]}

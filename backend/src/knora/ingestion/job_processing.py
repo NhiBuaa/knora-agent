@@ -21,6 +21,10 @@ from knora.ingestion.pdf import (
     PdfExtractionResult,
     PdfTextExtractor,
 )
+from knora.ingestion.pdf_structure import (
+    CanonicalStructureValidationError,
+    validate_canonical_document,
+)
 from knora.providers.embedding import EmbeddingConfiguration, EmbeddingProvider
 
 if TYPE_CHECKING:
@@ -620,6 +624,14 @@ class PdfDerivationHandler:
         extraction: PdfExtractionResult, profile: PdfDerivationProfile | PdfExtractionProfile
     ) -> bool:
         configuration = profile.extraction_configuration
+        if extraction.structure is not None:
+            if not extraction.structure.is_complete:
+                return False
+            try:
+                validate_canonical_document(extraction.structure)
+            except CanonicalStructureValidationError:
+                return False
+
         if (
             extraction.parser_version != configuration.parser_version
             or extraction.extraction_options_version != configuration.extraction_options_version
@@ -650,6 +662,10 @@ class PdfDerivationHandler:
                 or chunk.content != page.text[chunk.start_offset : chunk.end_offset]
                 or chunk.content_checksum != _sha256_text(chunk.content)
                 or chunk.token_count <= 0
+                or (
+                    chunk.heading_path is not None
+                    and not all(isinstance(h, str) and h.strip() for h in chunk.heading_path)
+                )
             ):
                 return False
         return True

@@ -1,0 +1,10 @@
+{
+  "status": "approved",
+  "owner": "NhiBuaa",
+  "reviewer": "NhiBuaa",
+  "corpus_sha256": "c8c0a978e3494242c19d1d342d00d8c8e239aaed8715c6213e5415085ac0fcc0",
+  "dataset_sha256": "46f7ae48af4bfc3f83c6adfe203acc782d5ec7990b8d306e0c42b816507e3dca",
+  "approved_commit": "19c6427",
+  "approved_on": "2026-10-21",
+  "decision_url": "https://github.com/NhiBuaa/knora-agent/issues/153#issuecomment-6314797842"
+}

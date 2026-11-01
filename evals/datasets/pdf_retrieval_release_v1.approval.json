@@ -1,0 +1,8 @@
+{
+  "status": "approved",
+  "owner": "NhiBuaa",
+  "dataset_version": "pdf_retrieval_release_v1",
+  "dataset_sha256": "3eebb32bde7a62de1c89c43d3cd9c41894e12bc4ab47fa348b1dc0cd065a8a27",
+  "approved_on": "2026-10-22",
+  "approval_source": "https://github.com/NhiBuaa/knora-agent/issues/153"
+}

@@ -22,6 +22,7 @@ from knora.adapters.http.workspaces import router as workspaces_router
 from knora.adapters.object_store.filesystem import FileSystemObjectStore
 from knora.adapters.object_store.inventory import JsonlObjectInventory
 from knora.adapters.object_store.s3 import BotoS3CapabilityClient, S3CapabilityClient, S3ObjectStore
+from knora.adapters.pdf.docling import DoclingTextExtractor
 from knora.adapters.pdf.pypdf import PypdfTextExtractor
 from knora.adapters.postgres.answering_store import PostgresAnsweringStore
 from knora.adapters.postgres.conversation_store import PostgresConversationStore
@@ -44,6 +45,11 @@ from knora.adapters.postgres.workspace_store import PostgresWorkspaceStore
 from knora.adapters.qdrant.native_search_index import NativeQdrantSearchIndex
 from knora.adapters.qdrant.search_index import QdrantSearchIndex
 from knora.answering.module import AnswerQuestion
+from knora.answering.reranking_configuration import (
+    DeploymentRerankingConfigurationResolver,
+    RerankingConfigurationResolver,
+    resolve_reranking_configuration,
+)
 from knora.answering.retrieval_configuration import (
     DeploymentRetrievalConfigurationResolver,
     resolve_retrieval_configuration,
@@ -96,10 +102,17 @@ from knora.ingestion.operational_observability import (
     OperationalObservability,
     OperationalTelemetry,
 )
-from knora.ingestion.pdf import PdfExtractionConfiguration
+from knora.ingestion.pdf import PdfExtractionConfiguration, PdfTextExtractor
 from knora.ingestion.processing import DocumentProcessor
-from knora.ingestion.search_indexing import DerivationJobHandler, LexicalIndexHandler
+from knora.ingestion.search_indexing import (
+    DerivationJobHandler,
+    DynamicSearchIndexHandler,
+    LexicalIndexHandler,
+)
+from knora.providers.cloudflare.pdf_understanding import CloudflarePdfUnderstandingProvider
+from knora.providers.cloudflare.reranking import CloudflareRerankingProvider
 from knora.providers.embedding import EmbeddingConfiguration
+from knora.providers.reranking import RerankingProvider
 from knora.tools import (
     CapabilityRegistry,
     ExternalScopeBinding,
@@ -131,6 +144,8 @@ def create_app(
     document_reader: DocumentReader | None = None,
     document_lifecycle: DocumentLifecycleService | None = None,
     answer_question: AnswerQuestion | None = None,
+    reranking_provider: RerankingProvider | None = None,
+    reranking_configuration_resolver: RerankingConfigurationResolver | None = None,
     api_key_authenticator: ApiKeyAuthenticator | None = None,
     keycloak_authenticator: KeycloakAuthenticator | None = None,
     embedding_configuration: EmbeddingConfiguration | None = None,
@@ -178,6 +193,34 @@ def create_app(
     ):
         raise ValueError("lexical runtime requires Qdrant URL and collection")
     providers = build_provider_selection(settings)
+    selected_embedding_configuration = embedding_configuration or providers.embedding_configuration
+    deployed_reranking_configuration = None
+    reranking_policy_id = settings.reranking_configuration_id or (
+        deployed_retrieval_configuration.reranking_policy_id
+        if deployed_retrieval_configuration is not None
+        else None
+    )
+    if reranking_policy_id is not None:
+        deployed_reranking_configuration = resolve_reranking_configuration(reranking_policy_id)
+
+    selected_reranking_resolver = reranking_configuration_resolver
+    if selected_reranking_resolver is None and deployed_reranking_configuration is not None:
+        selected_reranking_resolver = DeploymentRerankingConfigurationResolver(
+            deployed_reranking_configuration
+        )
+
+    selected_reranking_provider = reranking_provider
+    if (
+        selected_reranking_provider is None
+        and settings.cloudflare_account_id
+        and settings.cloudflare_api_token
+    ):
+        selected_reranking_provider = CloudflareRerankingProvider(
+            account_id=settings.cloudflare_account_id,
+            api_token=settings.cloudflare_api_token.get_secret_value(),
+            model=settings.cloudflare_reranker_model,
+            timeout_seconds=settings.cloudflare_timeout_seconds,
+        )
     lexical_client = None
     lexical_index = None
     if lexical_population is not None:
@@ -188,6 +231,24 @@ def create_app(
         )
         lexical_index = NativeQdrantSearchIndex(
             index=QdrantSearchIndex(settings.lexical_qdrant_collection, lexical_population.profile),
+            client=lexical_client,
+        )
+    elif (
+        deployed_retrieval_configuration.strategy in ("dense-only", "hybrid", "bm25-only")
+        and bool(settings.lexical_qdrant_url)
+        and bool(settings.lexical_qdrant_collection)
+    ):
+        lexical_client = httpx.Client(
+            base_url=settings.lexical_qdrant_url,
+            timeout=10,
+            trust_env=False,
+        )
+        lexical_index = NativeQdrantSearchIndex(
+            index=QdrantSearchIndex(
+                settings.lexical_qdrant_collection,
+                profile=None,
+                embedding_configuration=selected_embedding_configuration,
+            ),
             client=lexical_client,
         )
 
@@ -201,6 +262,10 @@ def create_app(
         finally:
             if lexical_client is not None:
                 lexical_client.close()
+            if selected_reranking_provider is not None:
+                close_reranking = getattr(selected_reranking_provider, "close", None)
+                if close_reranking is not None:
+                    close_reranking()
             close_embedding = getattr(providers.embedding_provider, "close", None)
             if close_embedding is not None:
                 close_embedding()
@@ -209,10 +274,19 @@ def create_app(
                 await close_generation()
 
     application = FastAPI(title="Knora Agent", version="0.1.0", lifespan=lifespan)
-    selected_embedding_configuration = embedding_configuration or providers.embedding_configuration
-    dense_pdf_configuration = PdfSubmissionConfiguration.layout_preserving(
-        embedding_configuration=selected_embedding_configuration
+    use_docling = (
+        settings.pdf_parser_driver == "docling"
+        and bool(settings.cloudflare_account_id)
+        and bool(settings.cloudflare_api_token)
     )
+    if use_docling:
+        dense_pdf_configuration = PdfSubmissionConfiguration.docling_native(
+            embedding_configuration=selected_embedding_configuration
+        )
+    else:
+        dense_pdf_configuration = PdfSubmissionConfiguration.layout_preserving(
+            embedding_configuration=selected_embedding_configuration
+        )
     application.state.pdf_submission_configuration = (
         PdfExtractionSubmissionConfiguration(
             parser_configuration_id=dense_pdf_configuration.parser_configuration_id,
@@ -237,6 +311,11 @@ def create_app(
     application.state.answer_question = answer_question or AnswerQuestion(
         embedding_provider=providers.embedding_provider if lexical_population is None else None,
         generation_provider=providers.generation_provider,
+        answer_support_verifier=(
+            providers.generation_provider.build_answer_support_verifier()
+            if hasattr(providers.generation_provider, "build_answer_support_verifier")
+            else None
+        ),
         store=answering_store,
         embedding_configuration=selected_embedding_configuration
         if lexical_population is None
@@ -244,12 +323,19 @@ def create_app(
         retrieval_configuration_resolver=DeploymentRetrievalConfigurationResolver(
             deployed_retrieval_configuration
         ),
+        reranking_provider=selected_reranking_provider,
+        reranking_configuration_resolver=selected_reranking_resolver,
         admission_store=workspace_admissions,
     )
     application.state.ingest_document = ingest_document or IngestDocument(
         processor=DocumentProcessor(),
         embedding_provider=providers.embedding_provider,
-        store=PostgresIngestionStore(SessionFactory),
+        store=PostgresIngestionStore(
+            SessionFactory,
+            search_index_store=PostgresSearchIndexStore(SessionFactory),
+            lexical_population=lexical_population,
+            lexical_profile=lexical_population.profile if lexical_population is not None else None,
+        ),
         admission_store=workspace_admissions,
     )
     runtime_object_store_settings = ObjectStoreSettings.from_runtime(settings)
@@ -292,9 +378,24 @@ def create_app(
         admission_store=workspace_admissions,
         deployed_embedding_configuration=selected_embedding_configuration,
     )
+    if (
+        settings.pdf_parser_driver == "docling"
+        and settings.cloudflare_account_id
+        and settings.cloudflare_api_token
+    ):
+        cf_pdf_provider = CloudflarePdfUnderstandingProvider(
+            account_id=settings.cloudflare_account_id,
+            api_token=settings.cloudflare_api_token.get_secret_value(),
+            ocr_model=settings.cloudflare_ocr_model,
+            timeout_seconds=settings.cloudflare_timeout_seconds,
+        )
+        extractor: PdfTextExtractor = DoclingTextExtractor(cf_provider=cf_pdf_provider)
+    else:
+        extractor = PypdfTextExtractor()
+
     pdf_handler = PdfDerivationHandler(
         object_store=selected_object_store,
-        extractor=PypdfTextExtractor(),
+        extractor=extractor,
         embedding_provider=providers.embedding_provider,
         profile_resolver=job_store.pdf_profile_for_work,
         runtime_embedding_configuration=selected_embedding_configuration,
@@ -317,6 +418,22 @@ def create_app(
         timing=AttemptTimingV1.standard(),
         retry_policy=RetryPolicyV1(SystemRandomSource()),
         runner=FixedCapacityThreadAttemptRunner(max_concurrency=1),
+    )
+    application.state.search_index_maintenance = (
+        DynamicSearchIndexHandler(
+            store=PostgresSearchIndexStore(SessionFactory),
+            index=lexical_index,
+            lexical_policy_id=deployed_retrieval_configuration.lexical_policy_id
+            or "lexical-bm25-v1",
+            embedding_configuration_id=selected_embedding_configuration.id,
+        )
+        if lexical_index is not None
+        and lexical_population is None
+        and (
+            deployed_retrieval_configuration.strategy == "dense-only"
+            or deployed_retrieval_configuration.fusion_policy_id == "dbsf-v1"
+        )
+        else None
     )
     application.state.dataset_service = DatasetService(
         store=PostgresDatasetStore(SessionFactory),

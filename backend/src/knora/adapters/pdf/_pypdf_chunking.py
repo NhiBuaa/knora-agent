@@ -13,6 +13,15 @@ from knora.ingestion.pdf import (
     PdfExtractionConfiguration,
     PreparedPdfChunk,
 )
+from knora.ingestion.pdf_structure import (
+    BlockType,
+    CanonicalBlock,
+    CanonicalDocument,
+    CanonicalPage,
+    PageCompleteness,
+    SourceOrigin,
+    validate_canonical_document,
+)
 
 _CONTROL_WHITELIST = {"\n", "\t"}
 _HORIZONTAL_WHITESPACE = re.compile(r"[^\S\n]+")
@@ -45,6 +54,53 @@ def _normalize_page(page: _RawPage) -> NormalizedPdfPage:
 
 def _encode(tokenizer, text: str) -> list[int]:
     return tokenizer.encode(text, disallowed_special=())
+
+
+def _build_pypdf_canonical_document(
+    raw_source_hash: str,
+    pages: tuple[NormalizedPdfPage, ...],
+    configuration: PdfExtractionConfiguration,
+) -> CanonicalDocument:
+    canonical_pages: list[CanonicalPage] = []
+    for page in pages:
+        canonical_blocks: list[CanonicalBlock] = []
+        if page.text:
+            for idx, match in enumerate(
+                re.finditer(r"\S(?:.*?\S)?(?=\n{2,}|\Z)", page.text, re.DOTALL), start=1
+            ):
+                start = match.start()
+                end = match.end()
+                canonical_blocks.append(
+                    CanonicalBlock(
+                        block_id=f"p{page.page_number}_b{idx}",
+                        page_number=page.page_number,
+                        block_type=BlockType.PARAGRAPH,
+                        start_offset=start,
+                        end_offset=end,
+                        text=page.text[start:end],
+                        source_origin=SourceOrigin.NATIVE_TEXT,
+                    )
+                )
+        canonical_pages.append(
+            CanonicalPage(
+                page_number=page.page_number,
+                text=page.text,
+                content_checksum=page.content_checksum,
+                blocks=tuple(canonical_blocks),
+                tables=(),
+                completeness=PageCompleteness(is_complete=True, status="COMPLETE"),
+            )
+        )
+    doc = CanonicalDocument(
+        raw_source_hash=raw_source_hash,
+        derivation_identity=configuration.derivation_identity,
+        parser_version=configuration.parser_version,
+        pages=tuple(canonical_pages),
+        is_complete=True,
+        completeness_status="COMPLETE",
+    )
+    validate_canonical_document(doc)
+    return doc
 
 
 def _chunk_pages(

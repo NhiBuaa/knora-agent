@@ -809,3 +809,111 @@ async def test_quota_resume_rejects_drift_before_any_new_dispatch(tmp_path, chan
     executor = NS(run_id="run", workspace_id="workspace")
     with pytest.raises(ValueError, match="identity"):
         await collect_cases(dataset, executor, tmp_path, derivation_sha256="d", resume_quota=True)
+
+
+def test_build_report_with_ranking_dataset_computes_macro_ndcg_and_ranking_metrics():
+    from evals.runners.pdf_retrieval_v3 import build_report
+    from evals.runners.retrieval_ranking import RankingJudgment
+
+    j_a = RankingJudgment(query_id="q1", chunk_id="chunk-1", content_checksum="chk1", grade=1)
+    j_b = RankingJudgment(query_id="q1", chunk_id="chunk-2", content_checksum="chk2", grade=0)
+
+    rk_case = NS(
+        id="q1",
+        judgments=(j_a, j_b),
+        judgments_by_chunk_id={"chunk-1": j_a, "chunk-2": j_b},
+    )
+    ranking_dataset = NS(
+        candidate_universe_ids=frozenset({"chunk-1", "chunk-2"}),
+        cases_by_id={"q1": rk_case},
+    )
+
+    dataset = NS(cases=(case(id="q1"),), dataset_sha256="a", corpus_sha256="b")
+    row = {
+        "case_id": "q1",
+        "failure_code": None,
+        "response_sha256": "r",
+        "selected_chunk_ids": ["chunk-1"],
+        "candidates": [
+            {"chunk_id": "chunk-1", "score": 1.0},
+            {"chunk_id": "chunk-2", "score": 0.5},
+        ],
+        "decision": "ANSWER",
+    }
+
+    report = build_report(
+        dataset,
+        [row],
+        {"limit": ("chunk-1",)},
+        {},
+        ranking_dataset=ranking_dataset,
+    )
+
+    assert report["metrics"]["all_evidence_groups_covered"] == 1.0
+    assert report["metrics"]["macro_ndcg_at_10"] == 1.0
+    assert report["metrics"]["macro_mrr"] == 1.0
+    assert report["metrics"]["macro_hit_at_10"] == 1.0
+    assert report["metrics"]["macro_recall_at_10"] == 1.0
+    assert report["metrics"]["ranking_denominators"] == {
+        "total": 1,
+        "evaluable": 1,
+        "not_applicable": 0,
+        "missing_or_failed": 0,
+    }
+    case_res = report["cases"][0]
+    assert case_res["ranking"]["ndcg"] == 1.0
+    assert case_res["ranking"]["hit_at_10"] == 1.0
+
+
+def test_replay_phrase_boost_comparator():
+    from evals.runners.pdf_retrieval_v3 import replay_phrase_boost_comparator
+
+    from knora.answering.stores import RetrievalCandidate
+
+    c1 = RetrievalCandidate(
+        document_id="doc-1",
+        document_version_id="ver-1",
+        source_key="policy",
+        source_name="policy.pdf",
+        chunk_set_id="cset-1",
+        embedding_set_id=None,
+        embedding_configuration_id=None,
+        chunk_id="c1",
+        chunk_ordinal=0,
+        heading_path=(),
+        start_line=1,
+        end_line=1,
+        content="a b c",
+        content_checksum="chk-1",
+        token_count=3,
+        cosine_distance=None,
+        similarity=None,
+        bm25_score=2.0,
+    )
+    c2 = RetrievalCandidate(
+        document_id="doc-1",
+        document_version_id="ver-1",
+        source_key="policy",
+        source_name="policy.pdf",
+        chunk_set_id="cset-1",
+        embedding_set_id=None,
+        embedding_configuration_id=None,
+        chunk_id="c2",
+        chunk_ordinal=1,
+        heading_path=(),
+        start_line=2,
+        end_line=2,
+        content="c b a",
+        content_checksum="chk-2",
+        token_count=3,
+        cosine_distance=None,
+        similarity=None,
+        bm25_score=4.0,
+    )
+    results = replay_phrase_boost_comparator(
+        {"q1": [c1, c2]},
+        {"q1": "a b c"},
+        lambda_param=0.75,
+    )
+    assert len(results["q1"]) == 2
+    assert results["q1"][0].candidate.chunk_id == "c1"

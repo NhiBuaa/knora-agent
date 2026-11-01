@@ -53,7 +53,8 @@ def test_bootstrap_selects_one_complete_provider_mode() -> None:
     assert compatible.embedding_configuration.dimensions == 1536
 
 
-def test_bootstrap_selects_cloudflare_pair_with_one_account_and_token() -> None:
+@pytest.mark.parametrize("model", ["@cf/openai/gpt-oss-20b"])
+def test_bootstrap_selects_cloudflare_pair_with_one_account_and_token(model) -> None:
     selected = build_provider_selection(
         Settings(
             _env_file=None,
@@ -62,11 +63,14 @@ def test_bootstrap_selects_cloudflare_pair_with_one_account_and_token() -> None:
             embedding_dimension=1024,
             cloudflare_account_id="0123456789abcdef0123456789abcdef",
             cloudflare_api_token="secret-canary",
+            cloudflare_generation_model=model,
         )
     )
 
     assert isinstance(selected.embedding_provider, CloudflareEmbeddingProvider)
     assert isinstance(selected.generation_provider, OpenAICompatibleGenerationProvider)
+    assert selected.generation_provider._model == model
+    assert selected.generation_provider.build_answer_support_verifier() is not None
     assert selected.embedding_configuration == EmbeddingConfiguration.cloudflare_qwen3_06b()
     assert "secret-canary" not in repr(
         Settings(_env_file=None, cloudflare_api_token="secret-canary")
@@ -82,6 +86,7 @@ def test_bootstrap_selects_cloudflare_pair_with_one_account_and_token() -> None:
         {"cloudflare_api_token": ""},
         {"cloudflare_embedding_model": "other"},
         {"cloudflare_generation_model": "other"},
+        {"cloudflare_generation_model": "@cf/openai/gpt-oss-120b"},
         {"cloudflare_embedding_configuration_id": "other"},
         {"cloudflare_timeout_seconds": 0},
     ],
@@ -397,6 +402,54 @@ def test_object_store_settings_reject_empty_s3_credentials(field: str) -> None:
         _ = runtime.object_store_settings
 
 
+def test_v3_retrieval_accepts_cloudflare_workers_ai_canonical_selector() -> None:
+    selected = build_provider_selection(
+        Settings(
+            _env_file=None,
+            retrieval_configuration_id="retrieval-hybrid-rerank-top8-v3",
+            embedding_provider="cloudflare-workers-ai",
+            generation_provider="cloudflare-workers-ai",
+            embedding_dimension=1024,
+            cloudflare_account_id="a" * 32,
+            cloudflare_api_token="fake",
+        )
+    )
+    assert isinstance(selected.embedding_provider, CloudflareEmbeddingProvider)
+    assert isinstance(selected.generation_provider, OpenAICompatibleGenerationProvider)
+
+
+def test_v3_retrieval_rejects_non_cloudflare_providers() -> None:
+    with pytest.raises(
+        ValueError, match="V3 retrieval requires Cloudflare AI providers exclusively"
+    ):
+        build_provider_selection(
+            Settings(
+                _env_file=None,
+                retrieval_configuration_id="retrieval-hybrid-top8-v3",
+                embedding_provider="cloudflare",
+                generation_provider="ollama",
+                cloudflare_account_id="a" * 32,
+                cloudflare_api_token="token",
+                ollama_generation_model="qwen3:8b",
+            )
+        )
+
+    with pytest.raises(
+        ValueError, match="V3 retrieval requires Cloudflare AI providers exclusively"
+    ):
+        build_provider_selection(
+            Settings(
+                _env_file=None,
+                retrieval_configuration_id="retrieval-dense-top8-v3",
+                embedding_provider="ollama",
+                generation_provider="cloudflare",
+                cloudflare_account_id="a" * 32,
+                cloudflare_api_token="token",
+                ollama_embedding_model="qwen3:8b",
+            )
+        )
+
+
 @pytest.mark.asyncio
 async def test_bootstrap_cloudflare_cap_reaches_wire_without_extra_generation() -> None:
     import json
@@ -404,8 +457,7 @@ async def test_bootstrap_cloudflare_cap_reaches_wire_without_extra_generation() 
     import httpx
 
     from knora.providers.generation import GenerationEvidence
-    from knora.providers.openai_compatible.answer_blocks import ANSWER_BLOCK_SCHEMA
-    from knora.providers.openai_compatible.generation import CLOUDFLARE_SYSTEM_PROMPT
+    from knora.providers.openai_compatible.answer_blocks import GROUNDED_ANSWER_SCHEMA
 
     selected = build_provider_selection(
         Settings(
@@ -451,11 +503,21 @@ async def test_bootstrap_cloudflare_cap_reaches_wire_without_extra_generation() 
         )
     assert len(seen) == 1
     assert seen[0]["max_tokens"] == 2048
-    assert set(seen[0]) == {"model", "messages", "response_format", "max_tokens"}
+    assert set(seen[0]) == {
+        "model",
+        "messages",
+        "response_format",
+        "max_tokens",
+        "reasoning_effort",
+        "temperature",
+    }
+    assert seen[0]["reasoning_effort"] == "medium"
+    assert seen[0]["temperature"] == 0
     assert seen[0]["model"] == "@cf/openai/gpt-oss-20b"
-    assert seen[0]["messages"][0]["content"] == CLOUDFLARE_SYSTEM_PROMPT
+    assert "Preserve conditions, exceptions" in seen[0]["messages"][0]["content"]
     assert seen[0]["response_format"] == {
         "type": "json_schema",
-        "json_schema": ANSWER_BLOCK_SCHEMA,
+        "json_schema": GROUNDED_ANSWER_SCHEMA,
     }
     assert result.decision == "REFUSAL"
+    assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v25"

@@ -42,7 +42,7 @@ def population_for(texts):
             ],
         }
     ]
-    profile = replace(lexical_profile(), avg_len=1.0)
+    profile = replace(lexical_profile(), id="bm25-word-frozen47-population-v1", avg_len=1.0)
     statistics = {
         "documents": documents,
         "tokenizer": profile.tokenizer,
