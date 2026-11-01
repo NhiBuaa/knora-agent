@@ -1,4 +1,6 @@
+from contextlib import nullcontext
 from copy import deepcopy
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -31,6 +33,91 @@ from knora.ingestion.processing import ChunkingConfiguration, DocumentProcessor
 from knora.providers.deterministic.embedding import DeterministicEmbeddingProvider
 from knora.providers.deterministic.generation import DeterministicGenerationProvider
 from knora.providers.embedding import EmbeddingConfiguration
+
+
+@pytest.mark.parametrize(
+    ("configuration_id", "decision", "version", "expected"),
+    [
+        ("retrieval-dense-top8-v3", "REFUSAL", 3, "support"),
+        ("retrieval-hybrid-top8-v3", "REFUSAL", 3, "support"),
+        ("retrieval-hybrid-sdm-top8-v3", "REFUSAL", 3, "support"),
+        ("retrieval-hybrid-rerank-top8-v3", "REFUSAL", 3, "support"),
+        ("retrieval-hybrid-rerank-top8-v3", "ANSWER", 3, "bm25"),
+        ("retrieval-bm25-top8-v1", "REFUSAL", 3, "bm25"),
+        ("unknown-v3", "REFUSAL", 3, "bm25"),
+        ("retrieval-hybrid-rerank-top8-v3", "ANSWER", 4, "support"),
+    ],
+)
+def test_v3_direct_refusal_uses_snapshot_reader(configuration_id, decision, version, expected):
+    trace = SimpleNamespace(
+        retrieval_configuration_id=configuration_id, decision=decision, trace_schema_version=version
+    )
+    session = SimpleNamespace(scalar=lambda _: trace)
+
+    class Reader(PostgresEvaluationReader):
+        def _read_answer_support_trace(self, actual_session, actual_trace, workspace_id):
+            assert (actual_session, actual_trace, workspace_id) == (session, trace, "workspace")
+            return "support"
+
+        def _read_bm25_trace(self, actual_session, actual_trace, workspace_id):
+            return "bm25"
+
+    assert (
+        Reader(lambda: nullcontext(session)).read_trace(trace_id="trace", workspace_id="workspace")
+        == expected
+    )
+
+
+@pytest.mark.parametrize("version", [3, 4])
+@pytest.mark.parametrize("stale", [False, True])
+def test_verified_refusal_readback_preserves_schema_and_revalidates_snapshot(
+    monkeypatch, version, stale
+):
+    trace = SimpleNamespace(
+        id="trace",
+        workspace_id="workspace",
+        trace_schema_version=version,
+        branch_observation_schema_version=2,
+        decision="REFUSAL",
+        answer=None,
+        refusal_reason="INSUFFICIENT_EVIDENCE",
+        generation_status="completed",
+        validation_outcome="valid",
+        candidate_decisions=[],
+        retrieved_chunk_ids=[],
+        alias_mapping={},
+        parsed_markers=[],
+        embedding_set_ids=[],
+        chunk_set_ids=[],
+        branch_observations=[],
+        fusion_policy_version=None,
+        retrieval_configuration_id="retrieval-hybrid-rerank-top8-v3",
+        embedding_configuration_id="embedding-cloudflare-qwen3-06b-v1",
+        provider_metadata=_budget_provider_metadata(),
+    )
+    trace.provider_metadata["retrieval"]["lexical_generations"] = []
+    session = SimpleNamespace(
+        scalar=lambda _: trace, execute=lambda _: SimpleNamespace(all=lambda: [])
+    )
+    checked = []
+
+    def revalidate(self, actual_session, actual_trace):
+        assert (actual_session, actual_trace) == (session, trace)
+        checked.append(actual_trace.id)
+        if stale:
+            raise ValueError("source snapshot changed")
+
+    monkeypatch.setattr(PostgresAnsweringStore, "_revalidate_lexical_trace", revalidate)
+    reader = PostgresEvaluationReader(lambda: nullcontext(session))
+    if stale:
+        with pytest.raises(LookupError, match="answer-support trace provenance is invalid"):
+            reader.read_trace(trace_id="trace", workspace_id="workspace")
+        assert checked == ["trace"]
+        return
+    result = reader.read_trace(trace_id="trace", workspace_id="workspace")
+    assert checked == ["trace"]
+    assert result.trace_schema_version == version
+    assert result.decision == "REFUSAL" and result.answer is None
 
 
 def _budget_provider_metadata() -> dict[str, object]:

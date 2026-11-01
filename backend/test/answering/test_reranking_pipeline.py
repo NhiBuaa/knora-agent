@@ -191,7 +191,7 @@ def test_stage_order_dbsf_sdm_rerank_mmr_generation():
             0,
             result=GenerationResult(
                 decision="ANSWER",
-                answer="Answer based on top evidence [[E1]].",
+                answer="Specific query relevance [[E1]].",
                 cited_evidence_ids=("E1",),
                 refusal_reason=None,
                 provider="cf",
@@ -217,7 +217,7 @@ def test_stage_order_dbsf_sdm_rerank_mmr_generation():
 
     result = asyncio.run(answer_question.execute(command, principal))
     assert result.decision == "ANSWER"
-    assert result.answer == "Answer based on top evidence [[E1]]."
+    assert result.answer == "Specific query relevance [[E1]]."
 
     # Verify trace persisted
     assert store.persist_trace.called
@@ -268,7 +268,7 @@ def test_reranker_failure_fallback_dbsf_sdm():
             0,
             result=GenerationResult(
                 decision="ANSWER",
-                answer="Answer after fallback [[E1]].",
+                answer="High initial score [[E1]].",
                 cited_evidence_ids=("E1",),
                 refusal_reason=None,
                 provider="cf",
@@ -286,13 +286,13 @@ def test_reranker_failure_fallback_dbsf_sdm():
 
     answer_question = _build_answer_question(store, generator, reranker, config)
 
-    command = QuestionCommand(workspace_id="ws-1", question="some question")
+    command = QuestionCommand(workspace_id="ws-1", question="high initial score")
     principal = WorkspacePrincipal(workspace_id="ws-1", key_id="key-1")
 
     # Pipeline does NOT refuse or crash; it safely falls back to DBSF+SDM
     result = asyncio.run(answer_question.execute(command, principal))
     assert result.decision == "ANSWER"
-    assert result.answer == "Answer after fallback [[E1]]."
+    assert result.answer == "High initial score [[E1]]."
 
     # Trace verifies fallback status
     trace_arg = store.persist_trace.call_args[0][0]
@@ -320,7 +320,7 @@ def test_postgres_recheck_revocation_fails_closed():
     config = RerankingConfiguration.cloudflare_bge_reranker_v1()
 
     answer_question = _build_answer_question(store, generator, reranker, config)
-    command = QuestionCommand(workspace_id="ws-1", question="some question")
+    command = QuestionCommand(workspace_id="ws-1", question="high initial score")
     principal = WorkspacePrincipal(workspace_id="ws-1", key_id="key-1")
 
     with pytest.raises(KnoraError) as exc_info:

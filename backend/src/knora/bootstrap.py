@@ -257,6 +257,7 @@ def _build_selected_generation(runtime_settings: Settings, choice: str) -> Gener
             provider_identity="cloudflare-workers-ai",
             max_tokens=2048,
             direct_json_schema=True,
+            grounded_answers=True,
         )
 
     if choice == "deterministic-local":

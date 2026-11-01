@@ -311,6 +311,11 @@ def create_app(
     application.state.answer_question = answer_question or AnswerQuestion(
         embedding_provider=providers.embedding_provider if lexical_population is None else None,
         generation_provider=providers.generation_provider,
+        answer_support_verifier=(
+            providers.generation_provider.build_answer_support_verifier()
+            if hasattr(providers.generation_provider, "build_answer_support_verifier")
+            else None
+        ),
         store=answering_store,
         embedding_configuration=selected_embedding_configuration
         if lexical_population is None
