@@ -316,10 +316,24 @@ if ($Mode -eq 'Apply') {
 
         # Exact readback
         $readbackMappers = @(Unwrap-Items (Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid/protocol-mappers/models" -Headers $headers))
-        $foundMapper = $null
-        foreach ($rm in $readbackMappers) { if ($rm.name -eq 'knora-session-policy') { $foundMapper = $rm } }
-        if (-not $foundMapper -or $foundMapper.id -ne $mapperId -or $foundMapper.protocolMapper -ne 'knora-session-policy' -or $foundMapper.protocol -ne 'openid-connect') {
+        $foundMappers = @($readbackMappers | Where-Object { $_ -and $_.name -eq 'knora-session-policy' })
+        if ($foundMappers.Count -ne 1) {
             throw 'KEYCLOAK_SESSION_POLICY_UPDATE_OR_VERIFICATION_FAILED'
+        }
+        $foundMapper = $foundMappers[0]
+        if (-not $foundMapper -or
+            $foundMapper.id -ne $mapperId -or
+            $foundMapper.protocolMapper -ne 'knora-session-policy' -or
+            $foundMapper.protocol -ne 'openid-connect' -or
+            $foundMapper.consentRequired -ne $false) {
+            throw 'KEYCLOAK_SESSION_POLICY_UPDATE_OR_VERIFICATION_FAILED'
+        }
+        if ($foundMapper.config -ne $null -and $foundMapper.config.PSObject.Properties.Count -gt 0) {
+            foreach ($cp in $foundMapper.config.PSObject.Properties) {
+                if ($cp.Value -ne $null -and $cp.Value -ne '') {
+                    throw 'KEYCLOAK_SESSION_POLICY_UPDATE_OR_VERIFICATION_FAILED'
+                }
+            }
         }
     }
 
@@ -403,66 +417,83 @@ if ($Mode -eq 'Rollback') {
     $completedSteps = if (Test-Path -LiteralPath $journalPath) {
         @( (Get-Content -Raw -LiteralPath $journalPath | ConvertFrom-Json).completedSteps )
     } else {
-        @( 'mapper', 'client', 'realm' )
+        @()
     }
 
-    # Check for repeated rollback (already in before state - NO-OP)
+    # Read current state
+    $currentRealm = Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm" -Headers $headers
+    $clientFresh = Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid" -Headers $headers
+    $cAttrs = $clientFresh.attributes
+    $currentMappers = @(Unwrap-Items (Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid/protocol-mappers/models" -Headers $headers))
+
+    # Evaluate Realm state: must be either at Before or After
     $realmIsBefore = $true
     foreach ($p in $saved.realmBefore.PSObject.Properties) {
         if ($currentRealm.($p.Name) -ne $p.Value) { $realmIsBefore = $false }
     }
-    $cAttrs = $client.attributes
-    $attrsAreBefore = $true
+    $realmIsAfter = $true
+    foreach ($p in $saved.realmAfter.PSObject.Properties) {
+        if ($currentRealm.($p.Name) -ne $p.Value) { $realmIsAfter = $false }
+    }
+    if (-not $realmIsBefore -and -not $realmIsAfter) {
+        throw 'KEYCLOAK_SESSION_POLICY_CONCURRENT_CHANGE'
+    }
+
+    # Evaluate Client state: must be either at Before or After
+    $clientIsBefore = $true
     foreach ($p in $saved.attributesBefore.PSObject.Properties) {
         $curPres = ($cAttrs -ne $null -and $cAttrs.PSObject.Properties[$p.Name] -ne $null)
         $curVal = if ($curPres) { $cAttrs.($p.Name) } else { $null }
-        if ($p.Value.present -ne $curPres -or $p.Value.value -ne $curVal) {
-            $attrsAreBefore = $false
-        }
+        if ($p.Value.present -ne $curPres -or $p.Value.value -ne $curVal) { $clientIsBefore = $false }
     }
-    $mapperIsBefore = $true
-    if ($saved.mapperBefore.present) {
-        $mFound = $null
-        foreach ($m in $existingMappers) { if ($m.id -eq $saved.mapperBefore.model.id -or $m.name -eq 'knora-session-policy') { $mFound = $m } }
-        if (-not $mFound) { $mapperIsBefore = $false }
-    } else {
-        $mFound = $null
-        foreach ($m in $existingMappers) { if ($m.id -eq $saved.mapperAfter.id -or $m.name -eq 'knora-session-policy') { $mFound = $m } }
-        if ($mFound -ne $null) { $mapperIsBefore = $false }
+    $clientIsAfter = $true
+    foreach ($p in $saved.attributesAfter.PSObject.Properties) {
+        $curPres = ($cAttrs -ne $null -and $cAttrs.PSObject.Properties[$p.Name] -ne $null)
+        $curVal = if ($curPres) { $cAttrs.($p.Name) } else { $null }
+        if ($p.Value.present -ne $curPres -or $p.Value.value -ne $curVal) { $clientIsAfter = $false }
+    }
+    if (-not $clientIsBefore -and -not $clientIsAfter) {
+        throw 'KEYCLOAK_SESSION_POLICY_CONCURRENT_CHANGE'
     }
 
-    if ($realmIsBefore -and $attrsAreBefore -and $mapperIsBefore) {
+    # Evaluate Mapper state: must be either at Before or After
+    $mapperIsBefore = $true
+    $mapperIsAfter = $true
+    if ($saved.mapperBefore.present) {
+        $mBeforeFound = $null
+        $mAfterFound = $null
+        foreach ($m in $currentMappers) {
+            if ($m.id -eq $saved.mapperBefore.model.id) { $mBeforeFound = $m }
+            if ($m.id -eq $saved.mapperAfter.id) { $mAfterFound = $m }
+        }
+        if (-not $mBeforeFound) { $mapperIsBefore = $false }
+        if (-not $mAfterFound) { $mapperIsAfter = $false }
+    } else {
+        $targetFound = $null
+        foreach ($m in $currentMappers) {
+            if ($m.id -eq $saved.mapperAfter.id -or $m.name -eq 'knora-session-policy') { $targetFound = $m }
+        }
+        if ($targetFound -ne $null) {
+            $mapperIsBefore = $false
+            if ($targetFound.id -ne $saved.mapperAfter.id -or $targetFound.protocolMapper -ne 'knora-session-policy') {
+                $mapperIsAfter = $false
+            }
+        } else {
+            $mapperIsAfter = $false
+        }
+    }
+    if (-not $mapperIsBefore -and -not $mapperIsAfter) {
+        throw 'KEYCLOAK_SESSION_POLICY_CONCURRENT_CHANGE'
+    }
+
+    # Check if already fully rolled back (NO-OP)
+    if ($realmIsBefore -and $clientIsBefore -and $mapperIsBefore) {
         Write-Output 'KEYCLOAK_SESSION_POLICY_ROLLBACK_VERIFIED'
         return
     }
 
-    # Drift check: current state must match expected after state for steps to be rolled back!
-    if ('realm' -in $completedSteps) {
-        foreach ($k in $saved.realmAfter.PSObject.Properties.Name) {
-            if ($currentRealm.$k -ne $saved.realmAfter.$k) {
-                throw 'KEYCLOAK_SESSION_POLICY_CONCURRENT_CHANGE'
-            }
-        }
-    }
-    if ('client' -in $completedSteps) {
-        foreach ($prop in $saved.attributesAfter.PSObject.Properties) {
-            $curPres = ($cAttrs -ne $null -and $cAttrs.PSObject.Properties[$prop.Name] -ne $null)
-            $curVal = if ($curPres) { $cAttrs.($prop.Name) } else { $null }
-            if ($prop.Value.present -ne $curPres -or $prop.Value.value -ne $curVal) {
-                throw 'KEYCLOAK_SESSION_POLICY_CONCURRENT_CHANGE'
-            }
-        }
-    }
-    if ('mapper' -in $completedSteps) {
-        $mFound = $null
-        foreach ($m in $existingMappers) { if ($m.id -eq $saved.mapperAfter.id -or $m.name -eq 'knora-session-policy') { $mFound = $m } }
-        if (-not $mFound) {
-            throw 'KEYCLOAK_SESSION_POLICY_CONCURRENT_CHANGE'
-        }
-    }
-
-    # Step 1: Restore Realm if applied
-    if ('realm' -in $completedSteps) {
+    # Step 1: Restore Realm if in 'after' state or recorded in journal
+    if ($realmIsAfter -or ('realm' -in $completedSteps -and -not $realmIsBefore)) {
         $realmRestored = @{}
         foreach ($p in $saved.realmBefore.PSObject.Properties) {
             $realmRestored[$p.Name] = $p.Value
@@ -478,12 +509,12 @@ if ($Mode -eq 'Rollback') {
         }
     }
 
-    # Step 2: Restore Client Attributes if applied
-    if ('client' -in $completedSteps) {
-        $clientFresh = Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid" -Headers $headers
+    # Step 2: Restore Client Attributes if in 'after' state or recorded in journal
+    if ($clientIsAfter -or ('client' -in $completedSteps -and -not $clientIsBefore)) {
+        $freshClientForRestore = Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid" -Headers $headers
         $restoredAttrs = [ordered]@{}
-        if ($clientFresh.attributes) {
-            foreach ($prop in $clientFresh.attributes.PSObject.Properties) {
+        if ($freshClientForRestore.attributes) {
+            foreach ($prop in $freshClientForRestore.attributes.PSObject.Properties) {
                 if ($prop.Name -notin @('access.token.lifespan', 'client.session.idle.timeout', 'client.session.max.lifespan')) {
                     $restoredAttrs[$prop.Name] = $prop.Value
                 }
@@ -496,7 +527,7 @@ if ($Mode -eq 'Rollback') {
         }
         $clientPayload = [ordered]@{
             id = $clientUuid
-            clientId = $clientFresh.clientId
+            clientId = $freshClientForRestore.clientId
             attributes = $restoredAttrs
         }
         $cBody = $clientPayload | ConvertTo-Json -Depth 10
@@ -513,8 +544,8 @@ if ($Mode -eq 'Rollback') {
         }
     }
 
-    # Step 3: Restore / Remove Mapper if applied
-    if ('mapper' -in $completedSteps) {
+    # Step 3: Restore / Remove Mapper if in 'after' state or recorded in journal
+    if ($mapperIsAfter -or ('mapper' -in $completedSteps -and -not $mapperIsBefore)) {
         if (-not $saved.mapperBefore.present) {
             $mId = $saved.mapperAfter.id
             Invoke-RestMethod -Method Delete -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid/protocol-mappers/models/$mId" -Headers $headers | Out-Null
@@ -524,6 +555,16 @@ if ($Mode -eq 'Rollback') {
                 if ($rm.id -eq $mId -or $rm.name -eq 'knora-session-policy') {
                     throw 'KEYCLOAK_SESSION_POLICY_UPDATE_OR_VERIFICATION_FAILED'
                 }
+            }
+        } else {
+            $origModel = $saved.mapperBefore.model
+            $origBody = $origModel | ConvertTo-Json
+            Invoke-RestMethod -Method Put -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid/protocol-mappers/models/$($origModel.id)" -Headers $headers -ContentType 'application/json' -Body $origBody | Out-Null
+            $readbackMappers = @(Unwrap-Items (Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid/protocol-mappers/models" -Headers $headers))
+            $rmFound = $null
+            foreach ($rm in $readbackMappers) { if ($rm.id -eq $origModel.id) { $rmFound = $rm } }
+            if (-not $rmFound -or $rmFound.name -ne $origModel.name -or $rmFound.protocolMapper -ne $origModel.protocolMapper) {
+                throw 'KEYCLOAK_SESSION_POLICY_UPDATE_OR_VERIFICATION_FAILED'
             }
         }
     }
@@ -541,6 +582,20 @@ if ($Mode -eq 'Rollback') {
         $curPres = ($fAttrs -ne $null -and $fAttrs.PSObject.Properties[$p.Name] -ne $null)
         $curVal = if ($curPres) { $fAttrs.($p.Name) } else { $null }
         if ($p.Value.present -ne $curPres -or $p.Value.value -ne $curVal) {
+            throw 'KEYCLOAK_SESSION_POLICY_UPDATE_OR_VERIFICATION_FAILED'
+        }
+    }
+    $finalMappers = @(Unwrap-Items (Invoke-RestMethod -Uri "$BaseUrl/admin/realms/$Realm/clients/$clientUuid/protocol-mappers/models" -Headers $headers))
+    if (-not $saved.mapperBefore.present) {
+        foreach ($fm in $finalMappers) {
+            if ($fm.name -eq 'knora-session-policy' -or $fm.id -eq $saved.mapperAfter.id) {
+                throw 'KEYCLOAK_SESSION_POLICY_UPDATE_OR_VERIFICATION_FAILED'
+            }
+        }
+    } else {
+        $fmFound = $null
+        foreach ($fm in $finalMappers) { if ($fm.id -eq $saved.mapperBefore.model.id) { $fmFound = $fm } }
+        if (-not $fmFound) {
             throw 'KEYCLOAK_SESSION_POLICY_UPDATE_OR_VERIFICATION_FAILED'
         }
     }

@@ -628,12 +628,24 @@ function ConversationViewState({
         if (created.status === 401) {
           try {
             const body = (await created.json()) as { detail?: string };
+            if (
+              !active.current ||
+              generation !== authenticationGeneration.current
+            ) {
+              return;
+            }
             if (body.detail === "SESSION_IDENTITY_MISMATCH") {
               void recoverSession();
               return;
             }
           } catch {
             // generic 401
+          }
+          if (
+            !active.current ||
+            generation !== authenticationGeneration.current
+          ) {
+            return;
           }
           setSubmissionUncertain(true);
           requireAuthentication();
@@ -674,6 +686,12 @@ function ConversationViewState({
       if (response.status === 401) {
         try {
           const body = (await response.json()) as { detail?: string };
+          if (
+            !active.current ||
+            generation !== authenticationGeneration.current
+          ) {
+            return;
+          }
           if (body.detail === "SESSION_IDENTITY_MISMATCH") {
             void recoverSession();
             return;
@@ -681,25 +699,49 @@ function ConversationViewState({
         } catch {
           // generic 401
         }
+        if (
+          !active.current ||
+          generation !== authenticationGeneration.current
+        ) {
+          return;
+        }
         setSubmissionUncertain(true);
         requireAuthentication();
         return;
       }
       if (response.status === 409) {
-        const body = (await response.json()) as { error?: { code?: string } };
-        if (body.error?.code === "CONVERSATION_BUSY") {
-          setNotice("This conversation is processing a question");
-          await load();
-        } else if (
-          body.error?.code === "WORKSPACE_ARCHIVED" ||
-          body.error?.code === "CONVERSATION_ARCHIVED"
-        ) {
-          setServerArchived(true);
-          setNotice(null);
-        } else {
+        try {
+          const body = (await response.json()) as { error?: { code?: string } };
+          if (
+            !active.current ||
+            generation !== authenticationGeneration.current
+          ) {
+            return;
+          }
+          if (body.error?.code === "CONVERSATION_BUSY") {
+            setNotice("This conversation is processing a question");
+            await load();
+          } else if (
+            body.error?.code === "WORKSPACE_ARCHIVED" ||
+            body.error?.code === "CONVERSATION_ARCHIVED"
+          ) {
+            setServerArchived(true);
+            setNotice(null);
+          } else {
+            setSubmissionUncertain(true);
+            setSubmissionConflict(true);
+            setError(body.error?.code ?? "TURN_CONFLICT");
+          }
+        } catch {
+          if (
+            !active.current ||
+            generation !== authenticationGeneration.current
+          ) {
+            return;
+          }
           setSubmissionUncertain(true);
           setSubmissionConflict(true);
-          setError(body.error?.code ?? "TURN_CONFLICT");
+          setError("TURN_CONFLICT");
         }
         return;
       }

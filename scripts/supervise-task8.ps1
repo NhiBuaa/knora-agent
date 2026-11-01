@@ -137,7 +137,7 @@ if ($WorkerMode) {
             [System.IO.File]::WriteAllText($ownershipPath, ($stubOwnership | ConvertTo-Json), [System.Text.UTF8Encoding]::new($false))
             throw "SIMULATED_PREFLIGHT_FAILURE: Port in use or project not fresh"
         }
-        
+
         # In stub mode, simulate successful reservation acquisition and startup attempt
         $stubOwnership = [ordered]@{
             schemaVersion = 1
@@ -166,7 +166,7 @@ if ($WorkerMode) {
                 timestampUtc = [DateTime]::UtcNow.ToString('o')
             }
             [System.IO.File]::WriteAllText($migrationReceiptPath, ($migReceipt | ConvertTo-Json -Depth 5), [System.Text.UTF8Encoding]::new($false))
-            
+
             $cleanPidPath = $pidsFilePath.Replace('\', '/')
             $nodeScript = "const { spawn } = require('child_process'); const fs = require('fs'); const gc = spawn('node', ['-e', 'setTimeout(()=>{}, 600000)']); const pids = { workerPid: $PID, childPid: process.pid, grandchildPid: gc.pid }; fs.writeFileSync('$cleanPidPath', JSON.stringify(pids)); setTimeout(() => {}, 600000);"
             $child = Start-Process "node" -ArgumentList "-e", "`"$nodeScript`"" -PassThru -NoNewWindow
@@ -183,7 +183,7 @@ if ($WorkerMode) {
                 timestampUtc = [DateTime]::UtcNow.ToString('o')
             }
             [System.IO.File]::WriteAllText($migrationReceiptPath, ($migReceipt | ConvertTo-Json -Depth 5), [System.Text.UTF8Encoding]::new($false))
-            
+
             $cleanPidPath = $pidsFilePath.Replace('\', '/')
             $nodeScript = "const { spawn } = require('child_process'); const fs = require('fs'); const gc = spawn('node', ['-e', 'setTimeout(()=>{}, 600000)']); const pids = { workerPid: $PID, childPid: process.pid, grandchildPid: gc.pid }; fs.writeFileSync('$cleanPidPath', JSON.stringify(pids)); setTimeout(() => {}, 600000);"
             $child = Start-Process "node" -ArgumentList "-e", "`"$nodeScript`"" -PassThru -NoNewWindow
@@ -200,7 +200,7 @@ if ($WorkerMode) {
                 timestampUtc = [DateTime]::UtcNow.ToString('o')
             }
             [System.IO.File]::WriteAllText($migrationReceiptPath, ($migReceipt | ConvertTo-Json -Depth 5), [System.Text.UTF8Encoding]::new($false))
-            
+
             $cleanPidPath = $pidsFilePath.Replace('\', '/')
             $nodeScript = "const { spawn } = require('child_process'); const fs = require('fs'); const gc = spawn('node', ['-e', 'setTimeout(()=>{}, 600000)']); const pids = { workerPid: $PID, childPid: process.pid, grandchildPid: gc.pid }; fs.writeFileSync('$cleanPidPath', JSON.stringify(pids)); setTimeout(() => {}, 600000);"
             $child = Start-Process "node" -ArgumentList "-e", "`"$nodeScript`"" -PassThru -NoNewWindow
@@ -246,7 +246,7 @@ if ($WorkerMode) {
         $discovery = Invoke-RestMethod http://127.0.0.1:8380/realms/knora-dev/.well-known/openid-configuration
         if ($discovery.issuer -cne 'http://127.0.0.1:8380/realms/knora-dev') { throw 'Wrong issuer' }
         Invoke-RestMethod http://127.0.0.1:8025/api/v1/info | Out-Null
-        
+
         docker compose @composeArgs exec -T figma-api alembic current
         if ($LASTEXITCODE -ne 0) { throw 'Migration observation failed' }
         docker compose @composeArgs exec -T figma-api python -c 'from knora.infrastructure.settings import Settings; s=Settings(); print(s.provider_mode, s.embedding_provider, s.generation_provider)'
@@ -275,7 +275,7 @@ if ($WorkerMode) {
             throw "BASELINE_CLIENT_AMBIGUOUS_OR_MISSING: Expected exactly 1 client for clientId=knora-web, found $($clientList.Count)"
         }
         $clientUuid = $clientList[0].id
-        
+
         # Delete policy mapper if present
         $mappersRaw = Invoke-RestMethod -Uri "http://127.0.0.1:8380/admin/realms/knora-dev/clients/$clientUuid/protocol-mappers/models" -Headers $kcHeaders
         $mappers = @(Unwrap-Items $mappersRaw)
@@ -333,11 +333,11 @@ if ($WorkerMode) {
         Invoke-RestMethod -Method Put -Uri "http://127.0.0.1:8380/admin/realms/knora-dev/clients/$clientUuid" -Headers $kcHeaders -ContentType 'application/json' -Body (@{ id = $clientUuid; clientId = 'knora-web'; attributes = $cleanAttrs } | ConvertTo-Json) | Out-Null
 
         $cycleSnap = Join-Path $targetDir 'migration-cycle-snap.json'
-        
+
         # Step A: Apply
         $apply1 = & "$repo/scripts/configure-keycloak-session-policy.ps1" @policyArgs -Mode Apply -SnapshotPath $cycleSnap
         if ($apply1 -notcontains 'KEYCLOAK_SESSION_POLICY_APPLY_VERIFIED') { throw 'Migration Cycle Step A (Apply) failed' }
-        
+
         # Step B: Apply No-Op
         $apply2 = & "$repo/scripts/configure-keycloak-session-policy.ps1" @policyArgs -Mode Apply -SnapshotPath (Join-Path $targetDir 'noop-snap.json')
         if ($apply2 -notcontains 'KEYCLOAK_SESSION_POLICY_ALREADY_SET') { throw 'Migration Cycle Step B (No-Op) failed' }
@@ -376,7 +376,7 @@ if ($WorkerMode) {
         $env:FIGMA_TEST_MODE = 'application'
         $env:FIGMA_TEST_MATCH = 'session-persistence.spec.ts'
         $env:PLAYWRIGHT_JUNIT_OUTPUT_NAME = Join-Path $targetDir 'session-persistence.xml'
-        
+
         $pwArgs = @(
             "$repo/frontend/node_modules/@playwright/test/cli.js",
             "test",

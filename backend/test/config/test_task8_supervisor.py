@@ -478,9 +478,15 @@ def test_supervisor_real_baseline_projection_path_regression(tmp_path: Path) -> 
 $ErrorActionPreference = 'Stop'
 $scriptPath = '__SUPERVISOR_SCRIPT__'
 $tokens = $null; $parseErrors = $null
-$ast = [System.Management.Automation.Language.Parser]::ParseFile($scriptPath, [ref]$tokens, [ref]$parseErrors)
+$parser = [System.Management.Automation.Language.Parser]
+$ast = $parser::ParseFile($scriptPath, [ref]$tokens, [ref]$parseErrors)
 if ($parseErrors.Count) { throw $parseErrors[0] }
-$func = $ast.FindAll({param($n) $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq 'Unwrap-Items'}, $true)[0]
+$isFunc = {
+    param($n)
+    $n -is [System.Management.Automation.Language.FunctionDefinitionAst] -and
+        $n.Name -eq 'Unwrap-Items'
+}
+$func = $ast.FindAll($isFunc, $true)[0]
 . ([scriptblock]::Create($func.Extent.Text))
 
 $source = [IO.File]::ReadAllText($scriptPath)
@@ -645,4 +651,3 @@ $results | ConvertTo-Json -Depth 5
 
     assert data["case6_continued"] is False
     assert "BASELINE_MAPPER_RESIDUAL" in data["case6_caught"]
-
