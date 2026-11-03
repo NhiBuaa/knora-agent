@@ -115,7 +115,7 @@ flowchart TB
     Answer --> Result["Persisted answer + citations / refusal"]
 ```
 
-**Current stack:** Python / FastAPI, PostgreSQL / pgvector, object storage, Cloudflare Workers AI, Next.js / TypeScript and Keycloak. The local launcher runs separate PDF and Conversation workers; a production deployment topology remains to be established.
+**Current stack:** Python / FastAPI, PostgreSQL / pgvector, Qdrant (dense & lexical hybrid search), object storage, Cloudflare Workers AI, Next.js / TypeScript and Keycloak. The local launcher runs separate PDF and Conversation workers; a production deployment topology remains to be established.
 
 For boundaries, trade-offs and failure semantics, read:
 
