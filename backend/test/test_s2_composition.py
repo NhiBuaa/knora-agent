@@ -103,12 +103,22 @@ def test_opt_in_wires_pdf_submission_worker_answering_and_lifecycle_without_embe
     assert http_client.is_closed
 
 
-def test_dense_default_keeps_pdf_derivation_and_embedding_submission(monkeypatch):
-    monkeypatch.setattr(main, "settings", Settings(_env_file=None))
+def test_dense_explicit_keeps_pdf_derivation_and_embedding_submission(monkeypatch):
+    monkeypatch.setattr(
+        main, "settings", Settings(_env_file=None, retrieval_configuration_id="retrieval-m1-v1")
+    )
     app = main.create_app(workspace_admission_store=None)
     assert isinstance(app.state.pdf_submission_configuration, PdfSubmissionConfiguration)
     assert isinstance(app.state.ingestion_worker._handler, PdfDerivationHandler)
     assert app.state.answer_question._store._lexical_index is None
+
+
+def test_hybrid_default_keeps_derivation_and_search_indexing(monkeypatch):
+    monkeypatch.setattr(main, "settings", Settings(_env_file=None))
+    app = main.create_app(workspace_admission_store=None)
+    assert isinstance(app.state.pdf_submission_configuration, PdfSubmissionConfiguration)
+    assert isinstance(app.state.ingestion_worker._handler, DerivationJobHandler)
+    assert app.state.answer_question._store._lexical_index is not None
 
 
 @pytest.mark.parametrize(

@@ -644,7 +644,7 @@ def test_compose_entry_points_and_production_excludes_test_services() -> None:
         "docker-compose.dev.yml",
     }
     production = yaml.safe_load((ROOT / "docker-compose.yml").read_text())
-    assert set(production["services"]) == {"postgres", "minio", "minio-init", "api"}
+    assert set(production["services"]) == {"postgres", "minio", "minio-init", "api", "qdrant"}
     assert "KNORA_STORAGE_PROOF" not in json.dumps(production)
     assert "start-dev" not in json.dumps(production)
 
@@ -658,6 +658,7 @@ def test_default_dev_graph_does_not_start_figma_or_proof_services() -> None:
         "api",
         "keycloak-dev",
         "keycloak-dev-db",
+        "qdrant",
     }
     assert graph["services"]["api"]["environment"]["KNORA_M5_E2E_FAULTS_ENABLED"] == "false"
     assert "KNORA_STORAGE_PROOF" not in json.dumps(graph)
@@ -2178,6 +2179,7 @@ DAILY_SERVICES = {
     "api",
     "keycloak-dev",
     "keycloak-dev-db",
+    "qdrant",
 }
 
 

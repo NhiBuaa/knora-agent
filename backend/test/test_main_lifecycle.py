@@ -75,7 +75,10 @@ def test_create_app_injects_reranking_provider_and_resolver() -> None:
 
 
 @pytest.mark.asyncio
-async def test_create_app_lifespan_closes_reranking_provider() -> None:
+async def test_create_app_lifespan_closes_reranking_provider(monkeypatch) -> None:
+    from knora.adapters.qdrant.native_search_index import NativeQdrantSearchIndex
+
+    monkeypatch.setattr(NativeQdrantSearchIndex, "ensure_collection", lambda self: None)
     closed = []
 
     class ClosableReranker:

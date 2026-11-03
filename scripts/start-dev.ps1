@@ -413,7 +413,12 @@ if ($DatabaseName -notmatch '^[a-z][a-z0-9_]{0,62}$') { Fail 'INVALID_DATABASE_N
 
 $env:PYTHONPATH = "$repoRoot\backend\src;$repoRoot"
 if ($OllamaBaseUrl) { $env:KNORA_OLLAMA_BASE_URL = $OllamaBaseUrl }
-if ($EmbeddingProvider -eq 'ollama') { $env:KNORA_OLLAMA_EMBEDDING_MODEL = 'qwen3-embedding:0.6b' }
+if ($EmbeddingProvider -eq 'ollama') {
+    $env:KNORA_OLLAMA_EMBEDDING_MODEL = 'qwen3-embedding:0.6b'
+    if (-not $env:KNORA_RETRIEVAL_CONFIGURATION_ID) {
+        $env:KNORA_RETRIEVAL_CONFIGURATION_ID = 'retrieval-m1-v1'
+    }
+}
 $env:KNORA_EMBEDDING_PROVIDER = $EmbeddingProvider
 $env:KNORA_GENERATION_PROVIDER = $GenerationProvider
 $env:KNORA_OLLAMA_GENERATION_MODEL = $GenerationModel

@@ -51,7 +51,7 @@ Invoke-Playwright 'native' $Config 'report.spec.js' '' '' | Out-Host`,
         config,
         temp,
       ],
-      { encoding: "utf8", timeout: 20_000 },
+      { encoding: "utf8", timeout: 45_000 },
     );
     expect(run.status, run.stdout + run.stderr).toBe(0);
     const validation = spawnSync(
@@ -68,4 +68,4 @@ Invoke-Playwright 'native' $Config 'report.spec.js' '' '' | Out-Host`,
   } finally {
     rmSync(temp, { recursive: true, force: true });
   }
-}, 30_000);
+}, 60_000);

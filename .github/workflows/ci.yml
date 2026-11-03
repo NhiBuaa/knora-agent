@@ -193,6 +193,13 @@ jobs:
         options: >-
           --health-cmd "pg_isready -U knora -d knora_issue110_task2"
           --health-interval 5s --health-timeout 5s --health-retries 20
+      qdrant:
+        image: qdrant/qdrant:v1.19.2@sha256:b7b0444c4c351c970b98e90a6f89c2ee4287c65b44e52b4cb503fa5b2aa927ad
+        ports:
+          - 6333:6333
+        options: >-
+          --health-cmd "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333 && echo -e \"GET /healthz HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\n\\r\\n\" >&3 && grep -q \"200 OK\" <&3'"
+          --health-interval 5s --health-timeout 5s --health-retries 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -211,11 +218,14 @@ jobs:
         env:
           KNORA_DATABASE_URL: postgresql+psycopg://knora:knora@127.0.0.1:5432/knora_issue110_task2
           KNORA_PROVIDER_MODE: deterministic-local
+          KNORA_LEXICAL_QDRANT_URL: http://127.0.0.1:6333
+          KNORA_LEXICAL_QDRANT_COLLECTION: knora
         run: |
           # Delegate memory inside a disposable container for real PDF extraction.
           docker run --rm --privileged --cgroupns private --memory 2g --network host \
             --mount "type=bind,source=$PWD,target=/work" --workdir /work \
             -e KNORA_DATABASE_URL -e KNORA_PROVIDER_MODE \
+            -e KNORA_LEXICAL_QDRANT_URL -e KNORA_LEXICAL_QDRANT_COLLECTION \
             -e DEEPEVAL_DISABLE_DOTENV -e DEEPEVAL_DISABLE_LEGACY_KEYFILE \
             -e DEEPEVAL_TELEMETRY_OPT_OUT -e DEEPEVAL_UPDATE_WARNING_OPT_IN \
             -e RAGAS_DO_NOT_TRACK -e LANGSMITH_TRACING -e LANGCHAIN_TRACING_V2 \
