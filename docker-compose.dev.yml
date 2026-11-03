@@ -52,6 +52,21 @@ services:
     command:
       '"mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} && mc
       mb --ignore-existing local/knora"'
+  qdrant:
+    image: qdrant/qdrant:v1.19.2@sha256:b7b0444c4c351c970b98e90a6f89c2ee4287c65b44e52b4cb503fa5b2aa927ad
+    environment:
+      QDRANT__TELEMETRY_DISABLED: "true"
+    ports:
+      - 127.0.0.1:${KNORA_EVAL_QDRANT_HOST_PORT:-6333}:6333
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'bash -c "exec 3<>/dev/tcp/127.0.0.1/6333 && echo -e \"GET /healthz HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n\" >&3 && grep -q \"200 OK\" <&3"'
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - knora_qdrant_data:/qdrant/storage
   api:
     build:
       context: .
@@ -69,6 +84,8 @@ services:
       KNORA_KEYCLOAK_JWKS_URL: http://keycloak-dev:8080/realms/knora-dev/protocol/openid-connect/certs
       KNORA_KEYCLOAK_JWKS_CACHE_TTL_SECONDS: ${KNORA_KEYCLOAK_JWKS_CACHE_TTL_SECONDS:-300}
       KNORA_M5_E2E_FAULTS_ENABLED: ${KNORA_M5_E2E_FAULTS_ENABLED:-false}
+      KNORA_LEXICAL_QDRANT_URL: http://qdrant:6333
+      KNORA_LEXICAL_QDRANT_COLLECTION: knora
     ports:
       - 127.0.0.1:${KNORA_EVAL_API_HOST_PORT:-8000}:8000
     depends_on:
@@ -78,6 +95,8 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+      qdrant:
+        condition: service_healthy
   keycloak-dev:
     build:
       context: .
@@ -560,6 +579,7 @@ volumes:
   keycloak_dev_database: null
   knora_postgres_data: null
   knora_minio_data: null
+  knora_qdrant_data: null
   knora_provider_test_data: null
   postgres_data: {}
   keycloak_database: {}
