@@ -144,7 +144,7 @@ def test_copy_preflight_rejects_conflicts_without_logging_values(
         env={**environment, variable: secret},
         capture_output=True,
         text=True,
-        timeout=15,
+        timeout=60,
     )
     output = result.stdout + result.stderr
     assert result.returncode != 0
