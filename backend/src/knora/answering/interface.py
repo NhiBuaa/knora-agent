@@ -69,3 +69,11 @@ class QuestionResult:
     refusal_reason: str | None
     trace_id: str
     workspace_id: str
+
+    @property
+    def requests_clarification(self) -> bool:
+        return self.refusal_reason == "CLARIFICATION_REQUIRED"
+
+    @property
+    def successful_answer(self) -> bool:
+        return self.decision == "ANSWER" and bool(self.answer and self.answer.strip())

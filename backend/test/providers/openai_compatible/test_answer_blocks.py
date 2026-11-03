@@ -15,6 +15,15 @@ def paragraph(text: str, *aliases: str) -> dict:
     return {**item(text, *aliases), "bold": None}
 
 
+def test_emphasis_case_difference_preserves_the_answer_text() -> None:
+    block = paragraph("Mục tiêu chung là trình bày toàn diện đề tài.", "E1")
+    block["bold"] = "mục tiêu chung"
+    assert compose_answer(answer(block), EVIDENCE) == (
+        "**Mục tiêu chung** là trình bày toàn diện đề tài. [[E1]]",
+        ("E1",),
+    )
+
+
 def answer(*blocks: dict) -> dict:
     before, items, after = [], [], []
     for block in blocks:

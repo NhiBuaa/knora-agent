@@ -262,3 +262,34 @@ def test_non_reference_words_stop_an_older_topic_chain(anchor: str) -> None:
     )
     assert anchor in context.retrieval_query
     assert "Which font should reports use?" not in context.retrieval_query
+
+
+def test_clarification_required_turn_is_admitted_and_anchors_followup() -> None:
+    clarification_result = QuestionResult(
+        decision="REFUSAL",
+        answer=None,
+        citations=(),
+        refusal_reason="CLARIFICATION_REQUIRED",
+        trace_id="trace-clarify",
+        workspace_id="workspace-1",
+    )
+    clarification_turn = TurnView(
+        id="turn-clarify",
+        conversation_id="conversation-1",
+        sequence=1,
+        question="Chương 1 và Chương 2 quy định gì?",
+        status="refused",
+        stage=None,
+        result=clarification_result,
+        error_code=None,
+    )
+    context = build_context(
+        (clarification_turn,),
+        workspace_id="workspace-1",
+        conversation_id="conversation-1",
+        current_turn_id="turn-followup",
+        question="Thời hạn đổi trả",
+    )
+    assert "Chương 1 và Chương 2 quy định gì?" in context.retrieval_query
+    assert "Thời hạn đổi trả" in context.retrieval_query
+    assert "CLARIFICATION_REQUIRED" in context.transcript

@@ -1,11 +1,13 @@
 """Private Cloudflare output; public answers retain the existing Markdown contract."""
 
+import re
+from hashlib import sha256
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
 from knora.domain.errors import KnoraError
-from knora.providers.generation import GenerationEvidence
+from knora.providers.generation import AnswerProjection, AnswerStatement, GenerationEvidence
 
 
 class _Model(BaseModel):
@@ -36,6 +38,40 @@ class _Result(_Model):
 ANSWER_BLOCK_SCHEMA = _Result.model_json_schema()
 
 
+class _GroundedResult(_Model):
+    decision: Literal["ANSWER", "REFUSAL"]
+    before: list[_Statement]
+    items: list[_Statement]
+    after: list[_Statement]
+    refusal_reason: Literal["INSUFFICIENT_EVIDENCE"] | None
+
+
+GROUNDED_ANSWER_SCHEMA = _GroundedResult.model_json_schema()
+
+
+def compose_grounded_answer(payload: object, evidence: tuple[GenerationEvidence, ...]):
+    try:
+        result = _GroundedResult.model_validate(payload)
+    except ValidationError:
+        raise KnoraError("GENERATION_OUTPUT_INVALID") from None
+    data = result.model_dump()
+    for field in ("before", "items", "after"):
+        for statement in data[field]:
+            statement["text"] = " ".join(statement["text"].split())
+    # A singleton is prose. Rendering cannot change or discard the generated fact/support.
+    if len(data["items"]) == 1:
+        data["before"].extend(data["items"])
+        data["items"] = []
+    for statement in (*data["before"], *data["after"]):
+        statement["bold"] = None
+    if data["before"]:
+        first = data["before"][0]
+        number_unit = re.search(r"\b\d+(?:[.,]\d+)?\s+[^\W\d_]+\b", first["text"])
+        if number_unit and first["text"].count(number_unit[0]) == 1:
+            first["bold"] = number_unit[0]
+    return compose_answer_projection(data, evidence)
+
+
 def _invalid() -> None:
     raise KnoraError("GENERATION_OUTPUT_INVALID")
 
@@ -64,6 +100,14 @@ def compose_answer(
     payload: object,
     evidence: tuple[GenerationEvidence, ...],
 ) -> tuple[str | None, tuple[str, ...]]:
+    answer, cited, _ = compose_answer_projection(payload, evidence)
+    return answer, cited
+
+
+def compose_answer_projection(
+    payload: object,
+    evidence: tuple[GenerationEvidence, ...],
+) -> tuple[str | None, tuple[str, ...], AnswerProjection | None]:
     try:
         result = _Result.model_validate(payload)
     except ValidationError:
@@ -76,7 +120,7 @@ def compose_answer(
             or result.refusal_reason != "INSUFFICIENT_EVIDENCE"
         ):
             _invalid()
-        return None, ()
+        return None, (), None
     if not (result.before or result.items or result.after) or result.refusal_reason is not None:
         _invalid()
 
@@ -90,23 +134,45 @@ def compose_answer(
     available_ids = {entry.evidence_id for entry in evidence}
     texts: list[str] = []
     aliases: list[list[str]] = []
+    spans: list[list[tuple[str, int, int, tuple[str, ...]]]] = []
     for block in blocks:
         if isinstance(block, _List):
             references = []
+            lines = []
+            block_spans = []
+            offset = 0
             for item in block.items:
                 references.extend(_references(item.support, available_ids))
-            texts.append("\n".join(f"- {_line(item.text)}" for item in block.items))
+                line = f"- {_line(item.text)}"
+                block_spans.append(
+                    (
+                        item.text.strip(),
+                        offset,
+                        offset + len(line),
+                        tuple(dict.fromkeys(item.support)),
+                    )
+                )
+                lines.append(line)
+                offset += len(line) + 1
+            texts.append("\n".join(lines))
+            spans.append(block_spans)
         else:
             references = _references(block.support, available_ids)
             text = _line(block.text)
             if block.bold is not None:
                 phrase = block.bold.strip()
-                emphasis = _line(phrase)
-                if block.text.strip().count(phrase) != 1:
+                occurrences = list(
+                    re.finditer(re.escape(phrase), block.text.strip(), re.IGNORECASE)
+                )
+                if len(occurrences) != 1:
                     _invalid()
-                before, _, after = block.text.strip().partition(phrase)
+                match = occurrences[0]
+                literal = block.text.strip()
+                before, after = literal[: match.start()], literal[match.end() :]
+                emphasis = _line(match[0])
                 text = f"{_escape(before)}**{emphasis}**{_escape(after)}"
             texts.append(text)
+            spans.append([(block.text.strip(), 0, len(text), tuple(references))])
         aliases.append(list(dict.fromkeys(references)))
 
     # Keep every source and the accepted unique-alias contract when sources recur.
@@ -127,4 +193,19 @@ def compose_answer(
         texts[end] += separator + " ".join(f"[[{alias}]]" for alias in group)
         cited.extend(group)
         start = end + 1
-    return "\n\n".join(texts), tuple(cited)
+    answer = "\n\n".join(texts)
+    statements = []
+    offset = 0
+    for text, block_spans in zip(texts, spans, strict=True):
+        for literal, start, end, support in block_spans:
+            statements.append(
+                AnswerStatement(
+                    f"S{len(statements) + 1}", literal, offset + start, offset + end, support
+                )
+            )
+        offset += len(text) + 2
+    return (
+        answer,
+        tuple(cited),
+        AnswerProjection(sha256(answer.encode("utf-8")).hexdigest(), tuple(statements)),
+    )

@@ -513,7 +513,9 @@ if ($GenerationProvider -eq 'ollama') {
     Write-Output "GENERATION_DIGEST=$env:KNORA_EXPECTED_GENERATION_MODEL_DIGEST"
 }
 if ($GenerationProvider -eq 'cloudflare-workers-ai') {
-    Write-Output 'GENERATION_MODEL=@cf/openai/gpt-oss-20b'
+    $cloudflareGenerationModel = $env:KNORA_CLOUDFLARE_GENERATION_MODEL
+    if (-not $cloudflareGenerationModel) { $cloudflareGenerationModel = '@cf/openai/gpt-oss-20b' }
+    Write-Output "GENERATION_MODEL=$cloudflareGenerationModel"
 }
 Write-Output "API_URL=$env:KNORA_API_URL"
 Write-Output "OIDC_REDIRECT_URI=$env:KEYCLOAK_REDIRECT_URI"

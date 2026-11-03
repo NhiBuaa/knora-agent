@@ -24,6 +24,8 @@ class RetrievalConfiguration:
     fts_candidate_k: int | None = None
     lexical_policy_id: str | None = None
     fusion_policy_id: str | None = None
+    sdm_policy_id: str | None = None
+    reranking_policy_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.strategy not in {"bm25-only"} and self.min_similarity is None:
@@ -48,6 +50,14 @@ class RetrievalConfiguration:
                 raise ValueError("hybrid retrieval requires a lexical policy")
             if self.fusion_policy_id is None:
                 raise ValueError("hybrid retrieval requires a fusion policy")
+
+    @property
+    def is_v3_retrieval(self) -> bool:
+        if bool(self.id) and self.id.endswith("-v3"):
+            return True
+        if self.fusion_policy_id == "dbsf-v1":
+            return True
+        return bool(self.sdm_policy_id) or bool(self.reranking_policy_id)
 
     @classmethod
     def bm25_diagnostic_v1(cls) -> "RetrievalConfiguration":
@@ -107,6 +117,7 @@ class RetrievalConfiguration:
         min_similarity: float = 0.65,
         lexical_policy_id: str = "lexical-bm25-v1",
         fusion_policy_id: str = "dbsf-v1",
+        sdm_policy_id: str | None = None,
     ) -> "RetrievalConfiguration":
         """Hybrid Top8 from native DBSF fusion (Top200 dense + Top200 BM25 to Top100 candidates)."""
         if not isinstance(min_similarity, (int, float)) or isinstance(min_similarity, bool):
@@ -125,6 +136,48 @@ class RetrievalConfiguration:
             fts_candidate_k=200,
             lexical_policy_id=lexical_policy_id,
             fusion_policy_id=fusion_policy_id,
+            sdm_policy_id=sdm_policy_id,
+        )
+
+    @classmethod
+    def hybrid_sdm_top8_v3(
+        cls,
+        *,
+        min_similarity: float = 0.65,
+        lexical_policy_id: str = "lexical-bm25-v1",
+        fusion_policy_id: str = "dbsf-v1",
+        sdm_policy_id: str = "sdm-metzler-croft-2005-v1",
+    ) -> "RetrievalConfiguration":
+        """Hybrid Top8 with Sequential Dependence Model (SDM) reranking after native DBSF."""
+        base = cls.hybrid_top8_v3(
+            min_similarity=min_similarity,
+            lexical_policy_id=lexical_policy_id,
+            fusion_policy_id=fusion_policy_id,
+            sdm_policy_id=sdm_policy_id,
+        )
+        return replace(base, id="retrieval-hybrid-sdm-top8-v3")
+
+    @classmethod
+    def hybrid_rerank_top8_v3(
+        cls,
+        *,
+        min_similarity: float = 0.65,
+        lexical_policy_id: str = "lexical-bm25-v1",
+        fusion_policy_id: str = "dbsf-v1",
+        sdm_policy_id: str = "sdm-metzler-croft-2005-v1",
+        reranking_policy_id: str = "reranking-cloudflare-bge-base-v1",
+    ) -> "RetrievalConfiguration":
+        """Hybrid Top8 with SDM reranking and cross-encoder evidence selection."""
+        base = cls.hybrid_sdm_top8_v3(
+            min_similarity=min_similarity,
+            lexical_policy_id=lexical_policy_id,
+            fusion_policy_id=fusion_policy_id,
+            sdm_policy_id=sdm_policy_id,
+        )
+        return replace(
+            base,
+            id="retrieval-hybrid-rerank-top8-v3",
+            reranking_policy_id=reranking_policy_id,
         )
 
     def parity_semantics(self) -> dict[str, object]:
@@ -270,6 +323,12 @@ class RetrievalCandidate:
     bm25_score: float | None = None
     bm25_rank: int | None = None
     index_generation_id: str | None = None
+    sdm_score: float | None = None
+    sdm_rank: int | None = None
+    sdm_contribution: dict[str, object] | None = None
+    rerank_score: float | None = None
+    rerank_rank: int | None = None
+    rerank_contribution: dict[str, object] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -326,6 +385,7 @@ class LexicalGeneration:
     chunk_set_id: str
     index_generation_id: str
     lexical_policy_id: str
+    statistics_digest: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -406,7 +466,23 @@ class AnsweringStore(Protocol):
         retrieval_configuration: RetrievalConfiguration,
     ) -> RetrievalResult: ...
 
+    def read_corpus_statistics(
+        self,
+        workspace_id: str,
+        lexical_policy_id: str,
+    ) -> object | None: ...
+
     def persist_trace(self, trace: QuestionTraceRecord) -> str: ...
+
+    def read_canonical_chunks_for_scope(
+        self,
+        workspace_id: str,
+        target_item: str,
+        snapshot: object,
+        *,
+        cursor: int = 0,
+        limit: int = 1024,
+    ) -> list[RetrievalCandidate]: ...
 
     def read_conversation_result(
         self, workspace_id: str, turn_id: str

@@ -1,0 +1,33 @@
+{
+  "gate": "Gate G7 (S7 Query Understanding and Targeted Source Recovery)",
+  "evaluated_at": "2026-10-22T02:00:00Z",
+  "reviewer": "NhiBuaa",
+  "verdict": "PASS",
+  "latency": {
+    "local_pipeline_p50_ms": 1.74,
+    "local_pipeline_p95_ms": 3.65,
+    "p50_threshold_ms": 10.0
+  },
+  "metrics": {
+    "single_query_coverage": 0.782,
+    "rewrite_coverage": 0.854,
+    "decomposition_coverage": 0.921,
+    "typo_hypotheses_coverage": 0.968,
+    "targeted_recovery_coverage": 0.995,
+    "false_correction_rate": 0.0,
+    "protected_span_preservation_rate": 1.0,
+    "max_recovery_passes": 1,
+    "max_merged_candidates": 100
+  },
+  "tests": {
+    "total_passed": 89,
+    "failed": 0,
+    "errors": 0
+  },
+  "safety_invariants": {
+    "zero_local_model_weights": true,
+    "cloudflare_only_ai": true,
+    "one_physical_page_per_chunk": true,
+    "finite_recovery_pass_limit": 1
+  }
+}
