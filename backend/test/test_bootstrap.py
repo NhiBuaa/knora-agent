@@ -17,12 +17,16 @@ from knora.providers.openai_compatible.generation import OpenAICompatibleGenerat
 
 @pytest.fixture(autouse=True)
 def explicit_bootstrap_settings_ignore_suite_provider_pins(monkeypatch) -> None:
+
     monkeypatch.delenv("KNORA_EMBEDDING_PROVIDER", raising=False)
+
     monkeypatch.delenv("KNORA_GENERATION_PROVIDER", raising=False)
+
     monkeypatch.delenv("KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID", raising=False)
 
 
 def compatible_settings(**overrides) -> Settings:
+
     values = {
         "provider_mode": "openai-compatible",
         "openai_base_url": "https://provider.example/v1",
@@ -32,29 +36,40 @@ def compatible_settings(**overrides) -> Settings:
         "openai_embedding_input_cost_per_million_tokens": Decimal("0.02"),
         "openai_generation_input_cost_per_million_tokens": Decimal("1"),
         "openai_generation_output_cost_per_million_tokens": Decimal("2"),
+        "retrieval_configuration_id": "retrieval-m1-v1",
     }
+
     values.update(overrides)
+
     return Settings(_env_file=None, **values)
 
 
 def test_bootstrap_selects_one_complete_provider_mode() -> None:
+
     local = build_provider_selection(Settings(_env_file=None))
 
     assert isinstance(local.embedding_provider, DeterministicEmbeddingProvider)
+
     assert isinstance(local.generation_provider, DeterministicGenerationProvider)
+
     assert local.embedding_configuration.provider == "deterministic-local"
 
     compatible = build_provider_selection(compatible_settings())
 
     assert isinstance(compatible.embedding_provider, OpenAICompatibleEmbeddingProvider)
+
     assert isinstance(compatible.generation_provider, OpenAICompatibleGenerationProvider)
+
     assert compatible.embedding_configuration.provider == "openai-compatible"
+
     assert compatible.embedding_configuration.model == "text-embedding-3-small"
+
     assert compatible.embedding_configuration.dimensions == 1536
 
 
 @pytest.mark.parametrize("model", ["@cf/openai/gpt-oss-20b"])
 def test_bootstrap_selects_cloudflare_pair_with_one_account_and_token(model) -> None:
+
     selected = build_provider_selection(
         Settings(
             _env_file=None,
@@ -68,10 +83,15 @@ def test_bootstrap_selects_cloudflare_pair_with_one_account_and_token(model) -> 
     )
 
     assert isinstance(selected.embedding_provider, CloudflareEmbeddingProvider)
+
     assert isinstance(selected.generation_provider, OpenAICompatibleGenerationProvider)
+
     assert selected.generation_provider._model == model
+
     assert selected.generation_provider.build_answer_support_verifier() is not None
+
     assert selected.embedding_configuration == EmbeddingConfiguration.cloudflare_qwen3_06b()
+
     assert "secret-canary" not in repr(
         Settings(_env_file=None, cloudflare_api_token="secret-canary")
     )
@@ -94,6 +114,7 @@ def test_bootstrap_selects_cloudflare_pair_with_one_account_and_token(model) -> 
 def test_bootstrap_rejects_invalid_cloudflare_settings_without_secret(
     overrides: dict[str, object],
 ) -> None:
+
     values = {
         "_env_file": None,
         "embedding_provider": "cloudflare-workers-ai",
@@ -103,8 +124,10 @@ def test_bootstrap_rejects_invalid_cloudflare_settings_without_secret(
         "cloudflare_api_token": "secret-canary",
         **overrides,
     }
+
     with pytest.raises(ValueError, match="invalid provider configuration") as captured:
         build_provider_selection(Settings(**values))
+
     assert "secret-canary" not in str(captured.value)
 
 
@@ -113,6 +136,7 @@ def test_bootstrap_rejects_invalid_cloudflare_settings_without_secret(
 def test_bootstrap_requires_finite_positive_cloudflare_timeout(
     timeout: float, cloudflare_role: str
 ) -> None:
+
     values = {
         "_env_file": None,
         "embedding_provider": (
@@ -126,11 +150,13 @@ def test_bootstrap_requires_finite_positive_cloudflare_timeout(
         "cloudflare_api_token": "secret-canary",
         "cloudflare_timeout_seconds": timeout,
     }
+
     with pytest.raises(ValueError, match="timeout must be finite and positive"):
         build_provider_selection(Settings(**values))
 
 
 def test_bootstrap_selects_embedding_and_generation_independently() -> None:
+
     selected = build_provider_selection(
         compatible_settings(
             embedding_provider="openai-compatible",
@@ -142,11 +168,14 @@ def test_bootstrap_selects_embedding_and_generation_independently() -> None:
     )
 
     assert isinstance(selected.embedding_provider, OpenAICompatibleEmbeddingProvider)
+
     assert isinstance(selected.generation_provider, DeterministicGenerationProvider)
+
     assert selected.embedding_configuration.provider == "openai-compatible"
 
 
 def test_bootstrap_selects_local_embedding_with_openai_generation() -> None:
+
     selected = build_provider_selection(
         compatible_settings(
             provider_mode="unused-legacy-mode",
@@ -157,31 +186,39 @@ def test_bootstrap_selects_local_embedding_with_openai_generation() -> None:
     )
 
     assert isinstance(selected.embedding_provider, DeterministicEmbeddingProvider)
+
     assert isinstance(selected.generation_provider, OpenAICompatibleGenerationProvider)
+
     assert selected.embedding_configuration == EmbeddingConfiguration.milestone_one_local()
 
 
 @pytest.mark.parametrize("model", ["qwen3:8b", "gpt-oss:20b"])
 def test_bootstrap_selects_ollama_generation_independently(model: str) -> None:
+
     selected = build_provider_selection(
         Settings(
             _env_file=None,
+            retrieval_configuration_id="retrieval-m1-v1",
             embedding_provider="deterministic-local",
             generation_provider="ollama",
             ollama_generation_model=model,
             expected_generation_model_digest="sha256:" + "b" * 64,
         )
     )
+
     assert isinstance(selected.embedding_provider, DeterministicEmbeddingProvider)
+
     assert isinstance(selected.generation_provider, OllamaGenerationProvider)
 
 
 @pytest.mark.parametrize("digest", [None, "", "sha256:wrong"])
 def test_bootstrap_requires_valid_ollama_generation_digest(digest: str | None) -> None:
+
     with pytest.raises(ValueError, match="generation model digest"):
         build_provider_selection(
             Settings(
                 _env_file=None,
+                retrieval_configuration_id="retrieval-m1-v1",
                 embedding_provider="deterministic-local",
                 generation_provider="ollama",
                 expected_generation_model_digest=digest,
@@ -190,10 +227,12 @@ def test_bootstrap_requires_valid_ollama_generation_digest(digest: str | None) -
 
 
 def test_bootstrap_rejects_invalid_ollama_generation_configuration() -> None:
+
     with pytest.raises(ValueError, match="provider configuration"):
         build_provider_selection(
             Settings(
                 _env_file=None,
+                retrieval_configuration_id="retrieval-m1-v1",
                 embedding_provider="deterministic-local",
                 generation_provider="ollama",
                 ollama_generation_model="unapproved-model",
@@ -202,6 +241,9 @@ def test_bootstrap_rejects_invalid_ollama_generation_configuration() -> None:
 
 
 def test_bootstrap_selects_ollama_embedding_with_independent_generation(monkeypatch) -> None:
+
+    monkeypatch.setenv("KNORA_RETRIEVAL_CONFIGURATION_ID", "retrieval-m1-v1")
+
     import knora.bootstrap as bootstrap
 
     profile = EmbeddingConfiguration(
@@ -211,12 +253,14 @@ def test_bootstrap_selects_ollama_embedding_with_independent_generation(monkeypa
         dimensions=1024,
         distance_metric="cosine",
     )
+
     monkeypatch.setattr(
         bootstrap,
         "resolve_ollama_embedding_configuration",
         lambda client, model: profile,
         raising=False,
     )
+
     selected = build_provider_selection(
         Settings(
             _env_file=None,
@@ -228,10 +272,12 @@ def test_bootstrap_selects_ollama_embedding_with_independent_generation(monkeypa
     )
 
     assert selected.embedding_configuration == profile
+
     assert isinstance(selected.generation_provider, DeterministicGenerationProvider)
 
 
 def test_bootstrap_rejects_a_profile_that_differs_from_launcher_pin() -> None:
+
     with pytest.raises(ValueError, match="embedding profile mismatch"):
         build_provider_selection(
             Settings(
@@ -242,6 +288,7 @@ def test_bootstrap_rejects_a_profile_that_differs_from_launcher_pin() -> None:
 
 
 def test_bootstrap_requires_pricing_version_for_selected_openai_embedding() -> None:
+
     with pytest.raises(ValueError, match="openai_pricing_version"):
         build_provider_selection(
             compatible_settings(
@@ -262,11 +309,13 @@ def test_bootstrap_requires_pricing_version_for_selected_openai_embedding() -> N
     ],
 )
 def test_bootstrap_rejects_partial_or_unknown_provider_selectors(overrides: dict) -> None:
+
     with pytest.raises(ValueError, match="provider configuration"):
         build_provider_selection(Settings(_env_file=None, **overrides))
 
 
 def test_bootstrap_rejects_dimension_that_does_not_match_selected_profile() -> None:
+
     with pytest.raises(ValueError, match="embedding configuration.*1536 dimensions"):
         build_provider_selection(
             Settings(
@@ -285,13 +334,19 @@ def test_bootstrap_rejects_dimension_that_does_not_match_selected_profile() -> N
 def test_legacy_dimension_error_precedes_provider_configuration_errors(
     provider_mode: str,
 ) -> None:
+
     with pytest.raises(
         ValueError,
         match="^invalid provider configuration: Milestone 1 embedding configuration expected "
         "1536 dimensions$",
     ):
         build_provider_selection(
-            Settings(_env_file=None, provider_mode=provider_mode, embedding_dimension=1024)
+            Settings(
+                _env_file=None,
+                retrieval_configuration_id="retrieval-m1-v1",
+                provider_mode=provider_mode,
+                embedding_dimension=1024,
+            )
         )
 
 
@@ -308,24 +363,35 @@ def test_legacy_dimension_error_precedes_provider_configuration_errors(
 def test_bootstrap_rejects_an_unapproved_embedding_space(
     overrides: dict[str, object],
 ) -> None:
+
     with pytest.raises(ValueError, match="Milestone 1 embedding configuration"):
         build_provider_selection(Settings(_env_file=None, **overrides))
 
 
 def test_bootstrap_accepts_a_compatible_embedding_model_with_fixed_dimension() -> None:
+
     compatible = build_provider_selection(
         compatible_settings(openai_embedding_model="gemini-embedding-001")
     )
 
     assert compatible.embedding_configuration.provider == "openai-compatible"
+
     assert compatible.embedding_configuration.model == "gemini-embedding-001"
+
     assert compatible.embedding_configuration.dimensions == 1536
 
 
 @pytest.mark.parametrize("provider_mode", ["unknown", "openai-compatible"])
 def test_bootstrap_rejects_invalid_configuration_without_fallback(provider_mode: str) -> None:
+
     with pytest.raises(ValueError, match="provider configuration"):
-        build_provider_selection(Settings(_env_file=None, provider_mode=provider_mode))
+        build_provider_selection(
+            Settings(
+                _env_file=None,
+                retrieval_configuration_id="retrieval-m1-v1",
+                provider_mode=provider_mode,
+            )
+        )
 
 
 @pytest.mark.parametrize(
@@ -343,17 +409,20 @@ def test_bootstrap_rejects_invalid_configuration_without_fallback(provider_mode:
     ],
 )
 def test_bootstrap_rejects_unsafe_compatible_settings(field: str, value: object) -> None:
+
     with pytest.raises(ValueError, match="provider configuration"):
         build_provider_selection(compatible_settings(**{field: value}))
 
 
 def test_settings_repr_redacts_provider_api_key() -> None:
+
     runtime_settings = compatible_settings(openai_api_key="unique-runtime-canary")
 
     assert "unique-runtime-canary" not in repr(runtime_settings)
 
 
 def test_bootstrap_selects_exact_gemini_m3_embedding_contract() -> None:
+
     selected = build_provider_selection(
         compatible_settings(
             provider_mode="google-gemini-api",
@@ -362,16 +431,22 @@ def test_bootstrap_selects_exact_gemini_m3_embedding_contract() -> None:
     )
 
     assert isinstance(selected.embedding_provider, GeminiEmbeddingProvider)
+
     assert selected.embedding_configuration == EmbeddingConfiguration.gemini_m3()
+
     assert "runtime-gemini-secret" not in repr(
         Settings(_env_file=None, gemini_api_key="runtime-gemini-secret")
     )
 
 
 def test_object_store_settings_are_typed_and_validate_backend() -> None:
+
     runtime = Settings(_env_file=None, object_store_backend="filesystem")
+
     selected = runtime.object_store_settings
+
     assert isinstance(selected, ObjectStoreSettings)
+
     assert selected.backend == "filesystem"
 
     with pytest.raises(ValueError, match="unsupported object_store_backend"):
@@ -383,11 +458,13 @@ def test_object_store_settings_are_typed_and_validate_backend() -> None:
             object_store_backend="s3_compatible",
             object_store_s3_bucket="knora",
         )
+
         _ = runtime.object_store_settings
 
 
 @pytest.mark.parametrize("field", ["object_store_s3_access_key", "object_store_s3_secret_key"])
 def test_object_store_settings_reject_empty_s3_credentials(field: str) -> None:
+
     values = {
         "_env_file": None,
         "object_store_backend": "s3_compatible",
@@ -396,6 +473,7 @@ def test_object_store_settings_reject_empty_s3_credentials(field: str) -> None:
         "object_store_s3_secret_key": "secret",
         field: "",
     }
+
     runtime = Settings(**values)
 
     with pytest.raises(ValueError, match="access credentials"):
@@ -403,6 +481,7 @@ def test_object_store_settings_reject_empty_s3_credentials(field: str) -> None:
 
 
 def test_v3_retrieval_accepts_cloudflare_workers_ai_canonical_selector() -> None:
+
     selected = build_provider_selection(
         Settings(
             _env_file=None,
@@ -414,11 +493,14 @@ def test_v3_retrieval_accepts_cloudflare_workers_ai_canonical_selector() -> None
             cloudflare_api_token="fake",
         )
     )
+
     assert isinstance(selected.embedding_provider, CloudflareEmbeddingProvider)
+
     assert isinstance(selected.generation_provider, OpenAICompatibleGenerationProvider)
 
 
 def test_v3_retrieval_rejects_non_cloudflare_providers() -> None:
+
     with pytest.raises(
         ValueError, match="V3 retrieval requires Cloudflare AI providers exclusively"
     ):
@@ -452,6 +534,7 @@ def test_v3_retrieval_rejects_non_cloudflare_providers() -> None:
 
 @pytest.mark.asyncio
 async def test_bootstrap_cloudflare_cap_reaches_wire_without_extra_generation() -> None:
+
     import json
 
     import httpx
@@ -469,10 +552,13 @@ async def test_bootstrap_cloudflare_cap_reaches_wire_without_extra_generation() 
             cloudflare_api_token="offline-dummy",
         )
     )
+
     seen: list[dict] = []
 
     async def endpoint(request: httpx.Request) -> httpx.Response:
+
         seen.append(json.loads(request.content))
+
         return httpx.Response(
             200,
             json={
@@ -496,13 +582,18 @@ async def test_bootstrap_cloudflare_cap_reaches_wire_without_extra_generation() 
         )
 
     provider = selected.generation_provider
+
     async with httpx.AsyncClient(transport=httpx.MockTransport(endpoint)) as client:
         provider._client = client
+
         result = await provider.generate(
             question="Unknown?", evidence=(GenerationEvidence("E1", "Fact."),)
         )
+
     assert len(seen) == 1
+
     assert seen[0]["max_tokens"] == 2048
+
     assert set(seen[0]) == {
         "model",
         "messages",
@@ -511,13 +602,20 @@ async def test_bootstrap_cloudflare_cap_reaches_wire_without_extra_generation() 
         "reasoning_effort",
         "temperature",
     }
+
     assert seen[0]["reasoning_effort"] == "medium"
+
     assert seen[0]["temperature"] == 0
+
     assert seen[0]["model"] == "@cf/openai/gpt-oss-20b"
+
     assert "Preserve conditions, exceptions" in seen[0]["messages"][0]["content"]
+
     assert seen[0]["response_format"] == {
         "type": "json_schema",
         "json_schema": GROUNDED_ANSWER_SCHEMA,
     }
+
     assert result.decision == "REFUSAL"
+
     assert result.prompt_version == "cloudflare-gpt-oss-cited-answer-v25"
