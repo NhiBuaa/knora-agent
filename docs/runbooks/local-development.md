@@ -417,7 +417,7 @@ use host ports 5432, 9000 and 8180; the E2E preparation script refuses to reset 
 own fixtures while the daily project is running. The daily volumes remain intact:
 
 ```powershell
-docker compose -f docker-compose.dev.yml -p knora-dev stop postgres minio keycloak-dev
+docker compose -f docker-compose.dev.yml -p knora-dev stop postgres minio keycloak-dev qdrant
 ```
 
 Prepare the E2E project with the standalone dev Compose file:

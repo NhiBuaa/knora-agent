@@ -2,7 +2,7 @@
 
 - **Ngày lập:** 03/11/2026
 - **Tác giả:** Antigravity (Cặp lập trình cùng Người vận hành)
-- **Trạng thái:** Thiết kế đã được duyệt (Đang chờ lập Kế hoạch triển khai)
+- **Trạng thái:** Đã hoàn thành triển khai và kiểm chứng (PR #244)
 - **Kho mã & Bản làm việc (Worktree) đích:** `C:\Developer\Projects\knora-agent-worktree\refactor-compose-consolidation`
 - **Nhánh:** `refactor/compose-consolidation`
 - **Công việc liên quan:** #153 (Nâng cấp Retrieval V3), #237 / PR #244 (Gom gọn Docker Compose)
