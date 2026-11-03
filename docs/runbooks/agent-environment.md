@@ -15,6 +15,20 @@ Deterministic providers prove structure, not answer quality or real email delive
 > [!NOTE]
 > This browser verification harness does not load the shared local `.env` or invoke live AI providers. Do not evaluate AI provider behavior or generation quality using this deterministic smoke environment; for day-to-day development with Cloudflare or Ollama providers, see [local development](local-development.md) and [worktree environment sharing](local-development.md#referencing-a-shared-env-from-an-isolated-git-worktree).
 
+## Docker Compose two-source policy
+
+The repository maintains at most two operational Compose sources: `docker-compose.yml` (production
+stack) and `docker-compose.dev.yml` (standalone development, test profiles, and isolated verification
+harnesses). Each entry point is completely independent (no base-plus-override chaining). This rule
+applies across the repository, including nested fixtures, generated templates, or Compose `include`
+and `extends` directives. Any third operational Compose source is prohibited without an approved
+exception and is caught by inventory scanning (`backend/test/config/test_compose_inventory.py`).
+Topologies use capability profiles (`figma`, `retrieval-test`, `retrieval-http-test`,
+`password-reset-test`) and launchers select explicit service targets. Daily development databases
+and persistent volumes must never be reused for QA or automated verification fixtures. For overall
+consolidation design, see the [Compose consolidation plan](../plans/docker-compose-consolidation.md)
+and [Issue #162 password reset authorization](../development/issue-162-password-reset-authorization.md).
+
 ## Launch
 
 Run PowerShell from an isolated checkout of the intended commit. Required tools are
@@ -39,14 +53,14 @@ Before running Playwright directly or starting browser verification, run `-Check
 ```
 
 Result codes:
+
 - `FIGMA_FRONTEND_OK`: The frontend directory is physically contained within the repository. All three scoped packages (`@playwright/test`, `playwright`, `playwright-core`) are physically contained under `frontend` (either in `frontend/node_modules` or through valid internal package links declared in `package-lock.json`), the CLI belongs to `@playwright/test`, and declared package specs and installed package versions match the lockfile nodes.
 - `FIGMA_FRONTEND_UNAVAILABLE`: Node executable is missing, or `package.json`, `package-lock.json`, or required package installations are missing.
 - `FIGMA_FRONTEND_OWNERSHIP_REJECTED`: The frontend directory escapes the repository, or `node_modules`, resolved packages, internal link targets, or the CLI path escape the owned frontend directory (e.g. symlinks/junctions pointing to sibling worktrees or external directories).
 - `FIGMA_FRONTEND_LOCK_MISMATCH`: Declared dependency specs, package names, or installed versions do not agree with the lockfile nodes.
 - `FIGMA_FRONTEND_METADATA_INVALID`: Package metadata or lockfile JSON is malformed, missing required edges, or has invalid types.
 
-> [!NOTE]
-> `-CheckFrontendOnly` is a scoped pre-check verifying physical containment and lockfile metadata matching specifically for the three Playwright runner packages (`@playwright/test`, `playwright`, `playwright-core`) and the CLI. It does not audit the entire npm dependency tree or Chromium binaries, does not protect against post-check filesystem modifications by external background daemons, and does not replace runtime browser readiness verification. It is mutually exclusive with `-CheckConfigurationOnly` and `-Run`.
+> [!NOTE] > `-CheckFrontendOnly` is a scoped pre-check verifying physical containment and lockfile metadata matching specifically for the three Playwright runner packages (`@playwright/test`, `playwright`, `playwright-core`) and the CLI. It does not audit the entire npm dependency tree or Chromium binaries, does not protect against post-check filesystem modifications by external background daemons, and does not replace runtime browser readiness verification. It is mutually exclusive with `-CheckConfigurationOnly` and `-Run`.
 
 Missing prerequisites are blockers: report them; installation, model downloads and
 credential/provider setup require separate authorization. Reusing already installed,
@@ -228,6 +242,69 @@ or a generic port-kill. Do not run Docker prune, delete other worktrees, remove 
 volumes, or remove evidence. Images/build cache are intentionally retained; Docker's
 explicit Keycloak image tag is shared by the existing harness, while stopped containers
 retain their original image IDs. Image-cache maintenance is separate from data cleanup.
+
+## Retrieval verification harness (Storage and Http)
+
+Use `scripts/prepare-retrieval-test.ps1` with PowerShell 7 (`pwsh`) on Windows.
+It selects Docker Desktop's Linux daemon at
+`npipe:////./pipe/dockerDesktopLinuxEngine`. Runtime approval must name the candidate,
+readiness checks, selected tests, resource/time limits, permitted network/build use and
+cleanup. Pulling declared images, building `backend/Dockerfile` and updating the local
+image tag `knora-153-s2-application:verify` require that approval. Missing host tools or
+dependencies require separate authorization to install.
+
+All five launcher parameters are required:
+
+- `-Mode Storage|Http`: Storage selects `verification-postgres` and
+  `verification-qdrant` from `retrieval-test`; Http adds `verification-api` from
+  `retrieval-http-test`. Launchers target those services explicitly.
+- `-RunId <GUID>`: use a fresh UUID for each attempt. The project is
+  `knora-retrieval-test-<guid32>`, with project-scoped verification network and volumes.
+- `-EvidenceRoot <absolute owned path>`: use a new directory under the assigned
+  checkout's ignored `.verification/`; the child `http-objects` must not already exist.
+  Writable paths must pass the launcher's reparse-point checks.
+- `-Collection <owned name>`: use a run-specific name containing only letters,
+  numbers, underscores and hyphens.
+- `-Run <scriptblock>`: receives `($project, $composeArgs)` and contains only the
+  approved readiness/migration/test commands. Check each native command's exit code
+  immediately and throw on failure before running the next command.
+
+The launcher rejects ambient `DOCKER_*`, `COMPOSE_*` and `KNORA_S2_*` overrides.
+Ports `15433` (PostgreSQL), `16433` (Qdrant), and `18053` (Http API) bind loopback.
+The API uses deterministic local providers; daily databases, volumes, shared `.env`
+and retained evaluation corpora are not test targets. These runs verify migration
+behavior, not retrieval answer quality.
+
+Example shape, to be completed with the commands from the approved runtime package:
+
+```powershell
+$repoRoot = (git rev-parse --show-toplevel).Trim()
+$runId = [guid]::NewGuid().ToString('N')
+$evidenceRoot = Join-Path $repoRoot ".verification/retrieval-storage-$runId"
+./scripts/prepare-retrieval-test.ps1 -Mode Storage -RunId $runId `
+    -EvidenceRoot $evidenceRoot -Collection "verification_$runId" -Run {
+        param($project, $composeArgs)
+        throw 'Replace with the approved bounded readiness, migration and test commands'
+    }
+```
+
+Existing targeted tests are the native Qdrant scope test in
+`backend/runtime_test/test_s2_native_qdrant.py`, the authorization hydration test in
+`backend/runtime_test/test_s2_native_postgres_retrieval.py`, and the owned HTTP
+upload/worker/question/archive test in `backend/runtime_test/test_s2_http_application.py`.
+The approved run package must select their exact nodes and disposable database migration;
+do not run a broad S2 suite or populate a retained corpus.
+
+The reservation is held through startup, callback and cleanup. A durable
+`cleanup-receipt.json` must be saved before `RETRIEVAL_TEST_CLEANED: <project>` and
+claim deletion. Missing evidence, failed receipt persistence or cleanup leftovers retain
+the reservation. Never steal/delete a stale claim. Verify receipt success and actual
+resource cleanup after Storage before starting Http with a new run ID. Cleanup uses the
+run's actual owned IDs; a project prefix alone grants no cleanup authority.
+
+For the design and reset invocation, see the
+[Compose consolidation plan](../plans/docker-compose-consolidation.md) and
+[password reset authorization investigation](../development/issue-162-password-reset-authorization.md).
 
 ## Updating this contract
 

@@ -31,6 +31,21 @@ class ProviderSelection:
 
 def build_provider_selection(runtime_settings: Settings) -> ProviderSelection:
 
+    embedding_choice = runtime_settings.embedding_provider
+
+    generation_choice = runtime_settings.generation_provider
+
+    if (embedding_choice is None) != (generation_choice is None):
+        raise ValueError("invalid provider configuration: both selectors are required")
+
+    effective_embedding = (
+        embedding_choice if embedding_choice is not None else runtime_settings.provider_mode
+    )
+
+    effective_generation = (
+        generation_choice if generation_choice is not None else runtime_settings.provider_mode
+    )
+
     is_v3 = runtime_settings.retrieval_configuration_id in {
         "retrieval-dense-top8-v3",
         "retrieval-hybrid-top8-v3",
@@ -41,24 +56,18 @@ def build_provider_selection(runtime_settings: Settings) -> ProviderSelection:
 
     if is_v3:
         valid_v3 = {"cloudflare-workers-ai", "cloudflare", "deterministic-local"}
-        if runtime_settings.embedding_provider not in valid_v3:
+
+        if effective_embedding not in valid_v3:
             raise ValueError(
-                "V3 retrieval requires Cloudflare AI providers exclusively "
-                f"(got embedding_provider={runtime_settings.embedding_provider})"
+                "invalid provider configuration: V3 retrieval requires Cloudflare "
+                f"AI providers exclusively (got embedding_provider={effective_embedding})"
             )
 
-        if runtime_settings.generation_provider not in valid_v3:
+        if effective_generation not in valid_v3:
             raise ValueError(
-                "V3 retrieval requires Cloudflare AI providers exclusively "
-                f"(got generation_provider={runtime_settings.generation_provider})"
+                "invalid provider configuration: V3 retrieval requires Cloudflare "
+                f"AI providers exclusively (got generation_provider={effective_generation})"
             )
-
-    embedding_choice = runtime_settings.embedding_provider
-
-    generation_choice = runtime_settings.generation_provider
-
-    if (embedding_choice is None) != (generation_choice is None):
-        raise ValueError("invalid provider configuration: both selectors are required")
 
     if embedding_choice is not None and generation_choice is not None:
         embedding, configuration = _build_selected_embedding(runtime_settings, embedding_choice)

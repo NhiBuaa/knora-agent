@@ -32,6 +32,7 @@ WINDOWS_FILES = {
     "backend/test/adapters/cli/test_dev_launcher.py",
     "backend/test/adapters/cli/test_ollama_launcher.py",
     "backend/test/config/test_keycloak_email_otp.py",
+    "backend/test/config/test_retrieval_test_harness.py",
     "backend/test/adapters/pdf/test_docling.py",
     "backend/test/adapters/pdf/test_pypdf.py",
     "backend/test/ingestion/test_s2_upload_population.py",

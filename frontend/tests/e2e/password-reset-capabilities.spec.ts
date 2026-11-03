@@ -22,11 +22,11 @@ function assertOwnedRuntime() {
       [
         "inspect",
         ...[
-          "knora-issue162-keycloak-1",
-          "knora-issue162-api-1",
-          "knora-issue162-mail-1",
-          "knora-issue162-keycloak-db-1",
-          "knora-issue162-postgres-1",
+          "knora-issue162-reset-keycloak-1",
+          "knora-issue162-reset-api-1",
+          "knora-issue162-reset-mail-1",
+          "knora-issue162-reset-keycloak-db-1",
+          "knora-issue162-reset-postgres-1",
         ],
       ],
       { encoding: "utf8", timeout: 10_000 },
@@ -45,13 +45,13 @@ function assertOwnedRuntime() {
       resolve(
         container.Config.Labels["com.docker.compose.project.config_files"],
       ),
-    ).toBe(resolve("../test/fixtures/password-reset/compose.yml"));
+    ).toBe(resolve("../docker-compose.dev.yml"));
     const service = container.Config.Labels["com.docker.compose.service"];
     const binding = (
       {
-        keycloak: ["8080/tcp", "8480"],
-        api: ["8000/tcp", "8900"],
-        mail: ["8025/tcp", "8125"],
+        "reset-keycloak": ["8080/tcp", "8480"],
+        "reset-api": ["8000/tcp", "8900"],
+        "reset-mail": ["8025/tcp", "8125"],
       } as Record<string, string[]>
     )[service];
     if (binding)
@@ -72,7 +72,7 @@ async function attributes(username: string) {
     "docker",
     [
       "exec",
-      "knora-issue162-keycloak-db-1",
+      "knora-issue162-reset-keycloak-db-1",
       "psql",
       "-U",
       "keycloak",

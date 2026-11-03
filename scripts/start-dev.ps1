@@ -10,6 +10,7 @@ param(
     [string]$DatabaseName = 'knora_dev',
     [string]$ObjectStoreBucket,
     [int]$PostgresPort = 5432,
+    [int]$QdrantPort = 6333,
     [int]$ApiPort = 8000,
     [int]$FrontendPort = 3000
 )
@@ -106,6 +107,11 @@ function Test-DevStorageOwnership([bool]$PostgresPortInUse) {
                 Service = 'minio'
                 Destination = '/data'
                 Role = 'knora_minio_data'
+            }
+            "${composeProject}_knora_qdrant_data" = @{
+                Service = 'qdrant'
+                Destination = '/qdrant/storage'
+                Role = 'knora_qdrant_data'
             }
             "${composeProject}_keycloak_dev_data" = @{
                 Service = 'keycloak-dev'
@@ -407,7 +413,12 @@ if ($DatabaseName -notmatch '^[a-z][a-z0-9_]{0,62}$') { Fail 'INVALID_DATABASE_N
 
 $env:PYTHONPATH = "$repoRoot\backend\src;$repoRoot"
 if ($OllamaBaseUrl) { $env:KNORA_OLLAMA_BASE_URL = $OllamaBaseUrl }
-if ($EmbeddingProvider -eq 'ollama') { $env:KNORA_OLLAMA_EMBEDDING_MODEL = 'qwen3-embedding:0.6b' }
+if ($EmbeddingProvider -eq 'ollama') {
+    $env:KNORA_OLLAMA_EMBEDDING_MODEL = 'qwen3-embedding:0.6b'
+    if (-not $env:KNORA_RETRIEVAL_CONFIGURATION_ID) {
+        $env:KNORA_RETRIEVAL_CONFIGURATION_ID = 'retrieval-m1-v1'
+    }
+}
 $env:KNORA_EMBEDDING_PROVIDER = $EmbeddingProvider
 $env:KNORA_GENERATION_PROVIDER = $GenerationProvider
 $env:KNORA_OLLAMA_GENERATION_MODEL = $GenerationModel
@@ -450,6 +461,12 @@ if ($PSBoundParameters.ContainsKey('FrontendPort') -or -not $env:NEXT_PUBLIC_APP
     $env:NEXT_PUBLIC_APP_ORIGIN = $appOrigin
 }
 $env:KNORA_DATABASE_URL = "postgresql+psycopg://knora:knora@127.0.0.1:$PostgresPort/$DatabaseName"
+if (-not $env:KNORA_LEXICAL_QDRANT_URL) {
+    $env:KNORA_LEXICAL_QDRANT_URL = "http://127.0.0.1:$QdrantPort"
+}
+if (-not $env:KNORA_LEXICAL_QDRANT_COLLECTION) {
+    $env:KNORA_LEXICAL_QDRANT_COLLECTION = 'knora'
+}
 Remove-Item Env:KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID -ErrorAction SilentlyContinue
 
 if ($EmbeddingProvider -eq 'ollama' -or $GenerationProvider -eq 'ollama') {
@@ -518,6 +535,7 @@ if ($GenerationProvider -eq 'cloudflare-workers-ai') {
     Write-Output "GENERATION_MODEL=$cloudflareGenerationModel"
 }
 Write-Output "API_URL=$env:KNORA_API_URL"
+Write-Output "QDRANT_URL=$env:KNORA_LEXICAL_QDRANT_URL"
 Write-Output "OIDC_REDIRECT_URI=$env:KEYCLOAK_REDIRECT_URI"
 Write-Output "OIDC_ISSUER=$oidcIssuer"
 if ($PreflightOnly) { return }
@@ -533,6 +551,7 @@ if (-not $minioAccessKey -or -not $minioSecretKey) { Fail 'MINIO_CREDENTIALS_REQ
 $env:KNORA_CANONICAL_MINIO_ACCESS_KEY = $minioAccessKey
 $env:KNORA_CANONICAL_MINIO_SECRET_KEY = $minioSecretKey
 $env:KNORA_EVAL_POSTGRES_HOST_PORT = [string]$PostgresPort
+$env:KNORA_EVAL_QDRANT_HOST_PORT = [string]$QdrantPort
 $env:KNORA_OBJECT_STORE_BACKEND = 's3_compatible'
 $env:KNORA_OBJECT_STORE_S3_ENDPOINT = 'http://127.0.0.1:9000'
 $env:KNORA_OBJECT_STORE_S3_BUCKET = $ObjectStoreBucket
@@ -543,7 +562,7 @@ if (-not $env:KNORA_OBJECT_STORE_S3_REGION) { $env:KNORA_OBJECT_STORE_S3_REGION 
 Push-Location $repoRoot
 $mutatingStarted = $true
 try {
-    $storageServices = @('postgres', 'minio')
+    $storageServices = @('postgres', 'minio', 'qdrant')
     if ($useBundledKeycloak) { $storageServices += 'keycloak-dev' }
     docker compose @composeFiles -p $composeProject up -d --wait @storageServices | Out-Null
     if ($LASTEXITCODE -ne 0) { Fail 'STORAGE_START_FAILED' }

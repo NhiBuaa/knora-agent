@@ -124,6 +124,13 @@ the daily launcher does not start it. Automated Mailpit evidence does not prove 
   `fts-m3-or-v2`, `fts_candidate_k = 8`, and `rrf-v2`. The paired configurations preserve the
   same downstream Evidence Selection policy and differ only by strategy, FTS candidate budget,
   lexical policy, and fusion policy.
+- **Retrieval V3 Canonical Default:** `retrieval-hybrid-rerank-top8-v3` is the system default
+  retrieval configuration accepted through Issue #153. It combines Cloudflare Qwen3 embeddings
+  (`@cf/qwen/qwen3-embedding-0.6b`), native Qdrant BM25/SDM lexical retrieval via
+  `NativeQdrantSearchIndex`, Distribution-Based Score Fusion (DBSF) over an initial candidate pool,
+  and Cloudflare BGE Reranker cross-encoder (`@cf/baai/bge-reranker-base`) into the final top-8
+  evidence Chunks. Standard Qdrant runs as a baseline container in both operational Docker Compose
+  topologies (`docker-compose.dev.yml` and `docker-compose.yml`).
 - Initial PostgreSQL FTS policy `fts-v1` uses explicit `simple` configuration:
   `to_tsvector('simple', chunk_text)`, `plainto_tsquery('simple', query_text)`, eligibility with
   `@@`, and `ts_rank_cd(..., 0) DESC → chunk_id ASC`. It does not depend on database defaults,

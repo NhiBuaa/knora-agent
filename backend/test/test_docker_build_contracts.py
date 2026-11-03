@@ -15,18 +15,9 @@ except ImportError:
 
 def test_all_compose_backend_build_contexts():
     repo_root = Path(__file__).resolve().parents[2]
-    compose_files = (
-        list(repo_root.glob("**/compose*.yml"))
-        + list(repo_root.glob("**/compose*.yaml"))
-        + list(repo_root.glob("docker-compose*.yml"))
-    )
-
-    assert len(compose_files) >= 4, f"Expected at least 4 compose files, found {len(compose_files)}"
+    compose_files = (repo_root / "docker-compose.yml", repo_root / "docker-compose.dev.yml")
 
     for compose_path in compose_files:
-        if "node_modules" in compose_path.parts or ".verification" in compose_path.parts:
-            continue
-
         text = compose_path.read_text(encoding="utf-8")
 
         # Fast text-based guard

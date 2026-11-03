@@ -115,7 +115,7 @@ flowchart TB
     Answer --> Result["Persisted answer + citations / refusal"]
 ```
 
-**Stack hiện tại:** Python / FastAPI, PostgreSQL / pgvector, object storage, Cloudflare Workers AI, Next.js / TypeScript và Keycloak. Launcher cục bộ chạy PDF worker và Conversation worker riêng; topology triển khai production chưa được xác lập.
+**Stack hiện tại:** Python / FastAPI, PostgreSQL / pgvector, Qdrant (tìm kiếm kết hợp dense & lexical), object storage, Cloudflare Workers AI, Next.js / TypeScript và Keycloak. Launcher cục bộ chạy PDF worker và Conversation worker riêng; topology triển khai production chưa được xác lập.
 
 Đọc thêm về ranh giới hệ thống, trade-offs và failure semantics:
 

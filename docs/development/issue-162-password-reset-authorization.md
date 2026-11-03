@@ -42,34 +42,82 @@ Chat question admission according to the preserved permissions, and deny foreign
 in both directions. Empty/restricted capabilities must remain empty/restricted. The baseline case
 does not receive an administrative capability repair.
 
-The tests use project `knora-issue162`, Keycloak 8480, API 8900, mailbox 8125 and frontend 3400.
-Preparation and browser checks validate checkout ownership; preparation rejects ambient Docker
-selectors and ports owned by other projects. Daily development and Figma services are not targets.
-The fixture is derived from the existing synthetic realm; the production/development Compose entry
-points and shared Figma harness are unchanged. The setup script requires Windows PowerShell 7.
+The tests use fixed project `knora-issue162`, Keycloak on `127.0.0.1:8480`, API on `127.0.0.1:8900`,
+mailbox on `127.0.0.1:8125`, and frontend on `127.0.0.1:3400`. Preparation and browser checks validate
+checkout ownership; preparation rejects ambient `DOCKER_*` and `COMPOSE_*` selectors and ports owned by
+other projects. Daily development and Figma services are not targets.
 
-Run from an isolated repository root with these ports available:
+> [!IMPORTANT] > **Consolidated Compose topology update**: The standalone fixture `test/fixtures/password-reset/compose.yml`
+> has been deleted as part of the [Compose consolidation plan](../plans/docker-compose-consolidation.md).
+> The password reset topology is now integrated into `docker-compose.dev.yml` under capability profile
+> `password-reset-test`, explicitly targeting five scoped services: `reset-api`, `reset-keycloak`,
+> `reset-keycloak-db`, `reset-mail`, and `reset-postgres` on isolated network `knora-issue162_reset-isolated`.
+> Realm configuration and Vault material (`./infra/keycloak` / `$EvidenceRoot/vault`) remain runtime fixture
+> data mounted into `reset-keycloak`, NOT a third Compose entry point.
+
+### Guard self-checks vs. automated runtime execution
+
+The setup and guard scripts require PowerShell 7 (`pwsh`) on Windows:
+
+1. **Mocked guard self-checks (NOT real runtime)**:
+   The scripts `scripts/test-password-reset-runtime.ps1` and `scripts/test-password-reset-preparation.ps1`
+   are mocked guard unit checks that verify parameter parsing, path traversal, ancestor reparse points,
+   Vault keys, and error-handling with Docker/HTTP mocked. Running them does NOT execute real runtime containers
+   or Playwright browser tests.
+
+2. **Automated runtime invocation (owned `-Run` lifecycle)**:
+   Run only after approval of the candidate, owned data, image pulls/builds, ports, time limits and cleanup; the example is not runtime authorization.
+   The current launcher is `scripts/prepare-password-reset-regression.ps1`. When executing automated browser
+   verification, provide mandatory `-RunId <GUID>`, mandatory `-EvidenceRoot <absolute>`, and `-Run <scriptblock>`:
 
 ```powershell
-./scripts/test-password-reset-runtime.ps1
-./scripts/test-password-reset-preparation.ps1
-./scripts/prepare-password-reset-regression.ps1
-Push-Location frontend
-npx playwright test --config playwright.password-reset.config.ts
-Pop-Location
+$runId = [guid]::NewGuid().ToString()
+$repoRoot = (git rev-parse --show-toplevel).Trim()
+$evidenceRoot = Join-Path $repoRoot ".verification/password-reset-$runId"
+./scripts/prepare-password-reset-regression.ps1 -RunId $runId -EvidenceRoot $evidenceRoot -Run {
+    param($project, $composeArgs)
+    Push-Location frontend
+    try {
+        npm exec -- playwright test --config=playwright.password-reset.config.ts
+        if ($LASTEXITCODE -ne 0) { throw "Password reset regression failed ($LASTEXITCODE); preserve evidence" }
+    } finally {
+        Pop-Location
+    }
+}
 ```
+
+- **Project and RunId semantics**: The project name remains fixed as `knora-issue162`. Passing `-RunId`
+  identifies the attempt and claim ledger, but does NOT change the project name.
+- **Reservation and receipt semantics**: The launcher acquires an exclusive lock file
+  `[IO.Path]::GetTempPath()/knora-reset-reservation-knora-issue162.lock`. Inside `finally`, it performs
+  cleanup of proved-owned containers, volumes, and network, and writes a durable, sanitized
+  `cleanup-receipt.json` into `$EvidenceRoot`. The lock is released only if cleanup succeeds. If cleanup
+  fails or receipt persistence fails, the reservation is retained; never automatically steal or delete a stale claim.
+- **Checkout ownership refusal**: If existing `knora-issue162` resources exist from another checkout
+  (`RESET_TEST_PROJECT_NOT_FRESH` for `-Run`, or `RESET_TEST_CHECKOUT_OWNERSHIP_REQUIRED` during legacy inspection), startup is immediately refused. Do not adopt, delete, or
+  rename resources owned by another checkout.
+- **Owned lifecycle vs. manual teardown**: The default legacy invocation (`./scripts/prepare-password-reset-regression.ps1`
+  without `-Run`) is preserved for retained manual preparation. It can build/start/configure that stack and requires corresponding authorization. The owned `-Run` block is strongly
+  recommended because manual, unguarded `docker compose down` is prohibited.
+- **Prerequisites**: Next.js, Playwright, and Chromium must already be installed in the owned checkout
+  (`frontend/node_modules`). Missing dependencies are blockers requiring explicit authorization; auto-installation
+  is prohibited.
 
 New passwords, OTP and bearer tokens exist only in process memory. Browser traces, screenshots and
 videos are disabled; failures report only a stage code and a safe error category after clearing page content. Generated realm
 and private Vault material are ignored by Git. The fixture uses test-only bootstrap credentials.
-The script does not clean up existing services or data. Teardown, if desired, must first verify the
-project and checkout labels, then target only this fixture Compose file with this project name.
 
 ## Verification and remaining acceptance
 
 Results are recorded in the linked Issue/PR after execution. Backend CI partition, frontend unit
 tests, formatting/type checks and the native recovery matrix are separate from the complete release
 runtime gates. This standalone browser test is invoked explicitly, not by the existing Figma profile.
+
+> [!NOTE] > **Historical baseline records**: The local verification observations and test pass counts below are
+> historical baseline records from the original Issue #162 investigation (13 October 2026). They confirm
+> native auth recovery under the legacy fixture, but do NOT validate the consolidated Docker Compose
+> migration. Validating the consolidated Compose migration requires fresh runtime execution under Stage E;
+> no new runtime pass claim is made here.
 
 Verified locally: four native recovery cases passed in 39.7 seconds, including real Documents
 upload (201), read (200), Conversation creation (201), question admission (202), retained denials

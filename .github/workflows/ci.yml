@@ -150,9 +150,23 @@ jobs:
         env:
           KNORA_CANONICAL_MINIO_ACCESS_KEY: ci-synthetic-access
           KNORA_CANONICAL_MINIO_SECRET_KEY: ci-synthetic-secret
+          KNORA_PROVIDER_TEST_ACCESS_KEY: ci-synthetic-access
+          KNORA_PROVIDER_TEST_SECRET_KEY: ci-synthetic-secret
         run: |
-          docker compose config --quiet
-          docker compose -f docker-compose.dev.yml config --quiet
+          set -o pipefail
+          docker compose version
+          docker compose config --help 2>&1 | grep -E -- '--format' > /dev/null || { echo "Docker Compose missing --format flag"; exit 1; }
+          docker compose --help 2>&1 | grep -E -- '--profile' > /dev/null || { echo "Docker Compose missing --profile flag"; exit 1; }
+          docker compose -f docker-compose.yml --env-file /dev/null config --quiet
+          docker compose -f docker-compose.dev.yml --env-file /dev/null config --quiet
+          for profiles in "" "figma" "figma otp-proof" "figma commit-reply-fault" "figma otp-proof commit-reply-fault" "provider-test" "retrieval-test" "retrieval-http-test" "password-reset-test"; do
+            profile_args=()
+            for profile in $profiles; do
+              profile_args+=(--profile "$profile")
+            done
+            docker compose -f docker-compose.dev.yml --env-file /dev/null "${profile_args[@]}" config --format json > /dev/null
+          done
+
       - name: Upload backend reports
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
@@ -197,11 +211,12 @@ jobs:
         env:
           KNORA_DATABASE_URL: postgresql+psycopg://knora:knora@127.0.0.1:5432/knora_issue110_task2
           KNORA_PROVIDER_MODE: deterministic-local
+          KNORA_RETRIEVAL_CONFIGURATION_ID: retrieval-m1-v1
         run: |
           # Delegate memory inside a disposable container for real PDF extraction.
           docker run --rm --privileged --cgroupns private --memory 2g --network host \
             --mount "type=bind,source=$PWD,target=/work" --workdir /work \
-            -e KNORA_DATABASE_URL -e KNORA_PROVIDER_MODE \
+            -e KNORA_DATABASE_URL -e KNORA_PROVIDER_MODE -e KNORA_RETRIEVAL_CONFIGURATION_ID \
             -e DEEPEVAL_DISABLE_DOTENV -e DEEPEVAL_DISABLE_LEGACY_KEYFILE \
             -e DEEPEVAL_TELEMETRY_OPT_OUT -e DEEPEVAL_UPDATE_WARNING_OPT_IN \
             -e RAGAS_DO_NOT_TRACK -e LANGSMITH_TRACING -e LANGCHAIN_TRACING_V2 \

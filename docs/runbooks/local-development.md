@@ -18,6 +18,7 @@ Windows host
 Docker Desktop
 ├── PostgreSQL / pgvector
 ├── MinIO
+├── Qdrant (Dense & Lexical Hybrid)
 └── Keycloak (knora-dev realm)
 ```
 
@@ -108,7 +109,8 @@ restart its runtime.
 | `KEYCLOAK_REDIRECT_URI`, `KEYCLOAK_POST_LOGOUT_REDIRECT_URI`                                                       | Daily launcher defaults are `http://127.0.0.1:3000/api/auth/callback` and `http://127.0.0.1:3000/`; `-FrontendPort` updates both. They must match the client's allowlist.                                                                                                                                                                                       |
 | `KNORA_KEYCLOAK_JWKS_CACHE_TTL_SECONDS`                                                                            | Backend default: 300 seconds; override only when needed.                                                                                                                                                                                                                                                                                                        |
 | `KNORA_API_CREDENTIALS_JSON`                                                                                       | Backend default: `[]`; used only for API-key CLI/integration, not required for the browser bearer flow. Contains `key_id`, hash, Workspace and enabled fields as defined in [architecture](../standards/architecture.md#authentication-and-workspace-authorization); never store raw API keys in this JSON.                                                     |
-| `KNORA_RETRIEVAL_CONFIGURATION_ID`, `KNORA_VECTOR_MIN_SIMILARITY`                                                  | Default: `retrieval-m1-v1`, without a threshold override. Opt-in containment uses `retrieval-evidence-containment-v1`; rollback uses `retrieval-m1-v1`. See the [acceptance runbook](evidence-containment-acceptance.md). V2 accepts only its calibrated threshold/profile; do not use it for Cloudflare merely because dimensions or scores appear compatible. |
+| `KNORA_RETRIEVAL_CONFIGURATION_ID`, `KNORA_VECTOR_MIN_SIMILARITY`                                                  | Default: `retrieval-hybrid-rerank-top8-v3`, using dense vector search, Qdrant sparse lexical search, and Cloudflare BGE Reranker. Rollback uses `retrieval-m1-v1`. See [hybrid retrieval spec](../specs/2026-11-03-default-hybrid-qdrant-retrieval.md).                                                                                                      |
+| `KNORA_LEXICAL_QDRANT_URL`, `KNORA_LEXICAL_QDRANT_COLLECTION`                                                      | Default: `http://127.0.0.1:6333` and `knora`. Managed by Compose with dedicated volume `knora_qdrant_data`.                                                                                                                                                                                                                                                         |
 
 ### Optional providers
 
@@ -415,7 +417,7 @@ use host ports 5432, 9000 and 8180; the E2E preparation script refuses to reset 
 own fixtures while the daily project is running. The daily volumes remain intact:
 
 ```powershell
-docker compose -f docker-compose.dev.yml -p knora-dev stop postgres minio keycloak-dev
+docker compose -f docker-compose.dev.yml -p knora-dev stop postgres minio keycloak-dev qdrant
 ```
 
 Prepare the E2E project with the standalone dev Compose file:
@@ -546,6 +548,7 @@ Frontend  http://127.0.0.1:3000
 API       http://127.0.0.1:8000
 Postgres  127.0.0.1:5432
 MinIO     http://127.0.0.1:9000
+Qdrant    http://127.0.0.1:6333
 ```
 
 Development logs are written beneath:
@@ -736,7 +739,7 @@ the guard or describe container recreation as verified data recovery.
 The helper uses the Windows [Job Object API](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects)
 and loads through PowerShell's `Add-Type`; it requires no additional dependency.
 
-Use `-ApiPort`, `-FrontendPort`, `-PostgresPort`, `-PythonExe`, `-OllamaBaseUrl`, `-EnvFile`, `-DatabaseName`, or `-NoBrowser` when a temporary local override is required. Process/command values take precedence over root `.env` where the launcher exposes an override.
+Use `-ApiPort`, `-FrontendPort`, `-PostgresPort`, `-QdrantPort`, `-PythonExe`, `-OllamaBaseUrl`, `-EnvFile`, `-DatabaseName`, or `-NoBrowser` when a temporary local override is required. Process/command values take precedence over root `.env` where the launcher exposes an override.
 
 An explicit `-FrontendPort` also sets the local `KEYCLOAK_REDIRECT_URI` and `NEXT_PUBLIC_APP_ORIGIN` to that port. The Keycloak client must allow the resulting exact callback URI (for example `http://127.0.0.1:3001/api/auth/callback`); changing the app port does not change Keycloak's redirect allowlist.
 

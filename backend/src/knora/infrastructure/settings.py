@@ -56,11 +56,11 @@ class Settings(BaseSettings):
     operational_alert_configuration_json: str | None = None
     operational_metrics_retry_window_seconds: int = 300
     embedding_dimension: int = 1536
-    retrieval_configuration_id: str = "retrieval-m1-v1"
+    retrieval_configuration_id: str = "retrieval-hybrid-rerank-top8-v3"
     vector_min_similarity: float | None = None
     lexical_population_manifest: str | None = None
-    lexical_qdrant_url: str | None = None
-    lexical_qdrant_collection: str | None = None
+    lexical_qdrant_url: str | None = "http://127.0.0.1:6333"
+    lexical_qdrant_collection: str | None = "knora"
     api_credentials_json: str = "[]"
     keycloak_issuer: str | None = None
     keycloak_audience: str | None = None

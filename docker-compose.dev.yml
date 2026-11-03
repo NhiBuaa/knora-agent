@@ -1,5 +1,5 @@
 # Standalone development and test entry point. Use launchers for guarded Figma/OTP starts.
-# Optional profiles: provider-test, figma, otp-proof, commit-reply-fault.
+# Optional profiles: provider-test, figma, otp-proof, commit-reply-fault, retrieval-test, retrieval-http-test.
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -52,6 +52,21 @@ services:
     command:
       '"mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD} && mc
       mb --ignore-existing local/knora"'
+  qdrant:
+    image: qdrant/qdrant:v1.19.2@sha256:b7b0444c4c351c970b98e90a6f89c2ee4287c65b44e52b4cb503fa5b2aa927ad
+    environment:
+      QDRANT__TELEMETRY_DISABLED: "true"
+    ports:
+      - 127.0.0.1:${KNORA_EVAL_QDRANT_HOST_PORT:-6333}:6333
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - 'bash -c "exec 3<>/dev/tcp/127.0.0.1/6333 && echo -e \"GET /healthz HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n\" >&3 && grep -q \"200 OK\" <&3"'
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - knora_qdrant_data:/qdrant/storage
   api:
     build:
       context: .
@@ -69,6 +84,8 @@ services:
       KNORA_KEYCLOAK_JWKS_URL: http://keycloak-dev:8080/realms/knora-dev/protocol/openid-connect/certs
       KNORA_KEYCLOAK_JWKS_CACHE_TTL_SECONDS: ${KNORA_KEYCLOAK_JWKS_CACHE_TTL_SECONDS:-300}
       KNORA_M5_E2E_FAULTS_ENABLED: ${KNORA_M5_E2E_FAULTS_ENABLED:-false}
+      KNORA_LEXICAL_QDRANT_URL: http://qdrant:6333
+      KNORA_LEXICAL_QDRANT_COLLECTION: knora
     ports:
       - 127.0.0.1:${KNORA_EVAL_API_HOST_PORT:-8000}:8000
     depends_on:
@@ -78,6 +95,8 @@ services:
         condition: service_healthy
       minio-init:
         condition: service_completed_successfully
+      qdrant:
+        condition: service_healthy
   keycloak-dev:
     build:
       context: .
@@ -371,12 +390,204 @@ services:
       - ./themes/knora:/opt/keycloak/themes/knora:ro
     profiles:
       - otp-proof
+  verification-postgres:
+    profiles:
+      - retrieval-test
+      - retrieval-http-test
+    image: pgvector/pgvector:pg16@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
+    environment:
+      POSTGRES_DB: knora_153_s2
+      POSTGRES_USER: knora_s2
+      POSTGRES_PASSWORD: isolated_s2
+    ports:
+      - "127.0.0.1:15433:5432"
+    cpus: 1
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U knora_s2 -d knora_153_s2"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    volumes:
+      - verification-pgdata:/var/lib/postgresql/data
+    networks:
+      verification-isolated:
+        aliases:
+          - postgres
+  verification-qdrant:
+    profiles:
+      - retrieval-test
+      - retrieval-http-test
+    image: qdrant/qdrant:v1.19.2@sha256:b7b0444c4c351c970b98e90a6f89c2ee4287c65b44e52b4cb503fa5b2aa927ad
+    environment:
+      QDRANT__TELEMETRY_DISABLED: "true"
+    ports:
+      - "127.0.0.1:16433:6333"
+    cpus: 2
+    mem_limit: 2g
+    volumes:
+      - verification-qdrantdata:/qdrant/storage
+    networks:
+      verification-isolated:
+        aliases:
+          - qdrant
+  verification-api:
+    profiles:
+      - retrieval-http-test
+    image: knora-153-s2-application:verify
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      KNORA_DATABASE_URL: postgresql+psycopg://knora_s2:isolated_s2@postgres:5432/knora_153_s2
+      KNORA_PROVIDER_MODE: deterministic-local
+      KNORA_EMBEDDING_PROVIDER: deterministic-local
+      KNORA_GENERATION_PROVIDER: deterministic-local
+      KNORA_EXPECTED_EMBEDDING_CONFIGURATION_ID: embedding-local-m1-v2
+      KNORA_RETRIEVAL_CONFIGURATION_ID: retrieval-bm25-upload-fixture-top8-v1
+      KNORA_LEXICAL_POPULATION_MANIFEST: /app/evals/fixtures/pdf_retrieval_v3_s2/upload-lexical-population-v1.json
+      KNORA_LEXICAL_QDRANT_URL: http://qdrant:6333
+      KNORA_LEXICAL_QDRANT_COLLECTION: ${KNORA_S2_APPLICATION_COLLECTION:-s2_application_upload}
+      KNORA_OBJECT_STORE_BACKEND: filesystem
+      KNORA_OBJECT_STORE_ROOT: /s2-objects
+      KNORA_API_CREDENTIALS_JSON: ${KNORA_S2_API_CREDENTIALS_JSON:-[]}
+    ports:
+      - "127.0.0.1:18053:8000"
+    cpus: 1
+    mem_limit: 768m
+    volumes:
+      - type: bind
+        source: ${KNORA_S2_OBJECT_STORE_ROOT:-./.verification/stub-empty-objects}
+        target: /s2-objects
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./evals/fixtures/pdf_retrieval_v3_s2
+        target: /app/evals/fixtures/pdf_retrieval_v3_s2
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      verification-postgres:
+        condition: service_healthy
+      verification-qdrant:
+        condition: service_started
+    networks:
+      - verification-isolated
+  reset-keycloak-db:
+    profiles:
+      - password-reset-test
+    image: postgres:16
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: isolated-test-only
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U keycloak -d keycloak
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    networks:
+      - reset-isolated
+  reset-keycloak:
+    profiles:
+      - password-reset-test
+    build:
+      context: .
+      dockerfile: infra/keycloak/Dockerfile
+    command: start-dev --import-realm --vault=file --vault-dir=/opt/keycloak/vault
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://reset-keycloak-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: isolated-test-only
+      KC_BOOTSTRAP_ADMIN_USERNAME: figma-test-admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: figma-test-admin-password
+      KC_HOSTNAME: http://127.0.0.1:8480
+    ports:
+      - "127.0.0.1:8480:8080"
+    volumes:
+      - type: bind
+        source: ${KNORA_RESET_REALM_FILE:-./test/fixtures/keycloak/figma-realm.json}
+        target: /opt/keycloak/data/import/realm.json
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ${KNORA_RESET_VAULT_DIR:-./infra/keycloak}
+        target: /opt/keycloak/vault
+        read_only: true
+        bind:
+          create_host_path: false
+    depends_on:
+      reset-keycloak-db:
+        condition: service_healthy
+      reset-mail:
+        condition: service_started
+    networks:
+      - reset-isolated
+  reset-mail:
+    profiles:
+      - password-reset-test
+    image: axllent/mailpit:v1.27.8
+    ports:
+      - "127.0.0.1:8125:8025"
+    networks:
+      - reset-isolated
+  reset-postgres:
+    profiles:
+      - password-reset-test
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: knora
+      POSTGRES_USER: knora
+      POSTGRES_PASSWORD: isolated-test-only
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U knora -d knora
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    networks:
+      - reset-isolated
+  reset-api:
+    profiles:
+      - password-reset-test
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    command: sh -c "alembic upgrade head && uvicorn knora.main:app --host 0.0.0.0 --port 8000"
+    environment:
+      KNORA_DATABASE_URL: postgresql+psycopg://knora:isolated-test-only@reset-postgres:5432/knora
+      KNORA_KEYCLOAK_ISSUER: http://127.0.0.1:8480/realms/knora-dev
+      KNORA_KEYCLOAK_AUDIENCE: knora-web
+      KNORA_KEYCLOAK_JWKS_URL: http://reset-keycloak:8080/realms/knora-dev/protocol/openid-connect/certs
+    ports:
+      - "127.0.0.1:8900:8000"
+    depends_on:
+      reset-postgres:
+        condition: service_healthy
+      reset-keycloak:
+        condition: service_started
+    networks:
+      - reset-isolated
 volumes:
   keycloak_dev_data: null
   keycloak_dev_database: null
   knora_postgres_data: null
   knora_minio_data: null
+  knora_qdrant_data: null
   knora_provider_test_data: null
   postgres_data: {}
   keycloak_database: {}
   minio_data: {}
+  verification-pgdata: null
+  verification-qdrantdata: null
+networks:
+  verification-isolated:
+    driver: bridge
+  reset-isolated:
+    driver: bridge
