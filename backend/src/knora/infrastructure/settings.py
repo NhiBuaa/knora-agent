@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     lexical_population_manifest: str | None = None
     lexical_qdrant_url: str | None = "http://127.0.0.1:6333"
     lexical_qdrant_collection: str | None = "knora"
+    lexical_qdrant_api_key: SecretStr | None = None
     api_credentials_json: str = "[]"
     keycloak_issuer: str | None = None
     keycloak_audience: str | None = None

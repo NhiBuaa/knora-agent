@@ -43,7 +43,14 @@ def run_cleanup(generation_id: str) -> dict[str, str]:
         or not settings.lexical_qdrant_collection
     ):
         raise ValueError("lexical cleanup requires a reviewed Qdrant configuration")
-    with httpx.Client(base_url=settings.lexical_qdrant_url, timeout=10, trust_env=False) as client:
+    headers = (
+        {"api-key": settings.lexical_qdrant_api_key.get_secret_value()}
+        if settings.lexical_qdrant_api_key and settings.lexical_qdrant_api_key.get_secret_value()
+        else {}
+    )
+    with httpx.Client(
+        base_url=settings.lexical_qdrant_url, headers=headers, timeout=10, trust_env=False
+    ) as client:
         index = NativeQdrantSearchIndex(
             index=QdrantSearchIndex(settings.lexical_qdrant_collection, population.profile),
             client=client,
