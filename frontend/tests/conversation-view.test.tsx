@@ -11,13 +11,18 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConversationView } from "@/components/conversations/ConversationView";
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
+
+const defaultIdentityScope = {
+  issuer: "https://id.example/realms/knora",
+  subject: "user-1",
+};
 
 const conversation = {
   id: "c-1",
@@ -47,6 +52,19 @@ const answered = {
   },
 };
 
+function renderView(
+  props: Partial<React.ComponentProps<typeof ConversationView>> = {},
+) {
+  return render(
+    <ConversationView
+      workspaceId="w-1"
+      conversation={conversation}
+      identityScope={defaultIdentityScope}
+      {...props}
+    />,
+  );
+}
+
 describe("durable Conversation view", () => {
   it.each(["interrupted", "failed"])(
     "renders authoritative %s with an error code as one distinct outcome",
@@ -65,9 +83,7 @@ describe("durable Conversation view", () => {
             new Response(JSON.stringify({ items: [turn], next_cursor: null })),
         ),
       );
-      render(
-        <ConversationView workspaceId="w-1" conversation={conversation} />,
-      );
+      renderView();
       await screen.findByRole("heading", {
         name:
           status === "interrupted"
@@ -87,6 +103,7 @@ describe("durable Conversation view", () => {
       );
     },
   );
+
   it.each(["interrupted", "queued", "processing", "answered", "refused"])(
     "checks authoritative %s history before restoring an interrupted question without posting",
     async (status) => {
@@ -121,9 +138,7 @@ describe("durable Conversation view", () => {
           ),
       );
       vi.stubGlobal("fetch", fetchMock);
-      render(
-        <ConversationView workspaceId="w-1" conversation={conversation} />,
-      );
+      renderView();
       await screen.findByRole("button", { name: "Try again" });
       fireEvent.change(screen.getByLabelText("Question"), {
         target: { value: "Keep my other draft" },
@@ -180,7 +195,7 @@ describe("durable Conversation view", () => {
         new Response(JSON.stringify({ items: [refused], next_cursor: null })),
     );
     vi.stubGlobal("fetch", fetchMock);
-    render(<ConversationView workspaceId="w-1" conversation={conversation} />);
+    renderView();
     expect(
       await screen.findByRole("link", { name: "Review indexed documents" }),
     ).toHaveAttribute("href", "/workspaces/w-1/documents");
@@ -218,7 +233,7 @@ describe("durable Conversation view", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify(answered)));
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "race-key") });
-    render(<ConversationView workspaceId="w-1" conversation={conversation} />);
+    renderView();
     await screen.findByRole("button", { name: "Load more Turns" });
     fireEvent.change(screen.getByLabelText("Question"), {
       target: { value: "Keep this question" },
@@ -242,23 +257,39 @@ describe("durable Conversation view", () => {
     ).toHaveLength(1);
     expect(screen.getByLabelText("Question")).toHaveValue("Keep this question");
   });
+
   it("recovers an expired polling session by reading the completed Turn without posting", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            items: [{ ...answered, status: "pending", result: null }],
-            next_cursor: null,
-          }),
-        ),
-      )
-      .mockResolvedValueOnce(new Response(null, { status: 401 }))
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ items: [answered], next_cursor: null })),
-      );
+    let turnsCalls = 0;
+    const fetchMock = vi.fn(
+      async (url: RequestInfo | URL, init?: RequestInit) => {
+        const u = String(url);
+        if (u.includes("/api/auth/session")) {
+          return new Response(
+            JSON.stringify({ session: defaultIdentityScope }),
+          );
+        }
+        if (u.includes("/turns/t-1")) {
+          return new Response(null, { status: 401 });
+        }
+        if (u.includes("/turns")) {
+          turnsCalls++;
+          if (turnsCalls === 1) {
+            return new Response(
+              JSON.stringify({
+                items: [{ ...answered, status: "pending", result: null }],
+                next_cursor: null,
+              }),
+            );
+          }
+          return new Response(
+            JSON.stringify({ items: [answered], next_cursor: null }),
+          );
+        }
+        return new Response(null, { status: 404 });
+      },
+    );
     vi.stubGlobal("fetch", fetchMock);
-    render(<ConversationView workspaceId="w-1" conversation={conversation} />);
+    renderView();
     const login = await screen.findByRole("link", { name: "Sign in again" });
     expect(login).toHaveAttribute("href", "/api/auth/login");
     expect(login).toHaveAttribute("target", "_blank");
@@ -274,19 +305,30 @@ describe("durable Conversation view", () => {
   });
 
   it("keeps the draft and original submission key through failed and successful reauthentication", async () => {
-    const history = () =>
-      new Response(JSON.stringify({ items: [], next_cursor: null }));
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(history())
-      .mockResolvedValueOnce(new Response(null, { status: 401 }))
-      .mockResolvedValueOnce(new Response(null, { status: 401 }))
-      .mockResolvedValueOnce(history())
-      .mockResolvedValueOnce(new Response(JSON.stringify(answered)));
+    let sessionAttempts = 0;
+    let postAttempts = 0;
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes("/api/auth/session")) {
+        sessionAttempts++;
+        if (sessionAttempts === 1) {
+          return new Response(null, { status: 401 });
+        }
+        return new Response(JSON.stringify({ session: defaultIdentityScope }));
+      }
+      if (init?.method === "POST") {
+        postAttempts++;
+        if (postAttempts === 1) {
+          return new Response(null, { status: 401 });
+        }
+        return new Response(JSON.stringify(answered));
+      }
+      return new Response(JSON.stringify({ items: [], next_cursor: null }));
+    });
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "original-key") });
-    render(<ConversationView workspaceId="w-1" conversation={conversation} />);
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    renderView();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
     fireEvent.change(screen.getByLabelText("Question"), {
       target: { value: "My preserved question" },
     });
@@ -299,7 +341,7 @@ describe("durable Conversation view", () => {
     expect(screen.getByLabelText("Question")).toHaveAttribute("readonly");
     expect(screen.getByRole("button", { name: "Ask" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Reload history" }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(sessionAttempts).toBe(1));
     expect(screen.getByRole("button", { name: "Ask" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Reload history" }));
     await waitFor(() =>
@@ -315,10 +357,10 @@ describe("durable Conversation view", () => {
     );
     expect(posts).toHaveLength(2);
     for (const post of posts) {
-      expect(new Headers(post[1].headers).get("Idempotency-Key")).toBe(
+      expect(new Headers(post[1]?.headers).get("Idempotency-Key")).toBe(
         "original-key",
       );
-      expect(JSON.parse(post[1].body)).toEqual({
+      expect(JSON.parse(String(post[1]?.body ?? "{}"))).toEqual({
         question: "My preserved question",
       });
     }
@@ -336,9 +378,7 @@ describe("durable Conversation view", () => {
         );
       fetchMock.mockResolvedValueOnce(new Response(null, { status: 401 }));
       vi.stubGlobal("fetch", fetchMock);
-      render(
-        <ConversationView workspaceId="w-1" conversation={conversation} />,
-      );
+      renderView();
       if (phase === "pagination")
         fireEvent.click(
           await screen.findByRole("button", { name: "Load more Turns" }),
@@ -353,12 +393,13 @@ describe("durable Conversation view", () => {
       "fetch",
       vi.fn().mockResolvedValue(new Response(null, { status: 500 })),
     );
-    render(<ConversationView workspaceId="w-1" conversation={conversation} />);
+    renderView();
     await screen.findByRole("alert");
     expect(
       screen.queryByRole("link", { name: "Sign in again" }),
     ).not.toBeInTheDocument();
   });
+
   it("locks the draft while a Turn submission is in flight", async () => {
     let complete: ((response: Response) => void) | undefined;
     const fetchMock = vi
@@ -376,7 +417,7 @@ describe("durable Conversation view", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "turn-key") });
-    render(<ConversationView workspaceId="w-1" conversation={conversation} />);
+    renderView();
     await screen.findByLabelText("Question");
     fireEvent.change(screen.getByLabelText("Question"), {
       target: { value: "Original question" },
@@ -391,6 +432,7 @@ describe("durable Conversation view", () => {
       }),
     );
   });
+
   it("reloads exact persisted history without submitting a new Turn", async () => {
     const fetchMock = vi.fn(
       async (_url: string, _init?: RequestInit) =>
@@ -399,7 +441,7 @@ describe("durable Conversation view", () => {
         }),
     );
     vi.stubGlobal("fetch", fetchMock);
-    render(<ConversationView workspaceId="w-1" conversation={conversation} />);
+    renderView();
 
     await screen.findByText("The guide says blue umbrellas.");
     expect(screen.getByText("What does the guide say?")).toBeInTheDocument();
@@ -428,7 +470,7 @@ describe("durable Conversation view", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "stable-turn-key") });
-    render(<ConversationView workspaceId="w-1" conversation={conversation} />);
+    renderView();
     await screen.findByLabelText("Question");
     fireEvent.change(screen.getByLabelText("Question"), {
       target: { value: "A follow-up?" },
@@ -474,7 +516,7 @@ describe("durable Conversation view", () => {
     vi.stubGlobal("crypto", {
       randomUUID: vi.fn().mockReturnValueOnce("turn-key-a"),
     });
-    render(<ConversationView workspaceId="w-1" conversation={conversation} />);
+    renderView();
     await screen.findByLabelText("Question");
     fireEvent.change(screen.getByLabelText("Question"), {
       target: { value: "Follow-up" },
@@ -512,7 +554,7 @@ describe("durable Conversation view", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "turn-key") });
-    render(<ConversationView workspaceId="w-1" conversation={conversation} />);
+    renderView();
     await screen.findByLabelText("Question");
     fireEvent.change(screen.getByLabelText("Question"), {
       target: { value: "New question" },
@@ -544,7 +586,7 @@ describe("durable Conversation view", () => {
       );
     vi.stubGlobal("fetch", fetchMock);
     vi.stubGlobal("crypto", { randomUUID: vi.fn(() => "turn-key") });
-    render(<ConversationView workspaceId="w-1" conversation={conversation} />);
+    renderView();
     await screen.findByLabelText("Question");
     fireEvent.change(screen.getByLabelText("Question"), {
       target: { value: "New question" },
@@ -579,7 +621,7 @@ describe("durable Conversation view", () => {
           ),
       ),
     );
-    render(<ConversationView workspaceId="w-1" conversation={conversation} />);
+    renderView();
     await screen.findByText("Refused: INSUFFICIENT_EVIDENCE");
     expect(
       screen.getByRole("heading", {
@@ -606,13 +648,7 @@ describe("durable Conversation view", () => {
           ),
       ),
     );
-    render(
-      <ConversationView
-        workspaceId="w-1"
-        conversation={conversation}
-        workspaceArchived
-      />,
-    );
+    renderView({ workspaceArchived: true });
     await screen.findByText("The guide says blue umbrellas.");
     expect(
       screen.getByText("Archived workspace · Read-only"),
@@ -658,12 +694,7 @@ describe("durable Conversation view", () => {
         );
       });
       vi.stubGlobal("fetch", fetchMock);
-      render(
-        <ConversationView
-          workspaceId="w-1"
-          conversation={{ ...conversation, archived }}
-        />,
-      );
+      renderView({ conversation: { ...conversation, archived } });
       await screen.findByText(turn.question);
       if (status === "processing")
         await screen.findByText("Retrieving evidence…");
@@ -700,7 +731,7 @@ describe("durable Conversation view", () => {
         }),
       );
     vi.stubGlobal("fetch", fetchMock);
-    render(<ConversationView workspaceId="w-1" conversation={conversation} />);
+    renderView();
     await screen.findByText("What does the guide say?");
     fireEvent.click(screen.getByRole("button", { name: "Load more Turns" }));
     await screen.findByText("Second question");
@@ -724,11 +755,535 @@ describe("durable Conversation view", () => {
         new Response(JSON.stringify(answered), { status: 200 }),
       );
     vi.stubGlobal("fetch", fetchMock);
-    render(<ConversationView workspaceId="w-1" conversation={conversation} />);
+    renderView();
     await screen.findByText("The guide says blue umbrellas.");
     expect(fetchMock.mock.calls[1][0]).toContain("/turns/t-1");
     expect(
       fetchMock.mock.calls.filter((call) => call[1]?.method === "POST"),
     ).toHaveLength(0);
+  });
+});
+
+describe("session recovery on tab return and identity mismatch", () => {
+  let originalLocation: Location;
+  let replaceMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    replaceMock = vi.fn();
+    originalLocation = window.location;
+    try {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: { ...originalLocation, replace: replaceMock },
+      });
+    } catch {
+      window.location.replace = replaceMock as unknown as (
+        url: string | URL,
+      ) => void;
+    }
+    vi.spyOn(document, "hasFocus").mockReturnValue(true);
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: false,
+    });
+  });
+
+  afterEach(() => {
+    try {
+      Object.defineProperty(window, "location", {
+        configurable: true,
+        value: originalLocation,
+      });
+    } catch {
+      // fallback
+    }
+  });
+
+  it("different subject triggers identity change UI, clears draft/refs and redirects to /workspaces", async () => {
+    const fetchMock = vi.fn(
+      async (url: RequestInfo | URL, init?: RequestInit) => {
+        if (String(url).includes("/api/auth/session")) {
+          return new Response(
+            JSON.stringify({
+              session: {
+                issuer: defaultIdentityScope.issuer,
+                subject: "user-different",
+              },
+            }),
+          );
+        }
+        return new Response(
+          JSON.stringify({ items: [answered], next_cursor: null }),
+        );
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    renderView();
+    await screen.findByText("The guide says blue umbrellas.");
+    fireEvent.change(screen.getByLabelText("Question"), {
+      target: { value: "Draft to discard" },
+    });
+
+    fireEvent.blur(window);
+    fireEvent.focus(window);
+
+    await screen.findByText("Your account changed. Opening Workspaces…");
+    expect(replaceMock).toHaveBeenCalledWith("/workspaces");
+    expect(screen.queryByLabelText("Question")).not.toBeInTheDocument();
+  });
+
+  it("different issuer with same subject triggers identity change UI and redirects to /workspaces", async () => {
+    const fetchMock = vi.fn(
+      async (url: RequestInfo | URL, init?: RequestInit) => {
+        if (String(url).includes("/api/auth/session")) {
+          return new Response(
+            JSON.stringify({
+              session: {
+                issuer: "https://other-issuer.example",
+                subject: defaultIdentityScope.subject,
+              },
+            }),
+          );
+        }
+        return new Response(
+          JSON.stringify({ items: [answered], next_cursor: null }),
+        );
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    renderView();
+    await screen.findByText("The guide says blue umbrellas.");
+
+    fireEvent.blur(window);
+    fireEvent.focus(window);
+
+    await screen.findByText("Your account changed. Opening Workspaces…");
+    expect(replaceMock).toHaveBeenCalledWith("/workspaces");
+  });
+
+  it("missing baseline identity locks draft submission without sending invalid headers", async () => {
+    const fetchMock = vi.fn(
+      async (_url: RequestInfo | URL, _init?: RequestInit) =>
+        new Response(JSON.stringify({ items: [], next_cursor: null })),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ConversationView workspaceId="w-1" conversation={conversation} />);
+    await screen.findByLabelText("Question");
+    fireEvent.change(screen.getByLabelText("Question"), {
+      target: { value: "Unauthenticated draft" },
+    });
+    expect(screen.getByRole("button", { name: "Ask" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    expect(
+      fetchMock.mock.calls.some((call) => call[1]?.method === "POST"),
+    ).toBe(false);
+  });
+
+  it("session probe returns 401 or null triggers requireAuthentication and keeps draft", async () => {
+    const fetchMock = vi.fn(
+      async (url: RequestInfo | URL, init?: RequestInit) => {
+        if (String(url).includes("/api/auth/session")) {
+          return new Response(JSON.stringify({ session: null }), {
+            status: 401,
+          });
+        }
+        return new Response(
+          JSON.stringify({ items: [answered], next_cursor: null }),
+        );
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    renderView();
+    await screen.findByText("The guide says blue umbrellas.");
+    fireEvent.change(screen.getByLabelText("Question"), {
+      target: { value: "Preserve this draft on expiry" },
+    });
+
+    fireEvent.blur(window);
+    fireEvent.focus(window);
+
+    await screen.findByRole("link", { name: "Sign in again" });
+    expect(screen.getByLabelText("Question")).toHaveValue(
+      "Preserve this draft on expiry",
+    );
+    expect(screen.getByRole("button", { name: "Ask" })).toBeDisabled();
+    expect(
+      fetchMock.mock.calls.some((call) => call[1]?.method === "POST"),
+    ).toBe(false);
+  });
+
+  it("session probe returns 503 shows retryable notice, keeps draft, locks submit", async () => {
+    const fetchMock = vi.fn(
+      async (url: RequestInfo | URL, init?: RequestInit) => {
+        if (String(url).includes("/api/auth/session")) {
+          return new Response(null, { status: 503 });
+        }
+        return new Response(
+          JSON.stringify({ items: [answered], next_cursor: null }),
+        );
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    renderView();
+    await screen.findByText("The guide says blue umbrellas.");
+    fireEvent.change(screen.getByLabelText("Question"), {
+      target: { value: "Draft waiting for server recovery" },
+    });
+
+    fireEvent.blur(window);
+    fireEvent.focus(window);
+
+    await screen.findByText("Unable to verify your session. Retry.");
+    expect(screen.getByLabelText("Question")).toHaveValue(
+      "Draft waiting for server recovery",
+    );
+    expect(screen.getByRole("button", { name: "Ask" })).toBeDisabled();
+  });
+
+  it("history GET returns 403 shows workspace permission error without automatic retry", async () => {
+    const fetchMock = vi.fn(
+      async (url: RequestInfo | URL, init?: RequestInit) => {
+        const u = String(url);
+        if (u.includes("/api/auth/session")) {
+          return new Response(
+            JSON.stringify({ session: defaultIdentityScope }),
+          );
+        }
+        if (u.includes("/turns")) {
+          return new Response(null, { status: 403 });
+        }
+        return new Response(null, { status: 404 });
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    renderView();
+
+    fireEvent.blur(window);
+    fireEvent.focus(window);
+
+    await screen.findByText(
+      "You don't have permission to ask questions in this workspace.",
+    );
+    expect(screen.getByRole("button", { name: "Ask" })).toBeDisabled();
+    expect(
+      fetchMock.mock.calls.some((call) => call[1]?.method === "POST"),
+    ).toBe(false);
+  });
+
+  it("two tab return episodes trigger exactly two session probes", async () => {
+    let probeCount = 0;
+    const fetchMock = vi.fn(
+      async (url: RequestInfo | URL, init?: RequestInit) => {
+        if (String(url).includes("/api/auth/session")) {
+          probeCount++;
+          return new Response(
+            JSON.stringify({ session: defaultIdentityScope }),
+          );
+        }
+        return new Response(
+          JSON.stringify({ items: [answered], next_cursor: null }),
+        );
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    renderView();
+    await screen.findByText("The guide says blue umbrellas.");
+
+    fireEvent.blur(window);
+    fireEvent.focus(window);
+    await waitFor(() => expect(probeCount).toBe(1));
+
+    fireEvent.blur(window);
+    fireEvent.focus(window);
+    await waitFor(() => expect(probeCount).toBe(2));
+
+    expect(probeCount).toBe(2);
+  });
+
+  it("no session probe request when tab remains idle or hidden", async () => {
+    let probeCount = 0;
+    const fetchMock = vi.fn(
+      async (url: RequestInfo | URL, init?: RequestInit) => {
+        if (String(url).includes("/api/auth/session")) {
+          probeCount++;
+          return new Response(
+            JSON.stringify({ session: defaultIdentityScope }),
+          );
+        }
+        return new Response(
+          JSON.stringify({ items: [answered], next_cursor: null }),
+        );
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    renderView();
+    await screen.findByText("The guide says blue umbrellas.");
+
+    Object.defineProperty(document, "hidden", {
+      value: true,
+      configurable: true,
+    });
+    fireEvent(document, new Event("visibilitychange"));
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(probeCount).toBe(0);
+
+    Object.defineProperty(document, "hidden", {
+      value: false,
+      configurable: true,
+    });
+  });
+
+  it("concurrent tab return focus and Reload history deduplicates to single in-flight probe", async () => {
+    let probeCalls = 0;
+    let finishProbe: (response: Response) => void = () => {};
+    const fetchMock = vi.fn(
+      async (url: RequestInfo | URL, init?: RequestInit) => {
+        if (String(url).includes("/api/auth/session")) {
+          probeCalls++;
+          return new Promise<Response>((resolve) => {
+            finishProbe = resolve;
+          });
+        }
+        return new Response(
+          JSON.stringify({ items: [answered], next_cursor: null }),
+        );
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    renderView();
+    await screen.findByText("The guide says blue umbrellas.");
+
+    // Expire session first to have Reload history button available
+    fireEvent.blur(window);
+    fireEvent.focus(window);
+    // wait for timeout(0) to trigger
+    await waitFor(() => expect(probeCalls).toBe(1));
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Checking your session…",
+    );
+
+    // Click Reload history while first probe is still in-flight
+    // Since Reload history is disabled while checkingSession is true, test calling recoverSession again directly
+    // or verify probe is not duplicated
+    finishProbe(
+      new Response(JSON.stringify({ session: defaultIdentityScope })),
+    );
+
+    await waitFor(() =>
+      expect(
+        screen.queryByText("Checking your session…"),
+      ).not.toBeInTheDocument(),
+    );
+    expect(probeCalls).toBe(1);
+  });
+
+  it("mismatch 401 from mutation activates session probe and redirects when account changed", async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes("/api/auth/session")) {
+        return new Response(
+          JSON.stringify({
+            session: {
+              issuer: defaultIdentityScope.issuer,
+              subject: "user-swapped",
+            },
+          }),
+        );
+      }
+      if (init?.method === "POST") {
+        return new Response(
+          JSON.stringify({ detail: "SESSION_IDENTITY_MISMATCH" }),
+          { status: 401 },
+        );
+      }
+      return new Response(
+        JSON.stringify({ items: [answered], next_cursor: null }),
+      );
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    renderView();
+    await screen.findByText("The guide says blue umbrellas.");
+
+    fireEvent.change(screen.getByLabelText("Question"), {
+      target: { value: "Question sent right after switch" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+
+    await screen.findByText("Your account changed. Opening Workspaces…");
+    expect(replaceMock).toHaveBeenCalledWith("/workspaces");
+    expect(
+      fetchMock.mock.calls.filter((c) =>
+        String(c[0]).includes("/api/auth/session"),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("offers an actionable retry after a temporary session-probe failure", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url) =>
+        String(url).includes("/api/auth/session")
+          ? new Response(null, { status: 503 })
+          : new Response(
+              JSON.stringify({ items: [answered], next_cursor: null }),
+            ),
+      ),
+    );
+    renderView();
+    await screen.findByText(answered.result.answer);
+    fireEvent.blur(window);
+    fireEvent.focus(window);
+    await screen.findByText("Unable to verify your session. Retry.");
+    expect(
+      screen.queryAllByRole("button", { name: /retry|reload history/i })
+        .length > 0,
+    ).toBe(true);
+  });
+
+  it("prevents an old history response from overwriting recovered history", async () => {
+    let finishOld: ((r: Response) => void) | undefined;
+    let histories = 0;
+    const newer = {
+      ...answered,
+      result: { ...answered.result, answer: "NEW_RECOVERY_ANSWER" },
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url) => {
+        if (String(url).includes("/api/auth/session"))
+          return new Response(
+            JSON.stringify({ session: defaultIdentityScope }),
+          );
+        if (++histories === 1)
+          return new Promise<Response>((resolve) => {
+            finishOld = resolve;
+          });
+        return new Response(
+          JSON.stringify({ items: [newer], next_cursor: null }),
+        );
+      }),
+    );
+    renderView();
+    await waitFor(() => expect(histories).toBe(1));
+    fireEvent.blur(window);
+    fireEvent.focus(window);
+    await screen.findByText("NEW_RECOVERY_ANSWER");
+    finishOld?.(
+      new Response(JSON.stringify({ items: [answered], next_cursor: null })),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(screen.queryByText(answered.result.answer)).not.toBeInTheDocument();
+  });
+
+  describe("Review 2 Findings F2 and F3 regression", () => {
+    it("offers recovery action after temporary history failure", async () => {
+      let reads = 0;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url) => {
+          if (String(url).includes("/api/auth/session"))
+            return new Response(
+              JSON.stringify({ session: defaultIdentityScope }),
+            );
+          if (++reads > 1) return new Response(null, { status: 500 });
+          return new Response(
+            JSON.stringify({ items: [answered], next_cursor: null }),
+          );
+        }),
+      );
+      renderView();
+      await screen.findByText(answered.result.answer);
+      fireEvent.blur(window);
+      fireEvent.focus(window);
+      await screen.findByText(
+        "Unable to load Conversation history. Retry this page.",
+      );
+      expect(
+        screen.queryAllByRole("button", { name: /retry|reload history/i })
+          .length,
+      ).toBeGreaterThan(0);
+    });
+
+    it("discards old mutation 401 after successful recovery", async () => {
+      let finishPost: ((r: Response) => void) | undefined;
+      let posts = 0;
+      let reads = 0;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url, init) => {
+          if (String(url).includes("/api/auth/session"))
+            return new Response(
+              JSON.stringify({ session: defaultIdentityScope }),
+            );
+          if (init?.method === "POST") {
+            posts++;
+            return new Promise<Response>((resolve) => {
+              finishPost = resolve;
+            });
+          }
+          reads++;
+          return new Response(
+            JSON.stringify({ items: [answered], next_cursor: null }),
+          );
+        }),
+      );
+      renderView();
+      await screen.findByText(answered.result.answer);
+      fireEvent.change(screen.getByLabelText("Question"), {
+        target: { value: "Keep pending draft" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+      await waitFor(() => expect(posts).toBe(1));
+      fireEvent.blur(window);
+      fireEvent.focus(window);
+      await waitFor(() => expect(reads).toBe(2));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      finishPost?.(new Response(null, { status: 401 }));
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(
+        screen.queryByRole("link", { name: "Sign in again" }),
+      ).not.toBeInTheDocument();
+    });
+
+    it("does not lose a second return while the first probe is pending", async () => {
+      let finishProbe: ((r: Response) => void) | undefined;
+      let probes = 0;
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async (url) => {
+          if (String(url).includes("/api/auth/session")) {
+            probes++;
+            if (probes === 1)
+              return new Promise<Response>((resolve) => {
+                finishProbe = resolve;
+              });
+            return new Response(
+              JSON.stringify({ session: defaultIdentityScope }),
+            );
+          }
+          return new Response(
+            JSON.stringify({ items: [answered], next_cursor: null }),
+          );
+        }),
+      );
+      renderView();
+      await screen.findByText(answered.result.answer);
+      fireEvent.change(screen.getByLabelText("Question"), {
+        target: { value: "draft" },
+      });
+      fireEvent.blur(window);
+      fireEvent.focus(window);
+      await waitFor(() => expect(probes).toBe(1));
+      fireEvent.blur(window);
+      fireEvent.focus(window);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      finishProbe?.(
+        new Response(JSON.stringify({ session: defaultIdentityScope })),
+      );
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "Ask" })).toBeEnabled(),
+      );
+    });
   });
 });

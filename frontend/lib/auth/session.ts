@@ -9,20 +9,27 @@ import {
   timingSafeEqual,
 } from "node:crypto";
 import { createRemoteJWKSet, jwtVerify, EncryptJWT, jwtDecrypt } from "jose";
-import { renewSession } from "./session-refresh";
+import { isSessionRevoked, renewSession } from "./session-refresh";
+import {
+  isSessionPolicy,
+  policyFromClaims,
+  SessionPolicy,
+  SESSION_POLICY_VERSION,
+  tokenDeadlines,
+} from "./session-policy";
 
-export type KnoraSession = {
-  issuer?: string;
+export type KnoraSession = SessionPolicy & {
+  issuer: string;
   subject: string;
   accessToken: string;
+  refreshToken: string;
   workspaceIds: string[];
   capabilities: string[];
   expiresAt: number;
-  refreshToken?: string;
-  refreshExpiresAt?: number;
-  sessionId?: string;
-  sessionExpiresAt?: number;
+  refreshExpiresAt: number;
+  sessionId: string;
 };
+
 export type AuthorizationTransaction = {
   state: string;
   nonce: string;
@@ -31,8 +38,11 @@ export type AuthorizationTransaction = {
   redirectUri: string;
   expiresAt: number;
 };
-const COOKIE = "knora_session";
+
+const COOKIE = "knora_session_v2";
+const LEGACY_COOKIE = "knora_session";
 const TRANSACTION_COOKIE = "knora_oidc_transaction";
+
 const secret = () =>
   new TextEncoder().encode(
     process.env.SESSION_SECRET ?? "development-only-session-secret-change-me",
@@ -57,6 +67,7 @@ export function createAuthorizationTransaction(
     expiresAt: Math.floor(Date.now() / 1000) + 600,
   };
 }
+
 export async function encodeAuthorizationTransaction(
   transaction: AuthorizationTransaction,
 ): Promise<string> {
@@ -68,6 +79,7 @@ export async function encodeAuthorizationTransaction(
     .digest("base64url");
   return `${payload}.${signature}`;
 }
+
 export async function decodeAuthorizationTransaction(
   value: string | undefined,
 ): Promise<AuthorizationTransaction | null> {
@@ -111,118 +123,246 @@ export async function decodeAuthorizationTransaction(
   }
 }
 
-export async function encodeSession(
-  session: Omit<KnoraSession, "expiresAt"> & { expiresAt?: number },
-): Promise<string> {
-  const expiresAt = session.expiresAt ?? Math.floor(Date.now() / 1000) + 3600;
-  const sessionExpiresAt =
-    session.sessionExpiresAt ?? Math.floor(Date.now() / 1000) + 8 * 3600;
+export async function encodeSession(session: KnoraSession): Promise<string> {
+  const now = Math.floor(Date.now() / 1000);
+  if (!isSessionPolicy(session, now)) {
+    throw new Error("SESSION_POLICY_INVALID");
+  }
+  if (
+    typeof session.expiresAt !== "number" ||
+    !Number.isSafeInteger(session.expiresAt) ||
+    typeof session.refreshExpiresAt !== "number" ||
+    !Number.isSafeInteger(session.refreshExpiresAt) ||
+    session.expiresAt > session.refreshExpiresAt ||
+    session.refreshExpiresAt > session.sessionExpiresAt
+  ) {
+    throw new Error("SESSION_EXPIRIES_INVALID");
+  }
+
+  const exp = Math.min(session.refreshExpiresAt, session.sessionExpiresAt);
+
   return new EncryptJWT({
+    policyVersion: session.policyVersion,
+    rememberMe: session.rememberMe,
+    sessionStartedAt: session.sessionStartedAt,
+    sessionExpiresAt: session.sessionExpiresAt,
     issuer: session.issuer,
     workspaceIds: session.workspaceIds,
     capabilities: session.capabilities,
     accessToken: session.accessToken,
-    expiresAt,
+    expiresAt: session.expiresAt,
     refreshToken: session.refreshToken,
     refreshExpiresAt: session.refreshExpiresAt,
-    sessionId: session.sessionId ?? randomUUID(),
-    sessionExpiresAt,
+    sessionId: session.sessionId,
   })
     .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
     .setSubject(session.subject)
-    .setExpirationTime(
-      session.refreshToken
-        ? Math.min(session.refreshExpiresAt ?? expiresAt, sessionExpiresAt)
-        : expiresAt,
-    )
+    .setIssuer(session.issuer)
+    .setExpirationTime(exp)
     .encrypt(encryptionKey());
 }
+
 export async function decodeSession(
   value: string | undefined,
 ): Promise<KnoraSession | null> {
   if (!value) return null;
+  if (value.split(".").length !== 5) return null;
   try {
-    const verified =
-      value.split(".").length === 5
-        ? await jwtDecrypt(value, encryptionKey(), {
-            keyManagementAlgorithms: ["dir"],
-            contentEncryptionAlgorithms: ["A256GCM"],
-          })
-        : await jwtVerify(value, secret(), { algorithms: ["HS256"] });
-    const p = verified.payload;
+    const verified = await jwtDecrypt(value, encryptionKey(), {
+      keyManagementAlgorithms: ["dir"],
+      contentEncryptionAlgorithms: ["A256GCM"],
+    });
+    const p = verified.payload as Record<string, unknown>;
     if (
       typeof p.sub !== "string" ||
+      !p.sub ||
+      typeof p.issuer !== "string" ||
+      !p.issuer ||
       typeof p.accessToken !== "string" ||
+      !p.accessToken ||
+      typeof p.refreshToken !== "string" ||
+      !p.refreshToken ||
+      typeof p.sessionId !== "string" ||
+      !p.sessionId ||
       !Array.isArray(p.workspaceIds) ||
       !Array.isArray(p.capabilities)
-    )
+    ) {
       return null;
+    }
+
+    if (
+      process.env.KEYCLOAK_ISSUER &&
+      p.issuer !== process.env.KEYCLOAK_ISSUER
+    ) {
+      return null;
+    }
+
+    if (p.policyVersion !== SESSION_POLICY_VERSION) return null;
+    if (typeof p.rememberMe !== "boolean") return null;
+    if (
+      typeof p.sessionStartedAt !== "number" ||
+      !Number.isSafeInteger(p.sessionStartedAt) ||
+      p.sessionStartedAt <= 0
+    ) {
+      return null;
+    }
+
+    const expectedMax = p.rememberMe ? 2_592_000 : 28_800;
+    const expectedCap = p.sessionStartedAt + expectedMax;
+    if (
+      typeof p.sessionExpiresAt !== "number" ||
+      !Number.isSafeInteger(p.sessionExpiresAt) ||
+      p.sessionExpiresAt !== expectedCap
+    ) {
+      return null;
+    }
+
+    if (
+      typeof p.expiresAt !== "number" ||
+      !Number.isSafeInteger(p.expiresAt) ||
+      typeof p.refreshExpiresAt !== "number" ||
+      !Number.isSafeInteger(p.refreshExpiresAt) ||
+      p.expiresAt > p.refreshExpiresAt ||
+      p.refreshExpiresAt > p.sessionExpiresAt
+    ) {
+      return null;
+    }
+
+    const expectedExp = Math.min(p.refreshExpiresAt, p.sessionExpiresAt);
+    if (typeof p.exp !== "number" || p.exp !== expectedExp) {
+      return null;
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    if (p.sessionExpiresAt <= now || p.refreshExpiresAt <= now) {
+      return null;
+    }
+
     return {
-      issuer: typeof p.issuer === "string" ? p.issuer : undefined,
+      policyVersion: 1,
+      rememberMe: p.rememberMe,
+      sessionStartedAt: p.sessionStartedAt,
+      sessionExpiresAt: p.sessionExpiresAt,
+      issuer: p.issuer,
       subject: p.sub,
       accessToken: p.accessToken,
-      refreshToken:
-        typeof p.refreshToken === "string" ? p.refreshToken : undefined,
-      refreshExpiresAt:
-        typeof p.refreshExpiresAt === "number" ? p.refreshExpiresAt : undefined,
-      sessionId: typeof p.sessionId === "string" ? p.sessionId : undefined,
-      sessionExpiresAt:
-        typeof p.sessionExpiresAt === "number" ? p.sessionExpiresAt : undefined,
+      refreshToken: p.refreshToken,
+      sessionId: p.sessionId,
+      expiresAt: p.expiresAt,
+      refreshExpiresAt: p.refreshExpiresAt,
       workspaceIds: p.workspaceIds.filter(
         (x): x is string => typeof x === "string",
       ),
       capabilities: p.capabilities.filter(
         (x): x is string => typeof x === "string",
       ),
-      expiresAt:
-        typeof p.expiresAt === "number" ? p.expiresAt : Number(p.exp ?? 0),
     };
   } catch {
     return null;
   }
 }
+
 export async function getSession(
   persist = false,
 ): Promise<KnoraSession | null> {
   const jar = await cookies();
-  const previous = await decodeSession(jar.get(COOKIE)?.value);
-  if (!previous) return null;
-  if (!persist)
-    return previous.expiresAt > Math.floor(Date.now() / 1000) ? previous : null;
+  const legacyValue = jar.get(LEGACY_COOKIE)?.value;
+  const rawValue = jar.get(COOKIE)?.value;
+  const previous = await decodeSession(rawValue);
+
+  if (!previous) {
+    if (persist && (rawValue || legacyValue)) {
+      if (rawValue) {
+        const c = clearSessionCookie();
+        jar.set(c.name, c.value, c.options as never);
+      }
+      if (legacyValue) {
+        const c = clearLegacySessionCookie();
+        jar.set(c.name, c.value, c.options as never);
+      }
+    }
+    return null;
+  }
+
+  if (!persist) {
+    const now = Math.floor(Date.now() / 1000);
+    return previous.expiresAt > now ? previous : null;
+  }
+
   const session = await renewSession(previous);
-  if (persist && session !== previous) {
-    const cookie = session
-      ? sessionCookie(await encodeSession(session), session.refreshExpiresAt)
-      : clearSessionCookie();
-    jar.set(cookie.name, cookie.value, cookie.options as never);
+  if (persist && (session !== previous || legacyValue)) {
+    if (legacyValue) {
+      const c = clearLegacySessionCookie();
+      jar.set(c.name, c.value, c.options as never);
+    }
+    if (session) {
+      const encoded = await encodeSession(session);
+      const now = Math.floor(Date.now() / 1000);
+      if (
+        isSessionRevoked(session.sessionId) ||
+        session.sessionExpiresAt <= now ||
+        session.refreshExpiresAt <= now
+      ) {
+        const c = clearSessionCookie();
+        jar.set(c.name, c.value, c.options as never);
+        return null;
+      }
+      const cookie = sessionCookie(encoded, session);
+      jar.set(cookie.name, cookie.value, cookie.options as never);
+    } else {
+      const c = clearSessionCookie();
+      jar.set(c.name, c.value, c.options as never);
+    }
   }
   return session;
 }
+
 export function sessionCookie(
   value: string,
-  refreshExpiresAt?: number,
+  session: KnoraSession,
 ): {
   name: string;
   value: string;
   options: Record<string, unknown>;
 } {
+  const options: Record<string, unknown> = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+  };
+  if (session.rememberMe) {
+    const now = Math.floor(Date.now() / 1000);
+    const deadline = Math.min(
+      session.refreshExpiresAt,
+      session.sessionExpiresAt,
+    );
+    options.maxAge = Math.max(0, deadline - now);
+  }
   return {
     name: COOKIE,
     value,
+    options,
+  };
+}
+
+export function clearSessionCookie() {
+  return {
+    name: COOKIE,
+    value: "",
     options: {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: refreshExpiresAt
-        ? Math.max(0, refreshExpiresAt - Math.floor(Date.now() / 1000))
-        : 3600,
+      maxAge: 0,
     },
   };
 }
-export function clearSessionCookie() {
+
+export function clearLegacySessionCookie() {
   return {
-    name: COOKIE,
+    name: LEGACY_COOKIE,
     value: "",
     options: {
       httpOnly: true,
@@ -251,10 +391,13 @@ export async function exchangeCode(
   });
   if (process.env.KEYCLOAK_CLIENT_SECRET)
     body.set("client_secret", process.env.KEYCLOAK_CLIENT_SECRET);
+  const requestedAt = Math.floor(Date.now() / 1000);
   const response = await fetch(endpoint, {
     method: "POST",
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body,
+    cache: "no-store",
+    signal: AbortSignal.timeout(10000),
   });
   if (!response.ok) throw new Error("OIDC token exchange failed");
   const token = (await response.json()) as {
@@ -264,8 +407,31 @@ export async function exchangeCode(
     refresh_token?: string;
     refresh_expires_in?: number;
   };
-  if (!token.access_token || !token.id_token)
+  if (
+    typeof token.access_token !== "string" ||
+    !token.access_token ||
+    typeof token.refresh_token !== "string" ||
+    !token.refresh_token ||
+    typeof token.id_token !== "string" ||
+    !token.id_token
+  ) {
     throw new Error("OIDC response did not contain required tokens");
+  }
+  if (
+    typeof token.expires_in !== "number" ||
+    !Number.isSafeInteger(token.expires_in) ||
+    token.expires_in <= 0 ||
+    token.expires_in > 300
+  ) {
+    throw new Error("OIDC response invalid expires_in");
+  }
+  if (
+    typeof token.refresh_expires_in !== "number" ||
+    !Number.isSafeInteger(token.refresh_expires_in) ||
+    token.refresh_expires_in <= 0
+  ) {
+    throw new Error("OIDC response invalid refresh_expires_in");
+  }
   const jwksUrl = process.env.KEYCLOAK_JWKS_URL;
   const issuer = process.env.KEYCLOAK_ISSUER;
   const audience =
@@ -280,31 +446,44 @@ export async function exchangeCode(
     { issuer, audience, algorithms: ["RS256"] },
   );
   if (claims.nonce !== nonce) throw new Error("OIDC nonce mismatch");
-  if (typeof claims.sub !== "string")
+  if (typeof claims.sub !== "string" || !claims.sub)
     throw new Error("OIDC identity is missing subject");
+
+  const now = Math.floor(Date.now() / 1000);
+  const policy = policyFromClaims(claims, now);
+  const deadlines = tokenDeadlines(
+    policy,
+    token.expires_in,
+    token.refresh_expires_in,
+    requestedAt,
+    now,
+  );
+  const sessionId = randomUUID();
+
   return {
+    ...policy,
     issuer,
     subject: claims.sub,
     accessToken: token.access_token,
+    refreshToken: token.refresh_token,
     workspaceIds: claimStrings(claims.workspace_ids),
     capabilities: claimStrings(claims.capabilities),
-    expiresAt: Math.floor(Date.now() / 1000) + (token.expires_in ?? 3600),
-    refreshToken: token.refresh_token,
-    refreshExpiresAt:
-      token.refresh_token &&
-      typeof token.refresh_expires_in === "number" &&
-      token.refresh_expires_in > 0
-        ? Math.floor(Date.now() / 1000) + token.refresh_expires_in
-        : undefined,
+    expiresAt: deadlines.expiresAt,
+    refreshExpiresAt: deadlines.refreshExpiresAt,
+    sessionId,
   };
 }
+
 function claimStrings(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === "string")
     : [];
 }
+
 export const SESSION_COOKIE_NAME = COOKIE;
+export const LEGACY_SESSION_COOKIE_NAME = LEGACY_COOKIE;
 export const AUTH_TRANSACTION_COOKIE_NAME = TRANSACTION_COOKIE;
+
 export function authorizationTransactionCookie(value: string): {
   name: string;
   value: string;
@@ -322,6 +501,7 @@ export function authorizationTransactionCookie(value: string): {
     },
   };
 }
+
 export function clearAuthorizationTransactionCookie() {
   return {
     name: TRANSACTION_COOKIE,

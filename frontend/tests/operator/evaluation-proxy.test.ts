@@ -7,7 +7,7 @@ vi.mock("next/headers", () => ({
   cookies: vi.fn(async () => ({ get: () => undefined })),
 }));
 
-import { getSession } from "@/lib/auth/session";
+import { getSession, KnoraSession } from "@/lib/auth/session";
 import { proxyEvaluationPath } from "@/app/api/operator/_evaluation-proxy";
 import { GET as getGold } from "@/app/api/operator/evaluation/datasets/[datasetId]/gold/route";
 import { POST as reviewCase } from "@/app/api/operator/evaluation/datasets/[datasetId]/cases/[caseId]/review/route";
@@ -25,13 +25,20 @@ import { POST as preflightScoring } from "@/app/api/operator/evaluation/runs/[ru
 
 const target = (workspace: string) =>
   `/v1/workspaces/${workspace}/evaluation/runs`;
-const session = {
+const session: KnoraSession = {
   issuer: "https://id.example/realm",
   subject: "owner",
   accessToken: "server-only-token",
   workspaceIds: [],
   capabilities: ["operator:read", "evaluations:run", "questions:ask"],
-  expiresAt: 1_900_000_000,
+  policyVersion: 1,
+  rememberMe: false,
+  sessionStartedAt: 1_800_000_000,
+  sessionExpiresAt: 1_800_000_000 + 28_800,
+  refreshToken: "refresh-token",
+  sessionId: "session-uuid",
+  expiresAt: 1_800_000_300,
+  refreshExpiresAt: 1_800_001_800,
 };
 
 function request(method = "POST", origin = "https://app.example") {

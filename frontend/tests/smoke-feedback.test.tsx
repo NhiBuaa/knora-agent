@@ -17,6 +17,10 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, replace: vi.fn(), refresh: vi.fn() }),
   usePathname: () => "/workspaces/w/conversations",
 }));
+const defaultIdentityScope = {
+  issuer: "https://id.example/realms/knora",
+  subject: "user-1",
+};
 const conversation = {
   id: "c",
   workspace_id: "w",
@@ -40,6 +44,7 @@ describe("smoke feedback", () => {
         workspaceId="w"
         workspaceName="Workspace"
         initialConversations={[]}
+        identityScope={defaultIdentityScope}
       />,
     );
     expect(
@@ -89,6 +94,7 @@ describe("smoke feedback", () => {
         workspaceId="w"
         workspaceName="Workspace"
         initialConversations={[]}
+        identityScope={defaultIdentityScope}
       />,
     );
     fireEvent.change(screen.getByRole("textbox", { name: "Question" }), {
@@ -193,7 +199,13 @@ describe("smoke feedback", () => {
         ),
     );
     vi.stubGlobal("fetch", fetchMock);
-    render(<ConversationView workspaceId="w" conversation={conversation} />);
+    render(
+      <ConversationView
+        workspaceId="w"
+        conversation={conversation}
+        identityScope={defaultIdentityScope}
+      />,
+    );
     await screen.findByRole("listitem", { name: "Question 1" });
     expect(
       screen.queryAllByRole("button", {
@@ -250,6 +262,7 @@ describe("smoke feedback", () => {
         workspaceId="w"
         workspaceName="Workspace"
         initialConversations={[]}
+        identityScope={defaultIdentityScope}
       />,
     );
     fireEvent.change(screen.getByLabelText("Question"), {
@@ -278,6 +291,7 @@ describe("smoke feedback", () => {
         workspaceId="w"
         workspaceName="Workspace"
         initialConversations={[]}
+        identityScope={defaultIdentityScope}
       />,
     );
     fireEvent.change(screen.getByLabelText("Question"), {
@@ -299,6 +313,11 @@ describe("smoke feedback", () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async (url: string, init?: RequestInit) => {
+        if (String(url).includes("/api/auth/session")) {
+          return new Response(
+            JSON.stringify({ session: defaultIdentityScope }),
+          );
+        }
         if (init?.method === "POST" && expired)
           return new Response("{}", { status: 401 });
         return new Response(JSON.stringify({ id: "w", archived: false }));
@@ -309,6 +328,7 @@ describe("smoke feedback", () => {
         workspaceId="w"
         workspaceName="Workspace"
         initialConversations={[]}
+        identityScope={defaultIdentityScope}
       />,
     );
     fireEvent.change(screen.getByLabelText("Question"), {
@@ -388,6 +408,7 @@ describe("smoke feedback", () => {
         workspaceId="w"
         workspaceName="Workspace"
         initialConversations={[]}
+        identityScope={defaultIdentityScope}
       />,
     );
     fireEvent.change(screen.getByLabelText("Question"), {

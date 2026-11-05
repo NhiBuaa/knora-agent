@@ -5,12 +5,15 @@ import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from "jose";
 const state = vi.hoisted(() => ({
   cookie: "",
   set: vi.fn(),
+  delete: vi.fn(),
   keys: undefined as any,
 }));
 vi.mock("next/headers", () => ({
   cookies: async () => ({
-    get: () => ({ value: state.cookie }),
+    get: (name: string) =>
+      name === "knora_session_v2" ? { value: state.cookie } : undefined,
     set: state.set,
+    delete: state.delete,
   }),
 }));
 vi.mock("jose", async (original) => {
@@ -41,32 +44,58 @@ afterEach(() => {
   vi.unstubAllGlobals();
   vi.unstubAllEnvs();
   state.set.mockClear();
+  const coordinatorKey = Symbol.for("knora.auth.refresh-coordinator.v1");
+  const coordinator = (globalThis as any)[coordinatorKey];
+  coordinator?.renewals.clear();
+  coordinator?.revoked.clear();
 });
 
-async function expiredCookie(refreshToken = crypto.randomUUID()) {
+async function expiredCookie(
+  refreshToken = crypto.randomUUID(),
+  rememberMe = false,
+  startedAt?: number,
+) {
   vi.stubEnv("KEYCLOAK_TOKEN_URL", `${issuer}/protocol/openid-connect/token`);
   vi.stubEnv("KEYCLOAK_JWKS_URL", `${issuer}/protocol/openid-connect/certs`);
   vi.stubEnv("KEYCLOAK_ISSUER", issuer);
   vi.stubEnv("KEYCLOAK_CLIENT_ID", "knora-web");
+  const now = Math.floor(Date.now() / 1000);
+  const start = startedAt ?? now - 100;
+  const max = rememberMe ? 2_592_000 : 28_800;
   state.cookie = await encodeSession({
+    policyVersion: 1,
+    rememberMe,
+    sessionStartedAt: start,
+    sessionExpiresAt: start + max,
     issuer,
     subject: "alice",
     accessToken: "old-access",
     refreshToken,
-    refreshExpiresAt: Math.floor(Date.now() / 1000) + 600,
-    expiresAt: Math.floor(Date.now() / 1000) - 1,
+    sessionId: crypto.randomUUID(),
+    refreshExpiresAt: now + 600,
+    expiresAt: now - 1,
     workspaceIds: [],
     capabilities: [],
   });
   return refreshToken;
 }
-async function tokens(subject = "alice") {
+
+async function tokens(
+  subject = "alice",
+  rememberMe = false,
+  startedAt?: number,
+) {
+  const start = startedAt ?? Math.floor(Date.now() / 1000) - 100;
   return {
     access_token: "new-access",
     refresh_token: "rotated-refresh",
     expires_in: 300,
     refresh_expires_in: 600,
-    id_token: await new SignJWT({ capabilities: ["operator:read"] })
+    id_token: await new SignJWT({
+      capabilities: ["operator:read"],
+      knora_remember_me: rememberMe,
+      knora_session_started_at: start,
+    })
       .setProtectedHeader({ alg: "RS256", kid: "test" })
       .setIssuer(issuer)
       .setAudience("knora-web")
@@ -80,8 +109,9 @@ describe("server session renewal", () => {
   it("does not forward an access token that expires while refresh is failing", async () => {
     await expiredCookie();
     const initial = Date.now();
+    const prev = (await decodeSession(state.cookie))!;
     state.cookie = await encodeSession({
-      ...(await decodeSession(state.cookie))!,
+      ...prev,
       expiresAt: Math.floor(initial / 1000) + 5,
     });
     let fail: (reason: Error) => void = () => {};
@@ -100,6 +130,7 @@ describe("server session renewal", () => {
     fail(new Error("timed out"));
     await expect(renewing).rejects.toThrow("SESSION_REFRESH_UNAVAILABLE");
   });
+
   it("shares refresh coordination across separate middleware and route module loads", async () => {
     await expiredCookie();
     const session = (await decodeSession(state.cookie))!;
@@ -120,6 +151,7 @@ describe("server session renewal", () => {
     ]);
     expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
   });
+
   it("honors logout even when proactive refresh fails while the old access token is still valid", async () => {
     await expiredCookie();
     const previous = (await decodeSession(state.cookie))!;
@@ -144,13 +176,14 @@ describe("server session renewal", () => {
         method: "POST",
         headers: {
           origin: "http://app.test",
-          cookie: `knora_session=${state.cookie}`,
+          cookie: `knora_session_v2=${state.cookie}`,
         },
       }),
     );
     fail(new Error("temporary failure"));
     expect(await renewing).toBeNull();
   });
+
   it("persists rotation before rendering a protected page and supplies the new cookie to SSR", async () => {
     await expiredCookie();
     vi.stubGlobal(
@@ -159,10 +192,10 @@ describe("server session renewal", () => {
     );
     const response = await middleware(
       new NextRequest("http://app.test/workspaces", {
-        headers: { cookie: `knora_session=${state.cookie}` },
+        headers: { cookie: `knora_session_v2=${state.cookie}` },
       }),
     );
-    const saved = response.cookies.get("knora_session")?.value;
+    const saved = response.cookies.get("knora_session_v2")?.value;
     expect(saved).toBeTruthy();
     expect(await decodeSession(saved)).toMatchObject({
       accessToken: "new-access",
@@ -172,6 +205,7 @@ describe("server session renewal", () => {
       saved,
     );
   });
+
   it("does not resurrect a session when logout wins a concurrent refresh", async () => {
     await expiredCookie();
     let finish: (response: Response) => void = () => {};
@@ -191,13 +225,14 @@ describe("server session renewal", () => {
         method: "POST",
         headers: {
           origin: "http://app.test",
-          cookie: `knora_session=${state.cookie}`,
+          cookie: `knora_session_v2=${state.cookie}`,
         },
       }),
     );
     finish(new Response(JSON.stringify(await tokens())));
     expect(await renewing).toBeNull();
   });
+
   it("refreshes before forwarding a Turn exactly once with its unchanged draft and key", async () => {
     await expiredCookie();
     const refreshed = await tokens();
@@ -231,6 +266,7 @@ describe("server session renewal", () => {
       '{"question":"Keep my draft"}',
     );
   });
+
   it("returns a retryable503 without forwarding when refresh is temporarily unavailable", async () => {
     await expiredCookie();
     const fetchMock = vi.fn().mockRejectedValue(new Error("network down"));
@@ -245,6 +281,7 @@ describe("server session renewal", () => {
     expect(response.status).toBe(503);
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
+
   it("keeps an expired access token recoverable in an encrypted session cookie", async () => {
     await expiredCookie();
     expect(state.cookie.split(".")).toHaveLength(5);
@@ -253,6 +290,7 @@ describe("server session renewal", () => {
       accessToken: "old-access",
     });
   });
+
   it("renews concurrent requests once and persists the rotated token without exposing it", async () => {
     const refreshToken = await expiredCookie();
     const fetchMock = vi
@@ -279,6 +317,7 @@ describe("server session renewal", () => {
       accessToken: "new-access",
     });
   });
+
   it("requires login only when refresh is rejected, not on a network outage", async () => {
     await expiredCookie();
     vi.stubGlobal(
@@ -299,6 +338,7 @@ describe("server session renewal", () => {
       "SESSION_REFRESH_UNAVAILABLE",
     );
   });
+
   it("rejects a refreshed identity that differs from the login", async () => {
     await expiredCookie();
     vi.stubGlobal(
@@ -307,27 +347,88 @@ describe("server session renewal", () => {
         .fn()
         .mockResolvedValue(new Response(JSON.stringify(await tokens("bob")))),
     );
-    await expect(getSession(true)).rejects.toThrow(
-      "SESSION_REFRESH_UNAVAILABLE",
+    expect(await getSession(true)).toBeNull();
+    expect(state.set).toHaveBeenCalledWith(
+      "knora_session_v2",
+      "",
+      expect.objectContaining({ maxAge: 0 }),
     );
-    expect(state.set).not.toHaveBeenCalled();
   });
+
+  it("rejects a refresh response when signed claims policy mismatches initial session", async () => {
+    await expiredCookie();
+    // tokens returned with rememberMe=true when session was rememberMe=false
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify(await tokens("alice", true))),
+        ),
+    );
+    expect(await getSession(true)).toBeNull();
+  });
+
   it("never refreshes a tampered cookie or an expired refresh session", async () => {
     await expiredCookie();
     state.cookie = `${state.cookie.slice(0, -8)}xxxxxxxx`;
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
     expect(await getSession(true)).toBeNull();
+
+    const now = Math.floor(Date.now() / 1000);
     state.cookie = await encodeSession({
+      policyVersion: 1,
+      rememberMe: false,
+      sessionStartedAt: now - 100,
+      sessionExpiresAt: now - 100 + 28800,
+      issuer,
       subject: "alice",
       accessToken: "old",
       refreshToken: "expired",
-      expiresAt: 1,
-      refreshExpiresAt: 2,
+      sessionId: crypto.randomUUID(),
+      expiresAt: now + 5,
+      refreshExpiresAt: now + 10,
       workspaceIds: [],
       capabilities: [],
     });
+    // advance system time past refreshExpiresAt
+    vi.setSystemTime((now + 15) * 1000);
     expect(await getSession(true)).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("invalidates a verified refresh subject mismatch even when old access still has 20 seconds", async () => {
+    await expiredCookie();
+    const previous = (await decodeSession(state.cookie))!;
+    state.cookie = await encodeSession({
+      ...previous,
+      expiresAt: Math.floor(Date.now() / 1000) + 20,
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(new Response(JSON.stringify(await tokens("bob")))),
+    );
+    expect(await getSession(true)).toBeNull();
+  });
+
+  it("invalidates when refreshed policy claims do not match original session even with valid access", async () => {
+    await expiredCookie();
+    const previous = (await decodeSession(state.cookie))!;
+    state.cookie = await encodeSession({
+      ...previous,
+      expiresAt: Math.floor(Date.now() / 1000) + 20,
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify(await tokens("alice", true))),
+        ),
+    );
+    expect(await getSession(true)).toBeNull();
   });
 });

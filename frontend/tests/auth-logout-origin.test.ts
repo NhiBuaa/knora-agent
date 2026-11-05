@@ -12,11 +12,19 @@ it.each([204, 503])(
     const fetcher = vi.fn().mockResolvedValue(new Response(null, { status }));
     vi.stubGlobal("fetch", fetcher);
     try {
+      const now = Math.floor(Date.now() / 1000);
       const cookie = await encodeSession({
+        policyVersion: 1,
+        rememberMe: false,
+        sessionStartedAt: now - 100,
+        sessionExpiresAt: now - 100 + 28800,
         issuer: "https://id.example/realms/knora",
         subject: "fixture",
         accessToken: "test-access",
         refreshToken: "test-refresh",
+        sessionId: "fixture-session-id",
+        expiresAt: now + 200,
+        refreshExpiresAt: now + 1700,
         workspaceIds: [],
         capabilities: [],
       });
@@ -26,7 +34,7 @@ it.each([204, 503])(
           headers: {
             host: "app.example",
             origin: "https://app.example",
-            cookie: `knora_session=${cookie}`,
+            cookie: `knora_session_v2=${cookie}`,
           },
         }),
       );
@@ -43,6 +51,8 @@ it.each([204, 503])(
       );
       expect(location.href).not.toContain("test-refresh");
       expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+      expect(response.headers.get("set-cookie")).toContain("knora_session_v2=");
+      expect(response.headers.get("set-cookie")).toContain("knora_session=");
     } finally {
       vi.unstubAllGlobals();
       vi.unstubAllEnvs();
@@ -112,6 +122,7 @@ it("starts Keycloak browser logout with an exact configured return and no token 
     expect(location.searchParams.get("state")).toBe("knora-logout-complete");
     expect(location.searchParams.has("id_token_hint")).toBe(false);
     expect(location.href).not.toContain("evil.example");
+    expect(response.headers.get("set-cookie")).toContain("knora_session_v2=");
     expect(response.headers.get("set-cookie")).toContain("knora_session=");
     expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
   } finally {
@@ -138,6 +149,7 @@ it("clears the local session when the configured return does not match this orig
     expect(response.headers.get("location")).toBe(
       "https://app.example/?signed-out=1",
     );
+    expect(response.headers.get("set-cookie")).toContain("knora_session_v2=");
     expect(response.headers.get("set-cookie")).toContain("knora_session=");
   } finally {
     if (previousIssuer === undefined) delete process.env.KEYCLOAK_ISSUER;

@@ -16,6 +16,13 @@ Knora self-registration assigns the fixed baseline capabilities `documents:read`
 Workspace ownership is still created and checked by Knora's database; registration never grants
 admin or cross-workspace access, and client-submitted capability values are ignored.
 
+A **Browser Session** identifies the validated issuer and subject currently using the
+standalone browser application. A **Remembered Browser Session** is a Browser Session
+the user explicitly chose to retain on a trusted browser; it grants no additional
+Workspace ownership or capability. Idle expiry and absolute session lifetime are
+separate limits. A **Conversation Draft** is unsent text retained only in its open tab's
+memory; it must not transfer to another issuer/subject identity.
+
 Forgot Password changes credentials for the existing identity. It preserves the current capability
 set and persisted Workspace ownership; recovery does not grant the registration baseline or restore
 revoked capabilities. A fresh sign-in resolves authorization from current validated claims.

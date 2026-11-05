@@ -27,7 +27,8 @@
         "http://127.0.0.1:3300"
       ],
       "attributes": {
-        "post.logout.redirect.uris": "http://127.0.0.1:3300/"
+        "post.logout.redirect.uris": "http://127.0.0.1:3300/",
+        "access.token.lifespan": "300"
       },
       "protocolMappers": [
         {
@@ -84,6 +85,13 @@
             "id.token.claim": "true",
             "access.token.claim": "true"
           }
+        },
+        {
+          "name": "knora-session-policy",
+          "protocol": "openid-connect",
+          "protocolMapper": "knora-session-policy",
+          "consentRequired": false,
+          "config": {}
         }
       ]
     }
@@ -276,5 +284,13 @@
   "eventsListeners": [
     "jboss-logging",
     "knora-default-capabilities"
-  ]
+  ],
+  "rememberMe": true,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 28800,
+  "ssoSessionIdleTimeoutRememberMe": 604800,
+  "ssoSessionMaxLifespanRememberMe": 2592000,
+  "clientSessionIdleTimeout": 0,
+  "clientSessionMaxLifespan": 0,
+  "accessTokenLifespan": 300
 }

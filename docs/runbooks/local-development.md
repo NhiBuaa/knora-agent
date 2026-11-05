@@ -518,26 +518,35 @@ After upgrading from the old access-token-only session, sign in once through
 but cannot acquire a refresh token retroactively.
 
 The Next.js server retains access and refresh tokens in an encrypted HttpOnly,
-SameSite=Lax cookie (Secure in production). Before forwarding a protected API
-request, it renews an access token with 30 seconds or less remaining. Protected
-page middleware renews and persists the cookie before server rendering; rendering
-itself never consumes a refresh token. Refresh verifies the Keycloak issuer,
-audience and original subject, and re-reads capabilities from the validated ID token.
-Tokens never appear in the session JSON or browser JavaScript storage, and the
-session cookie is not forwarded to FastAPI.
+SameSite=Lax cookie (`knora_session_v2`, A256GCM JWE dir, Secure in production). It supports
+two managed session modes: **Normal** (idle 1,800s, max 28,800s = 8h, session cookie without Max-Age)
+and **Remember Me** (idle 604,800s = 7d, max 2,592,000s = 30d, persistent cookie).
+Adopting `knora_session_v2` requires a one-time sign-in on upgrade; legacy cookies are
+immediately cleared and rejected. Before forwarding a protected API request, it renews an
+access token with 30 seconds or less remaining. Protected page middleware renews and persists
+the cookie before server rendering; rendering itself never consumes a refresh token. Refresh
+verifies the Keycloak issuer, audience and original subject, and re-reads capabilities from
+the validated ID token. Tokens and drafts never appear in browser storage outside memory, and
+the session cookie is not forwarded to FastAPI.
 
-Keycloak controls idle expiry and revocation; Knora additionally caps one browser
-session at eight hours. Temporary refresh failures return a retryable 503 without
-forwarding or replaying a Turn POST. A rejected refresh requires sign-in again;
-the Conversation recovery controls preserve its mounted draft and idempotency key.
-Logout invalidates the local session before starting Keycloak browser logout.
+Keycloak controls idle expiry and revocation, issuing signed policy claims via `KnoraSessionPolicyMapper`.
+Session policies are managed idempotently via `scripts/configure-keycloak-session-policy.ps1`
+supporting `-Mode Inspect`, `Diff`, `Apply` and `Rollback`. Do not bypass managed Keycloak
+timeouts or disable refresh-token rotation to hide failures. Temporary refresh failures return
+a retryable 503 without forwarding or replaying a Turn POST. A rejected refresh requires sign-in again;
+the Conversation recovery controls preserve its mounted draft and idempotency key for the same account,
+or safely redirect on account change. Logout invalidates the local session before starting Keycloak
+browser logout.
 
 The current coordinator deduplicates refreshes within one Next.js server process,
 keeps results for 30 seconds for concurrent requests, and bounds that cache to 256
 entries. Daily dev runs this topology. Multiple frontend replicas require shared
 refresh coordination and shared logout revocation before rotated refresh tokens
 are enabled; process-local coordination is not evidence for that release gate.
-Do not extend Keycloak timeouts or disable refresh-token rotation to hide failures.
+
+Design and research references:
+- [Browser session policy design](../design/browser-session-policy.md)
+- [Keycloak session persistence research](../research/session-persistence-keycloak.md)
 
 Protocol reference: [Keycloak OpenID Connect endpoints](https://www.keycloak.org/securing-apps/oidc-layers).
 

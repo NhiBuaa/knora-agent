@@ -22,7 +22,7 @@ public class FigmaThemeRenderer {
         };
         data.put("properties", properties);
         data.put("msg", msg); data.put("advancedMsg", msg); data.put("kcSanitize", text);
-        data.put("realm", Map.of("internationalizationEnabled", false, "displayName", "Knora", "displayNameHtml", "Knora", "password", true, "loginWithEmailAllowed", true, "registrationEmailAsUsername", false, "resetPasswordAllowed", true, "registrationAllowed", true, "rememberMe", false));
+        data.put("realm", Map.of("internationalizationEnabled", false, "displayName", "Knora", "displayNameHtml", "Knora", "password", true, "loginWithEmailAllowed", true, "registrationEmailAsUsername", false, "resetPasswordAllowed", true, "registrationAllowed", true, "rememberMe", true));
         data.put("url", Map.of("loginAction", "/native/blocked-action", "registrationAction", "/native/blocked-action", "loginUrl", "/native/228-212.html", "registrationUrl", "/native/237-251.html", "loginResetCredentialsUrl", "/native/242-272.html", "resourcesPath", "/resources", "resourcesCommonPath", "/common", "ssoLoginInOtherTabsUrl", "/session"));
         TemplateMethodModelEx errorText = args -> error ? "Please check this field." : "";
         data.put("messagesPerField", Map.of("get", errorText, "getFirstError", errorText, "existsError", (TemplateMethodModelEx) args -> error, "exists", falseMethod));
@@ -95,6 +95,7 @@ public class FigmaThemeRenderer {
         config.setTemplateLoader(new MultiTemplateLoader(new TemplateLoader[]{new FileTemplateLoader(repository.resolve("themes/knora/login").toFile()), new ClassTemplateLoader(FigmaThemeRenderer.class, "/theme/keycloak.v2/login"), new ClassTemplateLoader(FigmaThemeRenderer.class, "/theme/base/login")}));
         for (String[] state : new String[][]{{"228-212", "login.ftl"}, {"228-251", "login.ftl"}, {"237-251", "register.ftl"}, {"237-313", "register.ftl"}, {"242-272", "knora-reset-email.ftl"}, {"242-333", "knora-reset-otp.ftl"}, {"242-389", "login-update-password.ftl"}, {"246-311", "knora-reset-otp.ftl"}, {"246-404", "info.ftl"}}) {
             var data = data(Set.of("228-251", "237-313", "246-311").contains(state[0]));
+            if (state[0].equals("228-251")) data.put("login", Map.of("username", "alice", "password", "", "rememberMe", "on"));
             if (state[0].equals("242-389")) data.put("pageId", "login-update-password");
             if (state[0].equals("246-404")) { data.put("client", Map.of("baseUrl", "http://127.0.0.1:3300")); data.put("message", Map.of("type", "success", "summary", messages.getProperty("accountUpdatedMessage", "accountUpdatedMessage"))); }
             try (var writer = Files.newBufferedWriter(output.resolve(state[0] + ".html"))) { config.getTemplate(state[1], "UTF-8").process(data, writer); }

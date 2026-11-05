@@ -40,8 +40,9 @@ foreach ($name in 'Invoke-Checked','Invoke-Playwright') {
 $repositoryRoot=$Root; $profileDir=$Output
 Invoke-Playwright 'native' $Config 'report.spec.js' '' '' | Out-Host`,
     );
+    const psRunner = spawnSync("pwsh", ["-v"]).error ? "powershell" : "pwsh";
     const run = spawnSync(
-      "pwsh",
+      psRunner,
       [
         "-NoProfile",
         "-File",
