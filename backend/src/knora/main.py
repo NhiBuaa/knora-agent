@@ -222,8 +222,9 @@ def create_app(
             timeout_seconds=settings.cloudflare_timeout_seconds,
         )
     qdrant_headers = (
-        {"api-key": settings.lexical_qdrant_api_key.get_secret_value()}
-        if settings.lexical_qdrant_api_key and settings.lexical_qdrant_api_key.get_secret_value()
+        {"api-key": getattr(settings, "lexical_qdrant_api_key", None).get_secret_value()}
+        if getattr(settings, "lexical_qdrant_api_key", None)
+        and settings.lexical_qdrant_api_key.get_secret_value()
         else {}
     )
     lexical_client = None

@@ -44,8 +44,9 @@ def run_cleanup(generation_id: str) -> dict[str, str]:
     ):
         raise ValueError("lexical cleanup requires a reviewed Qdrant configuration")
     headers = (
-        {"api-key": settings.lexical_qdrant_api_key.get_secret_value()}
-        if settings.lexical_qdrant_api_key and settings.lexical_qdrant_api_key.get_secret_value()
+        {"api-key": getattr(settings, "lexical_qdrant_api_key", None).get_secret_value()}
+        if getattr(settings, "lexical_qdrant_api_key", None)
+        and settings.lexical_qdrant_api_key.get_secret_value()
         else {}
     )
     with httpx.Client(
