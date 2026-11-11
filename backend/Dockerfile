@@ -29,7 +29,7 @@ COPY evals/runners/milestone_3.py \
 COPY evals/scorers/deepeval_cloudflare.py /evals/scorers/
 
 COPY docs/design/m3-improvement-claim-rule-v1.policy.json /docs/design/
-COPY scripts ./scripts
+COPY scripts/start-render.sh scripts/run_conversation_worker.py ./scripts/
 RUN chmod +x scripts/start-render.sh
 
 RUN pip install --no-cache-dir .
