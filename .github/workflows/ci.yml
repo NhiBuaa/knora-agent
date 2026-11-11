@@ -58,7 +58,7 @@ jobs:
         run: npm run build
       - name: Install Chromium
         working-directory: frontend
-        run: npx playwright install --with-deps chromium
+        run: npx playwright install chromium
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
