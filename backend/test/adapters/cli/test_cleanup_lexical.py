@@ -77,3 +77,74 @@ def test_run_cleanup_calls_authority_then_native_delete(monkeypatch):
         "remove",
         "close",
     ]
+
+
+def test_run_cleanup_passes_api_key_header_when_configured(monkeypatch):
+    from pydantic import SecretStr
+
+    client_kwargs = {}
+
+    monkeypatch.setattr(
+        cleanup_lexical,
+        "settings",
+        SimpleNamespace(
+            retrieval_configuration_id="retrieval-bm25-top8-v1",
+            vector_min_similarity=None,
+            lexical_population_manifest="manifest.json",
+            lexical_qdrant_url="http://127.0.0.1:16433",
+            lexical_qdrant_collection="s2-cleanup",
+            lexical_qdrant_api_key=SecretStr("test-secret-key"),
+        ),
+    )
+    monkeypatch.setattr(
+        cleanup_lexical, "resolve_retrieval_configuration", lambda *a, **k: object()
+    )
+    population = SimpleNamespace(profile=object())
+    monkeypatch.setattr(cleanup_lexical, "load_lexical_population", lambda *a: population)
+
+    class Client:
+        def __init__(self, **kwargs):
+            client_kwargs.update(kwargs)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+    class Index:
+        def __init__(self, **kwargs):
+            pass
+
+        def remove_generation(self, generation):
+            pass
+
+    class Store:
+        def __init__(self, sessions):
+            pass
+
+        def cleanup_generation_in_transaction(self, session, generation_id, remove):
+            return "removed"
+
+    class Factory:
+        @staticmethod
+        def begin():
+            class Context:
+                def __enter__(self):
+                    return "session"
+
+                def __exit__(self, *args):
+                    pass
+
+            return Context()
+
+    monkeypatch.setattr(cleanup_lexical.httpx, "Client", Client)
+    monkeypatch.setattr(cleanup_lexical, "NativeQdrantSearchIndex", Index)
+    monkeypatch.setattr(cleanup_lexical, "PostgresSearchIndexStore", Store)
+    monkeypatch.setattr(cleanup_lexical, "SessionFactory", Factory)
+
+    assert cleanup_lexical.run_cleanup("generation") == {
+        "generation_id": "generation",
+        "outcome": "removed",
+    }
+    assert client_kwargs.get("headers") == {"api-key": "test-secret-key"}

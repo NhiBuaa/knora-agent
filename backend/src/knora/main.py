@@ -221,11 +221,18 @@ def create_app(
             model=settings.cloudflare_reranker_model,
             timeout_seconds=settings.cloudflare_timeout_seconds,
         )
+    qdrant_headers = (
+        {"api-key": getattr(settings, "lexical_qdrant_api_key", None).get_secret_value()}
+        if getattr(settings, "lexical_qdrant_api_key", None)
+        and settings.lexical_qdrant_api_key.get_secret_value()
+        else {}
+    )
     lexical_client = None
     lexical_index = None
     if lexical_population is not None:
         lexical_client = httpx.Client(
             base_url=settings.lexical_qdrant_url,
+            headers=qdrant_headers,
             timeout=10,
             trust_env=False,
         )
@@ -240,6 +247,7 @@ def create_app(
     ):
         lexical_client = httpx.Client(
             base_url=settings.lexical_qdrant_url,
+            headers=qdrant_headers,
             timeout=10,
             trust_env=False,
         )
