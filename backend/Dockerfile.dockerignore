@@ -294,3 +294,5 @@
 !evals/runners/milestone_3_comparison.py
 !evals/runners/ragas_review.py
 !evals/scorers/deepeval_cloudflare.py
+!scripts/run_conversation_worker.py
+!scripts/start-render.sh

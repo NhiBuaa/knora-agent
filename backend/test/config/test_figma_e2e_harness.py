@@ -16,6 +16,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
 POWERSHELL = shutil.which("pwsh") or shutil.which("powershell")
+RENDER_STARTUP_FILES = ["scripts/start-render.sh", "scripts/run_conversation_worker.py"]
 
 
 def create_synthetic_frontend(base_dir: Path, **overrides) -> Path:
@@ -1718,6 +1719,7 @@ def test_dockerignore_exact_allowlist_matches_tracked_and_resources() -> None:
         + mig_files
         + src_files
         + res_files
+        + RENDER_STARTUP_FILES
     )
 
     dockerignore_lines = (
@@ -1785,9 +1787,13 @@ def test_docker_build_probe_enforces_exact_context_exclusion(tmp_path: Path) -> 
     res_files = sorted([src.replace("../", "").replace("\\", "/") for src in force_include])
 
     payload_list = (
-        ["backend/pyproject.toml", "backend/alembic.ini"] + mig_files + src_files + res_files
+        ["backend/pyproject.toml", "backend/alembic.ini"]
+        + mig_files
+        + src_files
+        + res_files
+        + RENDER_STARTUP_FILES
     )
-    assert len(payload_list) == 272, f"Expected exactly 272 payload files, got {len(payload_list)}"
+    assert len(payload_list) == 274, f"Expected exactly 274 payload files, got {len(payload_list)}"
 
     expected_payloads: dict[str, bytes] = {}
     for rel in payload_list:
@@ -1800,8 +1806,8 @@ def test_docker_build_probe_enforces_exact_context_exclusion(tmp_path: Path) -> 
     expected_allowlist = set(
         payload_list + ["backend/Dockerfile", "backend/Dockerfile.dockerignore"]
     )
-    assert len(expected_allowlist) == 274, (
-        f"Expected 274 total allowlist files, got {len(expected_allowlist)}"
+    assert len(expected_allowlist) == 276, (
+        f"Expected 276 total allowlist files, got {len(expected_allowlist)}"
     )
 
     # 2. Sentinels outside allowlist
@@ -1813,6 +1819,7 @@ def test_docker_build_probe_enforces_exact_context_exclusion(tmp_path: Path) -> 
         ctx / "backend/.env",
         ctx / "docs/private-note.txt",
         ctx / "evals/private-note.txt",
+        ctx / "scripts/private_credentials.py",
         ctx / "node_modules/private.txt",
         ctx / ".git/config",
         ctx / "backend/unexpected_new_file.txt",
