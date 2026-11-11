@@ -1678,6 +1678,13 @@ def test_backend_services_use_root_context_and_dockerfile_contract() -> None:
 
 
 def test_dockerignore_exact_allowlist_matches_tracked_and_resources() -> None:
+    startup_files = subprocess.check_output(
+        ["git", "ls-files", "--", *RENDER_STARTUP_FILES], cwd=ROOT, text=True
+    ).splitlines()
+    assert set(startup_files) == set(RENDER_STARTUP_FILES), "Render startup scripts must be tracked"
+    missing_startup_files = [path for path in startup_files if not (ROOT / path).is_file()]
+    assert not missing_startup_files, f"Render startup scripts missing: {missing_startup_files}"
+
     src_files = subprocess.check_output(
         ["git", "ls-files", "-z", "--", "backend/src"], cwd=ROOT, text=True
     ).split("\0")
@@ -1799,7 +1806,11 @@ def test_docker_build_probe_enforces_exact_context_exclusion(tmp_path: Path) -> 
     for rel in payload_list:
         p = ctx / rel
         p.parent.mkdir(parents=True, exist_ok=True)
-        content = f"DETERMINISTIC_PAYLOAD_FOR_{rel}\n".encode()
+        content = (
+            (ROOT / rel).read_bytes()
+            if rel in RENDER_STARTUP_FILES
+            else f"DETERMINISTIC_PAYLOAD_FOR_{rel}\n".encode()
+        )
         p.write_bytes(content)
         expected_payloads[rel] = content
 
