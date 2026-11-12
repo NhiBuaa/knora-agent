@@ -33,7 +33,8 @@ public final class DefaultCapabilitiesFactory implements EventListenerProviderFa
             public void onEvent(Event event) {
                 if (event == null
                         || event.getError() != null
-                        || (event.getType() != EventType.REGISTER && event.getType() != EventType.LOGIN)) {
+                        || (event.getType() != EventType.REGISTER
+                                && event.getType() != EventType.LOGIN)) {
                     return;
                 }
                 RealmModel realm = session.getContext().getRealm();

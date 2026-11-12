@@ -12,3 +12,5 @@ COPY infra/keycloak/start-public-demo.sh /opt/keycloak/start-public-demo.sh
 RUN chmod +x /opt/keycloak/start-public-demo.sh
 ARG KEYCLOAK_VAULT=file
 RUN /opt/keycloak/bin/kc.sh build --db=postgres ${KEYCLOAK_VAULT:+--vault=$KEYCLOAK_VAULT}
+
+CMD ["/opt/keycloak/start-public-demo.sh"]

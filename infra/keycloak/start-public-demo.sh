@@ -16,23 +16,29 @@ KCADM_CONFIG="${KCADM_CONFIG:-/tmp/knora-kcadm.config}"
 export KCADM_CONFIG
 
 cleanup() {
-    kill -TERM "$KEYCLOAK_PID" 2>/dev/null || true
-    wait "$KEYCLOAK_PID" 2>/dev/null || true
+    if [[ -n "${KEYCLOAK_PID:-}" ]]; then
+        kill -TERM "$KEYCLOAK_PID" 2>/dev/null || true
+        wait "$KEYCLOAK_PID" 2>/dev/null || true
+    fi
+    rm -f -- "$KCADM_CONFIG"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 0' INT TERM
 
-until /opt/keycloak/bin/kcadm.sh config credentials \
+until printf '%s\n' "$admin_password" | /opt/keycloak/bin/kcadm.sh config credentials \
+    --config "$KCADM_CONFIG" \
     --server "http://127.0.0.1:$port" \
     --realm master \
-    --user "$admin_user" \
-    --password "$admin_password" >/dev/null 2>&1; do
+    --user "$admin_user" >/dev/null 2>&1; do
     if ! kill -0 "$KEYCLOAK_PID" 2>/dev/null; then
         wait "$KEYCLOAK_PID" || exit $?
     fi
     sleep 2
 done
 
-/opt/keycloak/bin/kcadm.sh update realms/knora-dev \
+/opt/keycloak/bin/kcadm.sh update \
+    --config "$KCADM_CONFIG" \
+    realms/knora-dev \
     -s 'eventsListeners=["jboss-logging","knora-default-capabilities"]' \
     >/dev/null
 echo "[Knora Keycloak] Public-demo realm capabilities listener reconciled."
