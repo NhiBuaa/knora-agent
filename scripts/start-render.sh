@@ -13,20 +13,26 @@ python scripts/run_conversation_worker.py &
 CONV_WORKER_PID=$!
 
 cleanup() {
-    echo "==> [Knora Render] Termination signal received. Stopping worker processes..."
+    echo "==> [Knora Render] Stopping service processes..."
     kill -TERM "$UVICORN_PID" 2>/dev/null || true
     kill -TERM "$PDF_WORKER_PID" 2>/dev/null || true
     kill -TERM "$CONV_WORKER_PID" 2>/dev/null || true
     wait "$UVICORN_PID" 2>/dev/null || true
     wait "$PDF_WORKER_PID" 2>/dev/null || true
     wait "$CONV_WORKER_PID" 2>/dev/null || true
-    exit 0
 }
 
-trap cleanup SIGINT SIGTERM
+trap cleanup EXIT
+trap 'exit 0' SIGINT SIGTERM
 
 echo "==> [Knora Render] Starting Uvicorn API server on 0.0.0.0:${PORT:-8000}..."
 uvicorn knora.main:app --host 0.0.0.0 --port "${PORT:-8000}" &
 UVICORN_PID=$!
 
-wait "$UVICORN_PID"
+STATUS=0
+wait -n "$PDF_WORKER_PID" "$CONV_WORKER_PID" "$UVICORN_PID" || STATUS=$?
+echo "==> [Knora Render] Required process exited unexpectedly (status $STATUS)."
+if [ "$STATUS" -eq 0 ]; then
+    STATUS=1
+fi
+exit "$STATUS"

@@ -201,6 +201,7 @@ async def run_worker(
     worker_id = f"{socket.gethostname()}:{uuid4().hex[:8]}"
     try:
         async with application.router.lifespan_context(application):
+            print("PDF_WORKER_READY", flush=True)
             while True:
                 result = await asyncio.to_thread(
                     application.state.ingestion_worker.run_once, worker_id

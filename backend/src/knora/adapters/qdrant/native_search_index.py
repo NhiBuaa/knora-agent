@@ -20,6 +20,10 @@ from .search_index import (
 )
 
 
+class _CollectionAlreadyExists(ProjectionResponseError):
+    """Another process created this collection after the existence check."""
+
+
 class NativeQdrantSearchIndex:
     """Use only the pinned server's REST wire; no inference or local model calls."""
 
@@ -52,6 +56,13 @@ class NativeQdrantSearchIndex:
 
         if response.status_code in (408, 429) or 500 <= response.status_code < 600:
             raise LexicalProjectionUnavailable("Qdrant storage temporarily unavailable")
+
+        if (
+            response.status_code == 409
+            and method == "PUT"
+            and path == f"/collections/{self.index.collection_name}"
+        ):
+            raise _CollectionAlreadyExists("Qdrant collection already exists")
 
         if response.status_code < 200 or response.status_code >= 300:
             raise ProjectionResponseError("Qdrant request was rejected")
@@ -129,10 +140,13 @@ class NativeQdrantSearchIndex:
             raise ProjectionResponseError("Qdrant collection existence response is invalid")
 
         if not existence["exists"]:
-            created = self._request("PUT", path, self.index.collection_body())
-
-            if created.get("result") is not True:
-                raise ProjectionResponseError("Qdrant collection creation was not confirmed")
+            try:
+                created = self._request("PUT", path, self.index.collection_body())
+            except _CollectionAlreadyExists:
+                pass  # The readback below must still validate the competing creator's config.
+            else:
+                if created.get("result") is not True:
+                    raise ProjectionResponseError("Qdrant collection creation was not confirmed")
 
         result = self._request("GET", path).get("result")
 

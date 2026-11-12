@@ -247,6 +247,43 @@ def test_query_uses_native_wire_and_preserves_the_single_returned_population(wir
         client.close()
 
 
+@pytest.mark.parametrize("compatible", [True, False])
+def test_collection_create_conflict_requires_compatible_readback(wire, compatible) -> None:
+    writes = []
+
+    def serve(request):
+        if request.url.path.endswith("/exists"):
+            result = {"exists": False}
+        elif request.method == "GET":
+            result = {
+                "config": {
+                    "params": {
+                        "vectors": {},
+                        "sparse_vectors": {"bm25": {"modifier": "idf"}},
+                        "shard_number": 1 if compatible else 2,
+                    }
+                }
+            }
+        elif request.url.path.endswith("/index"):
+            writes.append(json.loads(request.content))
+            result = {"status": "completed"}
+        else:
+            return httpx.Response(409, json={"status": {"error": "already exists"}})
+        return httpx.Response(200, json={"status": "ok", "result": result})
+
+    with httpx.Client(
+        base_url="http://qdrant.test", transport=httpx.MockTransport(serve)
+    ) as client:
+        adapter = NativeQdrantSearchIndex(index=wire, client=client)
+        if compatible:
+            adapter.ensure_collection()
+            assert len(writes) == 3
+        else:
+            with pytest.raises(ProjectionResponseError, match="configuration is incompatible"):
+                adapter.ensure_collection()
+            assert writes == []
+
+
 def test_collection_setup_is_replayable_and_marks_only_workspace_as_tenant(wire) -> None:
     requests = []
     exists = False
