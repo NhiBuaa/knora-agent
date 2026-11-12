@@ -257,6 +257,12 @@ def test_registration_event_assigns_backend_owned_default_capabilities() -> None
     assert all(f'"{capability}"' in listener for capability in expected)
     assert "registration input is never trusted" in listener.lower()
 
+    startup = (ROOT / "infra/keycloak/start-public-demo.sh").read_text()
+    assert "kcadm.sh config credentials" in startup
+    assert "kcadm.sh update realms/knora-dev" in startup
+    assert 'eventsListeners=[\"jboss-logging\",\"knora-default-capabilities\"]' in startup
+    assert "KCADM_CONFIG" in startup
+
     configure = (ROOT / "scripts/configure-keycloak-auth-flow.ps1").read_text()
     assert "knora-default-capabilities" in configure
 

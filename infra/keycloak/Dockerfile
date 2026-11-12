@@ -8,5 +8,7 @@ FROM quay.io/keycloak/keycloak:26.3.3
 COPY --from=provider /build/target/email-otp-reset-0.1.0-SNAPSHOT.jar /opt/keycloak/providers/email-otp-reset.jar
 COPY themes/knora /opt/keycloak/themes/knora
 COPY infra/keycloak/public-demo-realm.json /opt/keycloak/data/import/realm.json
+COPY infra/keycloak/start-public-demo.sh /opt/keycloak/start-public-demo.sh
+RUN chmod +x /opt/keycloak/start-public-demo.sh
 ARG KEYCLOAK_VAULT=file
 RUN /opt/keycloak/bin/kc.sh build --db=postgres ${KEYCLOAK_VAULT:+--vault=$KEYCLOAK_VAULT}
