@@ -250,6 +250,7 @@ def test_query_uses_native_wire_and_preserves_the_single_returned_population(wir
 @pytest.mark.parametrize("compatible", [True, False])
 def test_collection_create_conflict_requires_compatible_readback(wire, compatible) -> None:
     writes = []
+    creates = []
 
     def serve(request):
         if request.url.path.endswith("/exists"):
@@ -267,8 +268,11 @@ def test_collection_create_conflict_requires_compatible_readback(wire, compatibl
         elif request.url.path.endswith("/index"):
             writes.append(json.loads(request.content))
             result = {"status": "completed"}
-        else:
+        elif request.method == "PUT" and request.url.path == f"/collections/{wire.collection_name}":
+            creates.append(json.loads(request.content))
             return httpx.Response(409, json={"status": {"error": "already exists"}})
+        else:
+            raise AssertionError(f"Unexpected request: {request.method} {request.url.path}")
         return httpx.Response(200, json={"status": "ok", "result": result})
 
     with httpx.Client(
@@ -282,6 +286,7 @@ def test_collection_create_conflict_requires_compatible_readback(wire, compatibl
             with pytest.raises(ProjectionResponseError, match="configuration is incompatible"):
                 adapter.ensure_collection()
             assert writes == []
+        assert creates == [wire.collection_body()]
 
 
 def test_collection_setup_is_replayable_and_marks_only_workspace_as_tenant(wire) -> None:
