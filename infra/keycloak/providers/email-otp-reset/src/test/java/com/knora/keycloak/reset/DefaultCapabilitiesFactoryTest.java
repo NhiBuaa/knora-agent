@@ -74,10 +74,12 @@ class DefaultCapabilitiesFactoryTest {
                             return unsupported(method);
                         });
 
-        new DefaultCapabilitiesFactory().create(session(user, "knora", "realm"))
+        new DefaultCapabilitiesFactory()
+                .create(session(user, "knora", "realm"))
                 .onEvent(event(EventType.LOGIN, null));
 
-        assertEquals(DefaultCapabilitiesFactory.DEFAULT_CAPABILITIES, attributes.get("capabilities"));
+        assertEquals(
+                DefaultCapabilitiesFactory.DEFAULT_CAPABILITIES, attributes.get("capabilities"));
     }
 
     @Test

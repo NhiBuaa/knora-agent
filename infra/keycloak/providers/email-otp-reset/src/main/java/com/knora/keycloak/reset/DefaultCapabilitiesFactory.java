@@ -13,9 +13,7 @@ import org.keycloak.models.UserModel;
 
 import java.util.List;
 
-/**
- * Assigns the least-privilege application baseline to public-demo accounts.
- */
+/** Assigns the least-privilege application baseline to public-demo accounts. */
 public final class DefaultCapabilitiesFactory implements EventListenerProviderFactory {
     public static final List<String> DEFAULT_CAPABILITIES =
             List.of("documents:read", "documents:write", "questions:ask");
