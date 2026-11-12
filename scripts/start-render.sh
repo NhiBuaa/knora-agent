@@ -30,9 +30,17 @@ uvicorn knora.main:app --host 0.0.0.0 --port "${PORT:-8000}" &
 UVICORN_PID=$!
 
 STATUS=0
-wait -n "$PDF_WORKER_PID" "$CONV_WORKER_PID" "$UVICORN_PID" || STATUS=$?
-echo "==> [Knora Render] Required process exited unexpectedly (status $STATUS)."
-if [ "$STATUS" -eq 0 ]; then
-    STATUS=1
-fi
-exit "$STATUS"
+# Bash before 5.3 can omit already-terminated jobs from wait -n.
+while true; do
+    for PID in "$PDF_WORKER_PID" "$CONV_WORKER_PID" "$UVICORN_PID"; do
+        if ! kill -0 "$PID" 2>/dev/null; then
+            wait "$PID" || STATUS=$?
+            echo "==> [Knora Render] Required process exited unexpectedly (status $STATUS)."
+            if [ "$STATUS" -eq 0 ]; then
+                STATUS=1
+            fi
+            exit "$STATUS"
+        fi
+    done
+    sleep 1
+done
