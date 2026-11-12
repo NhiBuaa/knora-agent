@@ -60,6 +60,29 @@ class DefaultCapabilitiesFactoryTest {
     }
 
     @Test
+    void successfulKnoraLoginRepairsMissingCapabilitiesForExistingAccounts() {
+        Map<String, List<String>> attributes = new HashMap<>();
+        UserModel user =
+                fake(
+                        UserModel.class,
+                        (method, args) -> {
+                            if ("getAttributes".equals(method)) return attributes;
+                            if ("setAttribute".equals(method)) {
+                                attributes.put((String) args[0], (List<String>) args[1]);
+                                return null;
+                            }
+                            return unsupported(method);
+                        });
+
+        new DefaultCapabilitiesFactory()
+                .create(session(user, "knora", "realm"))
+                .onEvent(event(EventType.LOGIN, null));
+
+        assertEquals(
+                DefaultCapabilitiesFactory.DEFAULT_CAPABILITIES, attributes.get("capabilities"));
+    }
+
+    @Test
     void doesNotProvisionErrorsOtherThemesOrOtherEventKinds() {
         for (Event event :
                 List.of(

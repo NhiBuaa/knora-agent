@@ -239,8 +239,13 @@ def test_registration_profile_keeps_native_validations_and_optional_names() -> N
 
 def test_registration_event_assigns_backend_owned_default_capabilities() -> None:
     expected = ["documents:read", "documents:write", "questions:ask"]
-    for fixture_name in ("dev-realm.json", "figma-realm.json"):
-        realm = json.loads((ROOT / "test/fixtures/keycloak" / fixture_name).read_text())
+    realm_files = [
+        ROOT / "test/fixtures/keycloak" / fixture_name
+        for fixture_name in ("dev-realm.json", "figma-realm.json")
+    ]
+    realm_files.append(ROOT / "infra/keycloak/public-demo-realm.json")
+    for realm_file in realm_files:
+        realm = json.loads(realm_file.read_text())
         assert "knora-default-capabilities" in realm["eventsListeners"]
 
     listener = (
@@ -251,6 +256,18 @@ def test_registration_event_assigns_backend_owned_default_capabilities() -> None
     assert "user.setAttribute(CAPABILITIES_ATTRIBUTE, DEFAULT_CAPABILITIES)" in listener
     assert all(f'"{capability}"' in listener for capability in expected)
     assert "registration input is never trusted" in listener.lower()
+
+    startup = (ROOT / "infra/keycloak/start-public-demo.sh").read_text()
+    assert "kcadm.sh config credentials" in startup
+    assert "kcadm.sh update" in startup and "realms/knora-dev" in startup
+    assert 'eventsListeners=["jboss-logging","knora-default-capabilities"]' in startup
+    assert "KCADM_CONFIG" in startup
+    assert "printf '%s\\n' \"$admin_password\"" in startup
+    assert "trap 'exit 0' INT TERM" in startup
+    dockerfile = (ROOT / "infra/keycloak/Dockerfile").read_text()
+    assert 'CMD ["/opt/keycloak/start-public-demo.sh"]' in dockerfile
+    runbook = (ROOT / "docs/runbooks/public-demo-deployment.md").read_text(encoding="utf-8")
+    assert "/opt/keycloak/start-public-demo.sh" in runbook
 
     configure = (ROOT / "scripts/configure-keycloak-auth-flow.ps1").read_text()
     assert "knora-default-capabilities" in configure

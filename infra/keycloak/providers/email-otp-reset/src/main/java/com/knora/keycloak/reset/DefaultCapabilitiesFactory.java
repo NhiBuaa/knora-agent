@@ -13,9 +13,7 @@ import org.keycloak.models.UserModel;
 
 import java.util.List;
 
-/**
- * Assigns the least-privilege application baseline to accounts created through Knora registration.
- */
+/** Assigns the least-privilege application baseline to public-demo accounts. */
 public final class DefaultCapabilitiesFactory implements EventListenerProviderFactory {
     public static final List<String> DEFAULT_CAPABILITIES =
             List.of("documents:read", "documents:write", "questions:ask");
@@ -33,7 +31,8 @@ public final class DefaultCapabilitiesFactory implements EventListenerProviderFa
             public void onEvent(Event event) {
                 if (event == null
                         || event.getError() != null
-                        || event.getType() != EventType.REGISTER) {
+                        || (event.getType() != EventType.REGISTER
+                                && event.getType() != EventType.LOGIN)) {
                     return;
                 }
                 RealmModel realm = session.getContext().getRealm();
@@ -44,7 +43,10 @@ public final class DefaultCapabilitiesFactory implements EventListenerProviderFa
                     return;
                 }
                 UserModel user = session.users().getUserById(realm, event.getUserId());
-                if (user != null) {
+                if (user != null
+                        && (event.getType() == EventType.REGISTER
+                                || user.getAttributes().get(CAPABILITIES_ATTRIBUTE) == null
+                                || user.getAttributes().get(CAPABILITIES_ATTRIBUTE).isEmpty())) {
                     // Registration input is never trusted for authorization. Overwrite this claim
                     // with the fixed baseline, while leaving workspace ownership to the API.
                     user.setAttribute(CAPABILITIES_ATTRIBUTE, DEFAULT_CAPABILITIES);

@@ -78,7 +78,7 @@ Relational Authority  PDF Files           BM25 + Dense      GPT-OSS 20B Generati
    - `KC_HOSTNAME`: `https://knora-keycloak.onrender.com` (hoặc URL mà Render cấp)
 5. **Start Command**:
    ```bash
-   /opt/keycloak/bin/kc.sh start-dev --import-realm
+   /opt/keycloak/start-public-demo.sh
    ```
 
 ### Bước 5: Deploy Knora Backend API trên Render
