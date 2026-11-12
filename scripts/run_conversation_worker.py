@@ -12,6 +12,7 @@ _WORKER_COUNT = 2
 async def main() -> None:
     async with app.router.lifespan_context(app):
         runner = app.state.conversation_runner
+        print("CONVERSATION_WORKER_READY", flush=True)
         async with asyncio.TaskGroup() as group:
             for worker_number in range(_WORKER_COUNT):
                 worker_id = f"{socket.gethostname()}:{uuid4().hex[:8]}:{worker_number}"
