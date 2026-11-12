@@ -239,8 +239,13 @@ def test_registration_profile_keeps_native_validations_and_optional_names() -> N
 
 def test_registration_event_assigns_backend_owned_default_capabilities() -> None:
     expected = ["documents:read", "documents:write", "questions:ask"]
-    for fixture_name in ("dev-realm.json", "figma-realm.json"):
-        realm = json.loads((ROOT / "test/fixtures/keycloak" / fixture_name).read_text())
+    realm_files = [
+        ROOT / "test/fixtures/keycloak" / fixture_name
+        for fixture_name in ("dev-realm.json", "figma-realm.json")
+    ]
+    realm_files.append(ROOT / "infra/keycloak/public-demo-realm.json")
+    for realm_file in realm_files:
+        realm = json.loads(realm_file.read_text())
         assert "knora-default-capabilities" in realm["eventsListeners"]
 
     listener = (

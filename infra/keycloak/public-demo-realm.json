@@ -120,6 +120,7 @@
     ]
   },
   "eventsListeners": [
-    "jboss-logging"
+    "jboss-logging",
+    "knora-default-capabilities"
   ]
 }
