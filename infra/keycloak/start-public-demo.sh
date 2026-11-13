@@ -15,6 +15,7 @@ KEYCLOAK_PID=$!
 KCADM_CONFIG="${KCADM_CONFIG:-/tmp/knora-kcadm.config}"
 export KCADM_CONFIG
 export KC_CLI_PASSWORD="$admin_password"
+kcadm_heap_options="-XX:InitialRAMPercentage=5 -XX:MaxRAMPercentage=10"
 
 cleanup() {
     if [[ -n "${KEYCLOAK_PID:-}" ]]; then
@@ -27,7 +28,7 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 0' INT TERM
 
-until /opt/keycloak/bin/kcadm.sh config credentials \
+until JAVA_OPTS_KC_HEAP="$kcadm_heap_options" /opt/keycloak/bin/kcadm.sh config credentials \
     --config "$KCADM_CONFIG" \
     --server "http://127.0.0.1:$port" \
     --realm master \
@@ -38,7 +39,7 @@ until /opt/keycloak/bin/kcadm.sh config credentials \
     sleep 2
 done
 
-/opt/keycloak/bin/kcadm.sh update \
+JAVA_OPTS_KC_HEAP="$kcadm_heap_options" /opt/keycloak/bin/kcadm.sh update \
     --config "$KCADM_CONFIG" \
     realms/knora-dev \
     -s 'eventsListeners=["jboss-logging","knora-default-capabilities"]' \

@@ -263,6 +263,7 @@ def test_registration_event_assigns_backend_owned_default_capabilities() -> None
     assert 'eventsListeners=["jboss-logging","knora-default-capabilities"]' in startup
     assert "KCADM_CONFIG" in startup
     assert 'KC_CLI_PASSWORD="$admin_password"' in startup
+    assert 'kcadm_heap_options="-XX:InitialRAMPercentage=5 -XX:MaxRAMPercentage=10"' in startup
     assert "trap 'exit 0' INT TERM" in startup
     dockerfile = (ROOT / "infra/keycloak/Dockerfile").read_text()
     assert 'CMD ["/opt/keycloak/start-public-demo.sh"]' in dockerfile
