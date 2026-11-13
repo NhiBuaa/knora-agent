@@ -262,7 +262,7 @@ def test_registration_event_assigns_backend_owned_default_capabilities() -> None
     assert "kcadm.sh update" in startup and "realms/knora-dev" in startup
     assert 'eventsListeners=["jboss-logging","knora-default-capabilities"]' in startup
     assert "KCADM_CONFIG" in startup
-    assert "printf '%s\\n' \"$admin_password\"" in startup
+    assert 'KC_CLI_PASSWORD="$admin_password"' in startup
     assert "trap 'exit 0' INT TERM" in startup
     dockerfile = (ROOT / "infra/keycloak/Dockerfile").read_text()
     assert 'CMD ["/opt/keycloak/start-public-demo.sh"]' in dockerfile
