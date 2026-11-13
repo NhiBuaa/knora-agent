@@ -144,6 +144,39 @@
     line-height: 20px;
   }
 
+  .kn-product-nav-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  .kn-product-nav-label[data-pending="true"] {
+    cursor: wait;
+    opacity: 0.72;
+  }
+
+  .kn-product-nav-label[data-pending="true"]::after {
+    width: 13px;
+    height: 13px;
+    content: "";
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 50%;
+    animation: kn-navigation-spin 700ms linear infinite;
+  }
+
+  @keyframes kn-navigation-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .kn-product-nav-label[data-pending="true"]::after {
+      animation-duration: 1400ms;
+    }
+  }
+
   .kn-product-brand {
     justify-self: start;
   }

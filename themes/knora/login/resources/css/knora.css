@@ -439,6 +439,45 @@ body[data-page-id="login-login-update-password"] .knora-auth button[data-passwor
   background: var(--knora-action);
 }
 
+.knora-auth button.knora-loading,
+.knora-auth input.knora-loading {
+  cursor: wait;
+  opacity: 0.78;
+}
+
+.knora-auth button.knora-loading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.knora-auth button.knora-loading::after {
+  /* PatternFly positions its button-border pseudo-element absolutely. */
+  position: static;
+  display: inline-block;
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  margin-left: 8px;
+  content: "";
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: knora-auth-spin 700ms linear infinite;
+}
+
+@keyframes knora-auth-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .knora-auth button.knora-loading::after {
+    animation-duration: 1400ms;
+  }
+}
+
 .knora-auth .pf-v5-c-form__actions,
 .knora-auth #kc-form-buttons {
   margin: 0;

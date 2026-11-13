@@ -49,6 +49,43 @@
     if (consumeMarker(key)) notice.hidden = false;
   }
 
+  function bindSubmitLoading() {
+    if (!document.querySelectorAll) return;
+
+    document
+      .querySelectorAll("#kc-form-login, #kc-register-form")
+      .forEach((form) => {
+        const submit = form.querySelector(
+          "button[type='submit'], input[type='submit']",
+        );
+        if (!submit) return;
+        const initiallyDisabled = submit.disabled;
+        const reset = () => {
+          form.removeAttribute("data-knora-pending");
+          submit.disabled = initiallyDisabled;
+          submit.removeAttribute("aria-busy");
+          submit.classList.remove("knora-loading");
+        };
+        window.addEventListener("pageshow", reset);
+        form.addEventListener("submit", (event) => {
+          if (form.getAttribute("data-knora-pending") === "true") {
+            event.preventDefault();
+            return;
+          }
+          if (event.defaultPrevented) return;
+          form.setAttribute("data-knora-pending", "true");
+          submit.disabled = true;
+          submit.setAttribute("aria-busy", "true");
+          submit.classList.add("knora-loading");
+          // A later validator can cancel; accepted navigation may suspend timers.
+          setTimeout(() => {
+            if (event.defaultPrevented) reset();
+          }, 0);
+        });
+      });
+  }
+
   startFreshLogin();
   revealPasswordUpdatedNotice();
+  bindSubmitLoading();
 })();
