@@ -28,6 +28,25 @@ The layout uses bundled Inter and Roboto Slab and original Figma exports at thei
 bytes remain unmodified. Identity resources use Keycloak resource URLs. The native password
 visibility script owns type and accessible-label changes. The AU12 eye asset has its own callsite.
 
+## Submit loading feedback
+
+`resources/js/knora-login-transition.js` also owns presentation-only loading for
+`#kc-form-login` and `#kc-register-form`. Submission sets `data-knora-pending` on the
+form and disables the submit button with `aria-busy` and `knora-loading`. A duplicate
+pending submit is prevented. Already-canceled events are ignored; if a later validator
+cancels, the next task restores the controls. `pageshow` also clears feedback and restores
+the button's initial disabled state. Feedback is applied before navigation because an
+accepted native navigation may suspend timers. Native actions, validation and OIDC
+remain Keycloak-owned; without JavaScript, the native form still submits without this indicator.
+
+`css/knora.css` centers the loading button's label and spinner together. The spinner
+explicitly resets PatternFly's absolutely positioned button-border `::after` to static
+positioning so it does not stick to the button's top edge.
+`frontend/tests/auth-submit-loading.test.tsx` checks cancellation, duplicate submission
+and recovery in the DOM. For trusted browser clicks and computed alignment, use the
+[native auth loading journey](../runbooks/agent-environment.md#native-auth-loading-verification-journey).
+Its synthetic `pageshow` check does not establish actual browser back/forward-cache restoration.
+
 ## Local development and deployment
 
 `docker-compose.dev.yml` mounts `themes/knora` read-only. A new `knora-dev` realm imports `loginTheme=knora` from `test/fixtures/keycloak/dev-realm.json`. The persistent `keycloak_dev_data` volume may already contain the realm; import does not update it. For that case, set admin credentials in the current PowerShell process, then run:

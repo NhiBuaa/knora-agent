@@ -10,14 +10,33 @@ import { afterEach, expect, it, vi } from "vitest";
 import { ProductHeader } from "@/components/shell/ProductHeader";
 import { AppShell } from "@/components/shell/AppShell";
 import { AccountMenu } from "@/components/shell/AccountMenu";
+import { NavigationLink } from "@/components/shell/NavigationLink";
 
 const currentRoute = vi.hoisted(() => ({
   pathname: "/workspaces/ws-a/documents",
+  pending: false,
 }));
 vi.mock("next/navigation", () => ({
   usePathname: () => currentRoute.pathname,
 }));
-afterEach(cleanup);
+vi.mock("next/link", () => ({
+  useLinkStatus: () => ({ pending: currentRoute.pending }),
+  default: ({ children, onClick, ...props }: React.ComponentProps<"a">) => (
+    <a
+      {...props}
+      onClick={(event) => {
+        onClick?.(event);
+        event.preventDefault();
+      }}
+    >
+      {children}
+    </a>
+  ),
+}));
+afterEach(() => {
+  cleanup();
+  currentRoute.pending = false;
+});
 
 it("uses canonical workspace destinations and only exposes authorized Operator navigation", () => {
   const view = render(
@@ -59,6 +78,36 @@ it("uses canonical workspace destinations and only exposes authorized Operator n
     "href",
     "/workspaces",
   );
+});
+
+it("clears router-owned pending feedback even when the pathname stays unchanged", () => {
+  currentRoute.pathname = "/workspaces/ws-a/documents";
+  const view = render(
+    <NavigationLink href="/workspaces/ws-a/conversations">
+      Conversations
+    </NavigationLink>,
+  );
+  const link = screen.getByRole("link", { name: "Conversations" });
+
+  expect(link.querySelector("[aria-busy]")).toBeNull();
+  currentRoute.pending = true;
+  view.rerender(
+    <NavigationLink href="/workspaces/ws-a/conversations">
+      Conversations
+    </NavigationLink>,
+  );
+
+  expect(link.querySelector("[aria-busy='true']")).not.toBeNull();
+  expect(link.querySelector("[data-pending='true']")).not.toBeNull();
+
+  currentRoute.pending = false;
+  view.rerender(
+    <NavigationLink href="/workspaces/ws-a/conversations">
+      Conversations
+    </NavigationLink>,
+  );
+  expect(link.querySelector("[aria-busy]")).toBeNull();
+  expect(link.querySelector("[data-pending]")).toBeNull();
 });
 
 const shellProps = {
