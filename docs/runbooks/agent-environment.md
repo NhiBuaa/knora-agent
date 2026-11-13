@@ -175,6 +175,36 @@ try {
 }
 ```
 
+### Native auth loading verification journey
+
+For login/registration waiting feedback, select the two
+`native <login|registration> submit loading respects cancellation and stays centered`
+cases in `figma-identity.spec.ts`. Use a fresh project and output directory, with the
+same Launch, Doctor and `-Run` cleanup lifecycle above. The identity selection requires
+`FIGMA_TEST_MODE` and `FIGMA_TEST_CASE` to be unset: `application` mode selects different
+spec files and will not run these cases. Do not silently clear an ambient selection;
+use a shell configured for this identity run.
+
+Inside the owned `-Run` block, after Doctor checks, replace the application-mode
+environment assignments and Playwright command with the following; do not set
+`FIGMA_TEST_MODE` for this selection:
+
+```powershell
+if ($env:FIGMA_TEST_MODE -or $env:FIGMA_TEST_CASE) { throw 'Identity selection must be unset' }
+$env:FIGMA_TEST_PROJECT = $project
+$env:PLAYWRIGHT_JUNIT_OUTPUT_NAME = Join-Path $runRoot 'auth-loading.xml'
+node frontend/node_modules/@playwright/test/cli.js test --config frontend/playwright.figma.config.ts figma-identity.spec.ts --grep 'submit loading respects cancellation and stays centered' --reporter list,junit --output "$runRoot/results"
+if ($LASTEXITCODE -ne 0) { throw 'Native auth loading smoke failed; preserve evidence' }
+```
+
+The tests drive trusted clicks with a later canceling submit listener, then hold the
+native POST in a test-only iframe to inspect disabled/busy feedback and computed spinner
+alignment. They synthesize `pageshow` to check recovery. Expect exactly two executed
+passing cases, not an empty selection. These tests do not establish successful login or
+registration, actual browser back/forward-cache restoration, OTP behavior or email delivery.
+Retain sanitized results and verify owned cleanup as above; no auth URLs or browser state
+belong in published evidence.
+
 ### Message copy verification journey
 
 To verify question and answer copy interactions with real browser clipboard reads

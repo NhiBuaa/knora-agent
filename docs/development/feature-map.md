@@ -40,6 +40,10 @@ reauthentication, session renewal/expiry and password recovery. Application entr
 Open `/api/auth/login`; protected Workspace routes also redirect there. Native login uses
 `#kc-form-login`, fields `#username`, `#password` and submit `#kc-login`.
 Registration is the `Create account` link. Sign-out is available in the account menu.
+During native login/registration submission, the submit button shows a centered spinner,
+is disabled and exposes `aria-busy`. A canceled submission or `pageshow` restores its
+initial enabled/disabled state. This feedback does not establish authentication success;
+native validation and the resulting session/Workspace remain authoritative.
 Use only synthetic identities from `test/fixtures/keycloak/figma-realm.json` on the
 verified disposable stack (`m5-user` for normal journeys; `m5-delete-user` only for the
 synthetic document-deletion journey). Never copy a developer's browser cookies or tokens.
@@ -51,6 +55,11 @@ The runbook's `live account logout and forced sign-in at 1440` case in
 `figma-ui-interactions.spec.ts` checks native login, logout and a fresh authorization
 transaction without business writes. `figma-identity.spec.ts` has the broader identity
 journeys, including native registration and test-mail password reset.
+The two `native <login|registration> submit loading respects cancellation and stays centered`
+cases cover loading recovery and alignment; select them using the
+[identity loading journey](../runbooks/agent-environment.md#native-auth-loading-verification-journey).
+They hold a native POST in a test-only iframe and synthesize `pageshow`, so they do not
+prove successful registration, actual browser back/forward-cache restoration or mail delivery.
 Success requires the owned Workspace UI/session and correct logout behavior, not just
 Keycloak's form or `/api/auth/session` returning 200.
 
@@ -61,6 +70,26 @@ OTP/storage-proof profiles have their own guarded setup; they are outside this s
 Renewal, real-time expiry, registration, recovery and multi-replica refresh coordination
 must not be marked verified from the login/logout smoke. Never retain native auth URLs,
 email links or browser state; use the harness's masked screenshots only.
+
+## Primary navigation
+
+The header's `Primary navigation` landmark exposes `Conversations`, `Documents` and,
+when authorized, `Operator`. `frontend/components/shell/ProductHeader.tsx` selects the
+canonical routes; `NavigationLink.tsx` displays the router's `useLinkStatus` pending state
+on the link label (`aria-busy` and `data-pending`). Completion or cancellation clears the
+indicator, including when the current pathname does not change. Native link behavior,
+including opening another browser tab, remains available.
+
+To check waiting feedback, start in Documents, hold the Conversations RSC response,
+click Conversations, then click Documents before releasing the held request. Expect the
+pending indicator to clear without leaving Documents. Release the request and complete
+a fresh navigation; verify the destination and that the indicator clears again.
+`frontend/tests/product-header.test.tsx` covers rendering the router-owned pending state;
+it is not a browser navigation proof. Keep runtime observations in the related PR.
+
+A spinner reports waiting, not reduced latency. For cold versus warm development
+navigation, see [frontend reload behavior](../runbooks/local-development.md#frontend).
+Implementation and scoped verification: [PR #255](https://github.com/NhiBuaa/knora-agent/pull/255).
 
 ## Workspace
 

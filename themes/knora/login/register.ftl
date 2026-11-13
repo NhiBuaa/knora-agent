@@ -106,6 +106,7 @@
                 if (input && !input.placeholder) input.placeholder = placeholder;
             }
         </script>
+        <script src="${url.resourcesPath}/js/knora-login-transition.js" defer></script>
         </div>
         <#if passwordRequired??>
             <@validator.templates/>

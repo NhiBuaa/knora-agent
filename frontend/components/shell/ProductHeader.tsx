@@ -2,6 +2,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { routes } from "@/lib/navigation/routes";
+import { NavigationLink } from "./NavigationLink";
 
 export type ProductHeaderProps = {
   activeSection: "conversations" | "documents" | "operator";
@@ -51,7 +52,7 @@ export function ProductHeader({
         className="flex items-center gap-[18px] text-sm font-medium max-md:col-span-2 max-md:row-start-2 max-md:justify-center max-md:gap-2.5"
       >
         {destinations.map(({ section, label, href }) => (
-          <Link
+          <NavigationLink
             key={section}
             href={href}
             aria-current={activeSection === section ? "page" : undefined}
@@ -62,7 +63,7 @@ export function ProductHeader({
             }
           >
             {label}
-          </Link>
+          </NavigationLink>
         ))}
       </nav>
       <div className="flex items-center justify-end gap-3 max-md:col-start-2 max-md:row-start-1">

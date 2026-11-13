@@ -458,6 +458,19 @@ edit .tsx / .ts / CSS
 
 A frontend edit does not restart the API or ingestion worker.
 
+`next dev` compiles routes on demand when they are first opened; the initial
+Conversations/Documents transition can therefore take longer than later transitions.
+After an edit or recompilation, the same route may incur that cost again. The header's
+pending spinner reports the wait; it does not remove compilation or backend latency.
+
+When investigating slow navigation, separate route compilation, server/API requests and
+client rendering, and compare cold and warm visits. Use `next build` followed by
+`next start` with the same configured backend, identity environment and data for a
+production-mode comparison. Stop the dev frontend before reusing its build directory
+or port; preserve the launcher's ownership and provider safeguards. A successful build
+alone is not a measured speed improvement. See the
+[Next.js local-development guide](https://github.com/vercel/next.js/blob/v15.5.28/docs/01-app/02-guides/local-development.mdx).
+
 ### FastAPI
 
 Uvicorn watches `backend/src/knora`:

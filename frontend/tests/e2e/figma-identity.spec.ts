@@ -17,6 +17,89 @@ import {
 const evidence =
   "../.superpowers/sdd/2026-10-09-figma-reset-success-native-login/evidence/password-event-identity";
 
+for (const surface of ["login", "registration"] as const) {
+  test(`native ${surface} submit loading respects cancellation and stays centered`, async ({
+    page,
+  }) => {
+    let step = "open native form";
+    let release = () => {};
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    try {
+      if (surface === "login") await openFigmaLogin(page);
+      else await openFigmaRegistration(page);
+      const form = page.locator(
+        surface === "login" ? "#kc-form-login" : "#kc-register-form",
+      );
+      const button = form
+        .locator("button[type='submit'], input[type='submit']")
+        .first();
+      await form.evaluate((element) =>
+        element.addEventListener("submit", (event) => event.preventDefault(), {
+          once: true,
+        }),
+      );
+      step = "canceled submit";
+      await button.click();
+      await expect(button).toBeEnabled();
+      await expect(button).not.toHaveAttribute("aria-busy");
+      // Keep the source document inspectable while the native POST is held.
+      await form.evaluate((element) => {
+        const target = document.createElement("iframe");
+        target.name = "loading-check-target";
+        target.hidden = true;
+        document.body.append(target);
+        element.setAttribute("target", target.name);
+      });
+      await page.route(
+        "**/realms/knora-dev/login-actions/**",
+        async (route) => {
+          if (route.request().method() !== "POST") return route.continue();
+          await held;
+          await route.abort();
+        },
+      );
+      step = "accepted submit";
+      await button.click({ noWaitAfter: true });
+      await expect(button).toBeDisabled();
+      await expect(button).toHaveAttribute("aria-busy", "true");
+      step = "spinner alignment";
+      const style = await button.evaluate((element) => {
+        const buttonStyle = getComputedStyle(element);
+        const spinner = getComputedStyle(element, "::after");
+        return {
+          display: buttonStyle.display,
+          alignItems: buttonStyle.alignItems,
+          justifyContent: buttonStyle.justifyContent,
+          position: spinner.position,
+        };
+      });
+      expect(["flex", "inline-flex"]).toContain(style.display);
+      expect(style).toMatchObject({
+        alignItems: "center",
+        justifyContent: "center",
+        position: "static",
+      });
+      step = "pageshow recovery";
+      await page.evaluate(() =>
+        window.dispatchEvent(
+          new PageTransitionEvent("pageshow", { persisted: true }),
+        ),
+      );
+      await expect(button).toBeEnabled();
+      await expect(button).not.toHaveAttribute("aria-busy");
+    } catch {
+      throw new Error(
+        `Native ${surface} loading check failed at ${step}; sensitive context removed.`,
+      );
+    } finally {
+      release();
+      await page.goto("about:blank").catch(() => {});
+    }
+  });
+}
+
 test("AU1 native sign-in has the designed brand, fields and resource geometry", async ({
   page,
 }) => {
