@@ -14,9 +14,15 @@ import org.keycloak.events.Event;
 import org.keycloak.events.EventType;
 import org.keycloak.models.KeycloakContext;
 import org.keycloak.models.KeycloakSession;
+import org.keycloak.models.KeycloakSessionFactory;
+import org.keycloak.models.KeycloakTransactionManager;
 import org.keycloak.models.RealmModel;
+import org.keycloak.models.RealmProvider;
 import org.keycloak.models.UserModel;
 import org.keycloak.models.UserProvider;
+import org.keycloak.models.utils.PostMigrationEvent;
+import org.keycloak.provider.ProviderEvent;
+import org.keycloak.provider.ProviderEventListener;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -29,7 +35,8 @@ class DefaultCapabilitiesFactoryTest {
     @Test
     void startupRepairsPublicDemoRealmAndPreservesOtherListeners() {
         Set<String> listeners = new HashSet<>(Set.of("jboss-logging", "custom-listener"));
-        RealmModel realm = demoRealm("Knora Public Demo", listeners);
+        List<String> writes = new ArrayList<>();
+        RealmModel realm = demoRealm("Knora Public Demo", listeners, writes);
 
         assertTrue(DefaultCapabilitiesFactory.reconcilePublicDemoRealm(realm));
         assertEquals(
@@ -37,6 +44,7 @@ class DefaultCapabilitiesFactoryTest {
                 listeners);
         assertTrue(DefaultCapabilitiesFactory.reconcilePublicDemoRealm(realm));
         assertEquals(3, listeners.size());
+        assertEquals(List.of("setEventsListeners"), writes);
     }
 
     @Test
@@ -45,11 +53,78 @@ class DefaultCapabilitiesFactoryTest {
         assertFalse(DefaultCapabilitiesFactory.reconcilePublicDemoRealm(null));
         assertFalse(
                 DefaultCapabilitiesFactory.reconcilePublicDemoRealm(
-                        demoRealm("Knora Dev", listeners)));
+                        demoRealm("Knora Dev", listeners, new ArrayList<>())));
         assertEquals(Set.of("custom-listener"), listeners);
     }
 
-    private static RealmModel demoRealm(String displayName, Set<String> listeners) {
+    @Test
+    void migrationCallbackReconcilesThroughTransactionalSession() {
+        Set<String> listeners = new HashSet<>(Set.of("jboss-logging"));
+        List<String> writes = new ArrayList<>();
+        RealmModel realm = demoRealm("Knora Public Demo", listeners, writes);
+        List<String> lifecycle = new ArrayList<>();
+        Map<String, Object> attributes = new HashMap<>();
+        RealmProvider realms =
+                fake(
+                        RealmProvider.class,
+                        (method, args) -> {
+                            if ("getRealmByName".equals(method)) {
+                                assertEquals("knora-dev", args[0]);
+                                return realm;
+                            }
+                            return unsupported(method);
+                        });
+        KeycloakTransactionManager transaction =
+                fake(
+                        KeycloakTransactionManager.class,
+                        (method, args) -> {
+                            if ("begin".equals(method)) {
+                                lifecycle.add("begin");
+                                return null;
+                            }
+                            return unsupported(method);
+                        });
+        KeycloakSession session =
+                fake(
+                        KeycloakSession.class,
+                        (method, args) ->
+                                switch (method) {
+                                    case "getAttribute" -> attributes.get(args[0]);
+                                    case "setAttribute" ->
+                                            attributes.put((String) args[0], args[1]);
+                                    case "getTransactionManager" -> transaction;
+                                    case "realms" -> realms;
+                                    case "close" -> {
+                                        lifecycle.add("close");
+                                        yield null;
+                                    }
+                                    default -> unsupported(method);
+                                });
+        List<ProviderEventListener> callbacks = new ArrayList<>();
+        KeycloakSessionFactory factory =
+                fake(
+                        KeycloakSessionFactory.class,
+                        (method, args) ->
+                                switch (method) {
+                                    case "register" -> {
+                                        callbacks.add((ProviderEventListener) args[0]);
+                                        yield null;
+                                    }
+                                    case "create" -> session;
+                                    default -> unsupported(method);
+                                });
+        new DefaultCapabilitiesFactory().postInit(factory);
+        assertEquals(1, callbacks.size());
+        callbacks.getFirst().onEvent(new ProviderEvent() {});
+        assertTrue(lifecycle.isEmpty());
+        callbacks.getFirst().onEvent(new PostMigrationEvent(factory));
+        assertEquals(List.of("begin", "close"), lifecycle);
+        assertTrue(listeners.contains("knora-default-capabilities"));
+        assertEquals(List.of("setEventsListeners"), writes);
+    }
+
+    private static RealmModel demoRealm(
+            String displayName, Set<String> listeners, List<String> writes) {
         return fake(
                 RealmModel.class,
                 (method, args) ->
@@ -59,6 +134,7 @@ class DefaultCapabilitiesFactoryTest {
                             case "getLoginTheme" -> "knora";
                             case "getEventsListenersStream" -> listeners.stream();
                             case "setEventsListeners" -> {
+                                writes.add(method);
                                 listeners.clear();
                                 listeners.addAll((Set<String>) args[0]);
                                 yield null;
@@ -104,7 +180,7 @@ class DefaultCapabilitiesFactoryTest {
     }
 
     @Test
-    void successfulKnoraLoginRepairsMissingCapabilitiesForExistingAccounts() {
+    void successfulKnoraLoginDoesNotRestoreMissingOrRevokedCapabilities() {
         Map<String, List<String>> attributes = new HashMap<>();
         UserModel user =
                 fake(
@@ -122,8 +198,7 @@ class DefaultCapabilitiesFactoryTest {
                 .create(session(user, "knora", "realm"))
                 .onEvent(event(EventType.LOGIN, null));
 
-        assertEquals(
-                DefaultCapabilitiesFactory.DEFAULT_CAPABILITIES, attributes.get("capabilities"));
+        assertTrue(attributes.isEmpty());
     }
 
     @Test

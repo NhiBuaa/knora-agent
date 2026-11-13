@@ -81,7 +81,7 @@ Relational Authority  PDF Files           BM25 + Dense      GPT-OSS 20B Generati
    ```bash
    /opt/keycloak/start-public-demo.sh
    ```
-   Provider cập nhật listener `knora-default-capabilities` trong cùng tiến trình sau migration/import, kể cả khi realm đã tồn tại. Kiểm tra log `Public-demo realm capabilities listener reconciled.`; không chạy thêm `kcadm` trong instance 512 MiB. Tài khoản đã đăng ký trước bản sửa cần đăng xuất và đăng nhập lại để nhận quyền mặc định.
+   Provider cập nhật listener `knora-default-capabilities` trong cùng tiến trình sau migration/import, kể cả khi realm đã tồn tại. Kiểm tra log `Public-demo realm capabilities listener reconciled.`; không chạy thêm `kcadm` trong instance 512 MiB. Listener chỉ cấp quyền khi đăng ký mới. Với tài khoản đã tự đăng ký trước bản sửa, admin xác minh đúng User ID rồi cập nhật riêng thuộc tính `capabilities` gồm `documents:read`, `documents:write`, `questions:ask`; sau đó người dùng đăng xuất và đăng nhập lại. Không tự cấp lại quyền cho mọi tài khoản có capabilities rỗng vì đó có thể là quyền đã bị thu hồi.
 
 ### Bước 5: Deploy Knora Backend API trên Render
 1. Trên Render Dashboard → **New** → **Web Service**.
