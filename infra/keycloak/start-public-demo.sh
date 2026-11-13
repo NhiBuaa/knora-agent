@@ -14,6 +14,7 @@ fi
 KEYCLOAK_PID=$!
 KCADM_CONFIG="${KCADM_CONFIG:-/tmp/knora-kcadm.config}"
 export KCADM_CONFIG
+export KC_CLI_PASSWORD="$admin_password"
 
 cleanup() {
     if [[ -n "${KEYCLOAK_PID:-}" ]]; then
@@ -21,11 +22,12 @@ cleanup() {
         wait "$KEYCLOAK_PID" 2>/dev/null || true
     fi
     rm -f -- "$KCADM_CONFIG"
+    unset KC_CLI_PASSWORD
 }
 trap cleanup EXIT
 trap 'exit 0' INT TERM
 
-until printf '%s\n' "$admin_password" | /opt/keycloak/bin/kcadm.sh config credentials \
+until /opt/keycloak/bin/kcadm.sh config credentials \
     --config "$KCADM_CONFIG" \
     --server "http://127.0.0.1:$port" \
     --realm master \
