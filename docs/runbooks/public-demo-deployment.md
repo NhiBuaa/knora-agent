@@ -76,10 +76,12 @@ Relational Authority  PDF Files           BM25 + Dense      GPT-OSS 20B Generati
    - `KC_DB_USERNAME`: `postgres`
    - `KC_DB_PASSWORD`: `<mật_khẩu_supabase>`
    - `KC_HOSTNAME`: `https://knora-keycloak.onrender.com` (hoặc URL mà Render cấp)
+   - `JAVA_OPTS_KC_HEAP`: `-Xms32m -Xmx192m` cho instance Free 512 MiB; đây chỉ là giới hạn Java heap, không phải tổng RAM của tiến trình.
 5. **Start Command**:
    ```bash
    /opt/keycloak/start-public-demo.sh
    ```
+   Provider cập nhật listener `knora-default-capabilities` trong cùng tiến trình sau migration/import, kể cả khi realm đã tồn tại. Kiểm tra log `Public-demo realm capabilities listener reconciled.`; không chạy thêm `kcadm` trong instance 512 MiB. Tài khoản đã đăng ký trước bản sửa cần đăng xuất và đăng nhập lại để nhận quyền mặc định.
 
 ### Bước 5: Deploy Knora Backend API trên Render
 1. Trên Render Dashboard → **New** → **Web Service**.

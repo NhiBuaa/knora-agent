@@ -258,14 +258,11 @@ def test_registration_event_assigns_backend_owned_default_capabilities() -> None
     assert "registration input is never trusted" in listener.lower()
 
     startup = (ROOT / "infra/keycloak/start-public-demo.sh").read_text()
-    assert "kcadm.sh config credentials" in startup
-    assert "kcadm.sh update" in startup and "realms/knora-dev" in startup
-    assert 'eventsListeners=["jboss-logging","knora-default-capabilities"]' in startup
-    assert "KCADM_CONFIG" in startup
-    assert 'KC_CLI_PASSWORD="$admin_password"' in startup
-    assert 'kcadm_heap_options="-Xms16m -Xmx64m"' in startup
-    assert startup.count('KC_OPTS="$kcadm_heap_options"') == 2
-    assert "trap 'exit 0' INT TERM" in startup
+    assert "exec /opt/keycloak/bin/kc.sh start" in startup
+    assert "kcadm" not in startup
+    assert "PostMigrationEvent" in listener
+    assert "runJobInTransactionWithResult" in listener
+    assert '"Knora Public Demo".equals(realm.getDisplayName())' in listener
     dockerfile = (ROOT / "infra/keycloak/Dockerfile").read_text()
     assert 'CMD ["/opt/keycloak/start-public-demo.sh"]' in dockerfile
     runbook = (ROOT / "docs/runbooks/public-demo-deployment.md").read_text(encoding="utf-8")

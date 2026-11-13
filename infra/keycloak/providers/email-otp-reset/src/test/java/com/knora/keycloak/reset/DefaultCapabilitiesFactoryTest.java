@@ -4,6 +4,7 @@ import static com.knora.keycloak.reset.EmailOtpResetFlowIT.fake;
 import static com.knora.keycloak.reset.EmailOtpResetFlowIT.unsupported;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import jakarta.ws.rs.core.MultivaluedHashMap;
@@ -19,10 +20,53 @@ import org.keycloak.models.UserProvider;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 class DefaultCapabilitiesFactoryTest {
+    @Test
+    void startupRepairsPublicDemoRealmAndPreservesOtherListeners() {
+        Set<String> listeners = new HashSet<>(Set.of("jboss-logging", "custom-listener"));
+        RealmModel realm = demoRealm("Knora Public Demo", listeners);
+
+        assertTrue(DefaultCapabilitiesFactory.reconcilePublicDemoRealm(realm));
+        assertEquals(
+                Set.of("jboss-logging", "custom-listener", "knora-default-capabilities"),
+                listeners);
+        assertTrue(DefaultCapabilitiesFactory.reconcilePublicDemoRealm(realm));
+        assertEquals(3, listeners.size());
+    }
+
+    @Test
+    void startupLeavesOtherDeploymentsAndMissingRealmsUntouched() {
+        Set<String> listeners = new HashSet<>(Set.of("custom-listener"));
+        assertFalse(DefaultCapabilitiesFactory.reconcilePublicDemoRealm(null));
+        assertFalse(
+                DefaultCapabilitiesFactory.reconcilePublicDemoRealm(
+                        demoRealm("Knora Dev", listeners)));
+        assertEquals(Set.of("custom-listener"), listeners);
+    }
+
+    private static RealmModel demoRealm(String displayName, Set<String> listeners) {
+        return fake(
+                RealmModel.class,
+                (method, args) ->
+                        switch (method) {
+                            case "getName" -> "knora-dev";
+                            case "getDisplayName" -> displayName;
+                            case "getLoginTheme" -> "knora";
+                            case "getEventsListenersStream" -> listeners.stream();
+                            case "setEventsListeners" -> {
+                                listeners.clear();
+                                listeners.addAll((Set<String>) args[0]);
+                                yield null;
+                            }
+                            default -> unsupported(method);
+                        });
+    }
+
     @Test
     void noScriptOtpFieldsStillSubmitOneSixDigitCode() {
         var parameters = new MultivaluedHashMap<String, String>();
