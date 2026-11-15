@@ -6,8 +6,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Body, Depends, Header, Query, Request, Response
 from pydantic import BaseModel, BeforeValidator, ConfigDict
 
-from knora.access.identity import Identity
-from knora.access.keycloak import KeycloakAuthenticator
+from knora.access.identity import BearerIdentityAuthenticator, Identity
 from knora.adapters.http.routes import get_authenticator
 from knora.domain.errors import KnoraError
 from knora.workspaces.service import WorkspaceService
@@ -46,7 +45,7 @@ def require_identity(
     authorization: Annotated[str | None, Header(alias="Authorization")] = None,
     authenticator=Depends(get_authenticator),  # noqa: B008
 ) -> Identity:
-    if not isinstance(authenticator, KeycloakAuthenticator):
+    if not isinstance(authenticator, BearerIdentityAuthenticator):
         raise KnoraError("UNAUTHENTICATED")
     return authenticator.authenticate_identity(authorization)
 

@@ -330,4 +330,21 @@ describe("server session renewal", () => {
     expect(await getSession(true)).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
   });
+  it("does not refresh Supabase session when sessionExpiresAt has passed", async () => {
+    vi.stubEnv("KNORA_AUTH_PROVIDER", "supabase");
+    state.cookie = await encodeSession({
+      provider: "supabase",
+      subject: "alice",
+      accessToken: "old",
+      refreshToken: "expired",
+      expiresAt: 1,
+      sessionExpiresAt: 2,
+      workspaceIds: [],
+      capabilities: [],
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await getSession(false)).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

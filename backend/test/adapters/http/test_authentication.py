@@ -299,3 +299,47 @@ def test_claimless_bearer_question_uses_database_workspace_authorization() -> No
     assert stream.status_code == 200
     assert authorizer.calls[-1] == ("alice", "workspace-a", "questions:ask")
     assert answer.calls == 2
+
+
+def test_invalid_supabase_bearer_with_valid_api_key_fails_401():
+    from knora.access.api_keys import ApiCredential, hash_api_key
+    from knora.access.supabase import SupabaseAuthenticator
+
+    class FakeStore:
+        def get_or_create_baseline(self, issuer: str, subject: str) -> tuple[str, ...]:
+            return ()
+
+    class FakeSession:
+        def is_active(self, subject: str, session_id: str) -> bool:
+            return True
+
+    api_key_auth = ApiKeyAuthenticator(
+        (ApiCredential("k1", hash_api_key("valid-key"), "workspace-a", True),)
+    )
+    supabase_auth = SupabaseAuthenticator(
+        issuer="https://demo.supabase.co/auth/v1",
+        audience="authenticated",
+        algorithm="ES256",
+        token_validator=lambda _t: (_ for _ in ()).throw(ValueError("bad token")),
+        access_store=FakeStore(),
+        session_reader=FakeSession(),
+        api_key_authenticator=api_key_auth,
+    )
+    app = create_app(
+        bearer_authenticator=supabase_auth,
+        api_key_authenticator=api_key_auth,
+        workspace_authorizer=owned_workspace_authorizer(),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/v1/workspaces/workspace-a/documents",
+        headers={
+            "Authorization": "Bearer invalid-supabase-token",
+            "X-API-Key": "valid-key",
+        },
+        data={"source_key": "support/refund-policy"},
+        files={"file": ("refund-policy.md", b"# Refunds")},
+    )
+    assert response.status_code == 401
+    assert response.json() == {"error": {"code": "UNAUTHENTICATED"}}

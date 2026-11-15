@@ -17,7 +17,12 @@ export async function middleware(request: NextRequest) {
     const session = await renewSession(previous);
     if (session === previous) return NextResponse.next();
     const cookie = session
-      ? sessionCookie(await encodeSession(session), session.refreshExpiresAt)
+      ? sessionCookie(
+          await encodeSession(session),
+          session.provider === "supabase"
+            ? session.sessionExpiresAt
+            : session.refreshExpiresAt,
+        )
       : clearSessionCookie();
     request.cookies.set(cookie.name, cookie.value);
     const response = NextResponse.next({

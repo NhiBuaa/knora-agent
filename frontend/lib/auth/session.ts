@@ -10,8 +10,11 @@ import {
 } from "node:crypto";
 import { createRemoteJWKSet, jwtVerify, EncryptJWT, jwtDecrypt } from "jose";
 import { renewSession } from "./session-refresh";
+import { getAuthProvider } from "./provider";
 
 export type KnoraSession = {
+  provider?: "keycloak" | "supabase";
+  providerSessionId?: string;
   issuer?: string;
   subject: string;
   accessToken: string;
@@ -118,6 +121,8 @@ export async function encodeSession(
   const sessionExpiresAt =
     session.sessionExpiresAt ?? Math.floor(Date.now() / 1000) + 8 * 3600;
   return new EncryptJWT({
+    provider: session.provider,
+    providerSessionId: session.providerSessionId,
     issuer: session.issuer,
     workspaceIds: session.workspaceIds,
     capabilities: session.capabilities,
@@ -131,9 +136,11 @@ export async function encodeSession(
     .setProtectedHeader({ alg: "dir", enc: "A256GCM" })
     .setSubject(session.subject)
     .setExpirationTime(
-      session.refreshToken
-        ? Math.min(session.refreshExpiresAt ?? expiresAt, sessionExpiresAt)
-        : expiresAt,
+      session.provider === "supabase"
+        ? sessionExpiresAt
+        : session.refreshToken
+          ? Math.min(session.refreshExpiresAt ?? expiresAt, sessionExpiresAt)
+          : expiresAt,
     )
     .encrypt(encryptionKey());
 }
@@ -150,6 +157,7 @@ export async function decodeSession(
           })
         : await jwtVerify(value, secret(), { algorithms: ["HS256"] });
     const p = verified.payload;
+    if (p.purpose === "recovery") return null;
     if (
       typeof p.sub !== "string" ||
       typeof p.accessToken !== "string" ||
@@ -157,7 +165,24 @@ export async function decodeSession(
       !Array.isArray(p.capabilities)
     )
       return null;
+    const provider =
+      p.provider === "supabase"
+        ? "supabase"
+        : p.provider === "keycloak"
+          ? "keycloak"
+          : undefined;
+    const activeProvider = getAuthProvider();
+    if (activeProvider === "supabase") {
+      if (provider !== "supabase") return null;
+    } else if (activeProvider === "keycloak") {
+      if (provider === "supabase") return null;
+    }
     return {
+      provider,
+      providerSessionId:
+        typeof p.providerSessionId === "string"
+          ? p.providerSessionId
+          : undefined,
       issuer: typeof p.issuer === "string" ? p.issuer : undefined,
       subject: p.sub,
       accessToken: p.accessToken,
@@ -187,12 +212,45 @@ export async function getSession(
   const jar = await cookies();
   const previous = await decodeSession(jar.get(COOKIE)?.value);
   if (!previous) return null;
-  if (!persist)
-    return previous.expiresAt > Math.floor(Date.now() / 1000) ? previous : null;
-  const session = await renewSession(previous);
+  const now = Math.floor(Date.now() / 1000);
+  if (!persist) {
+    if (
+      previous.provider === "supabase" &&
+      previous.sessionExpiresAt &&
+      previous.sessionExpiresAt <= now
+    ) {
+      return null;
+    }
+    return previous.expiresAt > now ? previous : null;
+  }
+  let session = await renewSession(previous);
+  if (session && session.provider === "supabase") {
+    try {
+      const { fetchBackendSession } = await import("./supabase");
+      const backend = await fetchBackendSession(session.accessToken);
+      session = {
+        ...session,
+        capabilities: backend.capabilities,
+      };
+    } catch (err: unknown) {
+      if (
+        (err as { status?: number })?.status === 503 ||
+        (err as Error)?.message === "AUTH_PROVIDER_UNAVAILABLE"
+      ) {
+        const { SessionRefreshUnavailable } = await import("./session-refresh");
+        throw new SessionRefreshUnavailable();
+      }
+      session = null;
+    }
+  }
   if (persist && session !== previous) {
     const cookie = session
-      ? sessionCookie(await encodeSession(session), session.refreshExpiresAt)
+      ? sessionCookie(
+          await encodeSession(session),
+          session.provider === "supabase"
+            ? session.sessionExpiresAt
+            : session.refreshExpiresAt,
+        )
       : clearSessionCookie();
     jar.set(cookie.name, cookie.value, cookie.options as never);
   }

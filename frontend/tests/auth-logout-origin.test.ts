@@ -147,3 +147,87 @@ it("clears the local session when the configured return does not match this orig
     else process.env.KEYCLOAK_POST_LOGOUT_REDIRECT_URI = previousReturn;
   }
 });
+
+describe("Supabase logout behavior", () => {
+  it("clears cookies and redirects to signed-out page on successful Supabase logout", async () => {
+    vi.stubEnv("KNORA_AUTH_PROVIDER", "supabase");
+    vi.stubEnv("SUPABASE_URL", "https://auth.example.test");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "test-key");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const cookie = await encodeSession({
+        provider: "supabase",
+        providerSessionId: "p-sess",
+        issuer: "https://auth.example.test/auth/v1",
+        subject: "user-1",
+        accessToken: "user-token",
+        workspaceIds: [],
+        capabilities: [],
+      });
+      const response = await POST(
+        new Request("https://app.example/api/auth/logout", {
+          method: "POST",
+          headers: {
+            host: "app.example",
+            origin: "https://app.example",
+            cookie: `knora_session=${cookie}`,
+          },
+        }),
+      );
+      expect(fetchMock).toHaveBeenCalledOnce();
+      const [url, opts] = fetchMock.mock.calls[0];
+      expect(String(url)).toBe(
+        "https://auth.example.test/auth/v1/logout?scope=local",
+      );
+      expect(opts.headers.Authorization).toBe("Bearer user-token");
+      expect(response.status).toBe(303);
+      expect(response.headers.get("location")).toBe(
+        "https://app.example/?signed-out=1",
+      );
+      expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+    } finally {
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("clears cookies and shows retryable state on Supabase upstream logout failure", async () => {
+    vi.stubEnv("KNORA_AUTH_PROVIDER", "supabase");
+    vi.stubEnv("SUPABASE_URL", "https://auth.example.test");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "test-key");
+    const fetchMock = vi.fn().mockRejectedValue(new Error("Network timeout"));
+    vi.stubGlobal("fetch", fetchMock);
+    try {
+      const cookie = await encodeSession({
+        provider: "supabase",
+        providerSessionId: "p-sess",
+        issuer: "https://auth.example.test/auth/v1",
+        subject: "user-1",
+        accessToken: "user-token",
+        workspaceIds: [],
+        capabilities: [],
+      });
+      const response = await POST(
+        new Request("https://app.example/api/auth/logout", {
+          method: "POST",
+          headers: {
+            host: "app.example",
+            origin: "https://app.example",
+            cookie: `knora_session=${cookie}`,
+          },
+        }),
+      );
+      expect(response.status).toBe(303);
+      expect(response.headers.get("location")).toBe(
+        "https://app.example/?signed-out=retryable",
+      );
+      expect(response.headers.get("set-cookie")).toContain("Max-Age=0");
+    } finally {
+      vi.unstubAllGlobals();
+      vi.unstubAllEnvs();
+    }
+  });
+});

@@ -1,0 +1,453 @@
+/* Knora Auth Frame & Forms CSS */
+
+:root {
+  --knora-page: #effcfa;
+  --knora-surface: #ffffff;
+  --knora-action: #33a15b;
+  --knora-action-hover: #2b8a4d;
+  --knora-action-active: #237440;
+  --knora-signature: #784131;
+  --knora-text: #1f3b36;
+  --knora-muted: #546b63;
+  --knora-border: #d9e2de;
+  --knora-focus: #176b43;
+  --knora-subtle: #f3f8f5;
+  --knora-signature-soft: #f4eae6;
+  --knora-action-soft: #e6f5eb;
+  --knora-error: #b91c1c;
+  --knora-error-bg: #fef2f2;
+  --knora-error-border: #fca5a5;
+}
+
+[data-theme="dark"] {
+  --knora-page: #0b1412;
+  --knora-surface: #12201c;
+  --knora-action: #4dbb73;
+  --knora-action-hover: #40a463;
+  --knora-action-active: #348e53;
+  --knora-signature: #c68f79;
+  --knora-text: #d7efe6;
+  --knora-muted: #94b3a5;
+  --knora-border: #2a3d36;
+  --knora-focus: #9ce3b5;
+  --knora-subtle: #1b2b25;
+  --knora-signature-soft: #34251f;
+  --knora-action-soft: #163e27;
+  --knora-error: #f87171;
+  --knora-error-bg: #450a0a;
+  --knora-error-border: #991b1b;
+}
+
+.knora-auth-frame {
+  display: grid;
+  grid-template-columns: 43.05556% 1fr;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--knora-surface);
+  color: var(--knora-text);
+  font-family: var(--font-inter, Inter, sans-serif);
+}
+
+.knora-brand-panel {
+  position: relative;
+  background: var(--knora-subtle);
+  color: var(--knora-text);
+  overflow: hidden;
+}
+
+.knora-brand-mark {
+  position: absolute;
+  top: 42px;
+  left: 56px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--font-roboto-slab, "Roboto Slab", serif);
+  font-size: 22px;
+  line-height: 30px;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: none;
+}
+
+.knora-brand-mark:focus-visible {
+  outline: 3px solid var(--knora-focus);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
+.knora-brand-copy {
+  width: min(430px, calc(100% - 120px));
+  margin-left: 92px;
+  padding-top: 230px;
+}
+
+.knora-eyebrow {
+  margin: 0 0 20px;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  color: var(--knora-muted);
+  letter-spacing: 0.05em;
+}
+
+.knora-brand-copy h2 {
+  margin: 0 0 16px;
+  color: var(--knora-text);
+  font-family: var(--font-roboto-slab, "Roboto Slab", serif);
+  font-size: 38px;
+  line-height: 48px;
+  font-weight: 600;
+}
+
+.knora-brand-copy h2 span {
+  display: block;
+}
+
+.knora-brand-description {
+  margin: 0 0 30px;
+  max-width: 420px;
+  color: var(--knora-muted);
+  font-size: 16px;
+  line-height: 25px;
+}
+
+.knora-evidence-cues {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.knora-evidence-cue {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.knora-evidence-cue--sources {
+  background: var(--knora-signature-soft);
+  color: var(--knora-signature);
+}
+
+.knora-evidence-cue--pages {
+  background: var(--knora-action-soft);
+  color: var(--knora-action);
+}
+
+.knora-evidence-cue--provenance {
+  border: 1px solid var(--knora-border);
+  background: var(--knora-surface);
+  color: var(--knora-text);
+}
+
+.knora-brand-footnote {
+  position: absolute;
+  bottom: 104px;
+  left: 92px;
+  margin: 0;
+  color: var(--knora-muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.knora-auth-main {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: 48px 24px;
+}
+
+.knora-auth-card {
+  width: 420px;
+  max-width: 100%;
+}
+
+.knora-auth-card h1 {
+  margin: 0 0 12px;
+  color: var(--knora-text);
+  font-family: var(--font-roboto-slab, "Roboto Slab", serif);
+  font-size: 30px;
+  line-height: 40px;
+  font-weight: 600;
+}
+
+.knora-auth-description {
+  margin: 0 0 24px;
+  color: var(--knora-muted);
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.knora-notice {
+  margin: 0 0 20px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--knora-error-bg);
+  border: 1px solid var(--knora-error-border);
+  color: var(--knora-error);
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.knora-notice strong {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.knora-notice p {
+  margin: 0;
+}
+
+.knora-notice-success {
+  background: var(--knora-action-soft);
+  border-color: var(--knora-action);
+  color: var(--knora-text);
+}
+
+.knora-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.knora-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.knora-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.knora-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--knora-text);
+}
+
+.knora-link {
+  font-size: 13px;
+  color: var(--knora-action);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.knora-link:hover {
+  text-decoration: underline;
+}
+
+.knora-link:focus-visible {
+  outline: 2px solid var(--knora-focus);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.knora-input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid var(--knora-border);
+  border-radius: 8px;
+  background: var(--knora-surface);
+  color: var(--knora-text);
+  font-size: 15px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.knora-input:focus {
+  border-color: var(--knora-focus);
+  outline: 2px solid var(--knora-focus);
+  outline-offset: 1px;
+}
+
+.knora-input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.knora-password-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.knora-password-toggle {
+  position: absolute;
+  right: 10px;
+  padding: 4px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--knora-muted);
+  font-size: 12px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.knora-password-toggle:hover {
+  color: var(--knora-text);
+}
+
+.knora-password-toggle:focus-visible {
+  outline: 2px solid var(--knora-focus);
+  outline-offset: 2px;
+}
+
+.knora-button-primary {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  height: 44px;
+  margin-top: 6px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--knora-action);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.knora-button-primary:hover:not(:disabled) {
+  background: var(--knora-action-hover);
+}
+
+.knora-button-primary:active:not(:disabled) {
+  background: var(--knora-action-active);
+}
+
+.knora-button-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.knora-button-primary:focus-visible {
+  outline: 3px solid var(--knora-focus);
+  outline-offset: 2px;
+}
+
+.knora-disclaimer {
+  margin: 14px 0 0;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--knora-muted);
+}
+
+.knora-secondary {
+  margin: 16px 0 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--knora-muted);
+  text-align: center;
+}
+
+.knora-secondary a {
+  color: var(--knora-action);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.knora-secondary a:hover {
+  text-decoration: underline;
+}
+
+.knora-otp-digits {
+  display: flex;
+  gap: 8px;
+  justify-content: space-between;
+  margin: 12px 0 20px;
+}
+
+.knora-otp-digit {
+  width: 52px;
+  height: 58px;
+  text-align: center;
+  font-size: 24px;
+  font-weight: 600;
+  border: 1px solid var(--knora-border);
+  border-radius: 8px;
+  background: var(--knora-surface);
+  color: var(--knora-text);
+  outline: none;
+}
+
+.knora-otp-digit:focus {
+  border-color: var(--knora-focus);
+  outline: 2px solid var(--knora-focus);
+  outline-offset: 1px;
+}
+
+@media (max-width: 1100px) {
+  .knora-brand-copy,
+  .knora-brand-footnote {
+    left: 36px;
+  }
+  .knora-brand-copy {
+    max-width: calc(100% - 72px);
+  }
+  .knora-brand-copy h2 {
+    font-size: 30px;
+    line-height: 40px;
+  }
+}
+
+@media (max-width: 48rem), (max-width: 768px) {
+  .knora-auth-frame {
+    grid-template-columns: 1fr;
+    grid-template-rows: 72px 1fr;
+  }
+
+  .knora-brand-panel {
+    height: 72px;
+    position: relative;
+    border-bottom: 1px solid var(--knora-border);
+  }
+
+  .knora-brand-mark {
+    top: 50%;
+    transform: translateY(-50%);
+    left: 24px;
+  }
+
+  .knora-brand-copy,
+  .knora-brand-footnote {
+    display: none;
+  }
+
+  .knora-auth-main {
+    padding: 32px 20px;
+    justify-content: flex-start;
+  }
+
+  .knora-auth-card {
+    width: 100%;
+  }
+
+  .knora-otp-digits {
+    gap: 6px;
+  }
+
+  .knora-otp-digit {
+    width: 44px;
+    height: 50px;
+    font-size: 20px;
+  }
+}

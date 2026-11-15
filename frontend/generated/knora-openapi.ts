@@ -3,6 +3,7 @@
 export const KNORA_OPENAPI_VERSION = "3.1.0" as const;
 export type KnoraApiPath =
   | "/health"
+  | "/v1/auth/session"
   | "/v1/questions"
   | "/v1/questions/stream"
   | "/v1/workspaces"
@@ -52,6 +53,12 @@ export type KnoraApiPath =
   | "/v1/workspaces/{workspace_id}/operator/traces/{trace_id}"
   | "/v1/workspaces/{workspace_id}/restore";
 
+export type AuthSessionResponse = {
+  capabilities: Array<string>;
+  issuer: string;
+  session_id?: string | null;
+  subject: string;
+};
 export type Body_ingest_document_v1_workspaces__workspace_id__documents_post = {
   file: string;
   source_key: string;
@@ -530,6 +537,7 @@ export type KnoraApiResponse =
 
 export interface KnoraApiResponseByPath {
   "/health": HealthResponse;
+  "/v1/auth/session": AuthSessionResponse;
   "/v1/questions": QuestionResponse;
   "/v1/questions/stream": KnoraApiResponse;
   "/v1/workspaces": WorkspaceListResponse;

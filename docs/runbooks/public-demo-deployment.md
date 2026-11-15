@@ -57,9 +57,28 @@ Relational Authority  PDF Files           BM25 + Dense      GPT-OSS 20B Generati
 
 ---
 
-## 3. Triển khai Backend & Auth trên Render
+## 3. Triển khai Backend & Auth
 
-### Bước 4: Deploy Keycloak Service trên Render
+### Lựa chọn Provider Xác thực (Identity Provider)
+
+Knora hỗ trợ 2 chế độ xác thực qua biến môi trường `KNORA_AUTH_PROVIDER`:
+- **Chế độ Supabase Auth (`KNORA_AUTH_PROVIDER=supabase`)** (Khuyến nghị cho Public Demo):
+  Sử dụng dịch vụ xác thực tích hợp sẵn của Supabase project. Loại bỏ hoàn toàn sự phụ thuộc vào container Keycloak 512 MiB trên Render, giải phóng chi phí và tránh cạn kiệt bộ nhớ.
+- **Chế độ Keycloak (`KNORA_AUTH_PROVIDER=keycloak`)**:
+  Chế độ tương thích với container Keycloak độc lập trên Render.
+
+---
+
+### Bước 4A: Cấu hình Supabase Auth (Khuyến nghị cho Demo)
+1. Trong Supabase Dashboard của dự án:
+   - Vào **Authentication** -> **Providers** -> Đảm bảo **Email** đã được bật (Enable Email provider).
+   - Tắt **Confirm email** để người dùng trải nghiệm demo có thể đăng ký và đăng nhập ngay.
+   - Bật **Sign in with Password**.
+   - Vào **Project Settings** -> **API** -> Lấy `Project URL` và `anon / public key`.
+   - Vào **Project Settings** -> **Authentication** -> **JWT Settings** -> Xác nhận thuật toán ký bất đối xứng (`ES256` hoặc `RS256`).
+   - Cấu hình **Custom SMTP** (nếu sử dụng tính năng Forgot Password OTP qua email trong staging/production).
+
+### Bước 4B: Deploy Keycloak Service trên Render (Dự phòng / Tương thích)
 1. Trên [dashboard.render.com](https://dashboard.render.com) → **New** → **Web Service**.
 2. Kết nối tới repository `NhiBuaa/knora-agent` (nhánh `feat/public-demo`).
 3. Cấu hình dịch vụ:

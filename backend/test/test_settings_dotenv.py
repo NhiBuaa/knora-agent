@@ -82,3 +82,56 @@ def test_backend_does_not_validate_evaluation_only_configuration(monkeypatch, tm
     selection = build_provider_selection(Settings(_env_file=env_file))
 
     assert selection.embedding_configuration.id == "embedding-local-m1-v2"
+
+
+def test_supabase_auth_provider_all_or_nothing(monkeypatch, tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "\n".join(
+            [
+                "KNORA_AUTH_PROVIDER=supabase",
+                "KNORA_SUPABASE_ISSUER=https://demo.supabase.co/auth/v1",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError):
+        Settings(_env_file=env_file)
+
+
+def test_supabase_jwt_algorithm_must_be_asymmetric(monkeypatch, tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "\n".join(
+            [
+                "KNORA_AUTH_PROVIDER=supabase",
+                "KNORA_SUPABASE_ISSUER=https://demo.supabase.co/auth/v1",
+                "KNORA_SUPABASE_AUDIENCE=authenticated",
+                "KNORA_SUPABASE_JWKS_URL=https://demo.supabase.co/auth/v1/.well-known/jwks.json",
+                "KNORA_SUPABASE_JWT_ALGORITHM=HS256",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    with pytest.raises(Exception) as exc:
+        Settings(_env_file=env_file)
+    assert "ES256 or RS256" in str(exc.value)
+
+
+def test_supabase_auth_provider_valid(monkeypatch, tmp_path):
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "\n".join(
+            [
+                "KNORA_AUTH_PROVIDER=supabase",
+                "KNORA_SUPABASE_ISSUER=https://demo.supabase.co/auth/v1",
+                "KNORA_SUPABASE_AUDIENCE=authenticated",
+                "KNORA_SUPABASE_JWKS_URL=https://demo.supabase.co/auth/v1/.well-known/jwks.json",
+                "KNORA_SUPABASE_JWT_ALGORITHM=ES256",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    settings = Settings(_env_file=env_file)
+    assert settings.auth_provider == "supabase"
+    assert settings.supabase_jwt_algorithm == "ES256"

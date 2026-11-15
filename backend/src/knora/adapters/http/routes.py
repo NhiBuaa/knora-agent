@@ -6,6 +6,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
+from knora.access.identity import BearerIdentityAuthenticator
 from knora.access.keycloak import KeycloakAuthenticator
 from knora.adapters.http.schemas import (
     DocumentDeletionRequestResponse,
@@ -93,13 +94,19 @@ def authenticate_principal(
     authorization: Annotated[str | None, Header(alias="Authorization")] = None,
     authenticator=Depends(get_authenticator),  # noqa: B008
 ) -> WorkspacePrincipal:
-    if authorization and isinstance(authenticator, KeycloakAuthenticator):
+    if authorization and hasattr(authenticator, "authenticate_identity"):
         try:
-            return authenticator.authenticate(authorization)
-        except KnoraError:
-            if authenticator.api_key_authenticator is not None:
-                return authenticator.api_key_authenticator.authenticate(x_api_key)
-            raise
+            authenticator.authenticate_identity(authorization)
+        except Exception as error:
+            raise KnoraError("UNAUTHENTICATED") from error
+        if isinstance(authenticator, KeycloakAuthenticator):
+            try:
+                return authenticator.authenticate(authorization)
+            except KnoraError:
+                if authenticator.api_key_authenticator is not None:
+                    return authenticator.api_key_authenticator.authenticate(x_api_key)
+                raise
+        raise KnoraError("UNAUTHENTICATED")
     if authorization and hasattr(authenticator, "authenticate"):
         try:
             return authenticator.authenticate(authorization)
@@ -117,13 +124,13 @@ def authorize_workspace_principal(
 
     authenticator = request.app.state.authenticator
     authorization = request.headers.get("Authorization")
-    if authorization and isinstance(authenticator, KeycloakAuthenticator):
+    if authorization and isinstance(authenticator, BearerIdentityAuthenticator):
         identity = authenticator.authenticate_identity(authorization)
         authorizer = request.app.state.workspace_authorizer
         return authorizer.authorize(identity, workspace_id, capability)
     x_api_key = request.headers.get("X-API-Key")
-    if isinstance(authenticator, KeycloakAuthenticator):
-        if authenticator.api_key_authenticator is None:
+    if isinstance(authenticator, BearerIdentityAuthenticator):
+        if getattr(authenticator, "api_key_authenticator", None) is None:
             raise KnoraError("UNAUTHENTICATED")
         principal = authenticator.api_key_authenticator.authenticate(x_api_key)
     else:

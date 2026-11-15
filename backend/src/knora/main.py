@@ -8,9 +8,12 @@ from fastapi.responses import JSONResponse
 from starlette.concurrency import run_in_threadpool
 
 from knora.access.api_keys import ApiKeyAuthenticator, credentials_from_json
+from knora.access.identity import BearerIdentityAuthenticator
 from knora.access.keycloak import KeycloakAuthenticator
+from knora.access.supabase import SupabaseAuthenticator
 from knora.access.workspace_authorization import WorkspaceAuthorizer
 from knora.adapters.execution.thread_attempt_runner import FixedCapacityThreadAttemptRunner
+from knora.adapters.http.auth import router as auth_router
 from knora.adapters.http.conversations import router as conversations_router
 from knora.adapters.http.evaluation_catalog import router as evaluation_catalog_router
 from knora.adapters.http.evaluation_datasets import router as evaluation_datasets_router
@@ -30,6 +33,7 @@ from knora.adapters.postgres.database import SessionFactory
 from knora.adapters.postgres.document_reader import PostgresDocumentReader
 from knora.adapters.postgres.evaluation_datasets import PostgresDatasetStore
 from knora.adapters.postgres.evaluation_runs import PostgresEvaluationRunStore
+from knora.adapters.postgres.identity_access_store import PostgresIdentityAccessStore
 from knora.adapters.postgres.ingestion_job_store import PostgresIngestionJobStore
 from knora.adapters.postgres.ingestion_store import PostgresIngestionStore
 from knora.adapters.postgres.object_reconciliation import (
@@ -39,6 +43,7 @@ from knora.adapters.postgres.object_reconciliation import (
 from knora.adapters.postgres.operational_observability import PostgresOperationalMetricsStore
 from knora.adapters.postgres.operator_reader import PostgresOperatorReader
 from knora.adapters.postgres.search_index_store import PostgresSearchIndexStore
+from knora.adapters.postgres.supabase_session_reader import PostgresSupabaseSessionReader
 from knora.adapters.postgres.tool_action_store import PostgresToolActionStore
 from knora.adapters.postgres.workspace_admission import PostgresWorkspaceAdmissionStore
 from knora.adapters.postgres.workspace_store import PostgresWorkspaceStore
@@ -147,6 +152,7 @@ def create_app(
     reranking_provider: RerankingProvider | None = None,
     reranking_configuration_resolver: RerankingConfigurationResolver | None = None,
     api_key_authenticator: ApiKeyAuthenticator | None = None,
+    bearer_authenticator: BearerIdentityAuthenticator | None = None,
     keycloak_authenticator: KeycloakAuthenticator | None = None,
     embedding_configuration: EmbeddingConfiguration | None = None,
     ingestion_worker: ProcessIngestionJob | None = None,
@@ -526,19 +532,37 @@ def create_app(
     )
     application.state.embedding_configuration = selected_embedding_configuration
     application.state.authenticator = application.state.api_key_authenticator
-    if keycloak_authenticator is not None:
-        keycloak_authenticator.api_key_authenticator = application.state.api_key_authenticator
+    selected_bearer = bearer_authenticator or keycloak_authenticator
+    if selected_bearer is not None:
+        selected_bearer.api_key_authenticator = application.state.api_key_authenticator
+    elif settings.auth_provider == "supabase":
+        if (
+            settings.supabase_issuer
+            and settings.supabase_audience
+            and settings.supabase_jwks_url
+            and settings.supabase_jwt_algorithm
+        ):
+            access_store = PostgresIdentityAccessStore(SessionFactory)
+            session_reader = PostgresSupabaseSessionReader(SessionFactory)
+            selected_bearer = SupabaseAuthenticator(
+                issuer=settings.supabase_issuer,
+                audience=settings.supabase_audience,
+                algorithm=settings.supabase_jwt_algorithm,
+                jwks_url=settings.supabase_jwks_url,
+                jwks_cache_ttl_seconds=settings.supabase_jwks_cache_ttl_seconds,
+                access_store=access_store,
+                session_reader=session_reader,
+                api_key_authenticator=application.state.api_key_authenticator,
+            )
     elif settings.keycloak_issuer and settings.keycloak_audience:
-        keycloak_authenticator = KeycloakAuthenticator(
+        selected_bearer = KeycloakAuthenticator(
             issuer=settings.keycloak_issuer,
             audience=settings.keycloak_audience,
             jwks_url=settings.keycloak_jwks_url,
             jwks_cache_ttl_seconds=settings.keycloak_jwks_cache_ttl_seconds,
             api_key_authenticator=application.state.api_key_authenticator,
         )
-    application.state.authenticator = (
-        keycloak_authenticator or application.state.api_key_authenticator
-    )
+    application.state.authenticator = selected_bearer or application.state.api_key_authenticator
     application.state.workspace_authorizer = workspace_authorizer or WorkspaceAuthorizer(
         PostgresWorkspaceStore(SessionFactory)
     )
@@ -731,6 +755,7 @@ def create_app(
 
     application.include_router(http_router)
     application.include_router(workspaces_router)
+    application.include_router(auth_router)
     application.include_router(conversations_router)
     application.include_router(evaluation_datasets_router)
     application.include_router(evaluation_catalog_router)

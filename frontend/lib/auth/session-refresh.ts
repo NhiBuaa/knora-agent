@@ -49,8 +49,8 @@ export async function renewSession(
   if (session.expiresAt > now + 30) return session;
   if (
     !session.refreshToken ||
-    !session.refreshExpiresAt ||
-    session.refreshExpiresAt <= now
+    (session.provider !== "supabase" &&
+      (!session.refreshExpiresAt || session.refreshExpiresAt <= now))
   ) {
     return session.expiresAt > now ? session : null;
   }
@@ -77,6 +77,20 @@ export async function renewSession(
 }
 
 async function refresh(session: KnoraSession): Promise<KnoraSession | null> {
+  if (session.provider === "supabase") {
+    const { refreshSupabaseSession } = await import("./supabase");
+    try {
+      return await refreshSupabaseSession(session);
+    } catch (err: unknown) {
+      if (
+        (err as { status?: number })?.status === 503 ||
+        (err as Error)?.message === "AUTH_PROVIDER_UNAVAILABLE"
+      ) {
+        throw new SessionRefreshUnavailable();
+      }
+      return null;
+    }
+  }
   const endpoint = process.env.KEYCLOAK_TOKEN_URL;
   const issuer = process.env.KEYCLOAK_ISSUER;
   const jwks = process.env.KEYCLOAK_JWKS_URL;

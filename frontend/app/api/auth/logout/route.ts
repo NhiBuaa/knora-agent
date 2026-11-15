@@ -6,6 +6,8 @@ import {
 } from "@/lib/auth/session";
 import { invalidateSession } from "@/lib/auth/session-refresh";
 import { clearPreferenceCookie } from "@/lib/auth/workspace-preference";
+import { getAuthProvider } from "@/lib/auth/provider";
+import { signOutSupabaseSession } from "@/lib/auth/supabase";
 
 export async function POST(request: Request) {
   const origin = request.headers.get("origin");
@@ -30,6 +32,29 @@ export async function POST(request: Request) {
     ?.slice(SESSION_COOKIE_NAME.length + 1);
   const session = await decodeSession(sessionValue);
   invalidateSession(session);
+
+  if (getAuthProvider() === "supabase" || session?.provider === "supabase") {
+    let destination = new URL("/?signed-out=1", expectedOrigin);
+    if (session) {
+      try {
+        await signOutSupabaseSession(session, "local");
+      } catch {
+        // Safe retryable failure; clear local cookies but do not claim provider revocation
+        destination = new URL("/?signed-out=retryable", expectedOrigin);
+      }
+    }
+    const response = NextResponse.redirect(destination, 303);
+    const cookie = clearSessionCookie();
+    response.cookies.set(cookie.name, cookie.value, cookie.options as never);
+    const preference = clearPreferenceCookie();
+    response.cookies.set(
+      preference.name,
+      preference.value,
+      preference.options as never,
+    );
+    return response;
+  }
+
   let destination = logoutDestination(expectedOrigin);
   if (
     session?.refreshToken &&

@@ -1,6 +1,6 @@
 # ADR 0020: Supabase Auth for the public demo
 
-Status: Proposed — implementation and cutover are not authorized by this document.
+Status: Accepted — implementation candidate complete (Tasks 1–6 implemented); cutover and staging approval deferred to Task 7.
 Date: 2026-11-15.
 
 ## Context

@@ -143,4 +143,47 @@ describe("OIDC authorization transaction", () => {
 
     await expect(decodeAuthorizationTransaction(undefined)).resolves.toBeNull();
   });
+
+  it("redirects to /auth/login in Supabase mode", async () => {
+    vi.stubEnv("KNORA_AUTH_PROVIDER", "supabase");
+    const response = await login(
+      new Request("https://app.test/api/auth/login"),
+    );
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "https://app.test/auth/login",
+    );
+  });
+
+  it("rejects legacy cookies without provider in Supabase mode", async () => {
+    vi.stubEnv("KNORA_AUTH_PROVIDER", "supabase");
+    const legacyCookie = await encodeSession({
+      issuer: "https://id.example/realm",
+      subject: "legacy-user",
+      accessToken: "token",
+      workspaceIds: ["ws-1"],
+      capabilities: [],
+    });
+    const decoded = await decodeSession(legacyCookie);
+    expect(decoded).toBeNull();
+  });
+
+  it("preserves Supabase session fields and ignores legacy workspaceIds", async () => {
+    vi.stubEnv("KNORA_AUTH_PROVIDER", "supabase");
+    const supabaseSession = await encodeSession({
+      provider: "supabase",
+      providerSessionId: "sess-123",
+      issuer: "https://auth.example/auth/v1",
+      subject: "user-123",
+      accessToken: "token-abc",
+      workspaceIds: [],
+      capabilities: ["documents:read"],
+      sessionExpiresAt: 1900000000,
+    });
+    const decoded = await decodeSession(supabaseSession);
+    expect(decoded?.provider).toBe("supabase");
+    expect(decoded?.providerSessionId).toBe("sess-123");
+    expect(decoded?.sessionExpiresAt).toBe(1900000000);
+    expect(decoded?.subject).toBe("user-123");
+  });
 });
