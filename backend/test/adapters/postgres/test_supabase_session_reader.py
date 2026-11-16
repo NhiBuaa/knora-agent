@@ -228,3 +228,35 @@ def test_no_writes_to_managed_tables(reader, connection):
     ).one()
     assert user_row[0] is None
     assert user_row[1] is None
+
+
+def test_unmanaged_standalone_database_gracefully_falls_back(session_factory):
+    # Create a database without auth schema
+    db_name = f"knora_test_sess_{uuid.uuid4().hex[:12]}"
+    base_url = make_url(settings.database_url)
+    admin_url = base_url.set(database="postgres")
+    admin_engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
+
+    with admin_engine.connect() as conn:
+        conn.execute(text(f'CREATE DATABASE "{db_name}"'))
+
+    target_url = base_url.set(database=db_name)
+    engine = create_engine(target_url, pool_pre_ping=True)
+
+    try:
+        standalone_factory = sessionmaker(bind=engine)
+        reader = PostgresSupabaseSessionReader(standalone_factory)
+        user_id = str(uuid.uuid4())
+        session_id = str(uuid.uuid4())
+        # When auth.sessions does not exist, reader should return True rather than failing
+        assert reader.is_active(user_id, session_id) is True
+    finally:
+        engine.dispose()
+        with admin_engine.connect() as conn:
+            conn.execute(
+                text(
+                    "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                    f"WHERE datname = '{db_name}' AND pid <> pg_backend_pid()"
+                )
+            )
+            conn.execute(text(f'DROP DATABASE IF EXISTS "{db_name}"'))
