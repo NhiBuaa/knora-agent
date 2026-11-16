@@ -544,22 +544,19 @@ const server = http.createServer(async (req, res) => {
     const ws = authorizeWorkspace(wsId, payload.sub);
     if (!ws) return;
 
-    if (!mockConversationsMap.has(wsId)) {
-      mockConversationsMap.set(wsId, []);
-    }
-    const convs = mockConversationsMap.get(wsId);
-    let conv = convs.find((c) => c.id === convId);
+    const convs = mockConversationsMap.get(wsId) || [];
+    const conv = convs.find((c) => c.id === convId && c.workspace_id === wsId);
     if (!conv) {
-      conv = {
-        id: convId,
-        workspace_id: wsId,
-        title: "New conversation",
-        title_source: "default",
-        archived: false,
-        revision: 1,
-        updated_at: new Date().toISOString(),
-      };
-      convs.unshift(conv);
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          error: {
+            code: "CONVERSATION_NOT_FOUND",
+            message: "Conversation not found",
+          },
+        }),
+      );
+      return;
     }
     if (action === "archive") {
       conv.archived = true;
@@ -589,10 +586,27 @@ const server = http.createServer(async (req, res) => {
     const ws = authorizeWorkspace(wsId, payload.sub);
     if (!ws) return;
 
-    if (!mockTurnsMap.has(convId)) {
-      mockTurnsMap.set(convId, []);
+    // Ràng buộc conversation phải thuộc workspace đã authorize
+    const convs = mockConversationsMap.get(wsId) || [];
+    const conv = convs.find((c) => c.id === convId && c.workspace_id === wsId);
+    if (!conv) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          error: {
+            code: "CONVERSATION_NOT_FOUND",
+            message: "Conversation not found",
+          },
+        }),
+      );
+      return;
     }
-    const turns = mockTurnsMap.get(convId);
+
+    const turnKey = `${wsId}:${convId}`;
+    if (!mockTurnsMap.has(turnKey)) {
+      mockTurnsMap.set(turnKey, []);
+    }
+    const turns = mockTurnsMap.get(turnKey);
 
     if (req.method === "GET") {
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -605,16 +619,12 @@ const server = http.createServer(async (req, res) => {
       const sequence = turns.length + 1;
       const turnId = `turn-${randomUUID().slice(0, 8)}`;
 
-      // Update conversation title if found
-      const convs = mockConversationsMap.get(wsId) || [];
-      const conv = convs.find((c) => c.id === convId);
-      if (conv) {
-        conv.title = (question || "Conversation")
-          .replace(/\s+/g, " ")
-          .slice(0, 80);
-        conv.title_source = "question";
-        conv.updated_at = new Date().toISOString();
-      }
+      // Update conversation title
+      conv.title = (question || "Conversation")
+        .replace(/\s+/g, " ")
+        .slice(0, 80);
+      conv.title_source = "question";
+      conv.updated_at = new Date().toISOString();
 
       // Check uploaded documents to cite
       const docs = mockDocumentsMap.get(wsId) || [];
@@ -693,11 +703,34 @@ const server = http.createServer(async (req, res) => {
     const ws = authorizeWorkspace(wsId, payload.sub);
     if (!ws) return;
 
-    const turns = mockTurnsMap.get(convId) || [];
-    const turn = turns.find((t) => t.id === turnId);
+    // Ràng buộc conversation phải thuộc workspace đã authorize
+    const convs = mockConversationsMap.get(wsId) || [];
+    const conv = convs.find((c) => c.id === convId && c.workspace_id === wsId);
+    if (!conv) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          error: {
+            code: "CONVERSATION_NOT_FOUND",
+            message: "Conversation not found",
+          },
+        }),
+      );
+      return;
+    }
+
+    const turnKey = `${wsId}:${convId}`;
+    const turns = mockTurnsMap.get(turnKey) || [];
+    const turn = turns.find(
+      (t) => t.id === turnId && t.conversation_id === convId,
+    );
     if (!turn) {
       res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { code: "TURN_NOT_FOUND" } }));
+      res.end(
+        JSON.stringify({
+          error: { code: "TURN_NOT_FOUND", message: "Turn not found" },
+        }),
+      );
       return;
     }
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -832,6 +865,14 @@ const server = http.createServer(async (req, res) => {
   }
 
   res.writeHead(404).end();
+});
+
+server.on("error", (err) => {
+  console.error(
+    `Supabase test fixture server error on port ${PORT}:`,
+    err.message,
+  );
+  process.exit(1);
 });
 
 server.listen(PORT, "127.0.0.1", () => {
