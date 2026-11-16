@@ -752,7 +752,9 @@ the guard or describe container recreation as verified data recovery.
 The helper uses the Windows [Job Object API](https://learn.microsoft.com/en-us/windows/win32/procthread/job-objects)
 and loads through PowerShell's `Add-Type`; it requires no additional dependency.
 
-Use `-ApiPort`, `-FrontendPort`, `-PostgresPort`, `-QdrantPort`, `-PythonExe`, `-OllamaBaseUrl`, `-EnvFile`, `-DatabaseName`, or `-NoBrowser` when a temporary local override is required. Process/command values take precedence over root `.env` where the launcher exposes an override.
+Use `-AuthProvider`, `-ApiPort`, `-FrontendPort`, `-PostgresPort`, `-QdrantPort`, `-PythonExe`, `-OllamaBaseUrl`, `-EnvFile`, `-DatabaseName`, or `-NoBrowser` when a temporary local override is required. Process/command values take precedence over root `.env` where the launcher exposes an override.
+
+`-AuthProvider` selects authentication (`supabase` or `keycloak`, default `keycloak` or `$env:KNORA_AUTH_PROVIDER`). In `supabase` mode, the launcher connects to the configured Supabase Auth endpoints, starts only `postgres`, `minio`, and `qdrant` storage containers, and skips Keycloak services. In `keycloak` mode, the launcher includes `keycloak-dev` and validates Keycloak OIDC configuration.
 
 An explicit `-FrontendPort` also sets the local `KEYCLOAK_REDIRECT_URI` and `NEXT_PUBLIC_APP_ORIGIN` to that port. The Keycloak client must allow the resulting exact callback URI (for example `http://127.0.0.1:3001/api/auth/callback`); changing the app port does not change Keycloak's redirect allowlist.
 
