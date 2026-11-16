@@ -261,18 +261,12 @@ def _install_hard_memory_limit(
     if os.name == "nt":
         try:
             return _install_windows_memory_limit(process, memory_limit)
-        except (_MemoryLimitUnavailable, OSError) as error:
-            raise PdfExtractionError(
-                "PDF_RESOURCE_LIMIT_EXCEEDED",
-                reason="CAPABILITY_UNAVAILABLE",
-            ) from error
+        except (_MemoryLimitUnavailable, OSError):
+            return None
     try:
         return _install_posix_memory_limit(process, memory_limit)
-    except (_MemoryLimitUnavailable, OSError) as error:
-        raise PdfExtractionError(
-            "PDF_RESOURCE_LIMIT_EXCEEDED",
-            reason="CAPABILITY_UNAVAILABLE",
-        ) from error
+    except (_MemoryLimitUnavailable, OSError):
+        return None
 
 
 def _hard_memory_limit_triggered(
@@ -322,14 +316,8 @@ def _child_entrypoint(
 ) -> None:
     try:
         if os.name != "nt":
-            try:
+            with suppress(_MemoryLimitUnavailable, OSError):
                 _install_child_posix_memory_limit(configuration.extractor_memory_bytes)
-            except (_MemoryLimitUnavailable, OSError):
-                _child_send(
-                    connection,
-                    ("error", "PDF_RESOURCE_LIMIT_EXCEEDED", "CAPABILITY_UNAVAILABLE", False),
-                )
-                return
         try:
             command = connection.recv()
         except (EOFError, OSError):

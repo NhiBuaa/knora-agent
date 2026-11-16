@@ -1007,3 +1007,38 @@ def test_pypdf_plain_and_layout_parity_and_canonical_structure() -> None:
             assert len(canonical_page.blocks) > 0
             for block in canonical_page.blocks:
                 assert canonical_page.text[block.start_offset : block.end_offset] == block.text
+
+
+def test_unprivileged_container_graceful_memory_limit_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raw = pdf_with_pages("Page 1 content for unprivileged container test.")
+    config = PdfExtractionConfiguration.milestone_two()
+
+    class _DummyProcess:
+        pid = 99999
+
+    def fail_posix(_process, _limit):
+        raise pypdf_process._MemoryLimitUnavailable(
+            "Simulated unprivileged container cgroup failure"
+        )
+
+    def fail_windows(_process, _limit):
+        raise OSError(5, "Simulated Access Denied")
+
+    # Direct unit test of _install_hard_memory_limit fallback
+    monkeypatch.setattr(pypdf_process, "_install_posix_memory_limit", fail_posix)
+    monkeypatch.setattr(pypdf_process, "_install_windows_memory_limit", fail_windows)
+    dummy_proc = _DummyProcess()
+    assert pypdf_process._install_hard_memory_limit(dummy_proc, 256 * 1024 * 1024) is None
+
+    # End-to-end extraction test with fallback active
+    if os.name == "nt":
+        monkeypatch.setattr(pypdf_process, "_install_windows_memory_limit", fail_windows)
+    else:
+        monkeypatch.setattr(pypdf_process, "_install_posix_memory_limit", fail_posix)
+        monkeypatch.setattr(pypdf_process, "_install_child_posix_memory_limit", fail_posix)
+
+    result = PypdfTextExtractor().extract(BytesIO(raw), config)
+    assert len(result.pages) == 1
+    assert "Page 1 content" in result.pages[0].text
