@@ -61,8 +61,26 @@ async function getJWKS(url: string) {
         res.status === 429 ? 429 : 503;
       throw err;
     }
-    const jwksJson = (await res.json()) as { keys: any[] };
-    jwksCache = createLocalJWKSet(jwksJson);
+    let jwksJson: { keys?: any[] };
+    try {
+      jwksJson = (await res.json()) as { keys?: any[] };
+    } catch {
+      const err = new Error(
+        `Failed to parse Supabase JWKS from ${url}: invalid JSON`,
+      );
+      (err as unknown as { status: number }).status = 503;
+      throw err;
+    }
+    if (
+      !jwksJson ||
+      !Array.isArray(jwksJson.keys) ||
+      jwksJson.keys.length === 0
+    ) {
+      const err = new Error(`Invalid or empty Supabase JWKS from ${url}`);
+      (err as unknown as { status: number }).status = 503;
+      throw err;
+    }
+    jwksCache = createLocalJWKSet({ keys: jwksJson.keys });
     jwksCachedUrl = url;
     jwksExpiresAt = now + 300;
   }
@@ -121,7 +139,12 @@ export async function fetchBackendSession(accessToken: string): Promise<{
     throw error;
   }
   if (!res.ok) {
-    if (res.status === 503 || res.status === 429 || res.status >= 500) {
+    if (
+      res.status === 404 ||
+      res.status === 503 ||
+      res.status === 429 ||
+      res.status >= 500
+    ) {
       const err = new Error("AUTH_PROVIDER_UNAVAILABLE");
       (err as unknown as { status: number }).status =
         res.status === 429 ? 429 : 503;
@@ -131,10 +154,17 @@ export async function fetchBackendSession(accessToken: string): Promise<{
     (err as unknown as { status: number }).status = res.status;
     throw err;
   }
-  const data = (await res.json()) as {
-    capabilities: string[];
-    session_id?: string | null;
-  };
+  let data: { capabilities?: string[]; session_id?: string | null };
+  try {
+    data = (await res.json()) as {
+      capabilities?: string[];
+      session_id?: string | null;
+    };
+  } catch {
+    const err = new Error("AUTH_PROVIDER_UNAVAILABLE");
+    (err as unknown as { status: number }).status = 503;
+    throw err;
+  }
   return {
     capabilities: data.capabilities || [],
     sessionId: data.session_id || null,
@@ -331,7 +361,13 @@ export async function refreshSupabaseSession(
     throw error;
   }
 
-  if (!tokens || typeof tokens.access_token !== "string") {
+  if (
+    !tokens ||
+    typeof tokens.access_token !== "string" ||
+    !tokens.access_token ||
+    typeof tokens.refresh_token !== "string" ||
+    !tokens.refresh_token
+  ) {
     const error = new Error("AUTH_PROVIDER_UNAVAILABLE");
     (error as unknown as { status: number }).status = 503;
     throw error;
@@ -344,7 +380,9 @@ export async function refreshSupabaseSession(
     if (
       (err as { status?: number })?.status === 503 ||
       (err as { status?: number })?.status === 429 ||
-      (err as Error)?.message?.includes("Failed to fetch Supabase JWKS")
+      (err as Error)?.message?.includes("Failed to fetch Supabase JWKS") ||
+      (err as Error)?.message?.includes("Invalid or empty Supabase JWKS") ||
+      (err as Error)?.message?.includes("Failed to parse Supabase JWKS")
     ) {
       const error = new Error("AUTH_PROVIDER_UNAVAILABLE");
       (error as unknown as { status: number }).status = 503;

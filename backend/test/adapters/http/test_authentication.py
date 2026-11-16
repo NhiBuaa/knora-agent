@@ -343,3 +343,50 @@ def test_invalid_supabase_bearer_with_valid_api_key_fails_401():
     )
     assert response.status_code == 401
     assert response.json() == {"error": {"code": "UNAUTHENTICATED"}}
+
+
+def test_invalid_keycloak_bearer_with_valid_api_key_falls_back_to_api_key():
+    from knora.access.api_keys import ApiCredential, hash_api_key
+
+    api_key_auth = ApiKeyAuthenticator(
+        (ApiCredential("k1", hash_api_key("valid-key"), "workspace-a", True),)
+    )
+    keycloak_auth = KeycloakAuthenticator(
+        issuer="https://issuer",
+        audience="knora-api",
+        token_validator=lambda _t: (_ for _ in ()).throw(ValueError("bad token")),
+        api_key_authenticator=api_key_auth,
+    )
+
+    class IngestionStub:
+        def execute(self, *_args, **_kwargs):
+            return IngestionResult(
+                outcome="created",
+                activation_changed=True,
+                document_id="doc-1",
+                document_version_id="doc-ver-1",
+                chunk_set_id="chunk-1",
+                embedding_set_id="emb-1",
+                chunking_configuration_id="chunk-cfg-1",
+                embedding_configuration_id="emb-cfg-1",
+                chunk_count=1,
+            )
+
+    app = create_app(
+        keycloak_authenticator=keycloak_auth,
+        api_key_authenticator=api_key_auth,
+        workspace_authorizer=owned_workspace_authorizer(),
+        ingest_document=IngestionStub(),
+    )
+    client = TestClient(app)
+
+    response = client.post(
+        "/v1/workspaces/workspace-a/documents",
+        headers={
+            "Authorization": "Bearer invalid-keycloak-token",
+            "X-API-Key": "valid-key",
+        },
+        data={"source_key": "support/refund-policy"},
+        files={"file": ("refund-policy.md", b"# Refunds")},
+    )
+    assert response.status_code == 201

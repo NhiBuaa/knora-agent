@@ -106,6 +106,7 @@ class SupabaseAuthenticator(BearerIdentityAuthenticator):
             raise
         except (
             jwt.PyJWKClientConnectionError,
+            jwt.PyJWKSetError,
             urllib.error.URLError,
             OSError,
             TimeoutError,

@@ -23,6 +23,8 @@ const jwkSet = createLocalJWKSet({ keys: [jwk] });
 
 const testSubject = "ca0af038-9a87-4e0c-9dd3-2f3d47fc6bf1";
 const activeSessions = new Map(); // sessionId -> { refreshToken, subject, revoked }
+let currentPassword = "Password123!";
+let refreshCallCount = 0;
 
 async function createToken(subject, sessionId, expiresIn = 3600) {
   const now = Math.floor(Date.now() / 1000);
@@ -79,6 +81,22 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Fixture stats & barrier controls
+  if (url.pathname === "/fixture-stats/refresh-count") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ count: refreshCallCount }));
+    return;
+  }
+  if (
+    url.pathname === "/fixture-stats/reset-refresh-count" ||
+    url.pathname === "/fixture-stats/reset"
+  ) {
+    refreshCallCount = 0;
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ status: "ok", count: 0 }));
+    return;
+  }
+
   // JWKS
   if (url.pathname === "/auth/v1/.well-known/jwks.json") {
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -94,7 +112,7 @@ const server = http.createServer(async (req, res) => {
     const { email, password } = await readJson();
     if (
       (email === "testuser@example.test" || email?.includes("expiring")) &&
-      password === "Password123!"
+      (password === "Password123!" || password === currentPassword)
     ) {
       const sessionId = randomUUID();
       const refreshToken = `ref_${randomUUID()}`;
@@ -103,7 +121,11 @@ const server = http.createServer(async (req, res) => {
         subject: testSubject,
         revoked: false,
       });
-      const expiresIn = email.includes("expiring") ? 5 : 3600;
+      const expiresIn = email.includes("concurrent-expiring")
+        ? 35
+        : email.includes("expiring")
+          ? 5
+          : 3600;
       const accessToken = await createToken(testSubject, sessionId, expiresIn);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(
@@ -167,6 +189,10 @@ const server = http.createServer(async (req, res) => {
     url.pathname === "/auth/v1/token" &&
     url.searchParams.get("grant_type") === "refresh_token"
   ) {
+    refreshCallCount++;
+    // Add a small 150ms delay barrier so concurrent callers overlap
+    await new Promise((r) => setTimeout(r, 150));
+
     const { refresh_token } = await readJson();
     let matchedSessionId = null;
     let matchedSession = null;
@@ -217,7 +243,17 @@ const server = http.createServer(async (req, res) => {
           issuer: ISSUER,
           audience: AUDIENCE,
         });
-        if (payload.session_id && activeSessions.has(payload.session_id)) {
+        const scope = url.searchParams.get("scope");
+        if (scope === "global") {
+          for (const sess of activeSessions.values()) {
+            if (sess.subject === payload.sub) {
+              sess.revoked = true;
+            }
+          }
+        } else if (
+          payload.session_id &&
+          activeSessions.has(payload.session_id)
+        ) {
           activeSessions.get(payload.session_id).revoked = true;
         }
       } catch {
@@ -230,6 +266,12 @@ const server = http.createServer(async (req, res) => {
 
   // User details / update
   if (url.pathname === "/auth/v1/user") {
+    if (req.method === "PUT") {
+      const { password } = await readJson();
+      if (password) {
+        currentPassword = password;
+      }
+    }
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(
       JSON.stringify({ id: testSubject, email: "testuser@example.test" }),

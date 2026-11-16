@@ -329,6 +329,23 @@ def test_jwks_connection_error_raises_auth_provider_unavailable(issuer, audience
     assert exc.value.code == "AUTH_PROVIDER_UNAVAILABLE"
 
 
+def test_empty_jwks_set_error_raises_auth_provider_unavailable(issuer, audience):
+    def empty_jwks_validator(raw):
+        raise jwt.PyJWKSetError("The JWK Set did not contain any keys")
+
+    auth = SupabaseAuthenticator(
+        issuer=issuer,
+        audience=audience,
+        algorithm="ES256",
+        token_validator=empty_jwks_validator,
+        access_store=FakeAccessStore(),
+        session_reader=FakeSessionReader(),
+    )
+    with pytest.raises(KnoraError) as exc:
+        auth.authenticate_identity("Bearer dummy-token")
+    assert exc.value.code == "AUTH_PROVIDER_UNAVAILABLE"
+
+
 def test_access_store_error_raises_auth_provider_unavailable(
     ec_key_pair, issuer, audience, signed_token
 ):

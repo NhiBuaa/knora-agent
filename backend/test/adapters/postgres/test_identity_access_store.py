@@ -3,50 +3,64 @@ import uuid
 
 import pytest
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
 
 from knora.access.identity_access import BASELINE_CAPABILITIES
 from knora.adapters.postgres.identity_access_store import PostgresIdentityAccessStore
+from knora.infrastructure.settings import settings
 
 
 @pytest.fixture(scope="module")
 def disposable_db():
-    db_name = f"knora_test_id_{uuid.uuid4().hex[:12]}"
-    admin_url = "postgresql+psycopg://knora:knora@127.0.0.1:5432/postgres?connect_timeout=3"
-    admin_engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
-    with admin_engine.connect() as conn:
-        conn.execute(text(f'CREATE DATABASE "{db_name}" OWNER knora;'))
+    assert settings.database_url, "KNORA_DATABASE_URL must be configured"
+    base_url = make_url(settings.database_url)
+    assert base_url.get_backend_name() == "postgresql", "Test database must be PostgreSQL"
 
-    target_url = f"postgresql+psycopg://knora:knora@127.0.0.1:5432/{db_name}?connect_timeout=3"
+    db_name = f"knora_test_id_{uuid.uuid4().hex[:12]}"
+    assert db_name.startswith("knora_test_"), "Disposable database must have knora_test_ prefix"
+
+    admin_url = base_url.set(database="postgres")
+    admin_engine = create_engine(admin_url, isolation_level="AUTOCOMMIT")
+
+    # Verify admin connection before running DDL
+    with admin_engine.connect() as conn:
+        conn.execute(text(f'CREATE DATABASE "{db_name}"'))
+
+    target_url = base_url.set(database=db_name)
     engine = create_engine(target_url, pool_pre_ping=True)
 
-    with engine.connect() as conn:
-        conn.execute(
-            text("""
-            CREATE TABLE identity_access (
-                issuer VARCHAR(500) NOT NULL,
-                subject VARCHAR(255) NOT NULL,
-                capabilities JSONB NOT NULL,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                CONSTRAINT pk_identity_access PRIMARY KEY (issuer, subject)
-            );
-            ALTER TABLE identity_access ENABLE ROW LEVEL SECURITY;
-        """)
-        )
-        conn.commit()
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                text("""
+                CREATE TABLE identity_access (
+                    issuer VARCHAR(500) NOT NULL,
+                    subject VARCHAR(255) NOT NULL,
+                    capabilities JSONB NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+                    CONSTRAINT pk_identity_access PRIMARY KEY (issuer, subject)
+                );
+                ALTER TABLE identity_access ENABLE ROW LEVEL SECURITY;
+            """)
+            )
+            conn.commit()
 
-    yield engine
-
-    engine.dispose()
-    with admin_engine.connect() as conn:
-        conn.execute(
-            text(f"""
-            SELECT pg_terminate_backend(pid) FROM pg_stat_activity 
-            WHERE datname = '{db_name}' AND pid <> pg_backend_pid();
-        """)
-        )
-        conn.execute(text(f'DROP DATABASE IF EXISTS "{db_name}";'))
-    admin_engine.dispose()
+        yield engine
+    finally:
+        engine.dispose()
+        # Clean up only disposable DB owned by this test run
+        if db_name.startswith("knora_test_"):
+            with admin_engine.connect() as conn:
+                conn.execute(
+                    text(
+                        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+                        "WHERE datname = :name AND pid <> pg_backend_pid()"
+                    ),
+                    {"name": db_name},
+                )
+                conn.execute(text(f'DROP DATABASE IF EXISTS "{db_name}"'))
+        admin_engine.dispose()
 
 
 @pytest.fixture
@@ -130,9 +144,12 @@ def test_concurrent_enrollments_create_one_row(session_factory, connection):
 def test_db_error_raises_auth_provider_unavailable():
     from knora.domain.errors import KnoraError
 
-    broken_engine = create_engine(
-        "postgresql+psycopg://knora:wrong_password@127.0.0.1:5432/nonexistent?connect_timeout=1"
+    broken_url = make_url(settings.database_url).set(
+        password="wrong_password",
+        database="nonexistent_db_12345",
+        query={"connect_timeout": "1"},
     )
+    broken_engine = create_engine(broken_url)
     broken_factory = sessionmaker(bind=broken_engine)
     broken_store = PostgresIdentityAccessStore(broken_factory)
     with pytest.raises(KnoraError) as exc:
