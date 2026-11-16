@@ -7,7 +7,7 @@ from collections.abc import Callable, Mapping
 
 import jwt
 
-from knora.access.identity import Identity
+from knora.access.identity import BearerIdentityAuthenticator, Identity
 from knora.domain.access import WorkspacePrincipal
 from knora.domain.errors import KnoraError
 
@@ -26,7 +26,7 @@ def _payload(token: str) -> Mapping[str, object]:
         raise KnoraError("UNAUTHENTICATED") from exc
 
 
-class KeycloakAuthenticator:
+class KeycloakAuthenticator(BearerIdentityAuthenticator):
     """Validate bounded Keycloak claims and map them to a workspace principal.
 
     Cryptographic JWT/JWKS verification is supplied by the required ``token_validator``

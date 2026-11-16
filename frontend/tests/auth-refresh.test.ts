@@ -330,4 +330,307 @@ describe("server session renewal", () => {
     expect(await getSession(true)).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
   });
+  it("does not refresh Supabase session when sessionExpiresAt has passed", async () => {
+    vi.stubEnv("KNORA_AUTH_PROVIDER", "supabase");
+    state.cookie = await encodeSession({
+      provider: "supabase",
+      subject: "alice",
+      accessToken: "old",
+      refreshToken: "expired",
+      expiresAt: 1,
+      sessionExpiresAt: 2,
+      workspaceIds: [],
+      capabilities: [],
+    });
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await getSession(false)).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("preserves cookie and throws SESSION_REFRESH_UNAVAILABLE on transient Supabase refresh failure (429/503/network)", async () => {
+    vi.stubEnv("KNORA_AUTH_PROVIDER", "supabase");
+    vi.stubEnv("SUPABASE_URL", "https://auth.example.test");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "test-key");
+    const now = Math.floor(Date.now() / 1000);
+    state.cookie = await encodeSession({
+      provider: "supabase",
+      subject: "alice",
+      accessToken: "expired-access",
+      refreshToken: "active-refresh",
+      expiresAt: now - 1,
+      sessionExpiresAt: now + 8 * 3600,
+      workspaceIds: [],
+      capabilities: [],
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: "rate limit" }), {
+          status: 429,
+        }),
+      ),
+    );
+
+    await expect(getSession(true)).rejects.toThrow(
+      "SESSION_REFRESH_UNAVAILABLE",
+    );
+    expect(state.set).not.toHaveBeenCalled();
+  });
+
+  it("clears cookie when Supabase refresh returns definitive invalid_grant (400)", async () => {
+    vi.stubEnv("KNORA_AUTH_PROVIDER", "supabase");
+    vi.stubEnv("SUPABASE_URL", "https://auth.example.test");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "test-key");
+    const now = Math.floor(Date.now() / 1000);
+    state.cookie = await encodeSession({
+      provider: "supabase",
+      subject: "alice",
+      accessToken: "expired-access",
+      refreshToken: "revoked-refresh",
+      expiresAt: now - 1,
+      sessionExpiresAt: now + 8 * 3600,
+      workspaceIds: [],
+      capabilities: [],
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: "invalid_grant" }), {
+          status: 400,
+        }),
+      ),
+    );
+
+    const result = await getSession(true);
+    expect(result).toBeNull();
+    expect(state.set).toHaveBeenCalledOnce();
+    const [cookieName, , cookieOpts] = state.set.mock.calls[0];
+    expect(cookieName).toBe("knora_session");
+    expect(cookieOpts.maxAge).toBe(0);
+  });
+
+  it("preserves cookie and throws SESSION_REFRESH_UNAVAILABLE when Supabase refresh returns 400 validation_failed", async () => {
+    vi.stubEnv("KNORA_AUTH_PROVIDER", "supabase");
+    vi.stubEnv("SUPABASE_URL", "https://auth.example.test");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "test-key");
+    const now = Math.floor(Date.now() / 1000);
+    state.cookie = await encodeSession({
+      provider: "supabase",
+      subject: "alice",
+      accessToken: "expired-access",
+      refreshToken: "active-refresh",
+      expiresAt: now - 1,
+      sessionExpiresAt: now + 8 * 3600,
+      workspaceIds: [],
+      capabilities: [],
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            error: "validation_failed",
+            msg: "Request body validation failed",
+          }),
+          {
+            status: 400,
+          },
+        ),
+      ),
+    );
+
+    await expect(getSession(true)).rejects.toThrow(
+      "SESSION_REFRESH_UNAVAILABLE",
+    );
+    expect(state.set).not.toHaveBeenCalled();
+  });
+
+  it("preserves cookie and throws SESSION_REFRESH_UNAVAILABLE when Supabase refresh returns 404", async () => {
+    vi.stubEnv("KNORA_AUTH_PROVIDER", "supabase");
+    vi.stubEnv("SUPABASE_URL", "https://auth.example.test");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "test-key");
+    const now = Math.floor(Date.now() / 1000);
+    state.cookie = await encodeSession({
+      provider: "supabase",
+      subject: "alice",
+      accessToken: "expired-access",
+      refreshToken: "active-refresh",
+      expiresAt: now - 1,
+      sessionExpiresAt: now + 8 * 3600,
+      workspaceIds: [],
+      capabilities: [],
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response("Not Found", { status: 404 })),
+    );
+
+    await expect(getSession(true)).rejects.toThrow(
+      "SESSION_REFRESH_UNAVAILABLE",
+    );
+    expect(state.set).not.toHaveBeenCalled();
+  });
+
+  it("preserves cookie and throws SESSION_REFRESH_UNAVAILABLE on protocol error (malformed JSON)", async () => {
+    vi.stubEnv("KNORA_AUTH_PROVIDER", "supabase");
+    vi.stubEnv("SUPABASE_URL", "https://auth.example.test");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "test-key");
+    const now = Math.floor(Date.now() / 1000);
+    state.cookie = await encodeSession({
+      provider: "supabase",
+      subject: "alice",
+      accessToken: "expired-access",
+      refreshToken: "active-refresh",
+      expiresAt: now - 1,
+      sessionExpiresAt: now + 8 * 3600,
+      workspaceIds: [],
+      capabilities: [],
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response("invalid json response from proxy", {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }),
+      ),
+    );
+
+    await expect(getSession(true)).rejects.toThrow(
+      "SESSION_REFRESH_UNAVAILABLE",
+    );
+    expect(state.set).not.toHaveBeenCalled();
+  });
+
+  it("preserves cookie and throws SESSION_REFRESH_UNAVAILABLE when refresh response is missing refresh_token", async () => {
+    vi.stubEnv("KNORA_AUTH_PROVIDER", "supabase");
+    vi.stubEnv("SUPABASE_URL", "https://auth.example.test");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "test-key");
+    const now = Math.floor(Date.now() / 1000);
+    state.cookie = await encodeSession({
+      provider: "supabase",
+      subject: "alice",
+      accessToken: "expired-access",
+      refreshToken: "active-refresh",
+      expiresAt: now - 1,
+      sessionExpiresAt: now + 8 * 3600,
+      workspaceIds: [],
+      capabilities: [],
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            access_token: "new-access-token",
+            // Missing refresh_token!
+            token_type: "bearer",
+            expires_in: 3600,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        ),
+      ),
+    );
+
+    await expect(getSession(true)).rejects.toThrow(
+      "SESSION_REFRESH_UNAVAILABLE",
+    );
+    expect(state.set).not.toHaveBeenCalled();
+  });
+
+  it("preserves cookie and throws SESSION_REFRESH_UNAVAILABLE when JWKS endpoint returns empty keys", async () => {
+    vi.stubEnv("KNORA_AUTH_PROVIDER", "supabase");
+    vi.stubEnv("SUPABASE_URL", "https://auth.example.test");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "test-key");
+    const now = Math.floor(Date.now() / 1000);
+    state.cookie = await encodeSession({
+      provider: "supabase",
+      subject: "alice",
+      accessToken: "expired-access",
+      refreshToken: "active-refresh",
+      expiresAt: now - 1,
+      sessionExpiresAt: now + 8 * 3600,
+      workspaceIds: [],
+      capabilities: [],
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/.well-known/jwks.json")) {
+        return Response.json({ keys: [] }); // Empty keys!
+      }
+      if (url.endsWith("/auth/v1/token?grant_type=refresh_token")) {
+        return Response.json({
+          access_token: "new-access",
+          refresh_token: "new-refresh",
+          expires_in: 3600,
+        });
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getSession(true)).rejects.toThrow(
+      "SESSION_REFRESH_UNAVAILABLE",
+    );
+    expect(state.set).not.toHaveBeenCalled();
+  });
+
+  it("preserves cookie and throws SESSION_REFRESH_UNAVAILABLE when backend session check returns 404", async () => {
+    const { _resetJwksCache } = await import("@/lib/auth/supabase");
+    _resetJwksCache();
+    vi.stubEnv("KNORA_AUTH_PROVIDER", "supabase");
+    vi.stubEnv("SUPABASE_URL", "https://auth.example.test");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "test-key");
+    vi.stubEnv("SUPABASE_JWT_ALGORITHM", "RS256");
+    const now = Math.floor(Date.now() / 1000);
+    const validToken = await new SignJWT({
+      role: "authenticated",
+      is_anonymous: false,
+      session_id: "sess-1",
+    })
+      .setProtectedHeader({ alg: "RS256", kid: "test" })
+      .setIssuer("https://auth.example.test/auth/v1")
+      .setAudience("authenticated")
+      .setSubject("alice")
+      .setIssuedAt(now)
+      .setExpirationTime(now + 3600)
+      .sign(privateKey);
+
+    state.cookie = await encodeSession({
+      provider: "supabase",
+      subject: "alice",
+      accessToken: "expired-access",
+      refreshToken: "active-refresh",
+      expiresAt: now - 1,
+      sessionExpiresAt: now + 8 * 3600,
+      workspaceIds: [],
+      capabilities: [],
+    });
+
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith("/.well-known/jwks.json")) {
+        return Response.json(state.keys);
+      }
+      if (url.endsWith("/auth/v1/token?grant_type=refresh_token")) {
+        return Response.json({
+          access_token: validToken,
+          refresh_token: "new-refresh",
+          expires_in: 3600,
+        });
+      }
+      if (url.endsWith("/v1/auth/session")) {
+        return new Response("Not Found", { status: 404 });
+      }
+      throw new Error(`Unexpected URL: ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getSession(true)).rejects.toThrow(
+      "SESSION_REFRESH_UNAVAILABLE",
+    );
+    expect(state.set).not.toHaveBeenCalled();
+    _resetJwksCache();
+  });
 });

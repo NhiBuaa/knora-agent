@@ -30,10 +30,10 @@ locations are reported in the PR; this table is not a full release-profile quali
 
 ### Sub-features
 
-Native Keycloak sign-in, invalid-credential correction, registration, sign-out, forced
-reauthentication, session renewal/expiry and password recovery. Application entrypoints:
-`frontend/app/api/auth/{login,callback,session,logout}/route.ts`; native presentation:
-`themes/knora/login`; session authority: `frontend/lib/auth/session.ts`.
+Authentication supports two providers (`KNORA_AUTH_PROVIDER=supabase` or `keycloak`):
+1. **Supabase Auth** (Recommended for public demo): Next.js BFF routes `/api/auth/{login,register,logout,recovery/*}` with React-rendered branded auth views (`/auth/{login,register,forgot-password,reset-code,new-password}`), email OTP password recovery, asymmetric JWT verification (ES256/RS256), active session checks against `auth.sessions`, and Knora-owned capability storage in `knora_identity_access`.
+2. **Keycloak** (Compatibility path): Native Keycloak sign-in, registration, sign-out, session renewal/expiry and password recovery via `themes/knora/login`.
+Application entrypoints: `frontend/app/api/auth/{login,callback,session,logout,register,recovery/*}/route.ts`; session authority: `frontend/lib/auth/session.ts`.
 
 ### How to get to it (user POV)
 

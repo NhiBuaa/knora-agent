@@ -71,3 +71,42 @@ def test_authorizer_fails_closed_when_workspace_has_no_owner():
             "workspace-a",
             "documents:read",
         )
+
+
+def test_supabase_identity_works_with_workspace_authorizer():
+    from knora.access.supabase import SupabaseAuthenticator
+
+    class FakeStore:
+        def get_or_create_baseline(self, issuer: str, subject: str) -> tuple[str, ...]:
+            return ("documents:read", "documents:write", "questions:ask")
+
+    class FakeSession:
+        def is_active(self, subject: str, session_id: str) -> bool:
+            return True
+
+    auth = SupabaseAuthenticator(
+        issuer="https://demo.supabase.co/auth/v1",
+        audience="authenticated",
+        algorithm="ES256",
+        token_validator=lambda _token: {
+            "iss": "https://demo.supabase.co/auth/v1",
+            "aud": "authenticated",
+            "exp": time.time() + 60,
+            "sub": "alice",
+            "session_id": "sess-1",
+            "role": "authenticated",
+        },
+        access_store=FakeStore(),
+        session_reader=FakeSession(),
+    )
+    identity = auth.authenticate_identity("Bearer token")
+    assert identity.subject == "alice"
+    assert identity.issuer == "https://demo.supabase.co/auth/v1"
+
+    store = FakeOwnershipStore(
+        {"workspace-a": Identity("https://demo.supabase.co/auth/v1", "alice", ())}
+    )
+    authorizer = WorkspaceAuthorizer(store)
+    principal = authorizer.authorize(identity, "workspace-a", "documents:read")
+    assert principal.workspace_id == "workspace-a"
+    assert principal.subject == "alice"

@@ -6,19 +6,23 @@ proposals.
 
 ## Standalone identity and ownership
 
-Keycloak authenticates a user's validated issuer and subject. Knora persists private Workspace
-ownership in its own database using that issuer/subject identity; bearer Workspace claims and
-browser hints are not ownership authority. KittaChat retains its separate conversations/messages
-bounded context and database, while Knora owns standalone Workspaces and Conversations.
+Authentication is handled through an authorized identity provider (Keycloak or Supabase Auth,
+configured via `KNORA_AUTH_PROVIDER`). The provider authenticates a user's validated issuer and subject.
+Knora persists private Workspace ownership in its own database using that issuer/subject identity;
+bearer Workspace claims and browser hints are not ownership authority. KittaChat retains its separate
+conversations/messages bounded context and database, while Knora owns standalone Workspaces and Conversations.
 
 Knora self-registration assigns the fixed baseline capabilities `documents:read`,
-`documents:write` and `questions:ask` through a server-side Keycloak registration listener.
+`documents:write` and `questions:ask` (via a Keycloak registration listener in Keycloak mode,
+or via Knora's `knora_identity_access` table in Supabase mode).
 Workspace ownership is still created and checked by Knora's database; registration never grants
 admin or cross-workspace access, and client-submitted capability values are ignored.
 
 Forgot Password changes credentials for the existing identity. It preserves the current capability
 set and persisted Workspace ownership; recovery does not grant the registration baseline or restore
-revoked capabilities. A fresh sign-in resolves authorization from current validated claims.
+revoked capabilities. The OTP custody boundary is strictly defined: the browser and BFF transiently
+handle recovery input, while the identity provider owns OTP generation, verification, and revocation.
+A fresh sign-in resolves authorization from current validated claims.
 
 Email OTP uses `KNORA_OTP_HMAC_KEY` only when `KNORA_OTP_LOCAL_DEV_ENABLED=true` is explicitly
 set for local development. The ignored `.env` holds the canonical Base64 secret (at least 32

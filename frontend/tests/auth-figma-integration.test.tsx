@@ -1,5 +1,5 @@
 import React from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   cleanup,
   fireEvent,
@@ -9,6 +9,14 @@ import {
 } from "@testing-library/react";
 import { AccountMenu } from "@/components/shell/AccountMenu";
 import { panelPreferenceKey } from "@/lib/conversations/panel-preferences";
+
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({
+    push: vi.fn(),
+    replace: vi.fn(),
+    refresh: vi.fn(),
+  }),
+}));
 
 afterEach(() => {
   cleanup();
@@ -35,6 +43,27 @@ describe("public authentication outcomes", () => {
         "/api/auth/login",
       );
       expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+      expect(
+        screen
+          .getByRole("complementary", { name: "Knora" })
+          .querySelector("img"),
+      ).toHaveAttribute("src", "/brand/knora-leaf.svg");
+    },
+  );
+
+  it.each([
+    ["login", "Sign in to Knora", () => import("@/app/auth/login/page")],
+    [
+      "register",
+      "Create your Knora account",
+      () => import("@/app/auth/register/page"),
+    ],
+  ])(
+    "renders branded %s page with Knora brand panel and form",
+    async (_, title, load) => {
+      const Page = (await load()).default;
+      render(<Page />);
+      expect(screen.getByRole("heading", { name: title })).toBeVisible();
       expect(
         screen
           .getByRole("complementary", { name: "Knora" })

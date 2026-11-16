@@ -18,7 +18,7 @@ from sqlalchemy import (
     func,
     text,
 )
-from sqlalchemy.dialects.postgresql import TSVECTOR
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 
 from knora.adapters.postgres.database import Base
@@ -1047,3 +1047,12 @@ class LexicalHeadTable(Base):
     active_generation_id: Mapped[str | None] = mapped_column(
         ForeignKey("lexical_generations.id", ondelete="RESTRICT"), nullable=True
     )
+
+
+class IdentityAccessTable(Base):
+    __tablename__ = "identity_access"
+
+    issuer: Mapped[str] = mapped_column(String(500), primary_key=True)
+    subject: Mapped[str] = mapped_column(String(255), primary_key=True)
+    capabilities: Mapped[list] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

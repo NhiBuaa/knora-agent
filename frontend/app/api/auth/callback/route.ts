@@ -16,8 +16,12 @@ import {
   preferenceCookie,
   WORKSPACE_PREFERENCE_COOKIE,
 } from "@/lib/auth/workspace-preference";
+import { getAuthProvider } from "@/lib/auth/provider";
 
 export async function GET(request: Request) {
+  if (getAuthProvider() === "supabase") {
+    return NextResponse.redirect(new URL("/auth/login", request.url));
+  }
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
   const state = url.searchParams.get("state");

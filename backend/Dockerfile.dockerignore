@@ -76,6 +76,7 @@
 !backend/migrations/versions/20261021_0157_text_search_parent_link.py
 !backend/migrations/versions/20261022_0157_merge_evaluation_workbench_heads.py
 !backend/migrations/versions/20261022_0158_canonical_document_structure.py
+!backend/migrations/versions/20261115_supabase_identity_access.py
 !backend/migrations/versions/4949b27855f4_conversation_turn_runtime.py
 !backend/migrations/versions/e032cc86f4ca_durable_conversations.py
 !backend/pyproject.toml
@@ -83,7 +84,9 @@
 !backend/src/knora/access/__init__.py
 !backend/src/knora/access/api_keys.py
 !backend/src/knora/access/identity.py
+!backend/src/knora/access/identity_access.py
 !backend/src/knora/access/keycloak.py
+!backend/src/knora/access/supabase.py
 !backend/src/knora/access/workspace_authorization.py
 !backend/src/knora/adapters/__init__.py
 !backend/src/knora/adapters/cli/__init__.py
@@ -95,6 +98,7 @@
 !backend/src/knora/adapters/execution/__init__.py
 !backend/src/knora/adapters/execution/thread_attempt_runner.py
 !backend/src/knora/adapters/http/__init__.py
+!backend/src/knora/adapters/http/auth.py
 !backend/src/knora/adapters/http/conversations.py
 !backend/src/knora/adapters/http/evaluation_catalog.py
 !backend/src/knora/adapters/http/evaluation_datasets.py
@@ -129,6 +133,7 @@
 !backend/src/knora/adapters/postgres/evaluation_reader.py
 !backend/src/knora/adapters/postgres/evaluation_runs.py
 !backend/src/knora/adapters/postgres/evaluation_runs_tables.py
+!backend/src/knora/adapters/postgres/identity_access_store.py
 !backend/src/knora/adapters/postgres/ingestion_job_store.py
 !backend/src/knora/adapters/postgres/ingestion_jobs/__init__.py
 !backend/src/knora/adapters/postgres/ingestion_jobs/coordination.py
@@ -141,6 +146,7 @@
 !backend/src/knora/adapters/postgres/operator_reader.py
 !backend/src/knora/adapters/postgres/reembedding_store.py
 !backend/src/knora/adapters/postgres/search_index_store.py
+!backend/src/knora/adapters/postgres/supabase_session_reader.py
 !backend/src/knora/adapters/postgres/tables.py
 !backend/src/knora/adapters/postgres/tool_action_store.py
 !backend/src/knora/adapters/postgres/tool_execution_store.py

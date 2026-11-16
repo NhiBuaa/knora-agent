@@ -147,3 +147,41 @@ def test_workspace_http_search_propagates_query_and_enforces_length():
         "/v1/workspaces", params={"q": "x" * 201}, headers={"Authorization": "Bearer token"}
     )
     assert too_long.status_code == 422
+
+
+def test_workspace_routes_accept_supabase_bearer():
+    from knora.access.supabase import SupabaseAuthenticator
+
+    class FakeStore:
+        def get_or_create_baseline(self, issuer: str, subject: str) -> tuple[str, ...]:
+            return ("documents:read", "documents:write", "questions:ask")
+
+    class FakeSession:
+        def is_active(self, subject: str, session_id: str) -> bool:
+            return True
+
+    service = WorkspaceServiceFake()
+    auth = SupabaseAuthenticator(
+        issuer="https://demo.supabase.co/auth/v1",
+        audience="authenticated",
+        algorithm="ES256",
+        token_validator=lambda _token: {
+            "iss": "https://demo.supabase.co/auth/v1",
+            "aud": "authenticated",
+            "exp": time.time() + 60,
+            "sub": "supabase-user-1",
+            "session_id": "sess-1",
+            "role": "authenticated",
+        },
+        access_store=FakeStore(),
+        session_reader=FakeSession(),
+    )
+    app = create_app(
+        bearer_authenticator=auth,
+        workspace_service=service,
+    )
+    http = TestClient(app)
+    response = http.post("/v1/workspaces/resolve", headers={"Authorization": "Bearer token"})
+    assert response.status_code == 200
+    assert response.json()["workspace"]["name"] == "My Workspace"
+    assert service.owner == "supabase-user-1"

@@ -15,6 +15,14 @@ export function figmaTestSelection(
   mode: string | undefined,
   selected: string | undefined,
 ): FigmaTestSelection {
+  if (
+    selected === "supabase-auth" ||
+    process.env.KNORA_AUTH_PROVIDER === "supabase"
+  ) {
+    return {
+      testMatch: "supabase-auth.spec.ts",
+    };
+  }
   if (mode && !["fixture", "application"].includes(mode))
     throw new Error("Unknown Figma test mode.");
   if (selected) {

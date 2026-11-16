@@ -53,6 +53,20 @@ describe("safe browser callback failures", () => {
   beforeEach(() => vi.clearAllMocks());
   afterEach(() => vi.unstubAllEnvs());
 
+  it("rejects OIDC callbacks in Supabase mode", async () => {
+    vi.stubEnv("KNORA_AUTH_PROVIDER", "supabase");
+    const response = await GET(
+      new Request(
+        "https://app.example/api/auth/callback?code=one-time-code&state=valid-state",
+      ),
+    );
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe(
+      "https://app.example/auth/login",
+    );
+    expect(exchangeCode).not.toHaveBeenCalled();
+  });
+
   it("returns failures to the configured public callback origin behind a proxy", async () => {
     vi.stubEnv(
       "KEYCLOAK_REDIRECT_URI",

@@ -31,7 +31,7 @@
 
 /* Defaults for legacy domain pages; shared navigation and overlays own their layout. */
 @layer components {
-  main:not(.workspace-shell-main) {
+  main:not(.workspace-shell-main):not(.knora-auth-frame) {
     max-width: 1200px;
     margin: 0 auto;
     padding: clamp(1rem, 4vw, 2rem);

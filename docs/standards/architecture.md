@@ -16,10 +16,15 @@ These rules are normative for Knora unless superseded by an approved Standard or
 
 - `/health` is public and returns only minimal service status. It must not expose dependency
   details, secrets, model configuration or stack traces; debug endpoints are disabled by default.
-- Every Workspace endpoint requires either a validated Keycloak bearer token or `X-API-Key`.
-- Keycloak bearer identity is validated by issuer and subject. Knora database ownership is the
+- Every Workspace endpoint requires either a validated bearer identity token (from Keycloak or Supabase depending on `KNORA_AUTH_PROVIDER`) or `X-API-Key`.
+- Bearer identity is validated by issuer and subject via `BearerIdentityAuthenticator`. Knora database ownership is the
   authority for private Workspace access; a bearer Workspace claim is only an untrusted request
-  hint and never grants ownership.
+  hint and never grants ownership. In Supabase mode, identity capabilities are stored and managed
+  in Knora's `knora_identity_access` table with fixed baseline capabilities (`documents:read`,
+  `documents:write`, `questions:ask`).
+- OTP recovery custody boundary: the browser and BFF transiently handle recovery email and code input;
+  the authentication provider (Supabase Auth in Supabase mode, or Keycloak in Keycloak mode) owns OTP
+  storage, generation, throttling and verification.
   Bearer authentication is the browser/BFF path; `X-API-Key` remains supported for CLI, legacy
   clients and non-OIDC integrations.
 - Workspace endpoints must execute authorization in this order:

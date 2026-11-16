@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from decimal import Decimal
 
-from pydantic import SecretStr
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -63,10 +63,16 @@ class Settings(BaseSettings):
     lexical_qdrant_collection: str | None = "knora"
     lexical_qdrant_api_key: SecretStr | None = None
     api_credentials_json: str = "[]"
+    auth_provider: str = "keycloak"
     keycloak_issuer: str | None = None
     keycloak_audience: str | None = None
     keycloak_jwks_url: str | None = None
     keycloak_jwks_cache_ttl_seconds: int = 300
+    supabase_issuer: str | None = None
+    supabase_audience: str = "authenticated"
+    supabase_jwks_url: str | None = None
+    supabase_jwt_algorithm: str | None = None
+    supabase_jwks_cache_ttl_seconds: int = 300
     m5_e2e_faults_enabled: bool = False
     provider_mode: str = "deterministic-local"
     embedding_provider: str | None = None
@@ -104,6 +110,26 @@ class Settings(BaseSettings):
     # The root .env is shared by backend, frontend and local launchers. Ignore entries
     # owned by another process while keeping Knora settings typed and explicit here.
     model_config = SettingsConfigDict(env_file=".env", env_prefix="KNORA_", extra="ignore")
+
+    @model_validator(mode="after")
+    def validate_auth_provider(self) -> "Settings":
+        if self.auth_provider == "supabase":
+            if (
+                not self.supabase_issuer
+                or not self.supabase_audience
+                or not self.supabase_jwks_url
+                or not self.supabase_jwt_algorithm
+            ):
+                raise ValueError(
+                    "Incomplete Supabase configuration. Required: KNORA_SUPABASE_ISSUER, "
+                    "KNORA_SUPABASE_AUDIENCE, KNORA_SUPABASE_JWKS_URL, KNORA_SUPABASE_JWT_ALGORITHM"
+                )
+            if self.supabase_jwt_algorithm not in {"ES256", "RS256"}:
+                raise ValueError(
+                    "KNORA_SUPABASE_JWT_ALGORITHM must be ES256 or RS256, "
+                    f"got {self.supabase_jwt_algorithm}"
+                )
+        return self
 
     @property
     def object_store_settings(self) -> ObjectStoreSettings:
