@@ -30,7 +30,9 @@ test.describe("Supabase Auth Public Journeys", () => {
 
     await page.getByLabel("Email").fill("testuser@example.test");
     await page.getByLabel("Password", { exact: true }).fill("Password123!");
-    await page.getByLabel("Confirm password").fill("DifferentPassword");
+    await page
+      .getByLabel("Confirm password", { exact: true })
+      .fill("DifferentPassword");
     await page.getByRole("button", { name: "Create account" }).click();
 
     await expect(page.locator(".knora-notice[role='alert']")).toContainText(
@@ -48,7 +50,9 @@ test.describe("Supabase Auth Public Journeys", () => {
 
     await page.getByLabel("Email").fill("newuser@example.test");
     await page.getByLabel("Password", { exact: true }).fill("Password123!");
-    await page.getByLabel("Confirm password").fill("Password123!");
+    await page
+      .getByLabel("Confirm password", { exact: true })
+      .fill("Password123!");
     await page.getByRole("button", { name: "Create account" }).click();
 
     await expect(page).toHaveURL(/\/workspaces/);

@@ -30,6 +30,7 @@ const mockWorkspaces = [
   {
     id: "ws-default-workspace",
     name: "Default Workspace",
+    owner_id: testSubject,
     archived: false,
     created_at: new Date().toISOString(),
     revision: 1,
@@ -105,6 +106,18 @@ const server = http.createServer(async (req, res) => {
     url.pathname === "/fixture-stats/reset"
   ) {
     refreshCallCount = 0;
+    mockWorkspaces.length = 0;
+    mockWorkspaces.push({
+      id: "ws-default-workspace",
+      name: "Default Workspace",
+      owner_id: testSubject,
+      archived: false,
+      created_at: new Date().toISOString(),
+      revision: 1,
+    });
+    mockDocumentsMap.clear();
+    mockConversationsMap.clear();
+    mockTurnsMap.clear();
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ status: "ok", count: 0 }));
     return;
@@ -320,13 +333,13 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  // Backend Session Route (/v1/auth/session)
-  if (url.pathname === "/v1/auth/session") {
+  // Central Auth Guard Helper for resource endpoints
+  async function authenticateRequest() {
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith("Bearer ")) {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: { code: "UNAUTHENTICATED" } }));
-      return;
+      return null;
     }
     const token = authHeader.slice(7);
     try {
@@ -335,52 +348,82 @@ const server = http.createServer(async (req, res) => {
         audience: AUDIENCE,
       });
       const sid = payload.session_id;
-      const sess = activeSessions.get(sid);
-      if (sess && sess.revoked) {
-        res.writeHead(401, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ error: { code: "UNAUTHENTICATED" } }));
-        return;
+      if (sid && activeSessions.has(sid)) {
+        const sess = activeSessions.get(sid);
+        if (sess.revoked) {
+          res.writeHead(401, { "Content-Type": "application/json" });
+          res.end(JSON.stringify({ error: { code: "UNAUTHENTICATED" } }));
+          return null;
+        }
       }
-      res.writeHead(200, {
-        "Content-Type": "application/json",
-        "Cache-Control": "no-store",
-      });
-      res.end(
-        JSON.stringify({
-          issuer: ISSUER,
-          subject: payload.sub,
-          session_id: sid,
-          capabilities: ["documents:read", "documents:write", "questions:ask"],
-        }),
-      );
-      return;
+      return payload;
     } catch {
       res.writeHead(401, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: { code: "UNAUTHENTICATED" } }));
-      return;
+      return null;
     }
+  }
+
+  // Workspace Authorization Helper
+  function authorizeWorkspace(wsId, subject) {
+    const ws = mockWorkspaces.find((w) => w.id === wsId);
+    if (!ws) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: { code: "WORKSPACE_NOT_FOUND" } }));
+      return null;
+    }
+    if (ws.owner_id && ws.owner_id !== subject) {
+      res.writeHead(403, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: { code: "WORKSPACE_ACCESS_DENIED" } }));
+      return null;
+    }
+    return ws;
+  }
+
+  // Backend Session Route (/v1/auth/session)
+  if (url.pathname === "/v1/auth/session") {
+    const payload = await authenticateRequest();
+    if (!payload) return;
+    res.writeHead(200, {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+    });
+    res.end(
+      JSON.stringify({
+        issuer: ISSUER,
+        subject: payload.sub,
+        session_id: payload.session_id,
+        capabilities: ["documents:read", "documents:write", "questions:ask"],
+      }),
+    );
+    return;
   }
 
   // Knora Workspaces API (/v1/workspaces/resolve)
   if (url.pathname === "/v1/workspaces/resolve" && req.method === "POST") {
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith("Bearer ")) {
-      res.writeHead(401, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { code: "UNAUTHENTICATED" } }));
-      return;
-    }
-    const token = authHeader.slice(7);
-    try {
-      await jwtVerify(token, jwkSet, { issuer: ISSUER, audience: AUDIENCE });
-    } catch {
-      res.writeHead(401, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { code: "UNAUTHENTICATED" } }));
-      return;
-    }
+    const payload = await authenticateRequest();
+    if (!payload) return;
     const body = await readJson();
+
+    let userWorkspaces = mockWorkspaces.filter(
+      (w) => w.owner_id === payload.sub,
+    );
+    if (userWorkspaces.length === 0) {
+      const autoWs = {
+        id: `ws-${payload.sub.slice(0, 8)}`,
+        name: "Default Workspace",
+        owner_id: payload.sub,
+        archived: false,
+        created_at: new Date().toISOString(),
+        revision: 1,
+      };
+      mockWorkspaces.push(autoWs);
+      userWorkspaces = [autoWs];
+    }
+
     const targetWorkspace =
-      mockWorkspaces.find((w) => w.id === body.hint_id && !w.archived) ||
-      mockWorkspaces.find((w) => !w.archived) ||
+      userWorkspaces.find((w) => w.id === body.hint_id && !w.archived) ||
+      userWorkspaces.find((w) => !w.archived) ||
       null;
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(
@@ -394,24 +437,15 @@ const server = http.createServer(async (req, res) => {
 
   // Knora Workspaces List & Creation (/v1/workspaces)
   if (url.pathname === "/v1/workspaces") {
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith("Bearer ")) {
-      res.writeHead(401, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { code: "UNAUTHENTICATED" } }));
-      return;
-    }
-    const token = authHeader.slice(7);
-    try {
-      await jwtVerify(token, jwkSet, { issuer: ISSUER, audience: AUDIENCE });
-    } catch {
-      res.writeHead(401, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { code: "UNAUTHENTICATED" } }));
-      return;
-    }
+    const payload = await authenticateRequest();
+    if (!payload) return;
 
     if (req.method === "GET") {
+      const userWorkspaces = mockWorkspaces.filter(
+        (w) => w.owner_id === payload.sub,
+      );
       const archivedParam = url.searchParams.get("archived") === "true";
-      const filtered = mockWorkspaces.filter(
+      const filtered = userWorkspaces.filter(
         (w) => w.archived === archivedParam,
       );
       res.writeHead(200, { "Content-Type": "application/json" });
@@ -429,6 +463,7 @@ const server = http.createServer(async (req, res) => {
       const newWs = {
         id: `ws-${randomUUID().slice(0, 8)}`,
         name: name || "New Workspace",
+        owner_id: payload.sub,
         archived: false,
         created_at: new Date().toISOString(),
         revision: 1,
@@ -443,19 +478,11 @@ const server = http.createServer(async (req, res) => {
   // Knora Single Workspace (/v1/workspaces/:workspaceId)
   const singleWsMatch = url.pathname.match(/^\/v1\/workspaces\/([^/]+)$/);
   if (singleWsMatch && req.method === "GET") {
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith("Bearer ")) {
-      res.writeHead(401, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: { code: "UNAUTHENTICATED" } }));
-      return;
-    }
+    const payload = await authenticateRequest();
+    if (!payload) return;
     const wsId = decodeURIComponent(singleWsMatch[1]);
-    const ws = mockWorkspaces.find((w) => w.id === wsId);
-    if (!ws) {
-      res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Workspace not found" }));
-      return;
-    }
+    const ws = authorizeWorkspace(wsId, payload.sub);
+    if (!ws) return;
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify(ws));
     return;
@@ -466,7 +493,12 @@ const server = http.createServer(async (req, res) => {
     /^\/v1\/workspaces\/([^/]+)\/conversations$/,
   );
   if (convMatch) {
+    const payload = await authenticateRequest();
+    if (!payload) return;
     const wsId = decodeURIComponent(convMatch[1]);
+    const ws = authorizeWorkspace(wsId, payload.sub);
+    if (!ws) return;
+
     if (!mockConversationsMap.has(wsId)) {
       mockConversationsMap.set(wsId, []);
     }
@@ -503,9 +535,15 @@ const server = http.createServer(async (req, res) => {
     /^\/v1\/workspaces\/([^/]+)\/conversations\/([^/]+)(?:\/(archive|restore))?$/,
   );
   if (singleConvMatch && !url.pathname.includes("/turns")) {
+    const payload = await authenticateRequest();
+    if (!payload) return;
     const wsId = decodeURIComponent(singleConvMatch[1]);
     const convId = decodeURIComponent(singleConvMatch[2]);
     const action = singleConvMatch[3];
+
+    const ws = authorizeWorkspace(wsId, payload.sub);
+    if (!ws) return;
+
     if (!mockConversationsMap.has(wsId)) {
       mockConversationsMap.set(wsId, []);
     }
@@ -543,8 +581,14 @@ const server = http.createServer(async (req, res) => {
     /^\/v1\/workspaces\/([^/]+)\/conversations\/([^/]+)\/turns$/,
   );
   if (turnsMatch) {
+    const payload = await authenticateRequest();
+    if (!payload) return;
     const wsId = decodeURIComponent(turnsMatch[1]);
     const convId = decodeURIComponent(turnsMatch[2]);
+
+    const ws = authorizeWorkspace(wsId, payload.sub);
+    if (!ws) return;
+
     if (!mockTurnsMap.has(convId)) {
       mockTurnsMap.set(convId, []);
     }
@@ -640,13 +684,20 @@ const server = http.createServer(async (req, res) => {
     /^\/v1\/workspaces\/([^/]+)\/conversations\/([^/]+)\/turns\/([^/]+)$/,
   );
   if (singleTurnMatch && req.method === "GET") {
+    const payload = await authenticateRequest();
+    if (!payload) return;
+    const wsId = decodeURIComponent(singleTurnMatch[1]);
     const convId = decodeURIComponent(singleTurnMatch[2]);
     const turnId = decodeURIComponent(singleTurnMatch[3]);
+
+    const ws = authorizeWorkspace(wsId, payload.sub);
+    if (!ws) return;
+
     const turns = mockTurnsMap.get(convId) || [];
     const turn = turns.find((t) => t.id === turnId);
     if (!turn) {
       res.writeHead(404, { "Content-Type": "application/json" });
-      res.end(JSON.stringify({ error: "Turn not found" }));
+      res.end(JSON.stringify({ error: { code: "TURN_NOT_FOUND" } }));
       return;
     }
     res.writeHead(200, { "Content-Type": "application/json" });
@@ -656,7 +707,12 @@ const server = http.createServer(async (req, res) => {
 
   const docMatch = url.pathname.match(/^\/v1\/workspaces\/([^/]+)\/documents$/);
   if (docMatch) {
+    const payload = await authenticateRequest();
+    if (!payload) return;
     const wsId = decodeURIComponent(docMatch[1]);
+    const ws = authorizeWorkspace(wsId, payload.sub);
+    if (!ws) return;
+
     if (!mockDocumentsMap.has(wsId)) {
       mockDocumentsMap.set(wsId, []);
     }
@@ -719,6 +775,12 @@ const server = http.createServer(async (req, res) => {
     /^\/v1\/workspaces\/([^/]+)\/ingestion-jobs\/([^/]+)$/,
   );
   if (jobMatch && req.method === "GET") {
+    const payload = await authenticateRequest();
+    if (!payload) return;
+    const wsId = decodeURIComponent(jobMatch[1]);
+    const ws = authorizeWorkspace(wsId, payload.sub);
+    if (!ws) return;
+
     const jobId = jobMatch[2];
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(
@@ -737,9 +799,15 @@ const server = http.createServer(async (req, res) => {
     /^\/v1\/workspaces\/([^/]+)\/documents\/([^/]+)(?:\/(archive|unarchive))?$/,
   );
   if (singleDocMatch) {
+    const payload = await authenticateRequest();
+    if (!payload) return;
     const wsId = decodeURIComponent(singleDocMatch[1]);
     const docId = decodeURIComponent(singleDocMatch[2]);
     const action = singleDocMatch[3];
+
+    const ws = authorizeWorkspace(wsId, payload.sub);
+    if (!ws) return;
+
     const docs = mockDocumentsMap.get(wsId) || [];
     let doc = docs.find((d) => d.document_id === docId);
     if (!doc) {
