@@ -36,6 +36,8 @@ const mockWorkspaces = [
   },
 ];
 const mockDocumentsMap = new Map();
+const mockConversationsMap = new Map();
+const mockTurnsMap = new Map();
 
 async function createToken(subject, sessionId, expiresIn = 3600) {
   const now = Math.floor(Date.now() / 1000);
@@ -463,9 +465,192 @@ const server = http.createServer(async (req, res) => {
   const convMatch = url.pathname.match(
     /^\/v1\/workspaces\/([^/]+)\/conversations$/,
   );
-  if (convMatch && req.method === "GET") {
+  if (convMatch) {
+    const wsId = decodeURIComponent(convMatch[1]);
+    if (!mockConversationsMap.has(wsId)) {
+      mockConversationsMap.set(wsId, []);
+    }
+    const convs = mockConversationsMap.get(wsId);
+
+    if (req.method === "GET") {
+      const archivedParam = url.searchParams.get("archived") === "true";
+      const filtered = convs.filter((c) => c.archived === archivedParam);
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ items: filtered, next_cursor: null }));
+      return;
+    }
+
+    if (req.method === "POST") {
+      const convId = `conv-${randomUUID().slice(0, 8)}`;
+      const newConv = {
+        id: convId,
+        workspace_id: wsId,
+        title: "New conversation",
+        title_source: "default",
+        archived: false,
+        revision: 1,
+        updated_at: new Date().toISOString(),
+      };
+      convs.unshift(newConv);
+      res.writeHead(201, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(newConv));
+      return;
+    }
+  }
+
+  // Single conversation (/v1/workspaces/:workspaceId/conversations/:conversationId)
+  const singleConvMatch = url.pathname.match(
+    /^\/v1\/workspaces\/([^/]+)\/conversations\/([^/]+)(?:\/(archive|restore))?$/,
+  );
+  if (singleConvMatch && !url.pathname.includes("/turns")) {
+    const wsId = decodeURIComponent(singleConvMatch[1]);
+    const convId = decodeURIComponent(singleConvMatch[2]);
+    const action = singleConvMatch[3];
+    if (!mockConversationsMap.has(wsId)) {
+      mockConversationsMap.set(wsId, []);
+    }
+    const convs = mockConversationsMap.get(wsId);
+    let conv = convs.find((c) => c.id === convId);
+    if (!conv) {
+      conv = {
+        id: convId,
+        workspace_id: wsId,
+        title: "New conversation",
+        title_source: "default",
+        archived: false,
+        revision: 1,
+        updated_at: new Date().toISOString(),
+      };
+      convs.unshift(conv);
+    }
+    if (action === "archive") {
+      conv.archived = true;
+      conv.revision++;
+      conv.updated_at = new Date().toISOString();
+    }
+    if (action === "restore") {
+      conv.archived = false;
+      conv.revision++;
+      conv.updated_at = new Date().toISOString();
+    }
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ items: [], next_cursor: null }));
+    res.end(JSON.stringify(conv));
+    return;
+  }
+
+  // Conversation Turns (/v1/workspaces/:workspaceId/conversations/:conversationId/turns)
+  const turnsMatch = url.pathname.match(
+    /^\/v1\/workspaces\/([^/]+)\/conversations\/([^/]+)\/turns$/,
+  );
+  if (turnsMatch) {
+    const wsId = decodeURIComponent(turnsMatch[1]);
+    const convId = decodeURIComponent(turnsMatch[2]);
+    if (!mockTurnsMap.has(convId)) {
+      mockTurnsMap.set(convId, []);
+    }
+    const turns = mockTurnsMap.get(convId);
+
+    if (req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ items: turns, next_cursor: null }));
+      return;
+    }
+
+    if (req.method === "POST") {
+      const { question } = await readJson();
+      const sequence = turns.length + 1;
+      const turnId = `turn-${randomUUID().slice(0, 8)}`;
+
+      // Update conversation title if found
+      const convs = mockConversationsMap.get(wsId) || [];
+      const conv = convs.find((c) => c.id === convId);
+      if (conv) {
+        conv.title = (question || "Conversation")
+          .replace(/\s+/g, " ")
+          .slice(0, 80);
+        conv.title_source = "question";
+        conv.updated_at = new Date().toISOString();
+      }
+
+      // Check uploaded documents to cite
+      const docs = mockDocumentsMap.get(wsId) || [];
+      const sourceDoc = docs[0];
+      const docId = sourceDoc
+        ? sourceDoc.document_id
+        : `doc-${randomUUID().slice(0, 8)}`;
+      const docName = sourceDoc
+        ? sourceDoc.source_name
+        : "Teacher Manh - Guidelines 2024.pdf";
+
+      const citation = {
+        evidence_id: `evi-${randomUUID().slice(0, 8)}`,
+        document_id: docId,
+        document_version_id: `ver-${randomUUID().slice(0, 8)}`,
+        source_name: docName,
+        source_key: docName,
+        content_checksum: "sha256:guidelines2024checksum",
+        start_line: 42,
+        end_line: 58,
+        page_start: 3,
+        page_end: 4,
+        heading_path: [
+          "Quy định trình bày báo cáo",
+          "Cấu trúc các chương gợi ý",
+        ],
+        excerpt:
+          "Báo cáo đề tài tốt nghiệp được cấu trúc thành 5 chương chính: Chương 1: Giới thiệu đề tài; Chương 2: Cơ sở lý thuyết; Chương 3: Phân tích & thiết kế; Chương 4: Cài đặt & thử nghiệm; Chương 5: Kết luận & hướng phát triển.",
+      };
+
+      const answerText = `Theo tài liệu hướng dẫn (**${docName}**), báo cáo tốt nghiệp thường được gợi ý cấu trúc thành **5 chương** chính:
+
+1. **Chương 1: Mở đầu / Giới thiệu** – Trình bày bối cảnh, tính cấp thiết, mục tiêu và phạm vi đề tài.
+2. **Chương 2: Cơ sở lý thuyết và công nghệ liên quan** – Tổng quan kiến thức lý thuyết, nền tảng công nghệ và các công cụ sử dụng.
+3. **Chương 3: Phân tích và thiết kế hệ thống** – Đặc tả yêu cầu, biểu đồ ca sử dụng (Use case), kiến trúc hệ thống và thiết kế cơ sở dữ liệu.
+4. **Chương 4: Hiện thực và kết quả thử nghiệm** – Cài đặt ứng dụng, hiện thực các tính năng chính, giao diện và đánh giá kết quả thực nghiệm.
+5. **Chương 5: Kết luận và hướng phát triển** – Tổng kết các đóng góp đạt được, hạn chế còn tồn đọng và đề xuất định hướng phát triển tiếp theo.`;
+
+      const newTurn = {
+        id: turnId,
+        conversation_id: convId,
+        sequence,
+        question: question || "",
+        status: "answered",
+        stage: null,
+        error_code: null,
+        result: {
+          answer: answerText,
+          citations: [citation],
+          decision: "ANSWER",
+          refusal_reason: null,
+          trace_id: `tr-${randomUUID().slice(0, 8)}`,
+          workspace_id: wsId,
+        },
+      };
+
+      turns.push(newTurn);
+
+      res.writeHead(201, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(newTurn));
+      return;
+    }
+  }
+
+  // Single Turn details (/v1/workspaces/:workspaceId/conversations/:conversationId/turns/:turnId)
+  const singleTurnMatch = url.pathname.match(
+    /^\/v1\/workspaces\/([^/]+)\/conversations\/([^/]+)\/turns\/([^/]+)$/,
+  );
+  if (singleTurnMatch && req.method === "GET") {
+    const convId = decodeURIComponent(singleTurnMatch[2]);
+    const turnId = decodeURIComponent(singleTurnMatch[3]);
+    const turns = mockTurnsMap.get(convId) || [];
+    const turn = turns.find((t) => t.id === turnId);
+    if (!turn) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Turn not found" }));
+      return;
+    }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(turn));
     return;
   }
 
