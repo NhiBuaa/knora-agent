@@ -2876,3 +2876,151 @@ def test_launcher_reservation_diagnostics_when_metadata_malformed(tmp_path: Path
     assert "DEV_RESERVATION_TIMESTAMP" not in proc.stderr
     assert "INVALID_ENTRY_NOT_KEY_VALUE" not in proc.stderr, "Must not dump arbitrary file content"
     assert lock_file.exists(), "Retained lock file must not be removed by rejected invocation"
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+def test_dev_launcher_rejects_invalid_auth_provider(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text("# isolated\n", encoding="utf-8")
+    result = subprocess.run(
+        [
+            _powershell(),
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(SCRIPT),
+            "-PreflightOnly",
+            "-EnvFile",
+            str(env_file),
+            "-AuthProvider",
+            "invalid-auth",
+            "-PythonExe",
+            sys.executable,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert result.returncode == 2
+    assert "INVALID_AUTH_PROVIDER" in result.stderr
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+def test_dev_launcher_supabase_preflight_requires_supabase_url(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "KNORA_CLOUDFLARE_ACCOUNT_ID=" + "a" * 32 + "\nKNORA_CLOUDFLARE_API_TOKEN=token\n",
+        encoding="utf-8",
+    )
+    clean_env = os.environ.copy()
+    clean_env.pop("SUPABASE_URL", None)
+    clean_env.pop("SUPABASE_PUBLISHABLE_KEY", None)
+    result = subprocess.run(
+        [
+            _powershell(),
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(SCRIPT),
+            "-PreflightOnly",
+            "-EnvFile",
+            str(env_file),
+            "-AuthProvider",
+            "supabase",
+            "-EmbeddingProvider",
+            "deterministic-local",
+            "-GenerationProvider",
+            "deterministic-local",
+            "-PythonExe",
+            sys.executable,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=20,
+        env=clean_env,
+    )
+    assert result.returncode == 2
+    assert "SUPABASE_URL_REQUIRED" in result.stderr
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+def test_dev_launcher_supabase_preflight_requires_publishable_key(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "KNORA_CLOUDFLARE_ACCOUNT_ID=" + "a" * 32 + "\n"
+        "KNORA_CLOUDFLARE_API_TOKEN=token\n"
+        "SUPABASE_URL=https://example.supabase.co\n",
+        encoding="utf-8",
+    )
+    clean_env = os.environ.copy()
+    clean_env.pop("SUPABASE_PUBLISHABLE_KEY", None)
+    result = subprocess.run(
+        [
+            _powershell(),
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(SCRIPT),
+            "-PreflightOnly",
+            "-EnvFile",
+            str(env_file),
+            "-AuthProvider",
+            "supabase",
+            "-EmbeddingProvider",
+            "deterministic-local",
+            "-GenerationProvider",
+            "deterministic-local",
+            "-PythonExe",
+            sys.executable,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=20,
+        env=clean_env,
+    )
+    assert result.returncode == 2
+    assert "SUPABASE_PUBLISHABLE_KEY_REQUIRED" in result.stderr
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows-local launcher")
+def test_dev_launcher_supabase_preflight_success(tmp_path: Path) -> None:
+    env_file = tmp_path / ".env"
+    env_file.write_text(
+        "KNORA_CLOUDFLARE_ACCOUNT_ID=" + "a" * 32 + "\n"
+        "KNORA_CLOUDFLARE_API_TOKEN=token\n"
+        "SUPABASE_URL=https://example.supabase.co\n"
+        "SUPABASE_PUBLISHABLE_KEY=sb_pub_key\n",
+        encoding="utf-8",
+    )
+    result = subprocess.run(
+        [
+            _powershell(),
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-File",
+            str(SCRIPT),
+            "-PreflightOnly",
+            "-EnvFile",
+            str(env_file),
+            "-AuthProvider",
+            "supabase",
+            "-EmbeddingProvider",
+            "deterministic-local",
+            "-GenerationProvider",
+            "deterministic-local",
+            "-PythonExe",
+            sys.executable,
+        ],
+        capture_output=True,
+        text=True,
+        timeout=20,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "PRECHECK_OK" in result.stdout
+    assert "AUTH_PROVIDER=supabase" in result.stdout
+    assert "SUPABASE_URL=https://example.supabase.co" in result.stdout
+    assert "SUPABASE_ISSUER=https://example.supabase.co/auth/v1" in result.stdout

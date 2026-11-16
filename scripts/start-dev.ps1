@@ -6,6 +6,7 @@ param(
     [string]$EmbeddingProvider,
     [string]$GenerationProvider,
     [string]$GenerationModel,
+    [string]$AuthProvider,
     [string]$PythonExe,
     [string]$DatabaseName = 'knora_dev',
     [string]$ObjectStoreBucket,
@@ -113,12 +114,14 @@ function Test-DevStorageOwnership([bool]$PostgresPortInUse) {
                 Destination = '/qdrant/storage'
                 Role = 'knora_qdrant_data'
             }
-            "${composeProject}_keycloak_dev_data" = @{
+        }
+        if ($AuthProvider -ne 'supabase') {
+            $expectedVolumeConfig["${composeProject}_keycloak_dev_data"] = @{
                 Service = 'keycloak-dev'
                 Destination = '/opt/keycloak/data'
                 Role = 'keycloak_dev_data'
             }
-            "${composeProject}_keycloak_dev_database" = @{
+            $expectedVolumeConfig["${composeProject}_keycloak_dev_database"] = @{
                 Service = 'keycloak-dev-db'
                 Destination = '/var/lib/postgresql/data'
                 Role = 'keycloak_dev_database'
@@ -182,7 +185,7 @@ function Test-DevStorageOwnership([bool]$PostgresPortInUse) {
 
         $existingVolumes = @()
         foreach ($v in $filtered) {
-            if ($v -and $v -notin $existingVolumes) { $existingVolumes += $v }
+            if ($v -and $v -notin $existingVolumes -and $expectedVolumeConfig.ContainsKey($v)) { $existingVolumes += $v }
         }
         foreach ($vol in $expectedVolumeConfig.Keys) {
             if ($vol -in $allVolumeNames -and $vol -notin $existingVolumes) {
@@ -286,6 +289,12 @@ if ($EnvFile) {
     $dotenvPath = Join-Path $repoRoot '.env'
 }
 Import-DotEnv $dotenvPath
+
+if (-not $AuthProvider) {
+    $AuthProvider = if ($env:KNORA_AUTH_PROVIDER) { $env:KNORA_AUTH_PROVIDER } else { 'keycloak' }
+}
+if ($AuthProvider -notin @('keycloak', 'supabase')) { Fail 'INVALID_AUTH_PROVIDER' }
+$env:KNORA_AUTH_PROVIDER = $AuthProvider
 
 $reservation = $null
 $reservationPath = Join-Path ([IO.Path]::GetTempPath()) "knora-dev-reservation-$composeProject.lock"
@@ -428,34 +437,57 @@ $env:KNORA_M5_E2E_FAULTS_ENABLED = 'false'
 $env:KNORA_API_URL = "http://127.0.0.1:$ApiPort"
 $env:KNORA_BACKEND_URL = $env:KNORA_API_URL
 $devIssuer = 'http://127.0.0.1:8180/realms/knora-dev'
-if ($env:KEYCLOAK_ISSUER -and $env:KNORA_KEYCLOAK_ISSUER -and
-    $env:KEYCLOAK_ISSUER -ne $env:KNORA_KEYCLOAK_ISSUER) {
-    Fail 'OIDC_ISSUER_MISMATCH'
-}
-$oidcIssuer = if ($env:KEYCLOAK_ISSUER) {
-    $env:KEYCLOAK_ISSUER
-} elseif ($env:KNORA_KEYCLOAK_ISSUER) {
-    $env:KNORA_KEYCLOAK_ISSUER
+$useBundledKeycloak = $false
+$oidcIssuer = $null
+if ($AuthProvider -eq 'keycloak') {
+    if ($env:KEYCLOAK_ISSUER -and $env:KNORA_KEYCLOAK_ISSUER -and
+        $env:KEYCLOAK_ISSUER -ne $env:KNORA_KEYCLOAK_ISSUER) {
+        Fail 'OIDC_ISSUER_MISMATCH'
+    }
+    $oidcIssuer = if ($env:KEYCLOAK_ISSUER) {
+        $env:KEYCLOAK_ISSUER
+    } elseif ($env:KNORA_KEYCLOAK_ISSUER) {
+        $env:KNORA_KEYCLOAK_ISSUER
+    } else {
+        $devIssuer
+    }
+    $oidcBase = "$oidcIssuer/protocol/openid-connect"
+    if (-not $env:KEYCLOAK_ISSUER) { $env:KEYCLOAK_ISSUER = $oidcIssuer }
+    if (-not $env:KNORA_KEYCLOAK_ISSUER) { $env:KNORA_KEYCLOAK_ISSUER = $oidcIssuer }
+    if (-not $env:KEYCLOAK_AUTHORIZATION_URL) { $env:KEYCLOAK_AUTHORIZATION_URL = "$oidcBase/auth" }
+    if (-not $env:KEYCLOAK_TOKEN_URL) { $env:KEYCLOAK_TOKEN_URL = "$oidcBase/token" }
+    if (-not $env:KEYCLOAK_JWKS_URL) { $env:KEYCLOAK_JWKS_URL = "$oidcBase/certs" }
+    if (-not $env:KNORA_KEYCLOAK_JWKS_URL) { $env:KNORA_KEYCLOAK_JWKS_URL = $env:KEYCLOAK_JWKS_URL }
+    if (-not $env:KEYCLOAK_CLIENT_ID) { $env:KEYCLOAK_CLIENT_ID = 'knora-web' }
+    if (-not $env:KEYCLOAK_AUDIENCE) { $env:KEYCLOAK_AUDIENCE = $env:KEYCLOAK_CLIENT_ID }
+    if (-not $env:KNORA_KEYCLOAK_AUDIENCE) { $env:KNORA_KEYCLOAK_AUDIENCE = $env:KEYCLOAK_AUDIENCE }
+    $useBundledKeycloak = $oidcIssuer -eq $devIssuer
+    $appOrigin = "http://127.0.0.1:$FrontendPort"
+    if ($PSBoundParameters.ContainsKey('FrontendPort') -or -not $env:KEYCLOAK_REDIRECT_URI) {
+        $env:KEYCLOAK_REDIRECT_URI = "$appOrigin/api/auth/callback"
+    }
+    if ($PSBoundParameters.ContainsKey('FrontendPort') -or -not $env:KEYCLOAK_POST_LOGOUT_REDIRECT_URI) {
+        $env:KEYCLOAK_POST_LOGOUT_REDIRECT_URI = "$appOrigin/"
+    }
 } else {
-    $devIssuer
-}
-$oidcBase = "$oidcIssuer/protocol/openid-connect"
-if (-not $env:KEYCLOAK_ISSUER) { $env:KEYCLOAK_ISSUER = $oidcIssuer }
-if (-not $env:KNORA_KEYCLOAK_ISSUER) { $env:KNORA_KEYCLOAK_ISSUER = $oidcIssuer }
-if (-not $env:KEYCLOAK_AUTHORIZATION_URL) { $env:KEYCLOAK_AUTHORIZATION_URL = "$oidcBase/auth" }
-if (-not $env:KEYCLOAK_TOKEN_URL) { $env:KEYCLOAK_TOKEN_URL = "$oidcBase/token" }
-if (-not $env:KEYCLOAK_JWKS_URL) { $env:KEYCLOAK_JWKS_URL = "$oidcBase/certs" }
-if (-not $env:KNORA_KEYCLOAK_JWKS_URL) { $env:KNORA_KEYCLOAK_JWKS_URL = $env:KEYCLOAK_JWKS_URL }
-if (-not $env:KEYCLOAK_CLIENT_ID) { $env:KEYCLOAK_CLIENT_ID = 'knora-web' }
-if (-not $env:KEYCLOAK_AUDIENCE) { $env:KEYCLOAK_AUDIENCE = $env:KEYCLOAK_CLIENT_ID }
-if (-not $env:KNORA_KEYCLOAK_AUDIENCE) { $env:KNORA_KEYCLOAK_AUDIENCE = $env:KEYCLOAK_AUDIENCE }
-$useBundledKeycloak = $oidcIssuer -eq $devIssuer
-$appOrigin = "http://127.0.0.1:$FrontendPort"
-if ($PSBoundParameters.ContainsKey('FrontendPort') -or -not $env:KEYCLOAK_REDIRECT_URI) {
-    $env:KEYCLOAK_REDIRECT_URI = "$appOrigin/api/auth/callback"
-}
-if ($PSBoundParameters.ContainsKey('FrontendPort') -or -not $env:KEYCLOAK_POST_LOGOUT_REDIRECT_URI) {
-    $env:KEYCLOAK_POST_LOGOUT_REDIRECT_URI = "$appOrigin/"
+    if (-not $env:SUPABASE_URL) { Fail 'SUPABASE_URL_REQUIRED' }
+    if (-not $env:SUPABASE_PUBLISHABLE_KEY) { Fail 'SUPABASE_PUBLISHABLE_KEY_REQUIRED' }
+    $supabaseUrl = $env:SUPABASE_URL.TrimEnd('/')
+    $supabaseAlgorithm = if ($env:SUPABASE_JWT_ALGORITHM) { $env:SUPABASE_JWT_ALGORITHM } else { 'ES256' }
+    $env:SUPABASE_JWT_ALGORITHM = $supabaseAlgorithm
+    if (-not $env:KNORA_SUPABASE_ISSUER) {
+        $env:KNORA_SUPABASE_ISSUER = "$supabaseUrl/auth/v1"
+    }
+    if (-not $env:KNORA_SUPABASE_AUDIENCE) {
+        $env:KNORA_SUPABASE_AUDIENCE = 'authenticated'
+    }
+    if (-not $env:KNORA_SUPABASE_JWKS_URL) {
+        $env:KNORA_SUPABASE_JWKS_URL = "$supabaseUrl/auth/v1/.well-known/jwks.json"
+    }
+    if (-not $env:KNORA_SUPABASE_JWT_ALGORITHM) {
+        $env:KNORA_SUPABASE_JWT_ALGORITHM = $supabaseAlgorithm
+    }
+    $appOrigin = "http://127.0.0.1:$FrontendPort"
 }
 if ($PSBoundParameters.ContainsKey('FrontendPort') -or -not $env:NEXT_PUBLIC_APP_ORIGIN) {
     $env:NEXT_PUBLIC_APP_ORIGIN = $appOrigin
@@ -536,8 +568,14 @@ if ($GenerationProvider -eq 'cloudflare-workers-ai') {
 }
 Write-Output "API_URL=$env:KNORA_API_URL"
 Write-Output "QDRANT_URL=$env:KNORA_LEXICAL_QDRANT_URL"
-Write-Output "OIDC_REDIRECT_URI=$env:KEYCLOAK_REDIRECT_URI"
-Write-Output "OIDC_ISSUER=$oidcIssuer"
+Write-Output "AUTH_PROVIDER=$AuthProvider"
+if ($AuthProvider -eq 'supabase') {
+    Write-Output "SUPABASE_URL=$env:SUPABASE_URL"
+    Write-Output "SUPABASE_ISSUER=$env:KNORA_SUPABASE_ISSUER"
+} else {
+    Write-Output "OIDC_REDIRECT_URI=$env:KEYCLOAK_REDIRECT_URI"
+    Write-Output "OIDC_ISSUER=$oidcIssuer"
+}
 if ($PreflightOnly) { return }
 
 if (-not $env:SESSION_SECRET) { Fail 'SESSION_SECRET_REQUIRED' }
