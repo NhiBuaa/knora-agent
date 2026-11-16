@@ -377,3 +377,215 @@ def test_access_store_error_raises_auth_provider_unavailable(
     with pytest.raises(KnoraError) as exc:
         auth.authenticate_identity("Bearer " + token)
     assert exc.value.code == "AUTH_PROVIDER_UNAVAILABLE"
+
+
+def test_pyjwkclient_jwks_non_json_response_raises_auth_provider_unavailable(
+    ec_key_pair, issuer, audience, signed_token
+):
+    import io
+    from unittest.mock import MagicMock, patch
+
+    jwks_client = jwt.PyJWKClient(
+        "https://mock-supabase.test/auth/v1/.well-known/jwks.json", cache_jwk_set=False
+    )
+    auth = SupabaseAuthenticator(
+        issuer=issuer,
+        audience=audience,
+        algorithm="ES256",
+        jwks_client=jwks_client,
+        access_store=FakeAccessStore(),
+        session_reader=FakeSessionReader(),
+    )
+    token = signed_token()
+
+    def mock_open(*_args, **_kwargs):
+        resp = MagicMock()
+        resp.__enter__.return_value = io.BytesIO(b"<html>502 Bad Gateway</html>")
+        resp.__exit__.return_value = None
+        return resp
+
+    with (
+        patch("urllib.request.OpenerDirector.open", side_effect=mock_open),
+        pytest.raises(KnoraError) as exc,
+    ):
+        auth.authenticate_identity("Bearer " + token)
+    assert exc.value.code == "AUTH_PROVIDER_UNAVAILABLE"
+
+
+def test_pyjwkclient_jwks_list_json_response_raises_auth_provider_unavailable(
+    ec_key_pair, issuer, audience, signed_token
+):
+    import io
+    from unittest.mock import MagicMock, patch
+
+    jwks_client = jwt.PyJWKClient(
+        "https://mock-supabase.test/auth/v1/.well-known/jwks.json", cache_jwk_set=False
+    )
+    auth = SupabaseAuthenticator(
+        issuer=issuer,
+        audience=audience,
+        algorithm="ES256",
+        jwks_client=jwks_client,
+        access_store=FakeAccessStore(),
+        session_reader=FakeSessionReader(),
+    )
+    token = signed_token()
+
+    def mock_open(*_args, **_kwargs):
+        resp = MagicMock()
+        resp.__enter__.return_value = io.BytesIO(b"[]")
+        resp.__exit__.return_value = None
+        return resp
+
+    with (
+        patch("urllib.request.OpenerDirector.open", side_effect=mock_open),
+        pytest.raises(KnoraError) as exc,
+    ):
+        auth.authenticate_identity("Bearer " + token)
+    assert exc.value.code == "AUTH_PROVIDER_UNAVAILABLE"
+
+
+def test_pyjwkclient_jwks_empty_dict_response_raises_auth_provider_unavailable(
+    ec_key_pair, issuer, audience, signed_token
+):
+    import io
+    from unittest.mock import MagicMock, patch
+
+    jwks_client = jwt.PyJWKClient(
+        "https://mock-supabase.test/auth/v1/.well-known/jwks.json", cache_jwk_set=False
+    )
+    auth = SupabaseAuthenticator(
+        issuer=issuer,
+        audience=audience,
+        algorithm="ES256",
+        jwks_client=jwks_client,
+        access_store=FakeAccessStore(),
+        session_reader=FakeSessionReader(),
+    )
+    token = signed_token()
+
+    def mock_open(*_args, **_kwargs):
+        resp = MagicMock()
+        resp.__enter__.return_value = io.BytesIO(b'{"keys": []}')
+        resp.__exit__.return_value = None
+        return resp
+
+    with (
+        patch("urllib.request.OpenerDirector.open", side_effect=mock_open),
+        pytest.raises(KnoraError) as exc,
+    ):
+        auth.authenticate_identity("Bearer " + token)
+    assert exc.value.code == "AUTH_PROVIDER_UNAVAILABLE"
+
+
+def test_pyjwkclient_jwks_kid_mismatch_raises_unauthenticated(
+    ec_key_pair, issuer, audience, signed_token
+):
+    import base64
+    import io
+    import json
+    from unittest.mock import MagicMock, patch
+
+    _, public_key = ec_key_pair
+    public_numbers = public_key.public_numbers()
+    x = base64.urlsafe_b64encode(public_numbers.x.to_bytes(32, "big")).decode("utf-8").rstrip("=")
+    y = base64.urlsafe_b64encode(public_numbers.y.to_bytes(32, "big")).decode("utf-8").rstrip("=")
+    valid_jwk = {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": x,
+        "y": y,
+        "kid": "key-1",
+        "alg": "ES256",
+        "use": "sig",
+    }
+    jwks_bytes = json.dumps({"keys": [valid_jwk]}).encode("utf-8")
+
+    jwks_client = jwt.PyJWKClient(
+        "https://mock-supabase.test/auth/v1/.well-known/jwks.json", cache_jwk_set=False
+    )
+    auth = SupabaseAuthenticator(
+        issuer=issuer,
+        audience=audience,
+        algorithm="ES256",
+        jwks_client=jwks_client,
+        access_store=FakeAccessStore(),
+        session_reader=FakeSessionReader(),
+    )
+    private_key, _ = ec_key_pair
+    now = int(time.time())
+    token_with_unknown_kid = jwt.encode(
+        {
+            "iss": issuer,
+            "aud": audience,
+            "sub": "user-uuid-1234",
+            "session_id": "session-uuid-5678",
+            "role": "authenticated",
+            "is_anonymous": False,
+            "iat": now,
+            "exp": now + 3600,
+        },
+        private_key,
+        algorithm="ES256",
+        headers={"kid": "unknown-key", "alg": "ES256"},
+    )
+
+    def mock_open(*_args, **_kwargs):
+        resp = MagicMock()
+        resp.__enter__.return_value = io.BytesIO(jwks_bytes)
+        resp.__exit__.return_value = None
+        return resp
+
+    with (
+        patch("urllib.request.OpenerDirector.open", side_effect=mock_open),
+        pytest.raises(KnoraError) as exc,
+    ):
+        auth.authenticate_identity("Bearer " + token_with_unknown_kid)
+    assert exc.value.code == "UNAUTHENTICATED"
+
+
+def test_pyjwkclient_jwks_valid_asymmetric_token_succeeds(
+    ec_key_pair, issuer, audience, signed_token
+):
+    import base64
+    import io
+    import json
+    from unittest.mock import MagicMock, patch
+
+    _, public_key = ec_key_pair
+    public_numbers = public_key.public_numbers()
+    x = base64.urlsafe_b64encode(public_numbers.x.to_bytes(32, "big")).decode("utf-8").rstrip("=")
+    y = base64.urlsafe_b64encode(public_numbers.y.to_bytes(32, "big")).decode("utf-8").rstrip("=")
+    valid_jwk = {
+        "kty": "EC",
+        "crv": "P-256",
+        "x": x,
+        "y": y,
+        "kid": "key-1",
+        "alg": "ES256",
+        "use": "sig",
+    }
+    jwks_bytes = json.dumps({"keys": [valid_jwk]}).encode("utf-8")
+
+    jwks_client = jwt.PyJWKClient(
+        "https://mock-supabase.test/auth/v1/.well-known/jwks.json", cache_jwk_set=False
+    )
+    auth = SupabaseAuthenticator(
+        issuer=issuer,
+        audience=audience,
+        algorithm="ES256",
+        jwks_client=jwks_client,
+        access_store=FakeAccessStore(),
+        session_reader=FakeSessionReader(),
+    )
+    token = signed_token()
+
+    def mock_open(*_args, **_kwargs):
+        resp = MagicMock()
+        resp.__enter__.return_value = io.BytesIO(jwks_bytes)
+        resp.__exit__.return_value = None
+        return resp
+
+    with patch("urllib.request.OpenerDirector.open", side_effect=mock_open):
+        identity = auth.authenticate_identity("Bearer " + token)
+    assert identity.subject == "user-uuid-1234"

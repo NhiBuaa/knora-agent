@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import urllib.error
 from collections.abc import Callable, Mapping
 
@@ -107,6 +108,7 @@ class SupabaseAuthenticator(BearerIdentityAuthenticator):
         except (
             jwt.PyJWKClientConnectionError,
             jwt.PyJWKSetError,
+            json.JSONDecodeError,
             urllib.error.URLError,
             OSError,
             TimeoutError,
@@ -114,7 +116,10 @@ class SupabaseAuthenticator(BearerIdentityAuthenticator):
         ) as exc:
             raise KnoraError("AUTH_PROVIDER_UNAVAILABLE") from exc
         except jwt.PyJWKClientError as exc:
-            raise KnoraError("UNAUTHENTICATED") from exc
+            msg = str(exc)
+            if "Unable to find a signing key that matches" in msg:
+                raise KnoraError("UNAUTHENTICATED") from exc
+            raise KnoraError("AUTH_PROVIDER_UNAVAILABLE") from exc
         except Exception as exc:
             raise KnoraError("UNAUTHENTICATED") from exc
 
