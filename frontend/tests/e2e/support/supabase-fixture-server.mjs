@@ -35,6 +35,7 @@ const mockWorkspaces = [
     revision: 1,
   },
 ];
+const mockDocumentsMap = new Map();
 
 async function createToken(subject, sessionId, expiresIn = 3600) {
   const now = Math.floor(Date.now() / 1000);
@@ -469,9 +470,111 @@ const server = http.createServer(async (req, res) => {
   }
 
   const docMatch = url.pathname.match(/^\/v1\/workspaces\/([^/]+)\/documents$/);
-  if (docMatch && req.method === "GET") {
+  if (docMatch) {
+    const wsId = decodeURIComponent(docMatch[1]);
+    if (!mockDocumentsMap.has(wsId)) {
+      mockDocumentsMap.set(wsId, []);
+    }
+    const docs = mockDocumentsMap.get(wsId);
+
+    if (req.method === "GET") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ documents: docs, next_cursor: null }));
+      return;
+    }
+
+    if (req.method === "POST") {
+      const docId = `doc-${randomUUID().slice(0, 8)}`;
+      const jobId = `job-${randomUUID().slice(0, 8)}`;
+      const versionId = `ver-${randomUUID().slice(0, 8)}`;
+
+      let sourceName = "Uploaded-Document.pdf";
+      const chunks = [];
+      for await (const chunk of req) {
+        chunks.push(chunk);
+      }
+      const rawBody = Buffer.concat(chunks).toString("latin1");
+      const filenameMatch = rawBody.match(/filename="([^"]+)"/i);
+      if (filenameMatch) {
+        sourceName = filenameMatch[1];
+      }
+
+      const newDoc = {
+        document_id: docId,
+        source_name: sourceName,
+        source_key: sourceName,
+        workspace_id: wsId,
+        archived: false,
+        revision: 1,
+        serving_state: "current",
+        ingestion_status: "succeeded",
+        indexing_status: "succeeded",
+        embedding_readiness: "ready",
+        lexical_readiness: "ready",
+        answer_availability: "available",
+      };
+      docs.unshift(newDoc);
+
+      res.writeHead(201, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          document_id: docId,
+          document_version_id: versionId,
+          ingestion_job_id: jobId,
+          status: "succeeded",
+          submission_outcome: "created",
+        }),
+      );
+      return;
+    }
+  }
+
+  // Ingestion Jobs polling route
+  const jobMatch = url.pathname.match(
+    /^\/v1\/workspaces\/([^/]+)\/ingestion-jobs\/([^/]+)$/,
+  );
+  if (jobMatch && req.method === "GET") {
+    const jobId = jobMatch[2];
     res.writeHead(200, { "Content-Type": "application/json" });
-    res.end(JSON.stringify({ documents: [], next_cursor: null }));
+    res.end(
+      JSON.stringify({
+        ingestion_job_id: jobId,
+        status: "succeeded",
+        indexing_status: "succeeded",
+        poll_after_seconds: 1,
+      }),
+    );
+    return;
+  }
+
+  // Single document actions
+  const singleDocMatch = url.pathname.match(
+    /^\/v1\/workspaces\/([^/]+)\/documents\/([^/]+)(?:\/(archive|unarchive))?$/,
+  );
+  if (singleDocMatch) {
+    const wsId = decodeURIComponent(singleDocMatch[1]);
+    const docId = decodeURIComponent(singleDocMatch[2]);
+    const action = singleDocMatch[3];
+    const docs = mockDocumentsMap.get(wsId) || [];
+    let doc = docs.find((d) => d.document_id === docId);
+    if (!doc) {
+      doc = {
+        document_id: docId,
+        source_name: "Document",
+        source_key: "Document",
+        workspace_id: wsId,
+        archived: false,
+        revision: 1,
+        serving_state: "current",
+        ingestion_status: "succeeded",
+        indexing_status: "succeeded",
+      };
+      docs.push(doc);
+    }
+    if (action === "archive") doc.archived = true;
+    if (action === "unarchive") doc.archived = false;
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(doc));
     return;
   }
 
