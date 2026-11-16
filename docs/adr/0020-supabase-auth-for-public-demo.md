@@ -1,6 +1,6 @@
 # ADR 0020: Supabase Auth for the public demo
 
-Status: Accepted — implementation candidate complete (Tasks 1–6 implemented); cutover and staging approval deferred to Task 7.
+Status: Accepted — portfolio rollout uses direct public deployment without a separate staging environment; execution is defined in Task 7.
 Date: 2026-11-15.
 
 ## Context
@@ -9,6 +9,10 @@ The public demo currently uses a separately hosted Keycloak service. Its observe
 512 MB Render memory exhaustion interrupts authentication. The owner chose managed
 Supabase Auth to remove that service's hosting requirement, prioritizing free usage.
 The owner also chose re-registration, retaining existing data for a later migration.
+The owner subsequently selected direct deployment for this portfolio, which has no
+real users. Task 7 deploys to the existing demo and checks the real application
+afterward; a separate staging environment and staging acceptance are not required.
+Basic preflight checks, recoverable data/configuration and rollback remain in scope.
 
 This proposal changes the Keycloak-specific authentication rule in
 [Architecture Standard](../standards/architecture.md#authentication-and-workspace-authorization)

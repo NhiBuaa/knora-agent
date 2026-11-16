@@ -24,6 +24,10 @@ framework, browser SDK, Redis service or third Compose source.
 - Draft written 2026-11-15 against a2e466e0699663f7db5a23113c28d9940424d428.
   Approval of the migration direction is not approval of this exact file revision.
 - The owner chose re-registration with legacy data retained for later transfer.
+- Rollout amendment approved by the owner in this conversation: this is a portfolio
+  demo with no real users, so deploy directly to the public demo without a separate
+  staging/preview environment. Brief deployment downtime is acceptable. Keep data
+  retention, basic configuration checks, post-deploy verification and rollback.
 - Keep immediate demo registration, email/password sign-in, six-digit recovery OTP,
   five-minute recovery lifetime, 60-second resend minimum and eight-hour app sessions.
 - Baseline grants are exactly documents:read, documents:write and questions:ask.
@@ -41,8 +45,9 @@ framework, browser SDK, Redis service or third Compose source.
 ## Execution sequence and review boundaries
 
 Tasks 1–3 deliver backend identity support without enabling Supabase publicly.
-Tasks 4–6 deliver the BFF/UI/recovery and verification. Task 7 performs a separately
-authorized staged cutover. Review each deliverable before the next dependent task.
+Tasks 4–6 deliver the BFF/UI/recovery and verification. Task 7 replaces Keycloak with
+Supabase directly on the portfolio deployment, then verifies the live application.
+Review each deliverable before the next dependent task; no staging gate is required.
 
 ### Task 1: Add Knora grant persistence and read-only provider session checks
 
@@ -482,7 +487,7 @@ beyond the active request/form.
       300-second expiry and 60-second resend minimum. Verify the exact current project
       settings support these values. Record template/configuration hashes without secrets.
 - [ ] Prepare custom SMTP using the existing authorized sender if compatible.
-      Test actual synthetic-recipient delivery only in the authorized staging phase.
+      Test actual synthetic-recipient delivery during Task 7 on the public demo.
       Default SMTP is not acceptance for public recovery.
 - [ ] Verify resend invalidates the previous code and a consumed code cannot be used
       again against the real provider; mocks cannot establish these provider guarantees.
@@ -525,8 +530,9 @@ environments functional; worker-only processes do not need frontend secrets.
       specific architecture wording, while preserving the authorization order.
 - [ ] Add an owned Supabase test mode through the existing launcher/Compose source.
       Offline CI uses local signed JWTs, fake provider HTTP and disposable DB fixtures.
-      Provider-backed staging points to the explicitly authorized project and synthetic
-      identities. Never run existing Keycloak-bound ownership checks against Supabase.
+      Task 7 uses the existing public-demo project and synthetic identities for real
+      provider checks after deployment. No separate staging project is required.
+      Never run existing Keycloak-bound ownership checks against Supabase.
 - [ ] Make E2E selection explicit and retries=0. Check root/login redirects do not
       loop, fresh registration, PDF/citation/refusal, two-user isolation, token expiry,
       concurrent tabs, logout, recovery and no token exposure.
@@ -562,30 +568,37 @@ managed inside the existing launcher lifetime, with synthetic identities.
 - [ ] Attach redacted outcomes to the exact candidate SHA. Distinguish offline
       contracts, hosted SMTP/provider checks and actual public application evidence.
 
-### Task 7: Stage, switch and retain rollback
+### Task 7: Deploy Supabase Auth directly to the portfolio demo
 
-This task requires approval of the implementation candidate and the actual provider/
-deployment changes. Do not execute it while merely writing or reviewing this plan.
+The owner selected direct public deployment because this portfolio has no real users.
+Use the reviewed implementation candidate and existing demo services; do not create
+a staging environment or wait for a separate staging acceptance. This plan update
+does not record an actual deployment. Paid upgrades and deletion of legacy resources
+remain outside the authorized scope.
 
-- [ ] Verify the exact project reference and sanitized DB host/project mapping,
-      subscription/free limits, SMTP availability, signing algorithm and read privileges.
-      Inventory other Auth consumers before changing project-wide settings.
+- [ ] Confirm the exact candidate SHA, successful build and applicable required CI.
+      Verify the existing Supabase project matches the Knora database, the signing
+      algorithm and runtime read privileges are correct, and usage stays within the
+      existing budget. Check other Auth consumers before changing shared settings.
 - [ ] Save current frontend/backend configuration names and rollback references
       securely; take a recoverable database backup and legacy Workspace/object inventory.
       Do not claim Supabase Free includes PITR or managed downloadable backups.
 - [ ] Audit legacy retention/cleanup against F2 before proceeding. Keep old ownership
       rows, source-object references, Keycloak realm/DB and configuration recoverable.
+- [ ] Configure email/password registration and the required custom SMTP/recovery
+      settings on the existing Supabase project. Keep secrets in provider settings;
+      do not put credentials, passwords or OTPs in Git, chat or retained evidence.
 - [ ] Apply the additive Knora migration to the authorized target, verify its head,
       table privileges and unchanged legacy counts. No auth schema migration/reset.
-- [ ] Deploy the approved SHA to staging/preview with Supabase mode explicitly
-      enabled on both sides. Verify A1–A11, including real SMTP, refresh concurrency and
-      successful logout replay rejection. Keep secrets out of screenshots.
-- [ ] Cut over backend then frontend in a bounded maintenance window. Existing
-      Keycloak sessions will require re-registration/sign-in. Do not accept both
-      issuers to hide a mismatched rollout.
+- [ ] Deploy the reviewed SHA directly to the existing backend, then the Vercel
+      public frontend, with Supabase mode explicitly enabled on both sides. A brief
+      authentication interruption during the switch is acceptable. Existing Keycloak
+      users must register/sign in again; do not accept both issuers to hide a mismatch.
 - [ ] Check public HTTPS from a separate browser context: register, upload a text
       PDF, ask one grounded question, open its citation and ask an out-of-source
-      question. Repeat isolation and recovery with synthetic accounts.
+      question. Verify A1–A11 on the deployed application, including two-account
+      isolation, real SMTP/OTP recovery, concurrent refresh and old-cookie rejection
+      after logout. Run these checks after deployment, using synthetic accounts.
 - [ ] Roll back on persistent 401/503, wrong-Workspace access, renewed revoked grants,
       broken recovery, project mismatch or data-count drift: restore both previous app
       versions/configurations, restore Keycloak provider selection, invalidate new

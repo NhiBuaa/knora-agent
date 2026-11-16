@@ -1,9 +1,15 @@
 # Supabase Auth migration
 
-Status: Draft for review. The owner approved the direction and planning, not this
-written revision, implementation, account configuration, spending or cutover.
+Original status (2026-11-15): Draft for review; only the direction and planning
+were approved at that time. The subsequent rollout amendment is recorded below.
 Date: 2026-11-15.
 Source baseline: a2e466e0699663f7db5a23113c28d9940424d428.
+
+Rollout amendment: the owner subsequently selected direct deployment to the existing
+portfolio demo in this conversation because there are no real users. This replaces
+the original staging/preview requirement; brief deployment downtime is acceptable.
+Keep basic checks, post-deploy verification, legacy-data retention and rollback.
+This amendment does not authorize paid upgrades or deletion of legacy resources.
 
 ## Goal and owner decisions
 
@@ -108,7 +114,7 @@ publishing implementation work is authorized.
 
 In scope: backend identity/grant/session validation, BFF provider adaptation, branded
 auth screens, SMTP/recovery configuration, additive migration, compatible test
-coverage, deployment runbook, staged cutover and rollback.
+coverage, deployment runbook, direct portfolio deployment and rollback.
 
 Out of scope: social sign-in, SMS/MFA, SAML, username-based authentication, importing
 password hashes, automatic legacy Workspace migration, deleting Keycloak or its
@@ -147,7 +153,9 @@ explicitly for the public deployment; removing legacy code is not a release gate
 - Select an asymmetric signing key without breaking another consumer. An existing
   legacy HS256 project is a configuration gate, not permission to rotate keys blindly.
 - Preserve a backup and exact candidate/configuration references before cutover.
-  Preview, migration, public cutover, eventual cleanup and spending are separate gates.
+  Deploy the reviewed candidate directly to the existing portfolio demo without a
+  staging/preview gate; verify the real provider/application after deployment.
+  Eventual cleanup and new spending remain separately authorized work.
 - CI/fixtures prove their executed seams only. Real SMTP, hosted refresh/logout and
   end-to-end application behavior remain necessary evidence.
 
