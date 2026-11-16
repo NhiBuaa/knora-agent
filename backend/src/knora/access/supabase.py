@@ -105,13 +105,15 @@ class SupabaseAuthenticator(BearerIdentityAuthenticator):
         except KnoraError:
             raise
         except (
-            jwt.PyJWKClientError,
+            jwt.PyJWKClientConnectionError,
             urllib.error.URLError,
             OSError,
             TimeoutError,
             ConnectionError,
         ) as exc:
             raise KnoraError("AUTH_PROVIDER_UNAVAILABLE") from exc
+        except jwt.PyJWKClientError as exc:
+            raise KnoraError("UNAUTHENTICATED") from exc
         except Exception as exc:
             raise KnoraError("UNAUTHENTICATED") from exc
 

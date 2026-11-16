@@ -342,4 +342,143 @@ describe("Supabase Recovery Operations", () => {
     expect(caughtError.status).toBe(503);
     expect(caughtError.message).toContain("revoke active sessions");
   });
+
+  it("encodeRecoverySession preserves passwordUpdated flag and exact expiresAt without extension", async () => {
+    const fixedExpiresAt = Math.floor(Date.now() / 1000) + 120; // 2 minutes left
+    const recoverySession: KnoraSession = {
+      provider: "supabase",
+      providerSessionId,
+      issuer,
+      subject,
+      accessToken: "test-token",
+      workspaceIds: [],
+      capabilities: [],
+      expiresAt: fixedExpiresAt,
+      sessionExpiresAt: fixedExpiresAt,
+    };
+
+    const token = await encodeRecoverySession(
+      recoverySession,
+      "user@example.test",
+      {
+        passwordUpdated: true,
+        expiresAt: fixedExpiresAt,
+      },
+    );
+
+    const decoded = await decodeRecoverySession(token);
+    expect(decoded).not.toBeNull();
+    expect(decoded?.passwordUpdated).toBe(true);
+    expect(decoded?.session.sessionExpiresAt).toBe(fixedExpiresAt);
+  });
+
+  it("updateRecoveredPassword skips PUT /user when passwordUpdated is true", async () => {
+    const token = await mockAccessToken();
+    const calls: { url: string; method: string }[] = [];
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method || "GET";
+        calls.push({ url, method });
+
+        if (url.endsWith("/v1/auth/session")) {
+          return Response.json({
+            issuer,
+            subject,
+            session_id: providerSessionId,
+            capabilities: [],
+          });
+        }
+        if (url.endsWith("/auth/v1/logout?scope=global") && method === "POST") {
+          return new Response(null, { status: 204 });
+        }
+        throw new Error(`Unexpected call: ${url} ${method}`);
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const recoverySession: KnoraSession = {
+      provider: "supabase",
+      providerSessionId,
+      issuer,
+      subject,
+      accessToken: token,
+      workspaceIds: [],
+      capabilities: [],
+      expiresAt: Math.floor(Date.now() / 1000) + 300,
+      sessionExpiresAt: Math.floor(Date.now() / 1000) + 300,
+    };
+
+    await updateRecoveredPassword(recoverySession, "NewSecret123!", {
+      passwordUpdated: true,
+    });
+
+    expect(calls.some((c) => c.url.endsWith("/auth/v1/user"))).toBe(false);
+    expect(
+      calls.some(
+        (c) =>
+          c.url.endsWith("/auth/v1/logout?scope=global") && c.method === "POST",
+      ),
+    ).toBe(true);
+  });
+
+  it("updateRecoveredPassword handles same_password by proceeding to revoke without failing", async () => {
+    const token = await mockAccessToken();
+    const calls: { url: string; method: string }[] = [];
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method || "GET";
+        calls.push({ url, method });
+
+        if (url.endsWith("/v1/auth/session")) {
+          return Response.json({
+            issuer,
+            subject,
+            session_id: providerSessionId,
+            capabilities: [],
+          });
+        }
+        if (url.endsWith("/auth/v1/user") && method === "PUT") {
+          return new Response(
+            JSON.stringify({
+              error_code: "same_password",
+              msg: "New password should be different from the old password.",
+            }),
+            { status: 422 },
+          );
+        }
+        if (url.endsWith("/auth/v1/logout?scope=global") && method === "POST") {
+          return new Response(null, { status: 204 });
+        }
+        throw new Error(`Unexpected call: ${url} ${method}`);
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const recoverySession: KnoraSession = {
+      provider: "supabase",
+      providerSessionId,
+      issuer,
+      subject,
+      accessToken: token,
+      workspaceIds: [],
+      capabilities: [],
+      expiresAt: Math.floor(Date.now() / 1000) + 300,
+      sessionExpiresAt: Math.floor(Date.now() / 1000) + 300,
+    };
+
+    // Should succeed because same_password means password is already changed, and revoke succeeded
+    await expect(
+      updateRecoveredPassword(recoverySession, "NewSecret123!"),
+    ).resolves.toBeUndefined();
+
+    expect(calls.some((c) => c.url.endsWith("/auth/v1/user"))).toBe(true);
+    expect(
+      calls.some(
+        (c) =>
+          c.url.endsWith("/auth/v1/logout?scope=global") && c.method === "POST",
+      ),
+    ).toBe(true);
+  });
 });

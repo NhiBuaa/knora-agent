@@ -38,6 +38,28 @@ test.describe("Supabase Auth Public Journeys", () => {
     );
   });
 
+  test("successful registration creates user, receives session and navigates to workspaces", async ({
+    page,
+  }) => {
+    await page.goto("/auth/register");
+    await expect(
+      page.getByRole("heading", { name: "Create your Knora account" }),
+    ).toBeVisible();
+
+    await page.getByLabel("Email").fill("newuser@example.test");
+    await page.getByLabel("Password", { exact: true }).fill("Password123!");
+    await page.getByLabel("Confirm password").fill("Password123!");
+    await page.getByRole("button", { name: "Create account" }).click();
+
+    await expect(page).toHaveURL(/\/workspaces/);
+
+    const sessionResponse = await page.request.get("/api/auth/session");
+    expect(sessionResponse.status()).toBe(200);
+    const sessionBody = await sessionResponse.json();
+    expect(sessionBody.session).not.toBeNull();
+    expect(sessionBody.session.capabilities).toContain("documents:read");
+  });
+
   test("forgot-password navigation transitions cleanly through OTP flow", async ({
     page,
   }) => {
@@ -130,7 +152,41 @@ test.describe("Supabase Auth Public Journeys", () => {
     await tab2.close();
   });
 
-  test("logout terminates session and rejects old session across all tabs", async ({
+  test("expiring token triggers concurrent multi-tab refresh cleanly", async ({
+    context,
+  }) => {
+    const tab1 = await context.newPage();
+    await tab1.goto("/auth/login");
+    // Login with expiring user to force short token expiry (expires_in: 5)
+    await tab1.getByLabel("Email").fill("expiring-user@example.test");
+    await tab1.getByLabel("Password", { exact: true }).fill("Password123!");
+    await tab1.getByRole("button", { name: "Sign in" }).click();
+    await expect(tab1).toHaveURL(/\/workspaces/);
+
+    const tab2 = await context.newPage();
+    await tab2.goto("/workspaces");
+    await expect(tab2).toHaveURL(/\/workspaces/);
+
+    // Both tabs request session concurrently while token is near expiry
+    const [res1, res2] = await Promise.all([
+      tab1.request.get("/api/auth/session"),
+      tab2.request.get("/api/auth/session"),
+    ]);
+
+    expect(res1.status()).toBe(200);
+    expect(res2.status()).toBe(200);
+    const s1 = await res1.json();
+    const s2 = await res2.json();
+    expect(s1.session).not.toBeNull();
+    expect(s2.session).not.toBeNull();
+    expect(s1.session.subject).toBe(s2.session.subject);
+
+    await tab1.close();
+    await tab2.close();
+  });
+
+  test("logout terminates session, rejects old session across all tabs and rejects old cookie replayed from an independent context", async ({
+    browser,
     context,
   }) => {
     const tab1 = await context.newPage();
@@ -139,6 +195,10 @@ test.describe("Supabase Auth Public Journeys", () => {
     await tab1.getByLabel("Password", { exact: true }).fill("Password123!");
     await tab1.getByRole("button", { name: "Sign in" }).click();
     await expect(tab1).toHaveURL(/\/workspaces/);
+
+    // Save cookies before logout
+    const savedCookies = await context.cookies();
+    expect(savedCookies.some((c) => c.name === "knora_session")).toBe(true);
 
     const tab2 = await context.newPage();
     await tab2.goto("/workspaces");
@@ -172,5 +232,22 @@ test.describe("Supabase Auth Public Journeys", () => {
 
     await tab1.close();
     await tab2.close();
+
+    // Now verify old cookie replay from a completely independent browser context is rejected
+    const isolatedContext = await browser.newContext();
+    await isolatedContext.addCookies(savedCookies);
+    const isolatedPage = await isolatedContext.newPage();
+
+    // The backend/BFF must reject the revoked session
+    const replaySessionRes =
+      await isolatedPage.request.get("/api/auth/session");
+    const replaySessionData = await replaySessionRes.json();
+    expect(replaySessionData.session).toBeNull();
+
+    // Navigating to protected workspace must redirect to login
+    await isolatedPage.goto("/workspaces");
+    await expect(isolatedPage).toHaveURL(/\/auth\/login/);
+
+    await isolatedContext.close();
   });
 });

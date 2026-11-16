@@ -278,7 +278,7 @@ def test_authenticate_principal_fails_for_supabase(auth_with_empty_grants, signe
 
 def test_jwks_transport_error_raises_auth_provider_unavailable(issuer, audience):
     def broken_validator(raw):
-        raise jwt.PyJWKClientError("Network timeout connecting to JWKS")
+        raise jwt.PyJWKClientConnectionError("Network timeout connecting to JWKS")
 
     auth = SupabaseAuthenticator(
         issuer=issuer,
@@ -291,6 +291,23 @@ def test_jwks_transport_error_raises_auth_provider_unavailable(issuer, audience)
     with pytest.raises(KnoraError) as exc:
         auth.authenticate_identity("Bearer dummy-token")
     assert exc.value.code == "AUTH_PROVIDER_UNAVAILABLE"
+
+
+def test_jwks_kid_mismatch_raises_unauthenticated(issuer, audience):
+    def kid_mismatch_validator(raw):
+        raise jwt.PyJWKClientError('Unable to find a signing key that matches: "unknown-kid"')
+
+    auth = SupabaseAuthenticator(
+        issuer=issuer,
+        audience=audience,
+        algorithm="ES256",
+        token_validator=kid_mismatch_validator,
+        access_store=FakeAccessStore(),
+        session_reader=FakeSessionReader(),
+    )
+    with pytest.raises(KnoraError) as exc:
+        auth.authenticate_identity("Bearer dummy-token")
+    assert exc.value.code == "UNAUTHENTICATED"
 
 
 def test_jwks_connection_error_raises_auth_provider_unavailable(issuer, audience):

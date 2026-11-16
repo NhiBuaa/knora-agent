@@ -92,7 +92,10 @@ const server = http.createServer(async (req, res) => {
     url.searchParams.get("grant_type") === "password"
   ) {
     const { email, password } = await readJson();
-    if (email === "testuser@example.test" && password === "Password123!") {
+    if (
+      (email === "testuser@example.test" || email?.includes("expiring")) &&
+      password === "Password123!"
+    ) {
       const sessionId = randomUUID();
       const refreshToken = `ref_${randomUUID()}`;
       activeSessions.set(sessionId, {
@@ -100,13 +103,14 @@ const server = http.createServer(async (req, res) => {
         subject: testSubject,
         revoked: false,
       });
-      const accessToken = await createToken(testSubject, sessionId);
+      const expiresIn = email.includes("expiring") ? 5 : 3600;
+      const accessToken = await createToken(testSubject, sessionId, expiresIn);
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(
         JSON.stringify({
           access_token: accessToken,
           token_type: "bearer",
-          expires_in: 3600,
+          expires_in: expiresIn,
           refresh_token: refreshToken,
           user: { id: testSubject, email },
         }),
@@ -118,6 +122,41 @@ const server = http.createServer(async (req, res) => {
       JSON.stringify({
         error: "invalid_grant",
         error_description: "Invalid login credentials",
+      }),
+    );
+    return;
+  }
+
+  // Signup / Registration
+  if (url.pathname === "/auth/v1/signup") {
+    const { email, password } = await readJson();
+    if (!email || !password || password.length < 8) {
+      res.writeHead(400, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          error: "validation_failed",
+          msg: "Password should be at least 8 characters",
+        }),
+      );
+      return;
+    }
+    const newSubject = randomUUID();
+    const sessionId = randomUUID();
+    const refreshToken = `ref_${randomUUID()}`;
+    activeSessions.set(sessionId, {
+      refreshToken,
+      subject: newSubject,
+      revoked: false,
+    });
+    const accessToken = await createToken(newSubject, sessionId, 3600);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        access_token: accessToken,
+        token_type: "bearer",
+        expires_in: 3600,
+        refresh_token: refreshToken,
+        user: { id: newSubject, email },
       }),
     );
     return;

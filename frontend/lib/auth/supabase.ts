@@ -280,19 +280,58 @@ export async function refreshSupabaseSession(
   }
 
   if (!response.ok) {
-    if (response.status === 429 || response.status >= 500) {
+    if (response.status === 400) {
+      const errorBody = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        error_code?: string;
+        error_description?: string;
+        msg?: string;
+      };
+      const errorCode = (
+        errorBody.error ||
+        errorBody.error_code ||
+        ""
+      ).toLowerCase();
+      const desc = (
+        errorBody.error_description ||
+        errorBody.msg ||
+        ""
+      ).toLowerCase();
+      const isDefinitiveInvalid =
+        errorCode === "invalid_grant" ||
+        errorCode === "invalid_token" ||
+        errorCode === "refresh_token_not_found" ||
+        desc.includes("invalid refresh token") ||
+        desc.includes("already revoked");
+
+      if (isDefinitiveInvalid) {
+        return null;
+      }
+      // 400 validation_failed or other non-token errors: preserve cookie, retryable
       const error = new Error("AUTH_PROVIDER_UNAVAILABLE");
-      (error as unknown as { status: number }).status =
-        response.status === 429 ? 429 : 503;
+      (error as unknown as { status: number }).status = 503;
       throw error;
     }
-    return null;
+    if (response.status === 401 || response.status === 403) {
+      return null;
+    }
+    // 404, 429, 500, 503 and other transient errors: preserve cookie, retryable
+    const error = new Error("AUTH_PROVIDER_UNAVAILABLE");
+    (error as unknown as { status: number }).status =
+      response.status === 429 ? 429 : 503;
+    throw error;
   }
 
   let tokens: SupabaseTokens;
   try {
     tokens = (await response.json()) as SupabaseTokens;
   } catch {
+    const error = new Error("AUTH_PROVIDER_UNAVAILABLE");
+    (error as unknown as { status: number }).status = 503;
+    throw error;
+  }
+
+  if (!tokens || typeof tokens.access_token !== "string") {
     const error = new Error("AUTH_PROVIDER_UNAVAILABLE");
     (error as unknown as { status: number }).status = 503;
     throw error;

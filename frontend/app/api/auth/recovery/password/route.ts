@@ -5,7 +5,10 @@ import { clearSessionCookie } from "@/lib/auth/session";
 import {
   clearRecoveryCookie,
   decodeRecoverySession,
+  encodeRecoverySession,
+  recoveryCookie,
   RECOVERY_COOKIE_NAME,
+  SessionRevocationError,
   updateRecoveredPassword,
 } from "@/lib/auth/supabase-recovery";
 
@@ -90,7 +93,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    await updateRecoveredPassword(decoded.session, password);
+    await updateRecoveredPassword(decoded.session, password, {
+      passwordUpdated: decoded.passwordUpdated,
+    });
     const response = NextResponse.json({
       success: true,
       redirect: "/auth/login?reset=1",
@@ -112,6 +117,34 @@ export async function POST(request: Request) {
 
     return response;
   } catch (err: unknown) {
+    if (err instanceof SessionRevocationError) {
+      // Password already updated at provider, but revocation failed.
+      // Re-encode recovery cookie with passwordUpdated: true WITHOUT extending expiration time!
+      const now = Math.floor(Date.now() / 1000);
+      const remainingSeconds = Math.max(
+        1,
+        (decoded.session.sessionExpiresAt ?? now + 300) - now,
+      );
+      const updatedRecoveryToken = await encodeRecoverySession(
+        decoded.session,
+        decoded.email,
+        {
+          passwordUpdated: true,
+          expiresAt: decoded.session.sessionExpiresAt,
+        },
+      );
+      const recCookie = recoveryCookie(updatedRecoveryToken, remainingSeconds);
+      const response = NextResponse.json(
+        { error: err.message },
+        { status: err.status },
+      );
+      response.cookies.set(
+        recCookie.name,
+        recCookie.value,
+        recCookie.options as never,
+      );
+      return response;
+    }
     const status = (err as { status?: number })?.status || 400;
     const message = (err as Error)?.message || "Failed to update password.";
     return NextResponse.json({ error: message }, { status });

@@ -116,42 +116,10 @@ export async function verifyRecovery(
   };
 }
 
-export async function updateRecoveredPassword(
+export async function revokeRecoverySession(
   recovery: KnoraSession,
-  password: string,
 ): Promise<void> {
   const config = getSupabaseConfig();
-
-  // First verify backend session state before updating password
-  await fetchBackendSession(recovery.accessToken);
-
-  // Update password via PUT /user
-  const endpoint = `${config.url}/auth/v1/user`;
-  const response = await fetch(endpoint, {
-    method: "PUT",
-    headers: {
-      apikey: config.publishableKey,
-      Authorization: `Bearer ${recovery.accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ password }),
-    cache: "no-store",
-    signal: AbortSignal.timeout(10000),
-  });
-
-  if (!response.ok) {
-    const errorBody = (await response.json().catch(() => ({}))) as {
-      error_description?: string;
-      msg?: string;
-    };
-    throw new Error(
-      errorBody.error_description ||
-        errorBody.msg ||
-        "Failed to update password",
-    );
-  }
-
-  // Revoke provider sessions with scope=global
   const logoutEndpoint = `${config.url}/auth/v1/logout?scope=global`;
   let logoutResponse: Response;
   try {
@@ -181,15 +149,75 @@ export async function updateRecoveredPassword(
   }
 }
 
+export async function updateRecoveredPassword(
+  recovery: KnoraSession,
+  password: string,
+  options?: { passwordUpdated?: boolean },
+): Promise<void> {
+  const config = getSupabaseConfig();
+
+  // First verify backend session state before updating password
+  await fetchBackendSession(recovery.accessToken);
+
+  // If password was not already updated in a previous attempt, update via PUT /user
+  if (!options?.passwordUpdated) {
+    const endpoint = `${config.url}/auth/v1/user`;
+    const response = await fetch(endpoint, {
+      method: "PUT",
+      headers: {
+        apikey: config.publishableKey,
+        Authorization: `Bearer ${recovery.accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ password }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(10000),
+    });
+
+    if (!response.ok) {
+      const errorBody = (await response.json().catch(() => ({}))) as {
+        error_code?: string;
+        error_description?: string;
+        msg?: string;
+        code?: string;
+      };
+      const code = errorBody.error_code || errorBody.code;
+      const isSamePassword =
+        code === "same_password" ||
+        errorBody.error_description
+          ?.toLowerCase()
+          .includes("different from the old password") ||
+        errorBody.msg
+          ?.toLowerCase()
+          .includes("different from the old password");
+
+      // If error is not same_password, reject
+      if (!isSamePassword) {
+        throw new Error(
+          errorBody.error_description ||
+            errorBody.msg ||
+            "Failed to update password",
+        );
+      }
+      // If it's same_password, user already updated password on prior try, proceed to revoke
+    }
+  }
+
+  // Revoke provider sessions with scope=global
+  await revokeRecoverySession(recovery);
+}
+
 export async function encodeRecoverySession(
   session: KnoraSession,
   email: string,
+  options?: { passwordUpdated?: boolean; expiresAt?: number },
 ): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
-  const expiresAt = now + 300; // Capped at 5 minutes
+  const expiresAt = options?.expiresAt ?? now + 300; // Preserves existing expiration if provided
   return new EncryptJWT({
     purpose: "recovery",
     email,
+    passwordUpdated: Boolean(options?.passwordUpdated),
     provider: session.provider,
     providerSessionId: session.providerSessionId,
     issuer: session.issuer,
@@ -209,7 +237,11 @@ export async function encodeRecoverySession(
 
 export async function decodeRecoverySession(
   value: string | undefined,
-): Promise<{ session: KnoraSession; email: string } | null> {
+): Promise<{
+  session: KnoraSession;
+  email: string;
+  passwordUpdated?: boolean;
+} | null> {
   if (!value) return null;
   try {
     const verified = await jwtDecrypt(value, encryptionKey(), {
@@ -231,6 +263,7 @@ export async function decodeRecoverySession(
 
     return {
       email: p.email,
+      passwordUpdated: Boolean(p.passwordUpdated),
       session: {
         provider: "supabase",
         providerSessionId:
@@ -258,7 +291,7 @@ export async function decodeRecoverySession(
   }
 }
 
-export function recoveryCookie(value: string) {
+export function recoveryCookie(value: string, maxAge = 300) {
   return {
     name: RECOVERY_COOKIE_NAME,
     value,
@@ -267,7 +300,7 @@ export function recoveryCookie(value: string) {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
       path: "/",
-      maxAge: 300,
+      maxAge: Math.max(1, maxAge),
     },
   };
 }

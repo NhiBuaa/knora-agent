@@ -108,7 +108,7 @@ def test_auth_session_rejects_missing_or_invalid_bearer(client):
 
 def test_auth_session_returns_503_when_auth_provider_unavailable(ec_key_pair, issuer, audience):
     def failing_validator(raw):
-        raise jwt.PyJWKClientError("Connection timeout to JWKS endpoint")
+        raise jwt.PyJWKClientConnectionError("Connection timeout to JWKS endpoint")
 
     auth = SupabaseAuthenticator(
         issuer=issuer,
@@ -124,6 +124,26 @@ def test_auth_session_returns_503_when_auth_provider_unavailable(ec_key_pair, is
     response = c.get("/v1/auth/session", headers={"Authorization": "Bearer some-token"})
     assert response.status_code == 503
     assert response.json() == {"error": {"code": "AUTH_PROVIDER_UNAVAILABLE"}}
+
+
+def test_auth_session_returns_401_when_jwks_kid_mismatch(ec_key_pair, issuer, audience):
+    def kid_mismatch_validator(raw):
+        raise jwt.PyJWKClientError('Unable to find a signing key that matches: "unknown-kid"')
+
+    auth = SupabaseAuthenticator(
+        issuer=issuer,
+        audience=audience,
+        algorithm="ES256",
+        token_validator=kid_mismatch_validator,
+        access_store=FakeAccessStore(),
+        session_reader=FakeSessionReader(),
+    )
+    app = create_app(bearer_authenticator=auth)
+    c = TestClient(app)
+
+    response = c.get("/v1/auth/session", headers={"Authorization": "Bearer some-token"})
+    assert response.status_code == 401
+    assert response.json() == {"error": {"code": "UNAUTHENTICATED"}}
 
 
 def test_auth_session_returns_503_when_session_reader_fails(ec_key_pair, issuer, audience):
