@@ -1,16 +1,67 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-export function LoginForm() {
+export function LoginForm({
+  signedOutReason: initialSignedOutReason,
+  reset: initialReset,
+}: {
+  signedOutReason?: string;
+  reset?: boolean;
+} = {}) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [signedOutReason, setSignedOutReason] = useState<string | undefined>(
+    () => {
+      if (initialSignedOutReason !== undefined) return initialSignedOutReason;
+      if (typeof window !== "undefined") {
+        try {
+          return (
+            new URLSearchParams(window.location.search).get("signed-out") ||
+            undefined
+          );
+        } catch {
+          return undefined;
+        }
+      }
+      return undefined;
+    },
+  );
+
+  const [reset, setReset] = useState<boolean | undefined>(() => {
+    if (initialReset !== undefined) return initialReset;
+    if (typeof window !== "undefined") {
+      try {
+        return new URLSearchParams(window.location.search).get("reset") === "1";
+      } catch {
+        return undefined;
+      }
+    }
+    return undefined;
+  });
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        if (initialSignedOutReason === undefined) {
+          setSignedOutReason(params.get("signed-out") || undefined);
+        }
+        if (initialReset === undefined) {
+          setReset(params.get("reset") === "1");
+        }
+      } catch {
+        // ignore
+      }
+    }
+  }, [initialSignedOutReason, initialReset]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -59,6 +110,23 @@ export function LoginForm() {
     <>
       <h1>Sign in to Knora</h1>
       <p className="knora-auth-description">Continue to your workspace.</p>
+
+      {reset && (
+        <div className="knora-notice" role="status">
+          <strong>Password updated</strong>
+          <p>Your password has been changed. Sign in with your new password.</p>
+        </div>
+      )}
+
+      {signedOutReason === "retryable" && (
+        <div className="knora-notice" role="alert">
+          <strong>Session revocation warning</strong>
+          <p>
+            Your local session was ended, but provider session revocation could
+            not be confirmed. Please close all browser windows or sign in again.
+          </p>
+        </div>
+      )}
 
       {error && (
         <div className="knora-notice" role="alert">

@@ -104,3 +104,73 @@ def test_auth_session_rejects_missing_or_invalid_bearer(client):
 
     response = client.get("/v1/auth/session", headers={"Authorization": "Bearer invalid-token"})
     assert response.status_code == 401
+
+
+def test_auth_session_returns_503_when_auth_provider_unavailable(ec_key_pair, issuer, audience):
+    def failing_validator(raw):
+        raise jwt.PyJWKClientError("Connection timeout to JWKS endpoint")
+
+    auth = SupabaseAuthenticator(
+        issuer=issuer,
+        audience=audience,
+        algorithm="ES256",
+        token_validator=failing_validator,
+        access_store=FakeAccessStore(),
+        session_reader=FakeSessionReader(),
+    )
+    app = create_app(bearer_authenticator=auth)
+    c = TestClient(app)
+
+    response = c.get("/v1/auth/session", headers={"Authorization": "Bearer some-token"})
+    assert response.status_code == 503
+    assert response.json() == {"error": {"code": "AUTH_PROVIDER_UNAVAILABLE"}}
+
+
+def test_auth_session_returns_503_when_session_reader_fails(ec_key_pair, issuer, audience):
+    private_key, public_key = ec_key_pair
+    now = int(time.time())
+    token = jwt.encode(
+        {
+            "iss": issuer,
+            "aud": audience,
+            "sub": "user-uuid",
+            "session_id": "sess-uuid",
+            "role": "authenticated",
+            "is_anonymous": False,
+            "exp": now + 3600,
+        },
+        private_key,
+        algorithm="ES256",
+        headers={"kid": "k1", "alg": "ES256"},
+    )
+
+    class FailingSessionReader:
+        def is_active(self, subject: str, session_id: str) -> bool:
+            from knora.domain.errors import KnoraError
+
+            raise KnoraError("AUTH_PROVIDER_UNAVAILABLE")
+
+    def validator(raw):
+        return jwt.decode(
+            raw,
+            public_key,
+            algorithms=["ES256"],
+            issuer=issuer,
+            audience=audience,
+            options={"require": ["exp", "iss", "aud", "sub"]},
+        )
+
+    auth = SupabaseAuthenticator(
+        issuer=issuer,
+        audience=audience,
+        algorithm="ES256",
+        token_validator=validator,
+        access_store=FakeAccessStore(),
+        session_reader=FailingSessionReader(),
+    )
+    app = create_app(bearer_authenticator=auth)
+    c = TestClient(app)
+
+    response = c.get("/v1/auth/session", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 503
+    assert response.json() == {"error": {"code": "AUTH_PROVIDER_UNAVAILABLE"}}

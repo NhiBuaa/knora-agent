@@ -311,3 +311,156 @@ it("signs out supabase session with scope local", async () => {
     vi.unstubAllEnvs();
   }
 });
+
+it("signs out supabase session by refreshing first when access token is expired", async () => {
+  try {
+    const fixture = await validSupabaseRefreshFixture();
+    const expiredSession = {
+      ...fixture.previous,
+      expiresAt: Math.floor(Date.now() / 1000) - 100, // expired
+      refreshToken: "valid-refresh-token",
+    };
+    let refreshCalled = false;
+    let logoutCalledWithNewToken = false;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        if (url.includes("/token?grant_type=refresh_token")) {
+          refreshCalled = true;
+          return Response.json({
+            access_token: fixture.tokens.access_token,
+            refresh_token: "new-refresh-token",
+            expires_in: 3600,
+          });
+        }
+        if (url.endsWith("/.well-known/jwks.json")) {
+          return Response.json({ keys: [fixture.jwk] });
+        }
+        if (url.endsWith("/v1/auth/session")) {
+          return Response.json({
+            issuer: fixture.issuer,
+            subject: fixture.subject,
+            session_id: fixture.providerSessionId,
+            capabilities: ["documents:read"],
+          });
+        }
+        if (url.endsWith("/logout?scope=local")) {
+          const auth = init?.headers ? (init.headers as any).Authorization : "";
+          if (auth === `Bearer ${fixture.tokens.access_token}`) {
+            logoutCalledWithNewToken = true;
+            return new Response(null, { status: 204 });
+          }
+          return new Response(JSON.stringify({ error: "jwt expired" }), {
+            status: 401,
+          });
+        }
+        throw new Error(`Unexpected HTTP call: ${url}`);
+      }),
+    );
+
+    await signOutSupabaseSession(expiredSession, "local");
+    expect(refreshCalled).toBe(true);
+    expect(logoutCalledWithNewToken).toBe(true);
+  } finally {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  }
+});
+
+it("throws retryable error on 429 rate limit during Supabase refresh", async () => {
+  try {
+    const fixture = await validSupabaseRefreshFixture();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/token?grant_type=refresh_token")) {
+          return new Response(
+            JSON.stringify({ error: "rate limit exceeded" }),
+            {
+              status: 429,
+            },
+          );
+        }
+        throw new Error(`Unexpected URL: ${url}`);
+      }),
+    );
+
+    await expect(refreshSupabaseSession(fixture.previous)).rejects.toThrow();
+  } finally {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  }
+});
+
+it("throws retryable error on 503 service unavailable during Supabase refresh", async () => {
+  try {
+    const fixture = await validSupabaseRefreshFixture();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/token?grant_type=refresh_token")) {
+          return new Response(
+            JSON.stringify({ error: "service unavailable" }),
+            {
+              status: 503,
+            },
+          );
+        }
+        throw new Error(`Unexpected URL: ${url}`);
+      }),
+    );
+
+    await expect(refreshSupabaseSession(fixture.previous)).rejects.toThrow();
+  } finally {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  }
+});
+
+it("throws retryable error on network failure during Supabase refresh", async () => {
+  try {
+    const fixture = await validSupabaseRefreshFixture();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        throw new Error("Network connection dropped");
+      }),
+    );
+
+    await expect(refreshSupabaseSession(fixture.previous)).rejects.toThrow();
+  } finally {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  }
+});
+
+it("returns null on definitive invalid grant (400) during Supabase refresh", async () => {
+  try {
+    const fixture = await validSupabaseRefreshFixture();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.includes("/token?grant_type=refresh_token")) {
+          return new Response(
+            JSON.stringify({
+              error: "invalid_grant",
+              error_description: "Invalid Refresh Token: Already Used",
+            }),
+            { status: 400 },
+          );
+        }
+        throw new Error(`Unexpected URL: ${url}`);
+      }),
+    );
+
+    const result = await refreshSupabaseSession(fixture.previous);
+    expect(result).toBeNull();
+  } finally {
+    vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
+  }
+});

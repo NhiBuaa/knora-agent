@@ -1,9 +1,11 @@
 import json
 
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 
 from knora.access.identity_access import BASELINE_CAPABILITIES, IdentityAccessStore
+from knora.domain.errors import KnoraError
 
 
 class PostgresIdentityAccessStore(IdentityAccessStore):
@@ -26,23 +28,26 @@ class PostgresIdentityAccessStore(IdentityAccessStore):
             WHERE issuer = :issuer AND subject = :subject;
             """
         )
-        with self._session_factory() as session:
-            session.execute(
-                insert_stmt,
-                {
-                    "issuer": issuer,
-                    "subject": subject,
-                    "capabilities": baseline_json,
-                },
-            )
-            session.commit()
-            row = session.execute(
-                select_stmt,
-                {"issuer": issuer, "subject": subject},
-            ).first()
-            if row is None or row[0] is None:
+        try:
+            with self._session_factory() as session:
+                session.execute(
+                    insert_stmt,
+                    {
+                        "issuer": issuer,
+                        "subject": subject,
+                        "capabilities": baseline_json,
+                    },
+                )
+                session.commit()
+                row = session.execute(
+                    select_stmt,
+                    {"issuer": issuer, "subject": subject},
+                ).first()
+                if row is None or row[0] is None:
+                    return ()
+                capabilities = row[0]
+                if isinstance(capabilities, list):
+                    return tuple(capabilities)
                 return ()
-            capabilities = row[0]
-            if isinstance(capabilities, list):
-                return tuple(capabilities)
-            return ()
+        except SQLAlchemyError as exc:
+            raise KnoraError("AUTH_PROVIDER_UNAVAILABLE") from exc

@@ -112,7 +112,8 @@ export async function POST(request: Request) {
 
     return response;
   } catch (err: unknown) {
+    const status = (err as { status?: number })?.status || 400;
     const message = (err as Error)?.message || "Failed to update password.";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json({ error: message }, { status });
   }
 }

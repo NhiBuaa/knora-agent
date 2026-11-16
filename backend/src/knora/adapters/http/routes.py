@@ -97,6 +97,10 @@ def authenticate_principal(
     if authorization and hasattr(authenticator, "authenticate_identity"):
         try:
             authenticator.authenticate_identity(authorization)
+        except KnoraError as error:
+            if error.code == "AUTH_PROVIDER_UNAVAILABLE":
+                raise
+            raise KnoraError("UNAUTHENTICATED") from error
         except Exception as error:
             raise KnoraError("UNAUTHENTICATED") from error
         if isinstance(authenticator, KeycloakAuthenticator):

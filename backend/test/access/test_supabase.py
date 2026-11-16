@@ -274,3 +274,72 @@ def test_authenticate_principal_fails_for_supabase(auth_with_empty_grants, signe
     with pytest.raises(KnoraError) as exc:
         auth_with_empty_grants.authenticate("Bearer " + token)
     assert exc.value.code == "UNAUTHENTICATED"
+
+
+def test_jwks_transport_error_raises_auth_provider_unavailable(issuer, audience):
+    def broken_validator(raw):
+        raise jwt.PyJWKClientError("Network timeout connecting to JWKS")
+
+    auth = SupabaseAuthenticator(
+        issuer=issuer,
+        audience=audience,
+        algorithm="ES256",
+        token_validator=broken_validator,
+        access_store=FakeAccessStore(),
+        session_reader=FakeSessionReader(),
+    )
+    with pytest.raises(KnoraError) as exc:
+        auth.authenticate_identity("Bearer dummy-token")
+    assert exc.value.code == "AUTH_PROVIDER_UNAVAILABLE"
+
+
+def test_jwks_connection_error_raises_auth_provider_unavailable(issuer, audience):
+    import urllib.error
+
+    def broken_validator(raw):
+        raise urllib.error.URLError("Connection refused")
+
+    auth = SupabaseAuthenticator(
+        issuer=issuer,
+        audience=audience,
+        algorithm="ES256",
+        token_validator=broken_validator,
+        access_store=FakeAccessStore(),
+        session_reader=FakeSessionReader(),
+    )
+    with pytest.raises(KnoraError) as exc:
+        auth.authenticate_identity("Bearer dummy-token")
+    assert exc.value.code == "AUTH_PROVIDER_UNAVAILABLE"
+
+
+def test_access_store_error_raises_auth_provider_unavailable(
+    ec_key_pair, issuer, audience, signed_token
+):
+    _, public_key = ec_key_pair
+
+    def validator(raw):
+        return jwt.decode(
+            raw,
+            public_key,
+            algorithms=["ES256"],
+            issuer=issuer,
+            audience=audience,
+            options={"require": ["exp", "iss", "aud", "sub"]},
+        )
+
+    class BrokenAccessStore:
+        def get_or_create_baseline(self, issuer: str, subject: str):
+            raise KnoraError("AUTH_PROVIDER_UNAVAILABLE")
+
+    auth = SupabaseAuthenticator(
+        issuer=issuer,
+        audience=audience,
+        algorithm="ES256",
+        token_validator=validator,
+        access_store=BrokenAccessStore(),
+        session_reader=FakeSessionReader(),
+    )
+    token = signed_token()
+    with pytest.raises(KnoraError) as exc:
+        auth.authenticate_identity("Bearer " + token)
+    assert exc.value.code == "AUTH_PROVIDER_UNAVAILABLE"

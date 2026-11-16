@@ -233,8 +233,10 @@ export async function getSession(
         capabilities: backend.capabilities,
       };
     } catch (err: unknown) {
+      const status = (err as { status?: number })?.status;
       if (
-        (err as { status?: number })?.status === 503 ||
+        status === 503 ||
+        status === 429 ||
         (err as Error)?.message === "AUTH_PROVIDER_UNAVAILABLE"
       ) {
         const { SessionRefreshUnavailable } = await import("./session-refresh");

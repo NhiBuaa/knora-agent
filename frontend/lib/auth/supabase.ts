@@ -42,14 +42,24 @@ export function _resetJwksCache(): void {
 async function getJWKS(url: string) {
   const now = Math.floor(Date.now() / 1000);
   if (!jwksCache || jwksCachedUrl !== url || now > jwksExpiresAt) {
-    const res = await fetch(url, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(5000),
-    });
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(5000),
+      });
+    } catch {
+      const err = new Error(`Failed to fetch Supabase JWKS from ${url}`);
+      (err as unknown as { status: number }).status = 503;
+      throw err;
+    }
     if (!res.ok) {
-      throw new Error(
+      const err = new Error(
         `Failed to fetch Supabase JWKS from ${url}: status ${res.status}`,
       );
+      (err as unknown as { status: number }).status =
+        res.status === 429 ? 429 : 503;
+      throw err;
     }
     const jwksJson = (await res.json()) as { keys: any[] };
     jwksCache = createLocalJWKSet(jwksJson);
@@ -96,20 +106,30 @@ export async function fetchBackendSession(accessToken: string): Promise<{
   sessionId: string | null;
 }> {
   const apiUrl = process.env.KNORA_API_URL || "http://127.0.0.1:8000";
-  const res = await fetch(`${apiUrl}/v1/auth/session`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-    },
-    cache: "no-store",
-    signal: AbortSignal.timeout(5000),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${apiUrl}/v1/auth/session`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    });
+  } catch (_err) {
+    const error = new Error("AUTH_PROVIDER_UNAVAILABLE");
+    (error as unknown as { status: number }).status = 503;
+    throw error;
+  }
   if (!res.ok) {
-    if (res.status === 503) {
+    if (res.status === 503 || res.status === 429 || res.status >= 500) {
       const err = new Error("AUTH_PROVIDER_UNAVAILABLE");
-      (err as unknown as { status: number }).status = 503;
+      (err as unknown as { status: number }).status =
+        res.status === 429 ? 429 : 503;
       throw err;
     }
-    throw new Error(`Backend session check failed: ${res.status}`);
+    const err = new Error(`Backend session check failed: ${res.status}`);
+    (err as unknown as { status: number }).status = res.status;
+    throw err;
   }
   const data = (await res.json()) as {
     capabilities: string[];
@@ -241,8 +261,9 @@ export async function refreshSupabaseSession(
   const config = getSupabaseConfig();
   const endpoint = `${config.url}/auth/v1/token?grant_type=refresh_token`;
 
+  let response: Response;
   try {
-    const response = await fetch(endpoint, {
+    response = await fetch(endpoint, {
       method: "POST",
       headers: {
         apikey: config.publishableKey,
@@ -252,42 +273,73 @@ export async function refreshSupabaseSession(
       cache: "no-store",
       signal: AbortSignal.timeout(10000),
     });
+  } catch (_err) {
+    const error = new Error("AUTH_PROVIDER_UNAVAILABLE");
+    (error as unknown as { status: number }).status = 503;
+    throw error;
+  }
 
-    if (!response.ok) {
-      return null;
+  if (!response.ok) {
+    if (response.status === 429 || response.status >= 500) {
+      const error = new Error("AUTH_PROVIDER_UNAVAILABLE");
+      (error as unknown as { status: number }).status =
+        response.status === 429 ? 429 : 503;
+      throw error;
     }
-
-    const tokens = (await response.json()) as SupabaseTokens;
-    const verified = await verifySupabaseJwt(tokens.access_token);
-
-    // Subject and provider session ID must match
-    if (verified.sub !== session.subject) return null;
-    if (
-      session.providerSessionId &&
-      verified.sessionId !== session.providerSessionId
-    )
-      return null;
-
-    // Check backend state
-    const backend = await fetchBackendSession(tokens.access_token);
-
-    const now = Math.floor(Date.now() / 1000);
-    return {
-      provider: "supabase",
-      providerSessionId: verified.sessionId,
-      issuer: verified.issuer,
-      subject: verified.sub,
-      accessToken: tokens.access_token,
-      refreshToken: tokens.refresh_token,
-      expiresAt: now + (tokens.expires_in || 3600),
-      sessionExpiresAt: session.sessionExpiresAt ?? now + 8 * 3600,
-      sessionId: session.sessionId ?? randomUUID(),
-      capabilities: backend.capabilities,
-      workspaceIds: session.workspaceIds || [],
-    };
-  } catch {
     return null;
   }
+
+  let tokens: SupabaseTokens;
+  try {
+    tokens = (await response.json()) as SupabaseTokens;
+  } catch {
+    const error = new Error("AUTH_PROVIDER_UNAVAILABLE");
+    (error as unknown as { status: number }).status = 503;
+    throw error;
+  }
+
+  let verified: { sub: string; sessionId: string; issuer: string };
+  try {
+    verified = await verifySupabaseJwt(tokens.access_token);
+  } catch (err: unknown) {
+    if (
+      (err as { status?: number })?.status === 503 ||
+      (err as { status?: number })?.status === 429 ||
+      (err as Error)?.message?.includes("Failed to fetch Supabase JWKS")
+    ) {
+      const error = new Error("AUTH_PROVIDER_UNAVAILABLE");
+      (error as unknown as { status: number }).status = 503;
+      throw error;
+    }
+    return null;
+  }
+
+  // Subject and provider session ID must match
+  if (verified.sub !== session.subject) return null;
+  if (
+    session.providerSessionId &&
+    verified.sessionId !== session.providerSessionId
+  ) {
+    return null;
+  }
+
+  // Check backend state
+  const backend = await fetchBackendSession(tokens.access_token);
+
+  const now = Math.floor(Date.now() / 1000);
+  return {
+    provider: "supabase",
+    providerSessionId: verified.sessionId,
+    issuer: verified.issuer,
+    subject: verified.sub,
+    accessToken: tokens.access_token,
+    refreshToken: tokens.refresh_token,
+    expiresAt: now + (tokens.expires_in || 3600),
+    sessionExpiresAt: session.sessionExpiresAt ?? now + 8 * 3600,
+    sessionId: session.sessionId ?? randomUUID(),
+    capabilities: backend.capabilities,
+    workspaceIds: session.workspaceIds || [],
+  };
 }
 
 export async function signOutSupabaseSession(
@@ -297,16 +349,57 @@ export async function signOutSupabaseSession(
   const config = getSupabaseConfig();
   const endpoint = `${config.url}/auth/v1/logout?scope=${scope}`;
 
-  const response = await fetch(endpoint, {
+  let tokenToUse = session.accessToken;
+  const now = Math.floor(Date.now() / 1000);
+
+  // If access token is expired or expiring soon, but refresh token exists, refresh first
+  if (session.refreshToken && session.expiresAt <= now) {
+    try {
+      const refreshed = await refreshSupabaseSession(session);
+      if (refreshed?.accessToken) {
+        tokenToUse = refreshed.accessToken;
+      }
+    } catch {
+      // Continue with current access token
+    }
+  }
+
+  let response = await fetch(endpoint, {
     method: "POST",
     headers: {
       apikey: config.publishableKey,
-      Authorization: `Bearer ${session.accessToken}`,
+      Authorization: `Bearer ${tokenToUse}`,
       "Content-Type": "application/json",
     },
     cache: "no-store",
     signal: AbortSignal.timeout(5000),
   });
+
+  // If 401 received and we have a refresh token that wasn't refreshed yet, try refreshing once
+  if (
+    response.status === 401 &&
+    session.refreshToken &&
+    tokenToUse === session.accessToken
+  ) {
+    try {
+      const refreshed = await refreshSupabaseSession(session);
+      if (refreshed?.accessToken) {
+        tokenToUse = refreshed.accessToken;
+        response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            apikey: config.publishableKey,
+            Authorization: `Bearer ${tokenToUse}`,
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+          signal: AbortSignal.timeout(5000),
+        });
+      }
+    } catch {
+      // Keep existing response
+    }
+  }
 
   if (!response.ok) {
     throw new Error(`Supabase sign-out failed with status ${response.status}`);

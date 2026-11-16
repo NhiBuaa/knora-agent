@@ -171,6 +171,21 @@ describe("LoginForm", () => {
     );
     expect(pushMock).not.toHaveBeenCalled();
   });
+
+  it("displays session revocation warning when signed-out reason is retryable", () => {
+    render(<LoginForm signedOutReason="retryable" />);
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Session revocation warning");
+    expect(alert).toHaveTextContent(
+      "provider session revocation could not be confirmed",
+    );
+  });
+
+  it("displays password updated notice when reset is true", () => {
+    render(<LoginForm reset={true} />);
+    const statusNotice = screen.getByRole("status");
+    expect(statusNotice).toHaveTextContent("Password updated");
+  });
 });
 
 describe("AuthFrame", () => {

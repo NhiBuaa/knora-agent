@@ -637,6 +637,7 @@ def create_app(
     async def handle_knora_error(request: Request, error: KnoraError) -> JSONResponse:
         status = {
             "UNAUTHENTICATED": 401,
+            "AUTH_PROVIDER_UNAVAILABLE": 503,
             "WORKSPACE_ACCESS_DENIED": 403,
             "WORKSPACE_ARCHIVED": 409,
             "REVISION_CONFLICT": 409,

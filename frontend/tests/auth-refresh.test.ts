@@ -347,4 +347,66 @@ describe("server session renewal", () => {
     expect(await getSession(false)).toBeNull();
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("preserves cookie and throws SESSION_REFRESH_UNAVAILABLE on transient Supabase refresh failure (429/503/network)", async () => {
+    vi.stubEnv("KNORA_AUTH_PROVIDER", "supabase");
+    vi.stubEnv("SUPABASE_URL", "https://auth.example.test");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "test-key");
+    const now = Math.floor(Date.now() / 1000);
+    state.cookie = await encodeSession({
+      provider: "supabase",
+      subject: "alice",
+      accessToken: "expired-access",
+      refreshToken: "active-refresh",
+      expiresAt: now - 1,
+      sessionExpiresAt: now + 8 * 3600,
+      workspaceIds: [],
+      capabilities: [],
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: "rate limit" }), {
+          status: 429,
+        }),
+      ),
+    );
+
+    await expect(getSession(true)).rejects.toThrow(
+      "SESSION_REFRESH_UNAVAILABLE",
+    );
+    expect(state.set).not.toHaveBeenCalled();
+  });
+
+  it("clears cookie when Supabase refresh returns definitive invalid_grant (400)", async () => {
+    vi.stubEnv("KNORA_AUTH_PROVIDER", "supabase");
+    vi.stubEnv("SUPABASE_URL", "https://auth.example.test");
+    vi.stubEnv("SUPABASE_PUBLISHABLE_KEY", "test-key");
+    const now = Math.floor(Date.now() / 1000);
+    state.cookie = await encodeSession({
+      provider: "supabase",
+      subject: "alice",
+      accessToken: "expired-access",
+      refreshToken: "revoked-refresh",
+      expiresAt: now - 1,
+      sessionExpiresAt: now + 8 * 3600,
+      workspaceIds: [],
+      capabilities: [],
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ error: "invalid_grant" }), {
+          status: 400,
+        }),
+      ),
+    );
+
+    const result = await getSession(true);
+    expect(result).toBeNull();
+    expect(state.set).toHaveBeenCalledOnce();
+    const [cookieName, , cookieOpts] = state.set.mock.calls[0];
+    expect(cookieName).toBe("knora_session");
+    expect(cookieOpts.maxAge).toBe(0);
+  });
 });

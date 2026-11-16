@@ -239,4 +239,107 @@ describe("Supabase Recovery Operations", () => {
       updateRecoveredPassword(recoverySession, "NewSecret123!"),
     ).rejects.toThrow();
   });
+
+  it("updateRecoveredPassword does not swallow revocation failure when provider returns HTTP error", async () => {
+    const token = await mockAccessToken();
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method || "GET";
+        if (url.endsWith("/v1/auth/session")) {
+          return Response.json({
+            issuer,
+            subject,
+            session_id: providerSessionId,
+            capabilities: [],
+          });
+        }
+        if (url.endsWith("/auth/v1/user") && method === "PUT") {
+          return Response.json({ id: subject });
+        }
+        if (url.endsWith("/auth/v1/logout?scope=global") && method === "POST") {
+          return new Response(
+            JSON.stringify({ error: "Service unavailable" }),
+            {
+              status: 503,
+            },
+          );
+        }
+        throw new Error(`Unexpected call: ${url} ${method}`);
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const recoverySession: KnoraSession = {
+      provider: "supabase",
+      providerSessionId,
+      issuer,
+      subject,
+      accessToken: token,
+      workspaceIds: [],
+      capabilities: [],
+      expiresAt: Math.floor(Date.now() / 1000) + 300,
+      sessionExpiresAt: Math.floor(Date.now() / 1000) + 300,
+    };
+
+    let caughtError: any = null;
+    try {
+      await updateRecoveredPassword(recoverySession, "NewSecret123!");
+    } catch (err) {
+      caughtError = err;
+    }
+
+    expect(caughtError).not.toBeNull();
+    expect(caughtError.status).toBe(503);
+    expect(caughtError.message).toContain("revoke active sessions");
+  });
+
+  it("updateRecoveredPassword does not swallow revocation failure on network timeout", async () => {
+    const token = await mockAccessToken();
+    const fetchMock = vi.fn(
+      async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = String(input);
+        const method = init?.method || "GET";
+        if (url.endsWith("/v1/auth/session")) {
+          return Response.json({
+            issuer,
+            subject,
+            session_id: providerSessionId,
+            capabilities: [],
+          });
+        }
+        if (url.endsWith("/auth/v1/user") && method === "PUT") {
+          return Response.json({ id: subject });
+        }
+        if (url.endsWith("/auth/v1/logout?scope=global") && method === "POST") {
+          throw new Error("Network timeout during revocation");
+        }
+        throw new Error(`Unexpected call: ${url} ${method}`);
+      },
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const recoverySession: KnoraSession = {
+      provider: "supabase",
+      providerSessionId,
+      issuer,
+      subject,
+      accessToken: token,
+      workspaceIds: [],
+      capabilities: [],
+      expiresAt: Math.floor(Date.now() / 1000) + 300,
+      sessionExpiresAt: Math.floor(Date.now() / 1000) + 300,
+    };
+
+    let caughtError: any = null;
+    try {
+      await updateRecoveredPassword(recoverySession, "NewSecret123!");
+    } catch (err) {
+      caughtError = err;
+    }
+
+    expect(caughtError).not.toBeNull();
+    expect(caughtError.status).toBe(503);
+    expect(caughtError.message).toContain("revoke active sessions");
+  });
 });

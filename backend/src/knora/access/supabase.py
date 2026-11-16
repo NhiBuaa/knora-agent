@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import urllib.error
 from collections.abc import Callable, Mapping
 
 import jwt
@@ -103,6 +104,14 @@ class SupabaseAuthenticator(BearerIdentityAuthenticator):
             claims = self._token_validator(token)
         except KnoraError:
             raise
+        except (
+            jwt.PyJWKClientError,
+            urllib.error.URLError,
+            OSError,
+            TimeoutError,
+            ConnectionError,
+        ) as exc:
+            raise KnoraError("AUTH_PROVIDER_UNAVAILABLE") from exc
         except Exception as exc:
             raise KnoraError("UNAUTHENTICATED") from exc
 

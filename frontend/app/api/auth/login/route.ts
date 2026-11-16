@@ -17,7 +17,15 @@ import {
 
 export async function GET(request: Request) {
   if (getAuthProvider() === "supabase") {
-    return NextResponse.redirect(new URL("/auth/login", request.url));
+    const incoming = new URL(request.url);
+    const dest = new URL("/auth/login", request.url);
+    if (incoming.searchParams.has("signed-out")) {
+      dest.searchParams.set(
+        "signed-out",
+        incoming.searchParams.get("signed-out")!,
+      );
+    }
+    return NextResponse.redirect(dest);
   }
   const authorize = process.env.KEYCLOAK_AUTHORIZATION_URL;
   if (!authorize)

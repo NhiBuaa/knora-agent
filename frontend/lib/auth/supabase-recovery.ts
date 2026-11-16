@@ -11,6 +11,15 @@ import {
 
 export const RECOVERY_COOKIE_NAME = "knora_recovery";
 
+export class SessionRevocationError extends Error {
+  status: number;
+  constructor(message: string, status = 503) {
+    super(message);
+    this.name = "SessionRevocationError";
+    this.status = status;
+  }
+}
+
 const secret = () =>
   new TextEncoder().encode(
     process.env.SESSION_SECRET ?? "development-only-session-secret-change-me",
@@ -143,9 +152,10 @@ export async function updateRecoveredPassword(
   }
 
   // Revoke provider sessions with scope=global
+  const logoutEndpoint = `${config.url}/auth/v1/logout?scope=global`;
+  let logoutResponse: Response;
   try {
-    const logoutEndpoint = `${config.url}/auth/v1/logout?scope=global`;
-    await fetch(logoutEndpoint, {
+    logoutResponse = await fetch(logoutEndpoint, {
       method: "POST",
       headers: {
         apikey: config.publishableKey,
@@ -155,8 +165,19 @@ export async function updateRecoveredPassword(
       cache: "no-store",
       signal: AbortSignal.timeout(5000),
     });
-  } catch {
-    // Continue if logout times out, password has been updated
+  } catch (_err) {
+    throw new SessionRevocationError(
+      "Failed to reach authentication provider to revoke active sessions.",
+      503,
+    );
+  }
+
+  if (!logoutResponse.ok) {
+    const status = logoutResponse.status >= 500 ? 503 : logoutResponse.status;
+    throw new SessionRevocationError(
+      `Failed to revoke active sessions after password update (status: ${logoutResponse.status}).`,
+      status,
+    );
   }
 }
 

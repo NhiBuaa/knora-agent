@@ -125,3 +125,16 @@ def test_concurrent_enrollments_create_one_row(session_factory, connection):
         {"issuer": issuer, "subject": subject},
     ).scalar()
     assert row_count == 1
+
+
+def test_db_error_raises_auth_provider_unavailable():
+    from knora.domain.errors import KnoraError
+
+    broken_engine = create_engine(
+        "postgresql+psycopg://knora:wrong_password@127.0.0.1:5432/nonexistent?connect_timeout=1"
+    )
+    broken_factory = sessionmaker(bind=broken_engine)
+    broken_store = PostgresIdentityAccessStore(broken_factory)
+    with pytest.raises(KnoraError) as exc:
+        broken_store.get_or_create_baseline("https://demo.supabase.co/auth/v1", "user-1")
+    assert exc.value.code == "AUTH_PROVIDER_UNAVAILABLE"

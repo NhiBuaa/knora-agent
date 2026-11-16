@@ -82,9 +82,12 @@ async function refresh(session: KnoraSession): Promise<KnoraSession | null> {
     try {
       return await refreshSupabaseSession(session);
     } catch (err: unknown) {
+      const status = (err as { status?: number })?.status;
       if (
-        (err as { status?: number })?.status === 503 ||
-        (err as Error)?.message === "AUTH_PROVIDER_UNAVAILABLE"
+        status === 503 ||
+        status === 429 ||
+        (err as Error)?.message === "AUTH_PROVIDER_UNAVAILABLE" ||
+        err instanceof SessionRefreshUnavailable
       ) {
         throw new SessionRefreshUnavailable();
       }
