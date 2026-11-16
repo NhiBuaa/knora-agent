@@ -237,6 +237,12 @@
   align-items: center;
 }
 
+.knora-forgot-row {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
 .knora-label {
   font-size: 14px;
   font-weight: 500;

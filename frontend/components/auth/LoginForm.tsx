@@ -157,14 +157,9 @@ export function LoginForm({
         </div>
 
         <div className="knora-field">
-          <div className="knora-label-row">
-            <label htmlFor="password" className="knora-label">
-              Password
-            </label>
-            <Link href="/auth/forgot-password" className="knora-link">
-              Forgot your password?
-            </Link>
-          </div>
+          <label htmlFor="password" className="knora-label">
+            Password
+          </label>
           <div className="knora-password-wrapper">
             <input
               id="password"
@@ -187,6 +182,11 @@ export function LoginForm({
             >
               {showPassword ? <EyeIcon /> : <EyeOffIcon />}
             </button>
+          </div>
+          <div className="knora-forgot-row">
+            <Link href="/auth/forgot-password" className="knora-link">
+              Forgot your password?
+            </Link>
           </div>
         </div>
 
