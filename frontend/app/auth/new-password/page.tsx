@@ -4,12 +4,14 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AuthFrame } from "@/components/auth/AuthFrame";
+import { EyeIcon, EyeOffIcon } from "@/components/auth/AuthIcons";
 
 export default function NewPasswordPage() {
   const router = useRouter();
   const [password, setPassword] = useState("");
   const [passwordConfirm, setPasswordConfirm] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -102,8 +104,9 @@ export default function NewPasswordPage() {
               className="knora-password-toggle"
               onClick={() => setShowPassword(!showPassword)}
               aria-label={showPassword ? "Hide password" : "Show password"}
+              title={showPassword ? "Hide password" : "Show password"}
             >
-              {showPassword ? "Hide" : "Show"}
+              {showPassword ? <EyeIcon /> : <EyeOffIcon />}
             </button>
           </div>
         </div>
@@ -116,7 +119,7 @@ export default function NewPasswordPage() {
             <input
               id="password-confirm"
               name="passwordConfirm"
-              type={showPassword ? "text" : "password"}
+              type={showConfirmPassword ? "text" : "password"}
               autoComplete="new-password"
               className="knora-input"
               placeholder="••••••••••••"
@@ -125,6 +128,23 @@ export default function NewPasswordPage() {
               disabled={isSubmitting}
               required
             />
+            <button
+              type="button"
+              className="knora-password-toggle"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              aria-label={
+                showConfirmPassword
+                  ? "Hide confirm password"
+                  : "Show confirm password"
+              }
+              title={
+                showConfirmPassword
+                  ? "Hide confirm password"
+                  : "Show confirm password"
+              }
+            >
+              {showConfirmPassword ? <EyeIcon /> : <EyeOffIcon />}
+            </button>
           </div>
         </div>
 

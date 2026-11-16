@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { EyeIcon, EyeOffIcon } from "@/components/auth/AuthIcons";
 
 export function LoginForm({
   signedOutReason: initialSignedOutReason,
@@ -182,8 +183,9 @@ export function LoginForm({
               className="knora-password-toggle"
               onClick={() => setShowPassword(!showPassword)}
               aria-label={showPassword ? "Hide password" : "Show password"}
+              title={showPassword ? "Hide password" : "Show password"}
             >
-              {showPassword ? "Hide" : "Show"}
+              {showPassword ? <EyeIcon /> : <EyeOffIcon />}
             </button>
           </div>
         </div>

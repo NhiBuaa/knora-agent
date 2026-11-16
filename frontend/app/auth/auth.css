@@ -39,6 +39,10 @@
 }
 
 .knora-auth-frame {
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
   display: grid;
   grid-template-columns: 43.05556% 1fr;
   min-height: 100vh;
@@ -288,25 +292,37 @@
   align-items: center;
 }
 
+.knora-password-wrapper .knora-input {
+  padding-right: 44px;
+}
+
 .knora-password-toggle {
   position: absolute;
-  right: 10px;
-  padding: 4px 8px;
+  right: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
   border: 0;
   background: transparent;
   color: var(--knora-muted);
-  font-size: 12px;
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: 6px;
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease;
 }
 
 .knora-password-toggle:hover {
   color: var(--knora-text);
+  background-color: var(--knora-subtle);
 }
 
 .knora-password-toggle:focus-visible {
   outline: 2px solid var(--knora-focus);
-  outline-offset: 2px;
+  outline-offset: 1px;
 }
 
 .knora-button-primary {

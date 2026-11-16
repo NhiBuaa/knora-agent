@@ -104,6 +104,35 @@ describe("RegisterForm", () => {
     );
     expect(pushMock).not.toHaveBeenCalled();
   });
+
+  it("toggles password and confirm password independently with eye icons", async () => {
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+
+    const passwordInput = screen.getByLabelText("Password", { exact: true });
+    const confirmInput = screen.getByLabelText("Confirm password");
+    expect(passwordInput).toHaveAttribute("type", "password");
+    expect(confirmInput).toHaveAttribute("type", "password");
+
+    const togglePassword = screen.getByRole("button", {
+      name: "Show password",
+    });
+    const toggleConfirm = screen.getByRole("button", {
+      name: "Show confirm password",
+    });
+
+    await user.click(togglePassword);
+    expect(passwordInput).toHaveAttribute("type", "text");
+    expect(confirmInput).toHaveAttribute("type", "password");
+
+    await user.click(toggleConfirm);
+    expect(passwordInput).toHaveAttribute("type", "text");
+    expect(confirmInput).toHaveAttribute("type", "text");
+
+    await user.click(screen.getByRole("button", { name: "Hide password" }));
+    expect(passwordInput).toHaveAttribute("type", "password");
+    expect(confirmInput).toHaveAttribute("type", "text");
+  });
 });
 
 describe("LoginForm", () => {
@@ -185,6 +214,25 @@ describe("LoginForm", () => {
     render(<LoginForm reset={true} />);
     const statusNotice = screen.getByRole("status");
     expect(statusNotice).toHaveTextContent("Password updated");
+  });
+
+  it("toggles password visibility with accessible icon button", async () => {
+    const user = userEvent.setup();
+    render(<LoginForm />);
+
+    const passwordInput = screen.getByLabelText("Password", { exact: true });
+    expect(passwordInput).toHaveAttribute("type", "password");
+
+    const toggleButton = screen.getByRole("button", { name: "Show password" });
+    expect(toggleButton).toBeVisible();
+
+    await user.click(toggleButton);
+    expect(passwordInput).toHaveAttribute("type", "text");
+    expect(screen.getByRole("button", { name: "Hide password" })).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Hide password" }));
+    expect(passwordInput).toHaveAttribute("type", "password");
+    expect(screen.getByRole("button", { name: "Show password" })).toBeVisible();
   });
 });
 
@@ -295,5 +343,34 @@ describe("Recovery Forms", () => {
       passwordConfirm: "UpdatedPass123!",
     });
     expect(pushMock).toHaveBeenCalledWith("/auth/login?reset=1");
+  });
+
+  it("toggles new password and confirm new password independently", async () => {
+    const user = userEvent.setup();
+    render(<NewPasswordPage />);
+
+    const passwordInput = screen.getByLabelText("New password");
+    const confirmInput = screen.getByLabelText("Confirm new password");
+    expect(passwordInput).toHaveAttribute("type", "password");
+    expect(confirmInput).toHaveAttribute("type", "password");
+
+    const togglePassword = screen.getByRole("button", {
+      name: "Show password",
+    });
+    const toggleConfirm = screen.getByRole("button", {
+      name: "Show confirm password",
+    });
+
+    await user.click(togglePassword);
+    expect(passwordInput).toHaveAttribute("type", "text");
+    expect(confirmInput).toHaveAttribute("type", "password");
+
+    await user.click(toggleConfirm);
+    expect(passwordInput).toHaveAttribute("type", "text");
+    expect(confirmInput).toHaveAttribute("type", "text");
+
+    await user.click(screen.getByRole("button", { name: "Hide password" }));
+    expect(passwordInput).toHaveAttribute("type", "password");
+    expect(confirmInput).toHaveAttribute("type", "text");
   });
 });
