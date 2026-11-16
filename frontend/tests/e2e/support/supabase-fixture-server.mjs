@@ -26,6 +26,16 @@ const activeSessions = new Map(); // sessionId -> { refreshToken, subject, revok
 let currentPassword = "Password123!";
 let refreshCallCount = 0;
 
+const mockWorkspaces = [
+  {
+    id: "ws-default-workspace",
+    name: "Default Workspace",
+    archived: false,
+    created_at: new Date().toISOString(),
+    revision: 1,
+  },
+];
+
 async function createToken(subject, sessionId, expiresIn = 3600) {
   const now = Math.floor(Date.now() / 1000);
   return new SignJWT({
@@ -346,6 +356,116 @@ const server = http.createServer(async (req, res) => {
       res.end(JSON.stringify({ error: { code: "UNAUTHENTICATED" } }));
       return;
     }
+  }
+
+  // Knora Workspaces API (/v1/workspaces/resolve)
+  if (url.pathname === "/v1/workspaces/resolve" && req.method === "POST") {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: { code: "UNAUTHENTICATED" } }));
+      return;
+    }
+    const token = authHeader.slice(7);
+    try {
+      await jwtVerify(token, jwkSet, { issuer: ISSUER, audience: AUDIENCE });
+    } catch {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: { code: "UNAUTHENTICATED" } }));
+      return;
+    }
+    const body = await readJson();
+    const targetWorkspace =
+      mockWorkspaces.find((w) => w.id === body.hint_id && !w.archived) ||
+      mockWorkspaces.find((w) => !w.archived) ||
+      null;
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(
+      JSON.stringify({
+        state: targetWorkspace ? "ACTIVE" : "NO_ACTIVE_WORKSPACE",
+        workspace: targetWorkspace,
+      }),
+    );
+    return;
+  }
+
+  // Knora Workspaces List & Creation (/v1/workspaces)
+  if (url.pathname === "/v1/workspaces") {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: { code: "UNAUTHENTICATED" } }));
+      return;
+    }
+    const token = authHeader.slice(7);
+    try {
+      await jwtVerify(token, jwkSet, { issuer: ISSUER, audience: AUDIENCE });
+    } catch {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: { code: "UNAUTHENTICATED" } }));
+      return;
+    }
+
+    if (req.method === "GET") {
+      const archivedParam = url.searchParams.get("archived") === "true";
+      const filtered = mockWorkspaces.filter(
+        (w) => w.archived === archivedParam,
+      );
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(
+        JSON.stringify({
+          items: filtered,
+          next_cursor: null,
+        }),
+      );
+      return;
+    }
+
+    if (req.method === "POST") {
+      const { name } = await readJson();
+      const newWs = {
+        id: `ws-${randomUUID().slice(0, 8)}`,
+        name: name || "New Workspace",
+        archived: false,
+        created_at: new Date().toISOString(),
+        revision: 1,
+      };
+      mockWorkspaces.push(newWs);
+      res.writeHead(201, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(newWs));
+      return;
+    }
+  }
+
+  // Knora Single Workspace (/v1/workspaces/:workspaceId)
+  const singleWsMatch = url.pathname.match(/^\/v1\/workspaces\/([^/]+)$/);
+  if (singleWsMatch && req.method === "GET") {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      res.writeHead(401, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: { code: "UNAUTHENTICATED" } }));
+      return;
+    }
+    const wsId = decodeURIComponent(singleWsMatch[1]);
+    const ws = mockWorkspaces.find((w) => w.id === wsId);
+    if (!ws) {
+      res.writeHead(404, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: "Workspace not found" }));
+      return;
+    }
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(ws));
+    return;
+  }
+
+  // Knora Workspace Conversations & Documents sub-routes
+  const subRouteMatch = url.pathname.match(
+    /^\/v1\/workspaces\/([^/]+)\/(conversations|documents)$/,
+  );
+  if (subRouteMatch && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ items: [], next_cursor: null }));
+    return;
   }
 
   res.writeHead(404).end();
