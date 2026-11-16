@@ -103,10 +103,10 @@ export function DocumentList({
         }
         setLimitedPermissions(false);
         const body = (await response.json()) as {
-          documents: DocumentResponse[];
+          documents?: DocumentResponse[];
         };
         if (controller.signal.aborted) return;
-        setDocuments(body.documents);
+        setDocuments(Array.isArray(body?.documents) ? body.documents : []);
         setJobStates((previous) =>
           Object.fromEntries(
             Object.entries(previous).filter(([, job]) =>
@@ -515,7 +515,7 @@ export function DocumentList({
       finish("upload", controller);
     }
   }
-  const visible = documents.filter(
+  const visible = (documents ?? []).filter(
     (document) =>
       (showArchived || !document.archived) &&
       `${document.source_name} ${document.source_key}`

@@ -459,12 +459,19 @@ const server = http.createServer(async (req, res) => {
   }
 
   // Knora Workspace Conversations & Documents sub-routes
-  const subRouteMatch = url.pathname.match(
-    /^\/v1\/workspaces\/([^/]+)\/(conversations|documents)$/,
+  const convMatch = url.pathname.match(
+    /^\/v1\/workspaces\/([^/]+)\/conversations$/,
   );
-  if (subRouteMatch && req.method === "GET") {
+  if (convMatch && req.method === "GET") {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({ items: [], next_cursor: null }));
+    return;
+  }
+
+  const docMatch = url.pathname.match(/^\/v1\/workspaces\/([^/]+)\/documents$/);
+  if (docMatch && req.method === "GET") {
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify({ documents: [], next_cursor: null }));
     return;
   }
 
