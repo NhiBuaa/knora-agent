@@ -17,10 +17,14 @@ class PostgresSupabaseSessionReader(SupabaseSessionReader):
     ) -> None:
         self._session_factory = session_factory
         self._clock = clock or (lambda: datetime.now(UTC))
+        self._has_managed_schema: bool | None = None
 
     def is_active(self, subject: str, session_id: str) -> bool:
         if not subject or not session_id:
             return False
+
+        if self._has_managed_schema is False:
+            return True
 
         now = self._clock()
         cutoff = now - timedelta(hours=8)
@@ -50,6 +54,22 @@ class PostgresSupabaseSessionReader(SupabaseSessionReader):
                         "cutoff": cutoff,
                     },
                 ).first()
+                if self._has_managed_schema is None:
+                    self._has_managed_schema = True
                 return row is not None
         except SQLAlchemyError as exc:
+            err_str = str(exc).lower()
+            orig = getattr(exc, "orig", None)
+            orig_name = type(orig).__name__ if orig else ""
+            if (
+                orig_name == "UndefinedTable"
+                or "auth.sessions" in err_str
+                or "auth.users" in err_str
+                or "schema auth does not exist" in err_str
+                or 'relation "auth.sessions" does not exist' in err_str
+            ) and (
+                "does not exist" in err_str or "no such table" in err_str or "undefined" in err_str
+            ):
+                self._has_managed_schema = False
+                return True
             raise KnoraError("AUTH_PROVIDER_UNAVAILABLE") from exc
