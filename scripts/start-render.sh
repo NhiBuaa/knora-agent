@@ -22,8 +22,9 @@ trap 'exit 0' SIGINT SIGTERM
 echo "==> [Knora Render] Running database migrations with Alembic..."
 alembic upgrade head
 
-if [ "${KNORA_EMBEDDED_WORKERS:-false}" = "true" ]; then
+if [ "${KNORA_EMBEDDED_WORKERS:-true}" = "true" ]; then
     echo "==> [Knora Render] KNORA_EMBEDDED_WORKERS enabled. Starting consolidated process on 0.0.0.0:${PORT:-8000}..."
+    export KNORA_EMBEDDED_WORKERS=true
     if [ "$(type -t uvicorn)" = "file" ]; then
         exec uvicorn knora.main:app --host 0.0.0.0 --port "${PORT:-8000}"
     else
