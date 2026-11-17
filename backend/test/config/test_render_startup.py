@@ -41,7 +41,12 @@ alembic() { return "$MIGRATION_CODE"; }
 python() {
     if [[ "$1" == "-m" ]]; then run_child pdf; else run_child conversation; fi
 }
-uvicorn() { run_child api; }
+uvicorn() {
+    if [[ "$KNORA_EMBEDDED_WORKERS" == "true" ]]; then
+        printf 'uvicorn:embedded\n' >> "$EVENTS"
+    fi
+    run_child api
+}
 echo() {
     if [[ "$SEND_EARLY_TERM" == "1" && "$*" == *"Starting background Conversation"* ]]; then
         wait_for_start pdf
@@ -127,6 +132,34 @@ def test_render_embedded_workers_starts_only_api(tmp_path):
     assert "conversation:started" not in events
 
 
+def test_render_default_unconfigured_starts_only_api(tmp_path):
+    result, events = run_startup(tmp_path, fail_role="api", fail_code=0, embedded_workers=None)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "api:started" in events
+    assert "uvicorn:embedded" in events
+    assert "pdf:started" not in events
+    assert "conversation:started" not in events
+
+
+def test_render_respects_dotenv_embedded_workers_opt_out(tmp_path):
+    dotenv = ROOT / ".env"
+    had_dotenv = dotenv.exists()
+    old_content = dotenv.read_text(encoding="utf-8") if had_dotenv else None
+    try:
+        dotenv.write_text("KNORA_EMBEDDED_WORKERS=false\n", encoding="utf-8")
+        result, events = run_startup(tmp_path, fail_role="api", fail_code=0, embedded_workers=None)
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert "api:started" in events
+        assert "uvicorn:embedded" not in events
+        assert "pdf:started" in events
+        assert "conversation:started" in events
+    finally:
+        if had_dotenv and old_content is not None:
+            dotenv.write_text(old_content, encoding="utf-8")
+        elif dotenv.exists():
+            dotenv.unlink()
+
+
 def run_startup(
     tmp_path,
     *,
@@ -137,7 +170,7 @@ def run_startup(
     delay_api_start=False,
     send_early_term=False,
     spawn_extractor=False,
-    embedded_workers=False,
+    embedded_workers: bool | None = False,
 ):
     assert BASH, "Bash is required to verify the Render startup script"
     events = tmp_path / "events.txt"
@@ -151,9 +184,12 @@ def run_startup(
         "DELAY_API_START": "1" if delay_api_start else "0",
         "SEND_EARLY_TERM": "1" if send_early_term else "0",
         "SPAWN_EXTRACTOR": "1" if spawn_extractor else "0",
-        "KNORA_EMBEDDED_WORKERS": "true" if embedded_workers else "false",
         "CHILD_PIDS": (tmp_path / "child-pids.txt").as_posix(),
     }
+    if embedded_workers is not None:
+        environment["KNORA_EMBEDDED_WORKERS"] = "true" if embedded_workers else "false"
+    else:
+        environment.pop("KNORA_EMBEDDED_WORKERS", None)
     result = subprocess.run(
         [
             BASH,
