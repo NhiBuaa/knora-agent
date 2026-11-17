@@ -140,7 +140,7 @@ export function DocumentList({
       const doc = documentsRef.current.find((d) => d.ingestion_job_id === id);
       if ((doc && derivationIsActive(doc)) || id === uploadJobId) {
         activeJobIds.add(id);
-      } else if (!doc && id !== uploadJobId) {
+      } else {
         exhausted.current.delete(id);
       }
     }
@@ -154,6 +154,24 @@ export function DocumentList({
     } else {
       setPollingError(pollingErrors.current.values().next().value ?? null);
     }
+  }, []);
+
+  const isJobCurrent = useCallback((documentId: string, jobId: string) => {
+    const doc = documentsRef.current.find((d) => d.document_id === documentId);
+    if (doc) {
+      return Boolean(doc.ingestion_job_id && doc.ingestion_job_id === jobId);
+    }
+    const upload = uploadStateRef.current;
+    if (
+      upload &&
+      "document_id" in upload &&
+      upload.document_id === documentId &&
+      "ingestion_job_id" in upload &&
+      upload.ingestion_job_id === jobId
+    ) {
+      return true;
+    }
+    return false;
   }, []);
 
   const load = useCallback(
@@ -248,15 +266,10 @@ export function DocumentList({
       retryCount = 0,
     ) {
       if (controller.signal.aborted) return;
-      const currentDoc = documentsRef.current.find(
-        (d) => d.document_id === documentId,
-      );
-      if (
-        currentDoc?.ingestion_job_id &&
-        currentDoc.ingestion_job_id !== jobId
-      ) {
+      if (!isJobCurrent(documentId, jobId)) {
         polling.current.delete(jobId);
         pollingErrors.current.delete(jobId);
+        exhausted.current.delete(jobId);
         syncPollingError();
         return;
       }
@@ -268,25 +281,24 @@ export function DocumentList({
           `${path}/ingestion-jobs/${encodeURIComponent(jobId)}`,
           { signal: pollSignal },
         );
-        cleanup();
-        if (controller.signal.aborted) return;
-        const docAtResponse = documentsRef.current.find(
-          (d) => d.document_id === documentId,
-        );
-        if (
-          docAtResponse?.ingestion_job_id &&
-          docAtResponse.ingestion_job_id !== jobId
-        ) {
+        if (controller.signal.aborted) {
+          cleanup();
+          return;
+        }
+        if (!isJobCurrent(documentId, jobId)) {
+          cleanup();
           polling.current.delete(jobId);
           pollingErrors.current.delete(jobId);
+          exhausted.current.delete(jobId);
           syncPollingError();
           return;
         }
         if (!response.ok) {
+          cleanup();
           const err = errorMessage("check ingestion status", response.status);
           pollingErrors.current.set(jobId, err);
-          syncPollingError();
           if (response.status >= 500 && retryCount < MAX_POLLING_RETRIES) {
+            syncPollingError();
             const baseDelay = Math.min(10000, 1500 * Math.pow(1.5, retryCount));
             const delay = baseDelay + Math.random() * 500;
             const timer = setTimeout(() => {
@@ -298,21 +310,18 @@ export function DocumentList({
           }
           polling.current.delete(jobId);
           exhausted.current.add(jobId);
+          syncPollingError();
           return;
         }
         pollingErrors.current.delete(jobId);
         syncPollingError();
         const status = (await response.json()) as IngestionJobStatusResponse;
+        cleanup();
         if (controller.signal.aborted) return;
-        const docAtJson = documentsRef.current.find(
-          (d) => d.document_id === documentId,
-        );
-        if (
-          docAtJson?.ingestion_job_id &&
-          docAtJson.ingestion_job_id !== jobId
-        ) {
+        if (!isJobCurrent(documentId, jobId)) {
           polling.current.delete(jobId);
           pollingErrors.current.delete(jobId);
+          exhausted.current.delete(jobId);
           syncPollingError();
           return;
         }
@@ -348,21 +357,16 @@ export function DocumentList({
       } catch {
         cleanup();
         if (!controller.signal.aborted) {
-          const docAtErr = documentsRef.current.find(
-            (d) => d.document_id === documentId,
-          );
-          if (
-            docAtErr?.ingestion_job_id &&
-            docAtErr.ingestion_job_id !== jobId
-          ) {
+          if (!isJobCurrent(documentId, jobId)) {
             polling.current.delete(jobId);
             pollingErrors.current.delete(jobId);
+            exhausted.current.delete(jobId);
             syncPollingError();
             return;
           }
           pollingErrors.current.set(jobId, POLLING_NETWORK_ERROR);
-          syncPollingError();
           if (retryCount < MAX_POLLING_RETRIES) {
+            syncPollingError();
             const baseDelay = Math.min(10000, 1500 * Math.pow(1.5, retryCount));
             const delay = baseDelay + Math.random() * 500;
             const timer = setTimeout(() => {
@@ -374,11 +378,42 @@ export function DocumentList({
           }
           polling.current.delete(jobId);
           exhausted.current.add(jobId);
+          syncPollingError();
         }
       }
     },
-    [path, load, syncPollingError],
+    [path, load, syncPollingError, isJobCurrent],
   );
+
+  const retryPolling = useCallback(() => {
+    const controller = scope.current;
+    if (!controller || controller.signal.aborted) return;
+    for (const doc of documentsRef.current) {
+      const jobId = doc.ingestion_job_id;
+      if (jobId && derivationIsActive(doc)) {
+        exhausted.current.delete(jobId);
+        completed.current.delete(jobId);
+        if (!polling.current.has(jobId)) {
+          polling.current.add(jobId);
+          void poll(doc.document_id, jobId, controller, 0);
+        }
+      }
+    }
+    const upload = uploadStateRef.current;
+    if (
+      upload &&
+      "ingestion_job_id" in upload &&
+      upload.ingestion_job_id &&
+      jobIsActive(upload.status)
+    ) {
+      exhausted.current.delete(upload.ingestion_job_id);
+      completed.current.delete(upload.ingestion_job_id);
+      if (!polling.current.has(upload.ingestion_job_id)) {
+        polling.current.add(upload.ingestion_job_id);
+        void poll(upload.document_id, upload.ingestion_job_id, controller, 0);
+      }
+    }
+  }, [poll]);
 
   useEffect(() => {
     const controller = scope.current;
@@ -472,6 +507,26 @@ export function DocumentList({
       const result = (await response.json()) as ReprocessResponse;
       if (controller.signal.aborted) return;
       reprocessKeys.current.delete(id);
+      setDocuments((previous) =>
+        previous.map((doc) =>
+          doc.document_id === id
+            ? {
+                ...doc,
+                ingestion_job_id: result.ingestion_job_id,
+                ingestion_status: result.status,
+              }
+            : doc,
+        ),
+      );
+      documentsRef.current = documentsRef.current.map((doc) =>
+        doc.document_id === id
+          ? {
+              ...doc,
+              ingestion_job_id: result.ingestion_job_id,
+              ingestion_status: result.status,
+            }
+          : doc,
+      );
       setJobStates((previous) => ({
         ...previous,
         [id]: { status: result.status },
@@ -816,7 +871,16 @@ export function DocumentList({
       )}
       {error && (
         <p role="alert" className="m-0 text-sm text-status-error">
-          {error}
+          <span>{error}</span>
+          {pollingError && !actionError && (
+            <button
+              type="button"
+              className="ml-2 font-medium underline hover:text-action-text cursor-pointer bg-transparent border-0 p-0 text-inherit"
+              onClick={retryPolling}
+            >
+              Retry
+            </button>
+          )}
           {error.includes("session expired") && (
             <>
               {" "}

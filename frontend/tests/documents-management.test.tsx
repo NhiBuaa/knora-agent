@@ -613,6 +613,18 @@ describe("document management", () => {
       call[0]?.includes("/ingestion-jobs/fail-502-job"),
     );
     expect(jobPollCallsAfterRefresh).toHaveLength(6);
+
+    // Verify the Retry recovery mechanism resumes polling without a page reload
+    const retryButton = screen.getByRole("button", { name: "Retry" });
+    await act(async () => {
+      retryButton.click();
+      await Promise.resolve();
+    });
+
+    const jobPollCallsAfterRetry = fetchMock.mock.calls.filter((call) =>
+      call[0]?.includes("/ingestion-jobs/fail-502-job"),
+    );
+    expect(jobPollCallsAfterRetry).toHaveLength(7);
   });
 
   it("aborts hung poll requests on timeout and enters retry path in DocumentList", async () => {
@@ -718,6 +730,18 @@ describe("document management", () => {
     expect(
       screen.getByText(/Unable to load ingestion job \(502\)/i),
     ).toBeInTheDocument();
+
+    // Verify the Retry recovery mechanism resumes polling without a page reload
+    const retryButton = screen.getByRole("button", { name: "Retry" });
+    await act(async () => {
+      retryButton.click();
+      await Promise.resolve();
+    });
+
+    const jobPollCallsAfterRetry = fetchMock.mock.calls.filter((call) =>
+      call[0]?.includes("/ingestion-jobs/detail-502-job"),
+    );
+    expect(jobPollCallsAfterRetry).toHaveLength(7);
   });
 
   it("shows backend re-index readiness and reuses the key after an ambiguous failure", async () => {

@@ -88,6 +88,14 @@ export function DocumentDetail({
   const mutation = useRef(false);
   const deletionKey = useRef<string | null>(null);
   const reprocessKey = useRef<string | null>(null);
+  const pollRef = useRef<(() => void) | null>(null);
+
+  const retryPolling = useCallback(() => {
+    if (pollRef.current) {
+      setError(null);
+      pollRef.current();
+    }
+  }, []);
   const path = `/v1/workspaces/${encodeURIComponent(workspaceId)}`;
   const documentPath = `${path}/documents/${encodeURIComponent(documentId)}`;
   const canDelete =
@@ -164,9 +172,12 @@ export function DocumentDetail({
           `${path}/ingestion-jobs/${encodeURIComponent(jobId)}`,
           { signal: pollSignal },
         );
-        cleanup();
-        if (!active || controller.signal.aborted) return;
+        if (!active || controller.signal.aborted) {
+          cleanup();
+          return;
+        }
         if (!response.ok) {
+          cleanup();
           setError(responseError("load ingestion job", response.status));
           if (response.status >= 500 && retryCount < MAX_POLLING_RETRIES) {
             const baseDelay = Math.min(10000, 1500 * Math.pow(1.5, retryCount));
@@ -182,6 +193,7 @@ export function DocumentDetail({
             : prev,
         );
         const status = (await response.json()) as IngestionJobStatusResponse;
+        cleanup();
         if (!active || controller.signal.aborted) return;
         setJobStatus(status);
         if (
@@ -207,9 +219,11 @@ export function DocumentDetail({
         }
       }
     };
+    pollRef.current = () => void poll(0);
     void poll();
     return () => {
       active = false;
+      pollRef.current = null;
       if (timer) clearTimeout(timer);
     };
   }, [path, jobId, load]);
@@ -444,7 +458,17 @@ export function DocumentDetail({
       )}
       {error && (
         <p role="alert" className="m-0 text-sm text-status-error">
-          {error}
+          <span>{error}</span>
+          {(error.includes("load ingestion job") ||
+            error === POLLING_NETWORK_ERROR) && (
+            <button
+              type="button"
+              className="ml-2 font-medium underline hover:text-action-text cursor-pointer bg-transparent border-0 p-0 text-inherit"
+              onClick={retryPolling}
+            >
+              Retry
+            </button>
+          )}
           {error.includes("session expired") && (
             <>
               {" "}
