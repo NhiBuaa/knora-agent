@@ -80,7 +80,9 @@ export function DocumentDetail({
         Partial<IngestionJobStatusResponse>)
     | null
   >(null);
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [pollingError, setPollingError] = useState<string | null>(null);
+  const error = actionError || pollingError;
   const [deletionError, setDeletionError] = useState<string | null>(null);
   const [confirmDeletion, setConfirmDeletion] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -92,7 +94,7 @@ export function DocumentDetail({
 
   const retryPolling = useCallback(() => {
     if (pollRef.current) {
-      setError(null);
+      setPollingError(null);
       pollRef.current();
     }
   }, []);
@@ -111,7 +113,7 @@ export function DocumentDetail({
         });
         if (controller.signal.aborted) return;
         if (!response.ok) {
-          setError(responseError("load document", response.status));
+          setActionError(responseError("load document", response.status));
           return;
         }
         const loaded = (await response.json()) as DocumentResponse;
@@ -135,7 +137,7 @@ export function DocumentDetail({
         }
       } catch {
         if (!controller.signal.aborted)
-          setError("Unable to load document. Reload to try again.");
+          setActionError("Unable to load document. Reload to try again.");
       }
     },
     [documentPath, path],
@@ -147,7 +149,8 @@ export function DocumentDetail({
     setDocument(null);
     setJobId(null);
     setJobStatus(null);
-    setError(null);
+    setActionError(null);
+    setPollingError(null);
     setDeletionError(null);
     setConfirmDeletion(false);
     setBusy(false);
@@ -181,7 +184,7 @@ export function DocumentDetail({
         }
         if (!response.ok) {
           cleanup();
-          setError(responseError("load ingestion job", response.status));
+          setPollingError(responseError("load ingestion job", response.status));
           if (response.status >= 500 && retryCount < MAX_POLLING_RETRIES) {
             const baseDelay = Math.min(10000, 1500 * Math.pow(1.5, retryCount));
             const delay = baseDelay + Math.random() * 500;
@@ -190,11 +193,7 @@ export function DocumentDetail({
           }
           return;
         }
-        setError((prev) =>
-          prev?.includes("load ingestion job") || prev === POLLING_NETWORK_ERROR
-            ? null
-            : prev,
-        );
+        setPollingError(null);
         const status = (await response.json()) as IngestionJobStatusResponse;
         cleanup();
         if (!active || controller.signal.aborted) return;
@@ -213,7 +212,7 @@ export function DocumentDetail({
       } catch {
         cleanup();
         if (active && !controller.signal.aborted) {
-          setError(POLLING_NETWORK_ERROR);
+          setPollingError(POLLING_NETWORK_ERROR);
           if (retryCount < MAX_POLLING_RETRIES) {
             const baseDelay = Math.min(10000, 1500 * Math.pow(1.5, retryCount));
             const delay = baseDelay + Math.random() * 500;
@@ -255,7 +254,7 @@ export function DocumentDetail({
     const controller = scope.current;
     if (!controller || !document || !canDelete || !begin()) return;
     setDeletionError(null);
-    setError(null);
+    setActionError(null);
     try {
       if (!deletionKey.current) deletionKey.current = crypto.randomUUID();
       const response = await browserRequest(
@@ -310,7 +309,7 @@ export function DocumentDetail({
       !begin()
     )
       return;
-    setError(null);
+    setActionError(null);
     try {
       if (!reprocessKey.current) reprocessKey.current = crypto.randomUUID();
       const response = await browserRequest(
@@ -329,7 +328,7 @@ export function DocumentDetail({
           await load(controller);
         }
         if (!controller.signal.aborted)
-          setError(
+          setActionError(
             response.status === 409
               ? "This document changed. Reload and try again."
               : responseError("reprocess document", response.status),
@@ -343,7 +342,7 @@ export function DocumentDetail({
       setJobId(result.ingestion_job_id);
     } catch {
       if (!controller.signal.aborted)
-        setError(
+        setActionError(
           "Unable to confirm reprocess submission. Retry with the same request key.",
         );
     } finally {
@@ -353,7 +352,7 @@ export function DocumentDetail({
   async function archive() {
     const controller = scope.current;
     if (!controller || !document || !canWrite || !begin()) return;
-    setError(null);
+    setActionError(null);
     try {
       const response = await browserRequest(
         `${documentPath}/${document.archived ? "unarchive" : "archive"}`,
@@ -367,18 +366,18 @@ export function DocumentDetail({
       if (response.status === 409) {
         await load(controller);
         if (!controller.signal.aborted)
-          setError("This document changed. Reload and try again.");
+          setActionError("This document changed. Reload and try again.");
         return;
       }
       if (!response.ok) {
-        setError(responseError("update document", response.status));
+        setActionError(responseError("update document", response.status));
         return;
       }
       const changed = (await response.json()) as DocumentResponse;
       if (!controller.signal.aborted) setDocument(changed);
     } catch {
       if (!controller.signal.aborted)
-        setError(
+        setActionError(
           "Unable to confirm the document change. Reload before retrying.",
         );
     } finally {
@@ -468,20 +467,34 @@ export function DocumentDetail({
           This Workspace is read-only.
         </p>
       )}
-      {error && (
+      {actionError && (
         <p role="alert" className="m-0 text-sm text-status-error">
-          <span>{error}</span>
-          {(error.includes("load ingestion job") ||
-            error === POLLING_NETWORK_ERROR) && (
-            <button
-              type="button"
-              className="ml-2 font-medium underline hover:text-action-text cursor-pointer bg-transparent border-0 p-0 text-inherit"
-              onClick={retryPolling}
-            >
-              Retry
-            </button>
+          <span>{actionError}</span>
+          {actionError.includes("session expired") && (
+            <>
+              {" "}
+              <a
+                href="/api/auth/login"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Sign in
+              </a>
+            </>
           )}
-          {error.includes("session expired") && (
+        </p>
+      )}
+      {pollingError && (
+        <p role="alert" className="m-0 text-sm text-status-error">
+          <span>{pollingError}</span>
+          <button
+            type="button"
+            className="ml-2 font-medium underline hover:text-action-text cursor-pointer bg-transparent border-0 p-0 text-inherit"
+            onClick={retryPolling}
+          >
+            Retry
+          </button>
+          {pollingError.includes("session expired") && (
             <>
               {" "}
               <a

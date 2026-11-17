@@ -229,6 +229,7 @@ describe("document management", () => {
       ingestion_job_id: "transient-job",
       ingestion_status: "processing" as const,
       serving_state: "unavailable" as const,
+      embedding_readiness: "none" as const,
     };
     const fetchMock = vi
       .fn()
@@ -271,6 +272,9 @@ describe("document management", () => {
     expect(fetchMock.mock.calls[2][0]).toBe(
       "/api/v1/workspaces/ws-1/ingestion-jobs/transient-job",
     );
+    expect(fetchMock.mock.calls[3][0]).toBe(
+      "/api/v1/workspaces/ws-1/documents",
+    );
     expect(screen.getByText("Ready")).toBeInTheDocument();
     expect(
       screen.queryByText(/Unable to check ingestion status/i),
@@ -278,6 +282,7 @@ describe("document management", () => {
   });
 
   it("preserves polling error from failing job when another job's poll succeeds", async () => {
+    vi.useFakeTimers();
     const docFailing = {
       ...document,
       document_id: "doc-fail",
@@ -342,12 +347,21 @@ describe("document management", () => {
       <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
     );
 
-    await screen.findByText("Ready");
+    // Initial document list load + immediate polls
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Advance beyond retry delay (15s) to verify no delayed retry occurs on 404
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(15000);
+    });
 
     // Error for fail-job must remain visible despite ok-job succeeding
     expect(
       screen.getByText(/Unable to check ingestion status \(404\)/i),
     ).toBeInTheDocument();
+    expect(screen.getByText("Ready")).toBeInTheDocument();
     expect(failJobCallCount).toBe(1);
   });
 
@@ -357,6 +371,7 @@ describe("document management", () => {
       ingestion_job_id: "detail-job",
       ingestion_status: "processing" as const,
       serving_state: "unavailable" as const,
+      embedding_readiness: "none" as const,
     };
     const fetchMock = vi
       .fn()
@@ -401,6 +416,10 @@ describe("document management", () => {
     expect(fetchMock.mock.calls[2][0]).toBe(
       "/api/v1/workspaces/ws-1/ingestion-jobs/detail-job",
     );
+    expect(fetchMock.mock.calls[3][0]).toBe(
+      "/api/v1/workspaces/ws-1/documents/doc-1",
+    );
+    expect((await screen.findAllByText("Ready")).length).toBeGreaterThan(0);
     expect(
       screen.queryByText(/Unable to load ingestion job/i),
     ).not.toBeInTheDocument();
@@ -412,6 +431,7 @@ describe("document management", () => {
       ingestion_job_id: "network-job",
       ingestion_status: "processing" as const,
       serving_state: "unavailable" as const,
+      embedding_readiness: "none" as const,
     };
     const fetchMock = vi
       .fn()
@@ -458,6 +478,10 @@ describe("document management", () => {
     expect(fetchMock.mock.calls[2][0]).toBe(
       "/api/v1/workspaces/ws-1/ingestion-jobs/network-job",
     );
+    expect(fetchMock.mock.calls[3][0]).toBe(
+      "/api/v1/workspaces/ws-1/documents/doc-1",
+    );
+    expect((await screen.findAllByText("Ready")).length).toBeGreaterThan(0);
     expect(
       screen.queryByText(/Unable to load ingestion job/i),
     ).not.toBeInTheDocument();

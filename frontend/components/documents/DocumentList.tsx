@@ -108,6 +108,7 @@ export function DocumentList({
   const reprocessKeys = useRef(new Map<string, string>());
   const deletionKeys = useRef(new Map<string, string>());
   const loadSeq = useRef(0);
+  const lastAppliedSeq = useRef(0);
   const inFlight = useRef(new Set<string>());
   const inFlightPolls = useRef(new Set<string>());
   const polling = useRef(new Set<string>());
@@ -125,6 +126,10 @@ export function DocumentList({
   const path = `/v1/workspaces/${encodeURIComponent(workspaceId)}`;
 
   const syncPollingError = useCallback(() => {
+    const uploadDocId =
+      uploadStateRef.current && "document_id" in uploadStateRef.current
+        ? uploadStateRef.current.document_id
+        : null;
     const uploadJobId =
       uploadStateRef.current && "ingestion_job_id" in uploadStateRef.current
         ? uploadStateRef.current.ingestion_job_id
@@ -141,7 +146,15 @@ export function DocumentList({
     }
     for (const id of exhausted.current) {
       const doc = documentsRef.current.find((d) => d.ingestion_job_id === id);
-      if ((doc && derivationIsActive(doc)) || id === uploadJobId) {
+      if (doc && derivationIsActive(doc)) {
+        activeJobIds.add(id);
+      } else if (
+        id === uploadJobId &&
+        uploadDocId &&
+        !documentsRef.current.some(
+          (d) => d.document_id === uploadDocId && d.ingestion_job_id !== id,
+        )
+      ) {
         activeJobIds.add(id);
       } else {
         exhausted.current.delete(id);
@@ -160,6 +173,10 @@ export function DocumentList({
   }, []);
 
   const isJobCurrent = useCallback((documentId: string, jobId: string) => {
+    const doc = documentsRef.current.find((d) => d.document_id === documentId);
+    if (doc) {
+      return Boolean(doc.ingestion_job_id && doc.ingestion_job_id === jobId);
+    }
     const upload = uploadStateRef.current;
     if (
       upload &&
@@ -169,10 +186,6 @@ export function DocumentList({
       upload.ingestion_job_id === jobId
     ) {
       return true;
-    }
-    const doc = documentsRef.current.find((d) => d.document_id === documentId);
-    if (doc) {
-      return Boolean(doc.ingestion_job_id && doc.ingestion_job_id === jobId);
     }
     return false;
   }, []);
@@ -185,7 +198,7 @@ export function DocumentList({
         const response = await browserRequest(`${path}/documents`, {
           signal: controller.signal,
         });
-        if (controller.signal.aborted || currentSeq !== loadSeq.current) return;
+        if (controller.signal.aborted) return;
         if (!response.ok) {
           if (response.status === 403) {
             setLimitedPermissions(true);
@@ -193,31 +206,36 @@ export function DocumentList({
             return;
           }
           setLimitedPermissions(false);
-          setActionError(errorMessage("load documents", response.status));
+          if (currentSeq >= lastAppliedSeq.current) {
+            setActionError(errorMessage("load documents", response.status));
+          }
           return;
         }
         setLimitedPermissions(false);
         const body = (await response.json()) as {
           documents?: DocumentResponse[];
         };
-        if (controller.signal.aborted || currentSeq !== loadSeq.current) return;
+        if (controller.signal.aborted) return;
         const loadedDocs = Array.isArray(body?.documents) ? body.documents : [];
-        setDocuments(loadedDocs);
-        documentsRef.current = loadedDocs;
-        syncPollingError();
-        setJobStates((previous) =>
-          Object.fromEntries(
-            Object.entries(previous).filter(([, job]) =>
-              derivationIsActive({
-                ingestion_status: job.status,
-                indexing_status:
-                  "indexing_status" in job ? job.indexing_status : null,
-              }),
+        if (currentSeq > lastAppliedSeq.current) {
+          lastAppliedSeq.current = currentSeq;
+          setDocuments(loadedDocs);
+          documentsRef.current = loadedDocs;
+          syncPollingError();
+          setJobStates((previous) =>
+            Object.fromEntries(
+              Object.entries(previous).filter(([, job]) =>
+                derivationIsActive({
+                  ingestion_status: job.status,
+                  indexing_status:
+                    "indexing_status" in job ? job.indexing_status : null,
+                }),
+              ),
             ),
-          ),
-        );
+          );
+        }
       } catch {
-        if (!controller.signal.aborted && currentSeq === loadSeq.current)
+        if (!controller.signal.aborted && currentSeq >= lastAppliedSeq.current)
           setActionError("Unable to load documents. Retry this page.");
       } finally {
         if (!controller.signal.aborted && currentSeq === loadSeq.current)
@@ -553,6 +571,12 @@ export function DocumentList({
       const result = (await response.json()) as ReprocessResponse;
       if (controller.signal.aborted) return;
       loadSeq.current++;
+      lastAppliedSeq.current = loadSeq.current;
+      setUploadState((current) =>
+        current && "document_id" in current && current.document_id === id
+          ? null
+          : current,
+      );
       reprocessKeys.current.delete(id);
       setDocuments((previous) =>
         previous.map((doc) =>
@@ -759,6 +783,7 @@ export function DocumentList({
         | IngestionResponse;
       if (controller.signal.aborted) return;
       loadSeq.current++;
+      lastAppliedSeq.current = loadSeq.current;
       setUploadState(result);
       if ("ingestion_job_id" in result && result.ingestion_job_id) {
         setDocuments((previous) =>
@@ -966,6 +991,18 @@ export function DocumentList({
           >
             Retry
           </button>
+          {pollingError.includes("session expired") && (
+            <>
+              {" "}
+              <a
+                href="/api/auth/login"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Sign in
+              </a>
+            </>
+          )}
         </p>
       )}
       {loading && <LeafLoading label="Loading documents" />}
