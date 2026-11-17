@@ -22,12 +22,26 @@ class FixedCapacityThreadAttemptRunner:
             raise ValueError("max_concurrency must be a positive integer")
         if max_concurrency < 1:
             raise ValueError("max_concurrency must be a positive integer")
+        self._max_concurrency = max_concurrency
         self._permits = Semaphore(max_concurrency)
 
     def try_reserve(self) -> ThreadExecutionPermit | None:
         if not self._permits.acquire(blocking=False):
             return None
         return ThreadExecutionPermit(self._permits)
+
+    def drain(self, timeout: float | None = None) -> bool:
+        """Wait until all thread execution permits have been returned."""
+        acquired = 0
+        try:
+            for _ in range(self._max_concurrency):
+                if not self._permits.acquire(timeout=timeout):
+                    return False
+                acquired += 1
+            return True
+        finally:
+            for _ in range(acquired):
+                self._permits.release()
 
 
 class ThreadExecutionPermit:

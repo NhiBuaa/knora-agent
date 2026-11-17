@@ -357,7 +357,19 @@ def create_app(
                         task.cancel()
                     await asyncio.gather(*worker_tasks, return_exceptions=True)
             if ingestion_executor is not None:
-                await asyncio.to_thread(ingestion_executor.shutdown, wait=True, cancel_futures=True)
+                with suppress(TimeoutError):
+                    await asyncio.wait_for(
+                        asyncio.to_thread(
+                            ingestion_executor.shutdown, wait=True, cancel_futures=True
+                        ),
+                        timeout=5.0,
+                    )
+            runner = getattr(getattr(application.state, "ingestion_worker", None), "_runner", None)
+            if runner is not None and hasattr(runner, "drain"):
+                with suppress(TimeoutError):
+                    await asyncio.wait_for(
+                        asyncio.to_thread(runner.drain, timeout=5.0), timeout=5.0
+                    )
             if lexical_client is not None:
                 lexical_client.close()
             if selected_reranking_provider is not None:
