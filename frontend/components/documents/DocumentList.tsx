@@ -178,41 +178,29 @@ export function DocumentList({
         );
         if (controller.signal.aborted) return;
         if (!response.ok) {
-          if (response.status >= 500) {
-            const baseDelay =
-              retryCount < 5
-                ? Math.min(10000, 1500 * Math.pow(1.5, retryCount))
-                : 10000;
+          const err = errorMessage("check ingestion status", response.status);
+          pollingErrors.current.set(jobId, err);
+          setError(err);
+          if (response.status >= 500 && retryCount < 5) {
+            const baseDelay = Math.min(10000, 1500 * Math.pow(1.5, retryCount));
             const delay = baseDelay + Math.random() * 500;
-            if (retryCount >= 5) {
-              const err = errorMessage(
-                "check ingestion status",
-                response.status,
-              );
-              pollingErrors.current.set(jobId, err);
-              setError(err);
-            }
             const timer = setTimeout(() => {
               timers.current.delete(timer);
-              void poll(
-                documentId,
-                jobId,
-                controller,
-                Math.min(5, retryCount + 1),
-              );
+              void poll(documentId, jobId, controller, retryCount + 1);
             }, delay);
             timers.current.add(timer);
             return;
           }
           polling.current.delete(jobId);
-          pollingErrors.current.delete(jobId);
-          setError(errorMessage("check ingestion status", response.status));
           return;
         }
         pollingErrors.current.delete(jobId);
         if (pollingErrors.current.size === 0) {
           setError((previous) =>
-            previous?.includes("check ingestion status") ? null : previous,
+            previous?.includes("check ingestion status") ||
+            previous?.includes("Unable to check ingestion status")
+              ? null
+              : previous,
           );
         } else {
           setError(pollingErrors.current.values().next().value ?? null);
@@ -249,27 +237,21 @@ export function DocumentList({
         timers.current.add(timer);
       } catch {
         if (!controller.signal.aborted) {
-          const baseDelay =
-            retryCount < 5
-              ? Math.min(10000, 1500 * Math.pow(1.5, retryCount))
-              : 10000;
-          const delay = baseDelay + Math.random() * 500;
-          if (retryCount >= 5) {
-            const err =
-              "Unable to check ingestion status. Reload to see the latest job state.";
-            pollingErrors.current.set(jobId, err);
-            setError(err);
+          const err =
+            "Unable to check ingestion status. Reload to see the latest job state.";
+          pollingErrors.current.set(jobId, err);
+          setError(err);
+          if (retryCount < 5) {
+            const baseDelay = Math.min(10000, 1500 * Math.pow(1.5, retryCount));
+            const delay = baseDelay + Math.random() * 500;
+            const timer = setTimeout(() => {
+              timers.current.delete(timer);
+              void poll(documentId, jobId, controller, retryCount + 1);
+            }, delay);
+            timers.current.add(timer);
+            return;
           }
-          const timer = setTimeout(() => {
-            timers.current.delete(timer);
-            void poll(
-              documentId,
-              jobId,
-              controller,
-              Math.min(5, retryCount + 1),
-            );
-          }, delay);
-          timers.current.add(timer);
+          polling.current.delete(jobId);
         }
       }
     },

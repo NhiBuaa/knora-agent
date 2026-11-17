@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  act,
   fireEvent,
   render,
   screen,
@@ -259,6 +260,8 @@ describe("document management", () => {
       <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
     );
 
+    await screen.findByText(/Unable to check ingestion status \(502\)/i);
+
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4), {
       timeout: 5000,
     });
@@ -331,12 +334,12 @@ describe("document management", () => {
       <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
     );
 
+    await screen.findByText("Ready");
+
     // Error for fail-job must remain visible despite ok-job succeeding
-    await waitFor(() =>
-      expect(
-        screen.getByText(/Unable to check ingestion status/i),
-      ).toBeInTheDocument(),
-    );
+    expect(
+      screen.getByText(/Unable to check ingestion status \(404\)/i),
+    ).toBeInTheDocument();
   });
 
   it("retries transient 502 in DocumentDetail and recovers when backend becomes available", async () => {
@@ -378,12 +381,104 @@ describe("document management", () => {
       />,
     );
 
+    await screen.findByText(/Unable to load ingestion job \(502\)/i);
+
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4), {
       timeout: 5000,
     });
     expect(
       screen.queryByText(/Unable to load ingestion job/i),
     ).not.toBeInTheDocument();
+  });
+
+  it("stops scheduling retries after reaching retry limit on persistent 5xx errors in DocumentList", async () => {
+    vi.useFakeTimers();
+    const doc = {
+      ...document,
+      document_id: "doc-persistent-fail",
+      ingestion_job_id: "fail-502-job",
+      ingestion_status: "processing" as const,
+      serving_state: "unavailable" as const,
+    };
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("/documents")) {
+        return jsonResponse({ documents: [doc] });
+      }
+      if (url.includes("/ingestion-jobs/fail-502-job")) {
+        return jsonResponse({ detail: "Gateway Timeout" }, 504);
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
+    );
+
+    // Initial document list load + first job poll (retryCount = 0)
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Advance timers through all 5 retries
+    for (let i = 0; i < 10; i++) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15000);
+      });
+    }
+
+    const jobPollCalls = fetchMock.mock.calls.filter((call) =>
+      call[0]?.includes("/ingestion-jobs/fail-502-job"),
+    );
+    expect(jobPollCalls).toHaveLength(6);
+    expect(
+      screen.getByText(/Unable to check ingestion status \(504\)/i),
+    ).toBeInTheDocument();
+  });
+
+  it("stops scheduling retries after reaching retry limit on persistent 5xx errors in DocumentDetail", async () => {
+    vi.useFakeTimers();
+    const activeDoc = {
+      ...document,
+      document_id: "doc-detail-fail",
+      ingestion_job_id: "detail-502-job",
+      ingestion_status: "processing" as const,
+      serving_state: "unavailable" as const,
+    };
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("/ingestion-jobs/detail-502-job")) {
+        return jsonResponse({ detail: "Bad Gateway" }, 502);
+      }
+      return jsonResponse(activeDoc);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DocumentDetail
+        workspaceId="ws-1"
+        documentId="doc-detail-fail"
+        capabilities={["documents:write"]}
+      />,
+    );
+
+    // Initial document load + first job poll
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    for (let i = 0; i < 10; i++) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15000);
+      });
+    }
+
+    const jobPollCalls = fetchMock.mock.calls.filter((call) =>
+      call[0]?.includes("/ingestion-jobs/detail-502-job"),
+    );
+    expect(jobPollCalls).toHaveLength(6);
+    expect(
+      screen.getByText(/Unable to load ingestion job \(502\)/i),
+    ).toBeInTheDocument();
   });
 
   it("shows backend re-index readiness and reuses the key after an ambiguous failure", async () => {

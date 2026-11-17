@@ -134,22 +134,13 @@ export function DocumentDetail({
         );
         if (!active || controller.signal.aborted) return;
         if (!response.ok) {
-          if (response.status >= 500) {
-            const baseDelay =
-              retryCount < 5
-                ? Math.min(10000, 1500 * Math.pow(1.5, retryCount))
-                : 10000;
+          setError(responseError("load ingestion job", response.status));
+          if (response.status >= 500 && retryCount < 5) {
+            const baseDelay = Math.min(10000, 1500 * Math.pow(1.5, retryCount));
             const delay = baseDelay + Math.random() * 500;
-            if (retryCount >= 5) {
-              setError(responseError("load ingestion job", response.status));
-            }
-            timer = setTimeout(
-              () => void poll(Math.min(5, retryCount + 1)),
-              delay,
-            );
+            timer = setTimeout(() => void poll(retryCount + 1), delay);
             return;
           }
-          setError(responseError("load ingestion job", response.status));
           return;
         }
         setError((prev) =>
@@ -171,20 +162,14 @@ export function DocumentDetail({
         else await load(controller);
       } catch {
         if (active && !controller.signal.aborted) {
-          const baseDelay =
-            retryCount < 5
-              ? Math.min(10000, 1500 * Math.pow(1.5, retryCount))
-              : 10000;
-          const delay = baseDelay + Math.random() * 500;
-          if (retryCount >= 5) {
-            setError(
-              "Unable to load ingestion job. Reload to see the latest state.",
-            );
-          }
-          timer = setTimeout(
-            () => void poll(Math.min(5, retryCount + 1)),
-            delay,
+          setError(
+            "Unable to load ingestion job. Reload to see the latest state.",
           );
+          if (retryCount < 5) {
+            const baseDelay = Math.min(10000, 1500 * Math.pow(1.5, retryCount));
+            const delay = baseDelay + Math.random() * 500;
+            timer = setTimeout(() => void poll(retryCount + 1), delay);
+          }
         }
       }
     };
