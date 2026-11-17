@@ -134,3 +134,49 @@ async def test_create_app_lifespan_starts_and_stops_embedded_workers(monkeypatch
     assert any("embedded-ingest:" in r for r in ingest_runs)
     assert len(conv_runs) >= 1
     assert any("embedded-conv:" in r for r in conv_runs)
+
+
+@pytest.mark.asyncio
+async def test_create_app_lifespan_drains_in_flight_ingestion_before_closing_providers(
+    monkeypatch,
+) -> None:
+    import time
+
+    from knora.adapters.qdrant.native_search_index import NativeQdrantSearchIndex
+    from knora.ingestion.job_processing import NoEligibleJob
+
+    monkeypatch.setattr(NativeQdrantSearchIndex, "ensure_collection", lambda self: None)
+
+    timeline = []
+
+    class MockIngestionWorker:
+        def run_once(self, worker_id: str):
+            timeline.append("ingest_started")
+            time.sleep(0.08)
+            timeline.append("ingest_finished")
+            return NoEligibleJob()
+
+    class MockClosableProvider:
+        def close(self):
+            timeline.append("provider_closed")
+
+    provider = MockClosableProvider()
+    application = create_app(
+        embedded_workers=True,
+        object_store=ObjectStore(),
+        lifecycle_inventory=Inventory(),
+        lifecycle_clock=Clock(),
+        ingestion_worker=MockIngestionWorker(),
+        reranking_provider=provider,
+    )
+
+    class MockConversationRunner:
+        async def run_once(self, worker_id: str):
+            return False
+
+    application.state.conversation_runner = MockConversationRunner()
+
+    async with application.router.lifespan_context(application):
+        await asyncio.sleep(0.02)
+
+    assert timeline == ["ingest_started", "ingest_finished", "provider_closed"]

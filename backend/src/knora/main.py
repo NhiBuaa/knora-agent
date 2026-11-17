@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager, suppress
 from datetime import timedelta
 from uuid import uuid4
@@ -281,17 +282,29 @@ def create_app(
     async def lifespan(application: FastAPI):
         stop_event = asyncio.Event()
         worker_tasks: list[asyncio.Task[None]] = []
+        ingestion_executor = (
+            ThreadPoolExecutor(max_workers=1, thread_name_prefix="knora-embedded-ingestion")
+            if use_embedded_workers
+            else None
+        )
 
         async def _embedded_ingestion_loop() -> None:
             worker_id = f"embedded-ingest:{uuid4().hex[:8]}"
+            loop = asyncio.get_running_loop()
+            assert ingestion_executor is not None
             while not stop_event.is_set():
                 try:
-                    result = await asyncio.to_thread(
-                        application.state.ingestion_worker.run_once, worker_id
+                    result = await loop.run_in_executor(
+                        ingestion_executor,
+                        application.state.ingestion_worker.run_once,
+                        worker_id,
                     )
                     maintenance = getattr(application.state, "search_index_maintenance", None)
                     if maintenance is not None:
-                        await asyncio.to_thread(maintenance.run_once)
+                        await loop.run_in_executor(
+                            ingestion_executor,
+                            maintenance.run_once,
+                        )
                     if isinstance(result, NoEligibleJob):
                         with suppress(TimeoutError):
                             await asyncio.wait_for(stop_event.wait(), timeout=2.0)
@@ -334,9 +347,17 @@ def create_app(
         finally:
             if worker_tasks:
                 stop_event.set()
-                for task in worker_tasks:
-                    task.cancel()
-                await asyncio.gather(*worker_tasks, return_exceptions=True)
+                try:
+                    await asyncio.wait_for(
+                        asyncio.gather(*worker_tasks, return_exceptions=True),
+                        timeout=5.0,
+                    )
+                except TimeoutError:
+                    for task in worker_tasks:
+                        task.cancel()
+                    await asyncio.gather(*worker_tasks, return_exceptions=True)
+            if ingestion_executor is not None:
+                await asyncio.to_thread(ingestion_executor.shutdown, wait=True, cancel_futures=True)
             if lexical_client is not None:
                 lexical_client.close()
             if selected_reranking_provider is not None:
