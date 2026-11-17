@@ -106,6 +106,7 @@ class Settings(BaseSettings):
     cloudflare_reranker_model: str = "@cf/baai/bge-reranker-base"
     reranking_configuration_id: str | None = None
     pdf_parser_driver: str = "pypdf"
+    embedded_workers: bool = False
 
     # The root .env is shared by backend, frontend and local launchers. Ignore entries
     # owned by another process while keeping Knora settings typed and explicit here.

@@ -22,6 +22,16 @@ trap 'exit 0' SIGINT SIGTERM
 echo "==> [Knora Render] Running database migrations with Alembic..."
 alembic upgrade head
 
+if [ "${KNORA_EMBEDDED_WORKERS:-false}" = "true" ]; then
+    echo "==> [Knora Render] KNORA_EMBEDDED_WORKERS enabled. Starting consolidated process on 0.0.0.0:${PORT:-8000}..."
+    if [ "$(type -t uvicorn)" = "file" ]; then
+        exec uvicorn knora.main:app --host 0.0.0.0 --port "${PORT:-8000}"
+    else
+        uvicorn knora.main:app --host 0.0.0.0 --port "${PORT:-8000}"
+        exit $?
+    fi
+fi
+
 echo "==> [Knora Render] Starting background PDF Ingestion Worker..."
 python -m knora.adapters.cli.worker &
 PDF_WORKER_PID=$!

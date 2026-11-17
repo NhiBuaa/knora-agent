@@ -1803,4 +1803,68 @@ describe("document management", () => {
       ),
     ).toBeInTheDocument();
   });
+
+  it("enables Try again and reprocesses when an ingestion job is failed or stuck", async () => {
+    const failedDoc = {
+      ...document,
+      document_id: "doc-stuck",
+      source_name: "stuck.pdf",
+      current_document_version_id: "version-stuck",
+      ingestion_job_id: "job-stuck",
+      ingestion_status: "failed",
+      reprocess_supported: true,
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ documents: [failedDoc] }))
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ingestion_job_id: "job-new",
+          document_version_id: "version-stuck",
+          outcome: "scheduled",
+          status: "queued",
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ingestion_job_id: "job-new",
+          status: "succeeded",
+          poll_after_seconds: 0,
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          documents: [
+            {
+              ...failedDoc,
+              ingestion_job_id: "job-new",
+              ingestion_status: "succeeded",
+              serving_state: "current",
+            },
+          ],
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
+    );
+    await screen.findByRole("link", { name: "stuck.pdf" });
+
+    const tryAgainBtn = await screen.findByRole("button", {
+      name: "Try again stuck.pdf",
+    });
+    expect(tryAgainBtn).toBeInTheDocument();
+
+    fireEvent.click(tryAgainBtn);
+
+    await waitFor(() => {
+      const reprocessCall = fetchMock.mock.calls.find(
+        (call) =>
+          typeof call[0] === "string" &&
+          call[0].includes("/document-versions/version-stuck/reprocess"),
+      );
+      expect(reprocessCall).toBeDefined();
+    });
+  });
 });

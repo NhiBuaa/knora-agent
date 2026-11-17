@@ -1,3 +1,4 @@
+import asyncio
 from datetime import UTC, datetime
 
 import pytest
@@ -95,3 +96,41 @@ async def test_create_app_lifespan_closes_reranking_provider(monkeypatch) -> Non
     async with application.router.lifespan_context(application):
         pass
     assert closed == [True]
+
+
+@pytest.mark.asyncio
+async def test_create_app_lifespan_starts_and_stops_embedded_workers(monkeypatch) -> None:
+    from knora.adapters.qdrant.native_search_index import NativeQdrantSearchIndex
+    from knora.ingestion.job_processing import NoEligibleJob
+
+    monkeypatch.setattr(NativeQdrantSearchIndex, "ensure_collection", lambda self: None)
+
+    ingest_runs = []
+    conv_runs = []
+
+    class MockIngestionWorker:
+        def run_once(self, worker_id: str):
+            ingest_runs.append(worker_id)
+            return NoEligibleJob()
+
+    class MockConversationRunner:
+        async def run_once(self, worker_id: str):
+            conv_runs.append(worker_id)
+            return False
+
+    application = create_app(
+        embedded_workers=True,
+        object_store=ObjectStore(),
+        lifecycle_inventory=Inventory(),
+        lifecycle_clock=Clock(),
+        ingestion_worker=MockIngestionWorker(),
+    )
+    application.state.conversation_runner = MockConversationRunner()
+
+    async with application.router.lifespan_context(application):
+        await asyncio.sleep(0.05)
+
+    assert len(ingest_runs) >= 1
+    assert any("embedded-ingest:" in r for r in ingest_runs)
+    assert len(conv_runs) >= 1
+    assert any("embedded-conv:" in r for r in conv_runs)

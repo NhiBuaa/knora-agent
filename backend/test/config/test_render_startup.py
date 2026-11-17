@@ -27,7 +27,9 @@ run_child() {
     fi
     printf '%s:started\n' "$role" >> "$EVENTS"
     if [[ "$role" == "$FAIL_ROLE" ]]; then
-        wait_for_start pdf conversation
+        if [[ "$KNORA_EMBEDDED_WORKERS" != "true" ]]; then
+            wait_for_start pdf conversation
+        fi
         if [[ "$DELAY_API_START" != "1" ]]; then wait_for_start api; fi
         if [[ "$SPAWN_EXTRACTOR" == "1" ]]; then wait_for_start extractor; fi
         printf '%s:exited\n' "$role" >> "$EVENTS"
@@ -59,7 +61,11 @@ parent=$BASHPID
  fi
  kill -TERM "$parent" 2>/dev/null || true) &
 if [[ "$SEND_TERM" == "1" ]]; then
-    (wait_for_start pdf conversation api; kill -TERM "$parent") &
+    if [[ "$KNORA_EMBEDDED_WORKERS" == "true" ]]; then
+        (wait_for_start api; kill -TERM "$parent") &
+    else
+        (wait_for_start pdf conversation api; kill -TERM "$parent") &
+    fi
 fi
 source "$1"
 """
@@ -113,6 +119,14 @@ def test_render_stops_pdf_extractor_when_another_process_exits(tmp_path):
     assert "extractor:stopped" in events
 
 
+def test_render_embedded_workers_starts_only_api(tmp_path):
+    result, events = run_startup(tmp_path, fail_role="api", fail_code=0, embedded_workers=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "api:started" in events
+    assert "pdf:started" not in events
+    assert "conversation:started" not in events
+
+
 def run_startup(
     tmp_path,
     *,
@@ -123,6 +137,7 @@ def run_startup(
     delay_api_start=False,
     send_early_term=False,
     spawn_extractor=False,
+    embedded_workers=False,
 ):
     assert BASH, "Bash is required to verify the Render startup script"
     events = tmp_path / "events.txt"
@@ -136,6 +151,7 @@ def run_startup(
         "DELAY_API_START": "1" if delay_api_start else "0",
         "SEND_EARLY_TERM": "1" if send_early_term else "0",
         "SPAWN_EXTRACTOR": "1" if spawn_extractor else "0",
+        "KNORA_EMBEDDED_WORKERS": "true" if embedded_workers else "false",
         "CHILD_PIDS": (tmp_path / "child-pids.txt").as_posix(),
     }
     result = subprocess.run(
