@@ -168,4 +168,39 @@ describe("Documents Optimistic Upload", () => {
 
     resolveSecondGet!(jsonResponse({ documents: [] }));
   });
+
+  it("clears file picker input value when upload dialog is cancelled", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ documents: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
+    );
+    await screen.findByText("No documents yet.");
+
+    // Open upload dialog and select file
+    fireEvent.click(screen.getByRole("button", { name: "Upload document" }));
+    const input = screen.getByLabelText("Document file") as HTMLInputElement;
+    fireEvent.change(input, {
+      target: {
+        files: [
+          new File(["sample"], "policy.pdf", { type: "application/pdf" }),
+        ],
+      },
+    });
+
+    expect(screen.getByText("policy.pdf")).toBeInTheDocument();
+
+    // Click Cancel
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Cancel",
+      }),
+    );
+
+    // Verify input value is cleared
+    expect(input.value).toBe("");
+  });
 });

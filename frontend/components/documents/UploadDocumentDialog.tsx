@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useId, useRef, useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { sourceKind } from "@/lib/documents/presentation";
@@ -26,6 +26,12 @@ export function UploadDocumentDialog({
   const [dragging, setDragging] = useState(false);
   const dragDepth = useRef(0);
   const picker = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if ((!file || !open) && picker.current && picker.current.value) {
+      picker.current.value = "";
+    }
+  }, [file, open]);
   return (
     <Dialog
       open={open}
@@ -160,7 +166,10 @@ export function UploadDocumentDialog({
         <div className="flex justify-end gap-2.5">
           <Button
             variant="secondary"
-            onClick={onClose}
+            onClick={() => {
+              if (picker.current) picker.current.value = "";
+              onClose();
+            }}
             disabled={busy}
             className="min-h-[38px] !border-border px-4 py-0 text-[13px] max-[769px]:min-h-[44px] pointer-coarse:min-h-[44px]"
           >
