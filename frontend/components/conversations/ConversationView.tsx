@@ -317,15 +317,54 @@ function ConversationViewState({
     )
       return;
     submitBusy.current = true;
-    setDraft(question);
     setSubmitting(true);
     setError(null);
+    setDraft("");
     submitKey.current ??= crypto.randomUUID();
+
+    const tempTurnId = `optimistic-${crypto.randomUUID()}`;
+    const targetConversationId =
+      admittedConversation.current?.id ?? projection.id ?? "";
+    const nextSequence = (turns.at(-1)?.sequence ?? turns.length) + 1;
+    const optimisticTurn: TurnResponse = {
+      id: tempTurnId,
+      conversation_id: targetConversationId,
+      sequence: nextSequence,
+      question,
+      status: "queued",
+      stage: null,
+      result: null,
+      error_code: null,
+    };
+
+    setTurns((current) => [...current, optimisticTurn]);
+
+    if (history.current) {
+      const el = history.current;
+      requestAnimationFrame(() => {
+        if (typeof el.scrollTo === "function") {
+          el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+        } else {
+          el.scrollTop = el.scrollHeight;
+        }
+      });
+    }
+
     try {
       if (submitKey.current && error) {
-        if (!(await load())) return;
+        if (!(await load())) {
+          setTurns((current) =>
+            current.filter((item) => item.id !== tempTurnId),
+          );
+          setDraft(question);
+          return;
+        }
       }
-      if (!active.current || authenticationRequired.current) return;
+      if (!active.current || authenticationRequired.current) {
+        setTurns((current) => current.filter((item) => item.id !== tempTurnId));
+        setDraft(question);
+        return;
+      }
       let target = admittedConversation.current;
       if (!target) {
         creationKey.current ??= crypto.randomUUID();
@@ -337,22 +376,46 @@ function ConversationViewState({
           },
         );
         if (created.status === 401) {
+          setTurns((current) =>
+            current.filter((item) => item.id !== tempTurnId),
+          );
+          setDraft(question);
           setSubmissionUncertain(true);
           requireAuthentication();
           return;
         }
         if (created.status === 403) {
+          setTurns((current) =>
+            current.filter((item) => item.id !== tempTurnId),
+          );
+          setDraft(question);
           setError(
             "You don't have permission to ask questions in this workspace.",
           );
           return;
         }
-        if (!created.ok)
+        if (!created.ok) {
+          setTurns((current) =>
+            current.filter((item) => item.id !== tempTurnId),
+          );
+          setDraft(question);
           throw new Error("Unable to confirm conversation creation");
+        }
         target = (await created.json()) as ConversationResponse;
-        if (target.workspace_id !== workspaceId || !target.id)
+        if (target.workspace_id !== workspaceId || !target.id) {
+          setTurns((current) =>
+            current.filter((item) => item.id !== tempTurnId),
+          );
+          setDraft(question);
           throw new Error("Creation scope mismatch");
-        if (!active.current || authenticationRequired.current) return;
+        }
+        if (!active.current || authenticationRequired.current) {
+          setTurns((current) =>
+            current.filter((item) => item.id !== tempTurnId),
+          );
+          setDraft(question);
+          return;
+        }
         admittedConversation.current = target;
       }
       const response = await browserRequest(
@@ -363,13 +426,20 @@ function ConversationViewState({
           body: JSON.stringify({ question }),
         },
       );
-      if (!active.current) return null;
+      if (!active.current) {
+        setTurns((current) => current.filter((item) => item.id !== tempTurnId));
+        return null;
+      }
       if (response.status === 401) {
+        setTurns((current) => current.filter((item) => item.id !== tempTurnId));
+        setDraft(question);
         setSubmissionUncertain(true);
         requireAuthentication();
         return;
       }
       if (response.status === 409) {
+        setTurns((current) => current.filter((item) => item.id !== tempTurnId));
+        setDraft(question);
         const body = (await response.json()) as { error?: { code?: string } };
         if (body.error?.code === "CONVERSATION_BUSY") {
           setNotice("This conversation is processing a question");
@@ -388,12 +458,16 @@ function ConversationViewState({
         return;
       }
       if (response.status === 403) {
+        setTurns((current) => current.filter((item) => item.id !== tempTurnId));
+        setDraft(question);
         setError(
           "You don't have permission to ask questions in this workspace.",
         );
         return;
       }
       if (!response.ok) {
+        setTurns((current) => current.filter((item) => item.id !== tempTurnId));
+        setDraft(question);
         setError(
           `Unable to submit question (${response.status}). Retry with the same draft.`,
         );
@@ -413,11 +487,15 @@ function ConversationViewState({
       setSubmissionConflict(false);
       setDraft("");
       setTurns((current) => [
-        ...current.filter((item) => item.id !== turn.id),
+        ...current.filter(
+          (item) => item.id !== tempTurnId && item.id !== turn.id,
+        ),
         turn,
       ]);
       if (pending.has(turn.status)) void pollTurn(turn.id);
     } catch {
+      setTurns((current) => current.filter((item) => item.id !== tempTurnId));
+      setDraft(question);
       setSubmissionUncertain(true);
       setError(
         "Submission status is uncertain. Check history, then retry with the same draft.",
