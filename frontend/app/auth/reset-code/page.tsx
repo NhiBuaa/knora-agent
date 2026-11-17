@@ -250,19 +250,6 @@ function ResetCodeForm() {
           </div>
         </div>
 
-        <div className="knora-otp-status-cue" aria-live="polite">
-          {isSubmitting ? (
-            <span className="knora-otp-status-text knora-otp-status-active">
-              <span className="knora-pulse-dot" aria-hidden="true" />
-              Verifying code...
-            </span>
-          ) : (
-            <span className="knora-otp-status-text">
-              Auto-verifying when all 6 digits are entered
-            </span>
-          )}
-        </div>
-
         <button
           type="submit"
           aria-label="Verify code"

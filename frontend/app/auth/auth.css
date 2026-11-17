@@ -395,7 +395,7 @@
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 10px;
-  margin: 14px 0 10px;
+  margin: 14px 0 2px;
   width: 100%;
 }
 
@@ -471,49 +471,6 @@
 .knora-otp-digits--error .knora-otp-digit {
   border-color: var(--knora-error);
   box-shadow: 0 0 0 2px var(--knora-error-border);
-}
-
-.knora-otp-status-cue {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 20px;
-  margin-bottom: 6px;
-}
-
-.knora-otp-status-text {
-  font-size: 12px;
-  font-family: var(--font-roboto-mono, monospace), monospace;
-  color: var(--knora-muted);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.knora-otp-status-active {
-  color: var(--knora-action);
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-@keyframes knora-pulse {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.4;
-    transform: scale(0.85);
-  }
-}
-
-.knora-pulse-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background-color: var(--knora-action);
-  animation: knora-pulse 1.2s ease-in-out infinite;
 }
 
 .knora-resend-btn {
