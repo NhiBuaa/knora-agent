@@ -33,9 +33,33 @@ type Props = {
   workspaceArchived?: boolean;
 };
 
-const MAX_POLLING_RETRIES = 8;
+const MAX_POLLING_RETRIES = 5;
+const POLL_TIMEOUT_MS = 10000;
 const POLLING_NETWORK_ERROR =
   "Unable to load ingestion job. Reload to see the latest state.";
+
+function createPollSignal(
+  parentSignal: AbortSignal,
+  timeoutMs = POLL_TIMEOUT_MS,
+) {
+  const timeoutController = new AbortController();
+  const timer = setTimeout(() => {
+    timeoutController.abort(new Error("Polling request timed out"));
+  }, timeoutMs);
+  const onParentAbort = () => timeoutController.abort(parentSignal.reason);
+  if (parentSignal.aborted) {
+    timeoutController.abort(parentSignal.reason);
+  } else {
+    parentSignal.addEventListener("abort", onParentAbort, { once: true });
+  }
+  return {
+    signal: timeoutController.signal,
+    cleanup: () => {
+      clearTimeout(timer);
+      parentSignal.removeEventListener("abort", onParentAbort);
+    },
+  };
+}
 
 function responseError(action: string, status: number) {
   return status === 401
@@ -132,11 +156,15 @@ export function DocumentDetail({
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const poll = async (retryCount = 0) => {
+      const { signal: pollSignal, cleanup } = createPollSignal(
+        controller.signal,
+      );
       try {
         const response = await browserRequest(
           `${path}/ingestion-jobs/${encodeURIComponent(jobId)}`,
-          { signal: controller.signal },
+          { signal: pollSignal },
         );
+        cleanup();
         if (!active || controller.signal.aborted) return;
         if (!response.ok) {
           setError(responseError("load ingestion job", response.status));
@@ -168,6 +196,7 @@ export function DocumentDetail({
           );
         else await load(controller);
       } catch {
+        cleanup();
         if (active && !controller.signal.aborted) {
           setError(POLLING_NETWORK_ERROR);
           if (retryCount < MAX_POLLING_RETRIES) {

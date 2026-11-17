@@ -30,9 +30,33 @@ import { DocumentActionsMenu } from "./DocumentActionsMenu";
 import { DeletionRequestDialog } from "./DeletionRequestDialog";
 import "./documents.css";
 
-const MAX_POLLING_RETRIES = 8;
+const MAX_POLLING_RETRIES = 5;
+const POLL_TIMEOUT_MS = 10000;
 const POLLING_NETWORK_ERROR =
   "Unable to check ingestion status. Reload to see the latest job state.";
+
+function createPollSignal(
+  parentSignal: AbortSignal,
+  timeoutMs = POLL_TIMEOUT_MS,
+) {
+  const timeoutController = new AbortController();
+  const timer = setTimeout(() => {
+    timeoutController.abort(new Error("Polling request timed out"));
+  }, timeoutMs);
+  const onParentAbort = () => timeoutController.abort(parentSignal.reason);
+  if (parentSignal.aborted) {
+    timeoutController.abort(parentSignal.reason);
+  } else {
+    parentSignal.addEventListener("abort", onParentAbort, { once: true });
+  }
+  return {
+    signal: timeoutController.signal,
+    cleanup: () => {
+      clearTimeout(timer);
+      parentSignal.removeEventListener("abort", onParentAbort);
+    },
+  };
+}
 
 function errorMessage(action: string, status: number) {
   return status === 401
@@ -59,7 +83,9 @@ export function DocumentList({
     () => searchParams?.get("archived") === "true",
   );
   const [query, setQuery] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [pollingError, setPollingError] = useState<string | null>(null);
+  const error = actionError || pollingError;
   const [limitedPermissions, setLimitedPermissions] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -67,6 +93,10 @@ export function DocumentList({
   const [uploadState, setUploadState] = useState<
     PdfSubmissionResponse | IngestionResponse | null
   >(null);
+  const uploadStateRef = useRef<
+    PdfSubmissionResponse | IngestionResponse | null
+  >(uploadState);
+  uploadStateRef.current = uploadState;
   const [busy, setBusy] = useState<string[]>([]);
   const [deleting, setDeleting] = useState<DocumentResponse | null>(null);
   const [deletionError, setDeletionError] = useState<string | null>(null);
@@ -92,26 +122,37 @@ export function DocumentList({
   const path = `/v1/workspaces/${encodeURIComponent(workspaceId)}`;
 
   const syncPollingError = useCallback(() => {
-    const activeJobIds = new Set(
-      documentsRef.current
-        .filter((doc) => doc.ingestion_job_id && derivationIsActive(doc))
-        .map((doc) => doc.ingestion_job_id as string),
-    );
+    const uploadJobId =
+      uploadStateRef.current && "ingestion_job_id" in uploadStateRef.current
+        ? uploadStateRef.current.ingestion_job_id
+        : null;
+
+    const activeJobIds = new Set<string>();
+    for (const doc of documentsRef.current) {
+      if (doc.ingestion_job_id && derivationIsActive(doc)) {
+        activeJobIds.add(doc.ingestion_job_id);
+      }
+    }
+    for (const id of polling.current) {
+      activeJobIds.add(id);
+    }
+    for (const id of exhausted.current) {
+      const doc = documentsRef.current.find((d) => d.ingestion_job_id === id);
+      if ((doc && derivationIsActive(doc)) || id === uploadJobId) {
+        activeJobIds.add(id);
+      } else if (!doc && id !== uploadJobId) {
+        exhausted.current.delete(id);
+      }
+    }
     for (const id of pollingErrors.current.keys()) {
       if (!activeJobIds.has(id)) {
         pollingErrors.current.delete(id);
       }
     }
     if (pollingErrors.current.size === 0) {
-      setError((previous) =>
-        previous?.includes("check ingestion status") ||
-        previous?.includes("Unable to check ingestion status") ||
-        previous === POLLING_NETWORK_ERROR
-          ? null
-          : previous,
-      );
+      setPollingError(null);
     } else {
-      setError(pollingErrors.current.values().next().value ?? null);
+      setPollingError(pollingErrors.current.values().next().value ?? null);
     }
   }, []);
 
@@ -126,11 +167,11 @@ export function DocumentList({
         if (!response.ok) {
           if (response.status === 403) {
             setLimitedPermissions(true);
-            setError(null);
+            setActionError(null);
             return;
           }
           setLimitedPermissions(false);
-          setError(errorMessage("load documents", response.status));
+          setActionError(errorMessage("load documents", response.status));
           return;
         }
         setLimitedPermissions(false);
@@ -155,7 +196,7 @@ export function DocumentList({
         );
       } catch {
         if (!controller.signal.aborted)
-          setError("Unable to load documents. Retry this page.");
+          setActionError("Unable to load documents. Retry this page.");
       } finally {
         if (!controller.signal.aborted) setLoading(false);
       }
@@ -167,7 +208,8 @@ export function DocumentList({
     const controller = new AbortController();
     scope.current = controller;
     setDocuments([]);
-    setError(null);
+    setActionError(null);
+    setPollingError(null);
     setLimitedPermissions(false);
     setUploadError(null);
     setDeletionError(null);
@@ -206,12 +248,40 @@ export function DocumentList({
       retryCount = 0,
     ) {
       if (controller.signal.aborted) return;
+      const currentDoc = documentsRef.current.find(
+        (d) => d.document_id === documentId,
+      );
+      if (
+        currentDoc?.ingestion_job_id &&
+        currentDoc.ingestion_job_id !== jobId
+      ) {
+        polling.current.delete(jobId);
+        pollingErrors.current.delete(jobId);
+        syncPollingError();
+        return;
+      }
+      const { signal: pollSignal, cleanup } = createPollSignal(
+        controller.signal,
+      );
       try {
         const response = await browserRequest(
           `${path}/ingestion-jobs/${encodeURIComponent(jobId)}`,
-          { signal: controller.signal },
+          { signal: pollSignal },
         );
+        cleanup();
         if (controller.signal.aborted) return;
+        const docAtResponse = documentsRef.current.find(
+          (d) => d.document_id === documentId,
+        );
+        if (
+          docAtResponse?.ingestion_job_id &&
+          docAtResponse.ingestion_job_id !== jobId
+        ) {
+          polling.current.delete(jobId);
+          pollingErrors.current.delete(jobId);
+          syncPollingError();
+          return;
+        }
         if (!response.ok) {
           const err = errorMessage("check ingestion status", response.status);
           pollingErrors.current.set(jobId, err);
@@ -234,6 +304,18 @@ export function DocumentList({
         syncPollingError();
         const status = (await response.json()) as IngestionJobStatusResponse;
         if (controller.signal.aborted) return;
+        const docAtJson = documentsRef.current.find(
+          (d) => d.document_id === documentId,
+        );
+        if (
+          docAtJson?.ingestion_job_id &&
+          docAtJson.ingestion_job_id !== jobId
+        ) {
+          polling.current.delete(jobId);
+          pollingErrors.current.delete(jobId);
+          syncPollingError();
+          return;
+        }
         setJobStates((previous) => ({ ...previous, [documentId]: status }));
         setUploadState((previous) =>
           previous &&
@@ -264,7 +346,20 @@ export function DocumentList({
         );
         timers.current.add(timer);
       } catch {
+        cleanup();
         if (!controller.signal.aborted) {
+          const docAtErr = documentsRef.current.find(
+            (d) => d.document_id === documentId,
+          );
+          if (
+            docAtErr?.ingestion_job_id &&
+            docAtErr.ingestion_job_id !== jobId
+          ) {
+            polling.current.delete(jobId);
+            pollingErrors.current.delete(jobId);
+            syncPollingError();
+            return;
+          }
           pollingErrors.current.set(jobId, POLLING_NETWORK_ERROR);
           syncPollingError();
           if (retryCount < MAX_POLLING_RETRIES) {
@@ -349,7 +444,7 @@ export function DocumentList({
     const controller = scope.current;
     const id = document.document_id;
     if (!controller || !canReprocess(document) || !begin(id)) return;
-    setError(null);
+    setActionError(null);
     try {
       const response = await browserRequest(
         `${path}/document-versions/${encodeURIComponent(document.current_document_version_id!)}/reprocess`,
@@ -367,7 +462,7 @@ export function DocumentList({
           await load(controller);
         }
         if (!controller.signal.aborted)
-          setError(
+          setActionError(
             response.status === 409
               ? "This document changed. Reload and try again."
               : errorMessage("re-index document", response.status),
@@ -390,7 +485,7 @@ export function DocumentList({
       }
     } catch {
       if (!controller.signal.aborted)
-        setError(
+        setActionError(
           "Unable to confirm re-index submission. Retry with the same request key.",
         );
     } finally {
@@ -401,7 +496,7 @@ export function DocumentList({
     const controller = scope.current;
     const id = document.document_id;
     if (!controller || !canWrite || !begin(id)) return;
-    setError(null);
+    setActionError(null);
     try {
       const response = await browserRequest(
         `${path}/documents/${encodeURIComponent(id)}/${document.archived ? "unarchive" : "archive"}`,
@@ -415,18 +510,18 @@ export function DocumentList({
       if (response.status === 409) {
         await load(controller);
         if (!controller.signal.aborted)
-          setError("This document changed. Reload and try again.");
+          setActionError("This document changed. Reload and try again.");
         return;
       }
       if (response.status !== 200) {
-        setError(errorMessage("update document", response.status));
+        setActionError(errorMessage("update document", response.status));
         return;
       }
       if (document.archived) router.push(routes.document(workspaceId, id));
       else await load(controller);
     } catch {
       if (!controller.signal.aborted)
-        setError(
+        setActionError(
           "Unable to confirm the document change. Reload before retrying.",
         );
     } finally {
@@ -436,7 +531,7 @@ export function DocumentList({
   async function restoreArchivedDocument(documentId: string) {
     const controller = scope.current;
     if (!controller || !canWrite || !begin(documentId)) return;
-    setError(null);
+    setActionError(null);
     try {
       let doc = documents.find((d) => d.document_id === documentId);
       if (!doc) {
@@ -449,7 +544,7 @@ export function DocumentList({
         }
       }
       if (!doc) {
-        setError("Unable to find document to restore.");
+        setActionError("Unable to find document to restore.");
         return;
       }
       const response = await browserRequest(
@@ -464,11 +559,11 @@ export function DocumentList({
       if (response.status === 409) {
         await load(controller);
         if (!controller.signal.aborted)
-          setError("This document changed. Reload and try again.");
+          setActionError("This document changed. Reload and try again.");
         return;
       }
       if (!response.ok) {
-        setError(errorMessage("restore document", response.status));
+        setActionError(errorMessage("restore document", response.status));
         return;
       }
       setUploadState((current) =>
@@ -477,7 +572,7 @@ export function DocumentList({
       await load(controller);
     } catch {
       if (!controller.signal.aborted)
-        setError("Unable to restore document. Reload before retrying.");
+        setActionError("Unable to restore document. Reload before retrying.");
     } finally {
       finish(documentId, controller);
     }

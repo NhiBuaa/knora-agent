@@ -48,6 +48,7 @@ async function forward(request: Request, context: Context) {
           ? undefined
           : await request.arrayBuffer(),
       cache: "no-store",
+      signal: request.signal,
     },
   );
   return new NextResponse(response.body, {

@@ -526,25 +526,52 @@ describe("document management", () => {
 
   it("stops scheduling retries after reaching retry limit on persistent 5xx errors in DocumentList", async () => {
     vi.useFakeTimers();
-    const doc = {
+    const docFail = {
       ...document,
       document_id: "doc-persistent-fail",
       ingestion_job_id: "fail-502-job",
       ingestion_status: "processing" as const,
       serving_state: "unavailable" as const,
     };
+    const docSibling = {
+      ...document,
+      document_id: "doc-sibling",
+      source_name: "sibling.pdf",
+      source_key: "sibling.pdf",
+      ingestion_job_id: "sibling-job",
+      ingestion_status: "processing" as const,
+      serving_state: "unavailable" as const,
+    };
+    let siblingStatus = "processing";
     const fetchMock = vi.fn().mockImplementation(async (url: string) => {
       if (url.includes("/documents")) {
-        return jsonResponse({ documents: [doc] });
+        return jsonResponse({
+          documents: [
+            docFail,
+            {
+              ...docSibling,
+              ingestion_status: siblingStatus,
+              embedding_readiness:
+                siblingStatus === "succeeded" ? "ready" : "none",
+            },
+          ],
+        });
       }
       if (url.includes("/ingestion-jobs/fail-502-job")) {
         return jsonResponse({ detail: "Gateway Timeout" }, 504);
+      }
+      if (url.includes("/ingestion-jobs/sibling-job")) {
+        return jsonResponse({
+          ingestion_job_id: "sibling-job",
+          status: siblingStatus,
+          poll_after_seconds: 60,
+        });
       }
       return jsonResponse({});
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    const { rerender } = render(
+    render(
       <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
     );
 
@@ -553,8 +580,8 @@ describe("document management", () => {
       await Promise.resolve();
     });
 
-    // Advance timers through all 8 retries
-    for (let i = 0; i < 20; i++) {
+    // Advance timers through all 5 retries (initial + 5 = 6 calls)
+    for (let i = 0; i < 15; i++) {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(15000);
       });
@@ -563,27 +590,89 @@ describe("document management", () => {
     const jobPollCalls = fetchMock.mock.calls.filter((call) =>
       call[0]?.includes("/ingestion-jobs/fail-502-job"),
     );
-    expect(jobPollCalls).toHaveLength(9);
+    expect(jobPollCalls).toHaveLength(6);
     expect(
       screen.getByText(/Unable to check ingestion status \(504\)/i),
     ).toBeInTheDocument();
 
-    // Verify document-list re-renders do not restart exhausted jobs
-    rerender(
-      <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
-    );
+    // Now complete the sibling job so it triggers a real document reload via load()
+    siblingStatus = "succeeded";
     await act(async () => {
-      await Promise.resolve();
+      await vi.advanceTimersByTimeAsync(60000);
     });
+
+    // Advance timers further to ensure any restarted poll would execute
     for (let i = 0; i < 5; i++) {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(15000);
       });
     }
+
+    // Verify document-list refresh does not restart the exhausted job
     const jobPollCallsAfterRefresh = fetchMock.mock.calls.filter((call) =>
       call[0]?.includes("/ingestion-jobs/fail-502-job"),
     );
-    expect(jobPollCallsAfterRefresh).toHaveLength(9);
+    expect(jobPollCallsAfterRefresh).toHaveLength(6);
+  });
+
+  it("aborts hung poll requests on timeout and enters retry path in DocumentList", async () => {
+    vi.useFakeTimers();
+    const doc = {
+      ...document,
+      document_id: "doc-hang",
+      ingestion_job_id: "hang-job",
+      ingestion_status: "processing" as const,
+      serving_state: "unavailable" as const,
+    };
+    let pollAttempts = 0;
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async (url: string, init?: RequestInit) => {
+        if (url.includes("/documents")) {
+          return jsonResponse({ documents: [doc] });
+        }
+        if (url.includes("/ingestion-jobs/hang-job")) {
+          pollAttempts++;
+          return new Promise((_, reject) => {
+            if (init?.signal) {
+              init.signal.addEventListener("abort", () => {
+                reject(
+                  new DOMException("The operation was aborted.", "AbortError"),
+                );
+              });
+            }
+          });
+        }
+        return jsonResponse({});
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(pollAttempts).toBe(1);
+
+    // Advance timer past the 10s poll timeout to trigger timeoutController.abort()
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(11000);
+    });
+
+    expect(
+      screen.getByText(
+        /Unable to check ingestion status\. Reload to see the latest job state\./i,
+      ),
+    ).toBeInTheDocument();
+
+    // Advance past retry delay to verify it retried
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    expect(pollAttempts).toBeGreaterThanOrEqual(2);
   });
 
   it("stops scheduling retries after reaching retry limit on persistent 5xx errors in DocumentDetail", async () => {
@@ -625,7 +714,7 @@ describe("document management", () => {
     const jobPollCalls = fetchMock.mock.calls.filter((call) =>
       call[0]?.includes("/ingestion-jobs/detail-502-job"),
     );
-    expect(jobPollCalls).toHaveLength(9);
+    expect(jobPollCalls).toHaveLength(6);
     expect(
       screen.getByText(/Unable to load ingestion job \(502\)/i),
     ).toBeInTheDocument();
