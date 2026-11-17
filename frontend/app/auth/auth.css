@@ -392,29 +392,142 @@
 }
 
 .knora-otp-digits {
-  display: flex;
-  gap: 8px;
-  justify-content: space-between;
-  margin: 12px 0 20px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  margin: 14px 0 10px;
+  width: 100%;
 }
 
 .knora-otp-digit {
-  width: 52px;
-  height: 58px;
+  width: 100%;
+  height: 60px;
+  box-sizing: border-box;
   text-align: center;
-  font-size: 24px;
+  font-family:
+    var(--font-roboto-mono, monospace), ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+  font-size: 26px;
   font-weight: 600;
-  border: 1px solid var(--knora-border);
-  border-radius: 8px;
+  border: 1.5px solid var(--knora-border);
+  border-radius: 12px;
   background: var(--knora-surface);
   color: var(--knora-text);
   outline: none;
+  transition:
+    border-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 150ms cubic-bezier(0.16, 1, 0.3, 1),
+    transform 150ms cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  caret-color: var(--knora-focus);
+}
+
+.knora-otp-digit:hover:not(:disabled):not(:focus) {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: var(--knora-subtle);
 }
 
 .knora-otp-digit:focus {
   border-color: var(--knora-focus);
-  outline: 2px solid var(--knora-focus);
-  outline-offset: 1px;
+  background: rgba(22, 163, 74, 0.05);
+  box-shadow:
+    0 0 0 3px rgba(34, 197, 94, 0.25),
+    0 4px 12px rgba(0, 0, 0, 0.35);
+  transform: translateY(-2px);
+  outline: none;
+}
+
+.knora-otp-digit--filled {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.knora-otp-digit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@keyframes knora-otp-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-6px);
+  }
+  40%,
+  80% {
+    transform: translateX(6px);
+  }
+}
+
+.knora-otp-digits--error {
+  animation: knora-otp-shake 320ms cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+.knora-otp-digits--error .knora-otp-digit {
+  border-color: var(--knora-error);
+  box-shadow: 0 0 0 2px var(--knora-error-border);
+}
+
+.knora-otp-status-cue {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 20px;
+  margin-bottom: 6px;
+}
+
+.knora-otp-status-text {
+  font-size: 12px;
+  font-family: var(--font-roboto-mono, monospace), monospace;
+  color: var(--knora-muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.knora-otp-status-active {
+  color: var(--knora-action);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+@keyframes knora-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.4;
+    transform: scale(0.85);
+  }
+}
+
+.knora-pulse-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: var(--knora-action);
+  animation: knora-pulse 1.2s ease-in-out infinite;
+}
+
+.knora-resend-btn {
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.knora-resend-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  text-decoration: none;
 }
 
 @media (max-width: 1100px) {
@@ -468,8 +581,9 @@
   }
 
   .knora-otp-digit {
-    width: 44px;
-    height: 50px;
-    font-size: 20px;
+    width: 100%;
+    height: 52px;
+    font-size: 21px;
+    border-radius: 10px;
   }
 }
