@@ -33,7 +33,7 @@ type Props = {
   workspaceArchived?: boolean;
 };
 
-const MAX_POLLING_RETRIES = 5;
+const MAX_POLLING_RETRIES = 7;
 const POLL_TIMEOUT_MS = 10000;
 const POLLING_NETWORK_ERROR =
   "Unable to load ingestion job. Reload to see the latest state.";
@@ -162,8 +162,11 @@ export function DocumentDetail({
     const controller = scope.current;
     if (!jobId || !controller || controller.signal.aborted) return;
     let active = true;
+    let inFlight = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const poll = async (retryCount = 0) => {
+      if (inFlight) return;
+      inFlight = true;
       const { signal: pollSignal, cleanup } = createPollSignal(
         controller.signal,
       );
@@ -217,9 +220,18 @@ export function DocumentDetail({
             timer = setTimeout(() => void poll(retryCount + 1), delay);
           }
         }
+      } finally {
+        inFlight = false;
       }
     };
-    pollRef.current = () => void poll(0);
+    pollRef.current = () => {
+      if (inFlight) return;
+      if (timer) {
+        clearTimeout(timer);
+        timer = undefined;
+      }
+      void poll(0);
+    };
     void poll();
     return () => {
       active = false;

@@ -296,17 +296,25 @@ describe("document management", () => {
       ingestion_status: "processing" as const,
       serving_state: "unavailable" as const,
     };
+    let failJobCallCount = 0;
     const fetchMock = vi
       .fn()
       // Initial document list returns both documents
       .mockResolvedValueOnce(
         jsonResponse({ documents: [docFailing, docSuccess] }),
       )
-      // Call for fail-job returns 404 client error
+      // Call for fail-job returns 404 client error on first call, 200 on subsequent calls
       // Call for ok-job returns 200 succeeded
       .mockImplementation(async (url: string) => {
         if (url.includes("/ingestion-jobs/fail-job")) {
-          return jsonResponse({ detail: "Job Not Found" }, 404);
+          failJobCallCount++;
+          if (failJobCallCount === 1) {
+            return jsonResponse({ detail: "Job Not Found" }, 404);
+          }
+          return jsonResponse({
+            ingestion_job_id: "fail-job",
+            status: "succeeded",
+          });
         }
         if (url.includes("/ingestion-jobs/ok-job")) {
           return jsonResponse({
@@ -340,6 +348,7 @@ describe("document management", () => {
     expect(
       screen.getByText(/Unable to check ingestion status \(404\)/i),
     ).toBeInTheDocument();
+    expect(failJobCallCount).toBe(1);
   });
 
   it("retries transient 502 in DocumentDetail and recovers when backend becomes available", async () => {
@@ -580,8 +589,8 @@ describe("document management", () => {
       await Promise.resolve();
     });
 
-    // Advance timers through all 5 retries (initial + 5 = 6 calls)
-    for (let i = 0; i < 15; i++) {
+    // Advance timers through all 7 retries (initial + 7 = 8 calls)
+    for (let i = 0; i < 25; i++) {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(15000);
       });
@@ -590,7 +599,7 @@ describe("document management", () => {
     const jobPollCalls = fetchMock.mock.calls.filter((call) =>
       call[0]?.includes("/ingestion-jobs/fail-502-job"),
     );
-    expect(jobPollCalls).toHaveLength(6);
+    expect(jobPollCalls).toHaveLength(8);
     expect(
       screen.getByText(/Unable to check ingestion status \(504\)/i),
     ).toBeInTheDocument();
@@ -612,7 +621,7 @@ describe("document management", () => {
     const jobPollCallsAfterRefresh = fetchMock.mock.calls.filter((call) =>
       call[0]?.includes("/ingestion-jobs/fail-502-job"),
     );
-    expect(jobPollCallsAfterRefresh).toHaveLength(6);
+    expect(jobPollCallsAfterRefresh).toHaveLength(8);
 
     // Verify the Retry recovery mechanism resumes polling without a page reload
     const retryButton = screen.getByRole("button", { name: "Retry" });
@@ -624,7 +633,7 @@ describe("document management", () => {
     const jobPollCallsAfterRetry = fetchMock.mock.calls.filter((call) =>
       call[0]?.includes("/ingestion-jobs/fail-502-job"),
     );
-    expect(jobPollCallsAfterRetry).toHaveLength(7);
+    expect(jobPollCallsAfterRetry).toHaveLength(9);
   });
 
   it("aborts hung poll requests on timeout and enters retry path in DocumentList", async () => {
@@ -717,7 +726,7 @@ describe("document management", () => {
       await Promise.resolve();
     });
 
-    for (let i = 0; i < 20; i++) {
+    for (let i = 0; i < 25; i++) {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(15000);
       });
@@ -726,7 +735,7 @@ describe("document management", () => {
     const jobPollCalls = fetchMock.mock.calls.filter((call) =>
       call[0]?.includes("/ingestion-jobs/detail-502-job"),
     );
-    expect(jobPollCalls).toHaveLength(6);
+    expect(jobPollCalls).toHaveLength(8);
     expect(
       screen.getByText(/Unable to load ingestion job \(502\)/i),
     ).toBeInTheDocument();
@@ -741,7 +750,7 @@ describe("document management", () => {
     const jobPollCallsAfterRetry = fetchMock.mock.calls.filter((call) =>
       call[0]?.includes("/ingestion-jobs/detail-502-job"),
     );
-    expect(jobPollCallsAfterRetry).toHaveLength(7);
+    expect(jobPollCallsAfterRetry).toHaveLength(9);
   });
 
   it("shows backend re-index readiness and reuses the key after an ambiguous failure", async () => {
@@ -907,6 +916,54 @@ describe("document management", () => {
       new Headers(fetchMock.mock.calls[1][1].headers).get("If-Match"),
     ).toBe("7");
     expect(screen.getByRole("alert")).toHaveTextContent("changed");
+  });
+
+  it("renders action error and polling error simultaneously and keeps Retry button accessible", async () => {
+    const docWithJob = {
+      ...document,
+      document_id: "doc-archive-fail",
+      source_name: "fail-archive.pdf",
+      source_key: "fail-archive.pdf",
+      ingestion_job_id: "job-archive-fail",
+      ingestion_status: "processing" as const,
+      serving_state: "unavailable" as const,
+      archived: false,
+    };
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("/archive")) {
+        return jsonResponse({ detail: "Internal Server Error" }, 500);
+      }
+      if (url.includes("/ingestion-jobs/job-archive-fail")) {
+        return jsonResponse({ detail: "Not Found" }, 404);
+      }
+      if (url.includes("/documents")) {
+        return jsonResponse({ documents: [docWithJob] });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
+    );
+
+    // Initial 404 polling error is visible with Retry button
+    await screen.findByText(/Unable to check ingestion status \(404\)/i);
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+
+    // Trigger archive which fails with 500
+    fireEvent.click(
+      screen.getByRole("button", { name: "Actions for fail-archive.pdf" }),
+    );
+    fireEvent.click(screen.getByRole("menuitem", { name: "Archive document" }));
+
+    // Both action error and polling error should be rendered in alert elements
+    await screen.findByText(/Unable to update document \(500\)/i);
+    expect(
+      screen.getByText(/Unable to check ingestion status \(404\)/i),
+    ).toBeInTheDocument();
+    // The Retry button must still be in the document
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
   });
 
   it("hides document write controls when documents:write is absent", async () => {
