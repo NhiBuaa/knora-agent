@@ -31,6 +31,7 @@ import type {
 import { browserRequest } from "@/lib/api/browser-client";
 
 const pending = new Set(["queued", "processing", "pending"]);
+export const SUBMISSION_TIMEOUT_MS = 20_000;
 
 const emptyConversations: ConversationResponse[] = [];
 type ConversationViewProps = {
@@ -44,6 +45,7 @@ type ConversationViewProps = {
   workspaceSelector?: React.ReactNode;
   initialConversations?: ConversationResponse[];
   nextCursor?: string | null;
+  submissionTimeoutMs?: number;
 };
 export function ConversationView(props: ConversationViewProps) {
   return (
@@ -64,6 +66,7 @@ function ConversationViewState({
   workspaceSelector,
   initialConversations = emptyConversations,
   nextCursor = null,
+  submissionTimeoutMs = SUBMISSION_TIMEOUT_MS,
 }: ConversationViewProps) {
   const router = useRouter();
   const active = useRef(true);
@@ -235,7 +238,16 @@ function ConversationViewState({
       };
       if (!active.current || generation !== authenticationGeneration.current)
         return null;
-      setTurns(page.items);
+      setTurns((current) => {
+        const optimistic = current.filter((item) =>
+          item.id.startsWith("optimistic-"),
+        );
+        const serverIds = new Set(page.items.map((i) => i.id));
+        return [
+          ...page.items,
+          ...optimistic.filter((item) => !serverIds.has(item.id)),
+        ];
+      });
       setCursor(page.next_cursor);
       authenticationRequired.current = false;
       setSessionExpired(false);
@@ -350,6 +362,11 @@ function ConversationViewState({
       });
     }
 
+    const abortController = new AbortController();
+    const timeoutTimer = setTimeout(() => {
+      abortController.abort(new Error("Turn submission timed out"));
+    }, submissionTimeoutMs);
+
     try {
       if (submitKey.current && error) {
         if (!(await load())) {
@@ -373,6 +390,7 @@ function ConversationViewState({
           {
             method: "POST",
             headers: { "Idempotency-Key": creationKey.current },
+            signal: abortController.signal,
           },
         );
         if (created.status === 401) {
@@ -424,6 +442,7 @@ function ConversationViewState({
           method: "POST",
           headers: { "Idempotency-Key": submitKey.current },
           body: JSON.stringify({ question }),
+          signal: abortController.signal,
         },
       );
       if (!active.current) {
@@ -501,6 +520,7 @@ function ConversationViewState({
         "Submission status is uncertain. Check history, then retry with the same draft.",
       );
     } finally {
+      clearTimeout(timeoutTimer);
       submitBusy.current = false;
       setSubmitting(false);
     }

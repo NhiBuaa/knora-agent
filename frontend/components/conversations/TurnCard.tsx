@@ -248,6 +248,7 @@ export function TurnCard({
   return (
     <li
       className="m-0 flex flex-col gap-[22px]"
+      data-turn-id={turn.id}
       aria-label={`Question ${turn.sequence}`}
     >
       <div className="flex min-h-[52px] flex-col items-end gap-1.5">
