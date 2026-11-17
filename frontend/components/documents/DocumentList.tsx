@@ -166,6 +166,7 @@ export function DocumentList({
       documentId: string,
       jobId: string,
       controller: AbortController,
+      retryCount = 0,
     ) {
       if (controller.signal.aborted) return;
       try {
@@ -175,10 +176,22 @@ export function DocumentList({
         );
         if (controller.signal.aborted) return;
         if (!response.ok) {
+          if (response.status >= 500 && retryCount < 5) {
+            const delay = Math.min(10000, 1500 * Math.pow(1.5, retryCount));
+            const timer = setTimeout(() => {
+              timers.current.delete(timer);
+              void poll(documentId, jobId, controller, retryCount + 1);
+            }, delay);
+            timers.current.add(timer);
+            return;
+          }
           polling.current.delete(jobId);
           setError(errorMessage("check ingestion status", response.status));
           return;
         }
+        setError((previous) =>
+          previous?.includes("check ingestion status") ? null : previous,
+        );
         const status = (await response.json()) as IngestionJobStatusResponse;
         if (controller.signal.aborted) return;
         setJobStates((previous) => ({ ...previous, [documentId]: status }));
@@ -203,13 +216,22 @@ export function DocumentList({
         const timer = setTimeout(
           () => {
             timers.current.delete(timer);
-            void poll(documentId, jobId, controller);
+            void poll(documentId, jobId, controller, 0);
           },
           Math.max(1000, (status.poll_after_seconds || 2) * 1000),
         );
         timers.current.add(timer);
       } catch {
         if (!controller.signal.aborted) {
+          if (retryCount < 5) {
+            const delay = Math.min(10000, 1500 * Math.pow(1.5, retryCount));
+            const timer = setTimeout(() => {
+              timers.current.delete(timer);
+              void poll(documentId, jobId, controller, retryCount + 1);
+            }, delay);
+            timers.current.add(timer);
+            return;
+          }
           polling.current.delete(jobId);
           setError(
             "Unable to check ingestion status. Reload to see the latest job state.",

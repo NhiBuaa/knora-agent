@@ -222,6 +222,58 @@ describe("document management", () => {
     expect(screen.getByText("Ready")).toBeInTheDocument();
   });
 
+  it("retries transient 502 gateway error during ingestion polling and recovers when backend becomes available", async () => {
+    const outdated = {
+      ...document,
+      ingestion_job_id: "transient-job",
+      ingestion_status: "processing" as const,
+      serving_state: "unavailable" as const,
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ documents: [outdated] }))
+      // First poll gets 502 Bad Gateway (e.g. Render container restart)
+      .mockResolvedValueOnce(jsonResponse({ detail: "Bad Gateway" }, 502))
+      // Second poll succeeds after container startup
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ingestion_job_id: "transient-job",
+          status: "succeeded",
+        }),
+      )
+      // Final reload fetches updated document list
+      .mockResolvedValueOnce(
+        jsonResponse({
+          documents: [
+            {
+              ...outdated,
+              ingestion_status: "succeeded",
+              embedding_readiness: "ready",
+            },
+          ],
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4), {
+      timeout: 5000,
+    });
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      "/api/v1/workspaces/ws-1/ingestion-jobs/transient-job",
+    );
+    expect(fetchMock.mock.calls[2][0]).toBe(
+      "/api/v1/workspaces/ws-1/ingestion-jobs/transient-job",
+    );
+    expect(screen.getByText("Ready")).toBeInTheDocument();
+    expect(
+      screen.queryByText(/Unable to check ingestion status/i),
+    ).not.toBeInTheDocument();
+  });
+
   it("shows backend re-index readiness and reuses the key after an ambiguous failure", async () => {
     const outdated = {
       ...document,
