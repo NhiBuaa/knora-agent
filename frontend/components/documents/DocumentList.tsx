@@ -30,6 +30,10 @@ import { DocumentActionsMenu } from "./DocumentActionsMenu";
 import { DeletionRequestDialog } from "./DeletionRequestDialog";
 import "./documents.css";
 
+const MAX_POLLING_RETRIES = 8;
+const POLLING_NETWORK_ERROR =
+  "Unable to check ingestion status. Reload to see the latest job state.";
+
 function errorMessage(action: string, status: number) {
   return status === 401
     ? "Your session expired. Sign in again to continue."
@@ -77,12 +81,39 @@ export function DocumentList({
   const polling = useRef(new Set<string>());
   const pollingErrors = useRef(new Map<string, string>());
   const completed = useRef(new Set<string>());
+  const exhausted = useRef(new Set<string>());
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
+  const documentsRef = useRef<DocumentResponse[]>(documents);
+  documentsRef.current = documents;
   const canWrite =
     capabilities.includes("documents:write") && !workspaceArchived;
   const canDelete =
     capabilities.includes("documents:delete") && !workspaceArchived;
   const path = `/v1/workspaces/${encodeURIComponent(workspaceId)}`;
+
+  const syncPollingError = useCallback(() => {
+    const activeJobIds = new Set(
+      documentsRef.current
+        .filter((doc) => doc.ingestion_job_id && derivationIsActive(doc))
+        .map((doc) => doc.ingestion_job_id as string),
+    );
+    for (const id of pollingErrors.current.keys()) {
+      if (!activeJobIds.has(id)) {
+        pollingErrors.current.delete(id);
+      }
+    }
+    if (pollingErrors.current.size === 0) {
+      setError((previous) =>
+        previous?.includes("check ingestion status") ||
+        previous?.includes("Unable to check ingestion status") ||
+        previous === POLLING_NETWORK_ERROR
+          ? null
+          : previous,
+      );
+    } else {
+      setError(pollingErrors.current.values().next().value ?? null);
+    }
+  }, []);
 
   const load = useCallback(
     async (controller: AbortController, initial = false) => {
@@ -107,7 +138,10 @@ export function DocumentList({
           documents?: DocumentResponse[];
         };
         if (controller.signal.aborted) return;
-        setDocuments(Array.isArray(body?.documents) ? body.documents : []);
+        const loadedDocs = Array.isArray(body?.documents) ? body.documents : [];
+        setDocuments(loadedDocs);
+        documentsRef.current = loadedDocs;
+        syncPollingError();
         setJobStates((previous) =>
           Object.fromEntries(
             Object.entries(previous).filter(([, job]) =>
@@ -126,7 +160,7 @@ export function DocumentList({
         if (!controller.signal.aborted) setLoading(false);
       }
     },
-    [path],
+    [path, syncPollingError],
   );
 
   useEffect(() => {
@@ -152,6 +186,7 @@ export function DocumentList({
     polling.current.clear();
     pollingErrors.current.clear();
     completed.current.clear();
+    exhausted.current.clear();
     void load(controller, true);
     const ownedTimers = timers.current;
     return () => {
@@ -180,8 +215,8 @@ export function DocumentList({
         if (!response.ok) {
           const err = errorMessage("check ingestion status", response.status);
           pollingErrors.current.set(jobId, err);
-          setError(err);
-          if (response.status >= 500 && retryCount < 5) {
+          syncPollingError();
+          if (response.status >= 500 && retryCount < MAX_POLLING_RETRIES) {
             const baseDelay = Math.min(10000, 1500 * Math.pow(1.5, retryCount));
             const delay = baseDelay + Math.random() * 500;
             const timer = setTimeout(() => {
@@ -192,19 +227,11 @@ export function DocumentList({
             return;
           }
           polling.current.delete(jobId);
+          exhausted.current.add(jobId);
           return;
         }
         pollingErrors.current.delete(jobId);
-        if (pollingErrors.current.size === 0) {
-          setError((previous) =>
-            previous?.includes("check ingestion status") ||
-            previous?.includes("Unable to check ingestion status")
-              ? null
-              : previous,
-          );
-        } else {
-          setError(pollingErrors.current.values().next().value ?? null);
-        }
+        syncPollingError();
         const status = (await response.json()) as IngestionJobStatusResponse;
         if (controller.signal.aborted) return;
         setJobStates((previous) => ({ ...previous, [documentId]: status }));
@@ -224,6 +251,7 @@ export function DocumentList({
           polling.current.delete(jobId);
           pollingErrors.current.delete(jobId);
           completed.current.add(jobId);
+          syncPollingError();
           await load(controller);
           return;
         }
@@ -237,11 +265,9 @@ export function DocumentList({
         timers.current.add(timer);
       } catch {
         if (!controller.signal.aborted) {
-          const err =
-            "Unable to check ingestion status. Reload to see the latest job state.";
-          pollingErrors.current.set(jobId, err);
-          setError(err);
-          if (retryCount < 5) {
+          pollingErrors.current.set(jobId, POLLING_NETWORK_ERROR);
+          syncPollingError();
+          if (retryCount < MAX_POLLING_RETRIES) {
             const baseDelay = Math.min(10000, 1500 * Math.pow(1.5, retryCount));
             const delay = baseDelay + Math.random() * 500;
             const timer = setTimeout(() => {
@@ -252,28 +278,31 @@ export function DocumentList({
             return;
           }
           polling.current.delete(jobId);
+          exhausted.current.add(jobId);
         }
       }
     },
-    [path, load],
+    [path, load, syncPollingError],
   );
 
   useEffect(() => {
     const controller = scope.current;
     if (!controller || controller.signal.aborted) return;
+    syncPollingError();
     for (const document of documents) {
       const jobId = document.ingestion_job_id;
       if (
         jobId &&
         derivationIsActive(document) &&
         !polling.current.has(jobId) &&
-        !completed.current.has(jobId)
+        !completed.current.has(jobId) &&
+        !exhausted.current.has(jobId)
       ) {
         polling.current.add(jobId);
         void poll(document.document_id, jobId, controller);
       }
     }
-  }, [documents, poll]);
+  }, [documents, poll, syncPollingError]);
 
   function begin(id: string) {
     if (inFlight.current.has(id)) return false;
@@ -354,6 +383,8 @@ export function DocumentList({
       }));
       if (!jobIsActive(result.status)) await load(controller);
       else if (!polling.current.has(result.ingestion_job_id)) {
+        completed.current.delete(result.ingestion_job_id);
+        exhausted.current.delete(result.ingestion_job_id);
         polling.current.add(result.ingestion_job_id);
         void poll(id, result.ingestion_job_id, controller);
       }
@@ -541,6 +572,8 @@ export function DocumentList({
         jobIsActive(result.status) &&
         !polling.current.has(result.ingestion_job_id)
       ) {
+        completed.current.delete(result.ingestion_job_id);
+        exhausted.current.delete(result.ingestion_job_id);
         polling.current.add(result.ingestion_job_id);
         void poll(result.document_id, result.ingestion_job_id, controller);
       }

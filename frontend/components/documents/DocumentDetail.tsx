@@ -32,6 +32,11 @@ type Props = {
   capabilities?: string[];
   workspaceArchived?: boolean;
 };
+
+const MAX_POLLING_RETRIES = 8;
+const POLLING_NETWORK_ERROR =
+  "Unable to load ingestion job. Reload to see the latest state.";
+
 function responseError(action: string, status: number) {
   return status === 401
     ? "Your session expired. Sign in again to continue."
@@ -135,7 +140,7 @@ export function DocumentDetail({
         if (!active || controller.signal.aborted) return;
         if (!response.ok) {
           setError(responseError("load ingestion job", response.status));
-          if (response.status >= 500 && retryCount < 5) {
+          if (response.status >= 500 && retryCount < MAX_POLLING_RETRIES) {
             const baseDelay = Math.min(10000, 1500 * Math.pow(1.5, retryCount));
             const delay = baseDelay + Math.random() * 500;
             timer = setTimeout(() => void poll(retryCount + 1), delay);
@@ -144,7 +149,9 @@ export function DocumentDetail({
           return;
         }
         setError((prev) =>
-          prev?.includes("load ingestion job") ? null : prev,
+          prev?.includes("load ingestion job") || prev === POLLING_NETWORK_ERROR
+            ? null
+            : prev,
         );
         const status = (await response.json()) as IngestionJobStatusResponse;
         if (!active || controller.signal.aborted) return;
@@ -162,10 +169,8 @@ export function DocumentDetail({
         else await load(controller);
       } catch {
         if (active && !controller.signal.aborted) {
-          setError(
-            "Unable to load ingestion job. Reload to see the latest state.",
-          );
-          if (retryCount < 5) {
+          setError(POLLING_NETWORK_ERROR);
+          if (retryCount < MAX_POLLING_RETRIES) {
             const baseDelay = Math.min(10000, 1500 * Math.pow(1.5, retryCount));
             const delay = baseDelay + Math.random() * 500;
             timer = setTimeout(() => void poll(retryCount + 1), delay);

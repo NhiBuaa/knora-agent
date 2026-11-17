@@ -386,9 +386,142 @@ describe("document management", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4), {
       timeout: 5000,
     });
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      "/api/v1/workspaces/ws-1/ingestion-jobs/detail-job",
+    );
+    expect(fetchMock.mock.calls[2][0]).toBe(
+      "/api/v1/workspaces/ws-1/ingestion-jobs/detail-job",
+    );
     expect(
       screen.queryByText(/Unable to load ingestion job/i),
     ).not.toBeInTheDocument();
+  });
+
+  it("retries transient network error in DocumentDetail and clears network error banner on recovery", async () => {
+    const activeDoc = {
+      ...document,
+      ingestion_job_id: "network-job",
+      ingestion_status: "processing" as const,
+      serving_state: "unavailable" as const,
+    };
+    const fetchMock = vi
+      .fn()
+      // 1. Initial document load
+      .mockResolvedValueOnce(jsonResponse(activeDoc))
+      // 2. First job poll throws network error
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"))
+      // 3. Second job poll succeeds
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ingestion_job_id: "network-job",
+          status: "succeeded",
+        }),
+      )
+      // 4. Reload after completion
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...activeDoc,
+          ingestion_status: "succeeded",
+          embedding_readiness: "ready",
+          serving_state: "current",
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DocumentDetail
+        workspaceId="ws-1"
+        documentId="doc-1"
+        capabilities={["documents:write"]}
+      />,
+    );
+
+    await screen.findByText(
+      /Unable to load ingestion job\. Reload to see the latest state\./i,
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4), {
+      timeout: 5000,
+    });
+    expect(fetchMock.mock.calls[1][0]).toBe(
+      "/api/v1/workspaces/ws-1/ingestion-jobs/network-job",
+    );
+    expect(fetchMock.mock.calls[2][0]).toBe(
+      "/api/v1/workspaces/ws-1/ingestion-jobs/network-job",
+    );
+    expect(
+      screen.queryByText(/Unable to load ingestion job/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("prunes polling errors when a failed job leaves the active document list on refresh", async () => {
+    const docFailing = {
+      ...document,
+      document_id: "doc-fail",
+      source_name: "fail.pdf",
+      source_key: "fail.pdf",
+      ingestion_job_id: "fail-job",
+      ingestion_status: "processing" as const,
+      serving_state: "unavailable" as const,
+    };
+    const docSucceeding = {
+      ...document,
+      document_id: "doc-ok",
+      source_name: "ok.pdf",
+      source_key: "ok.pdf",
+      ingestion_job_id: "ok-job",
+      ingestion_status: "processing" as const,
+      serving_state: "unavailable" as const,
+    };
+
+    let documentListCallCount = 0;
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("/ingestion-jobs/fail-job")) {
+        return jsonResponse({ detail: "Job Not Found" }, 404);
+      }
+      if (url.includes("/ingestion-jobs/ok-job")) {
+        return jsonResponse({
+          ingestion_job_id: "ok-job",
+          status: "succeeded",
+        });
+      }
+      if (url.includes("/documents")) {
+        documentListCallCount++;
+        // On initial load, both documents are present.
+        // On second load (triggered by ok-job completion), fail-job has been removed/is inactive.
+        if (documentListCallCount === 1) {
+          return jsonResponse({ documents: [docFailing, docSucceeding] });
+        }
+        return jsonResponse({
+          documents: [
+            {
+              ...docSucceeding,
+              ingestion_status: "succeeded",
+              embedding_readiness: "ready",
+            },
+          ],
+        });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
+    );
+
+    // Initial 404 error from fail-job is shown
+    await screen.findByText(/Unable to check ingestion status \(404\)/i);
+
+    // ok-job succeeds and triggers reload; on reload fail-job is no longer in documents
+    await screen.findByText("Ready");
+
+    // The error banner must be pruned and cleared because fail-job is no longer active
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/Unable to check ingestion status/i),
+      ).not.toBeInTheDocument(),
+    );
   });
 
   it("stops scheduling retries after reaching retry limit on persistent 5xx errors in DocumentList", async () => {
@@ -411,7 +544,7 @@ describe("document management", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    render(
+    const { rerender } = render(
       <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
     );
 
@@ -420,8 +553,8 @@ describe("document management", () => {
       await Promise.resolve();
     });
 
-    // Advance timers through all 5 retries
-    for (let i = 0; i < 10; i++) {
+    // Advance timers through all 8 retries
+    for (let i = 0; i < 20; i++) {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(15000);
       });
@@ -430,10 +563,27 @@ describe("document management", () => {
     const jobPollCalls = fetchMock.mock.calls.filter((call) =>
       call[0]?.includes("/ingestion-jobs/fail-502-job"),
     );
-    expect(jobPollCalls).toHaveLength(6);
+    expect(jobPollCalls).toHaveLength(9);
     expect(
       screen.getByText(/Unable to check ingestion status \(504\)/i),
     ).toBeInTheDocument();
+
+    // Verify document-list re-renders do not restart exhausted jobs
+    rerender(
+      <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    for (let i = 0; i < 5; i++) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15000);
+      });
+    }
+    const jobPollCallsAfterRefresh = fetchMock.mock.calls.filter((call) =>
+      call[0]?.includes("/ingestion-jobs/fail-502-job"),
+    );
+    expect(jobPollCallsAfterRefresh).toHaveLength(9);
   });
 
   it("stops scheduling retries after reaching retry limit on persistent 5xx errors in DocumentDetail", async () => {
@@ -466,7 +616,7 @@ describe("document management", () => {
       await Promise.resolve();
     });
 
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 20; i++) {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(15000);
       });
@@ -475,7 +625,7 @@ describe("document management", () => {
     const jobPollCalls = fetchMock.mock.calls.filter((call) =>
       call[0]?.includes("/ingestion-jobs/detail-502-job"),
     );
-    expect(jobPollCalls).toHaveLength(6);
+    expect(jobPollCalls).toHaveLength(9);
     expect(
       screen.getByText(/Unable to load ingestion job \(502\)/i),
     ).toBeInTheDocument();
