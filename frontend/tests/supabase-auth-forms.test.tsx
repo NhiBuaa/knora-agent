@@ -311,6 +311,102 @@ describe("Recovery Forms", () => {
     expect(pushMock).toHaveBeenCalledWith("/auth/new-password");
   });
 
+  it("renders 6 segmented OTP digit boxes and advances focus sequentially on input", async () => {
+    const user = userEvent.setup();
+    render(<ResetCodePage />);
+
+    for (let i = 0; i < 6; i++) {
+      expect(screen.getByLabelText(`Digit ${i + 1} of 6`)).toBeVisible();
+    }
+
+    const digit0 = screen.getByLabelText("Digit 1 of 6");
+    const digit1 = screen.getByLabelText("Digit 2 of 6");
+    const digit2 = screen.getByLabelText("Digit 3 of 6");
+
+    await user.click(digit0);
+    await user.keyboard("1");
+    expect(digit0).toHaveValue("1");
+    expect(document.activeElement).toBe(digit1);
+
+    await user.keyboard("2");
+    expect(digit1).toHaveValue("2");
+    expect(document.activeElement).toBe(digit2);
+  });
+
+  it("navigates back and clears previous digit on Backspace when current box is empty", async () => {
+    const user = userEvent.setup();
+    render(<ResetCodePage />);
+
+    const digit0 = screen.getByLabelText("Digit 1 of 6");
+    const digit1 = screen.getByLabelText("Digit 2 of 6");
+
+    await user.click(digit0);
+    await user.keyboard("9");
+    expect(document.activeElement).toBe(digit1);
+    expect(digit1).toHaveValue("");
+
+    // Backspace on empty digit1 should clear digit0 and focus digit0
+    await user.keyboard("{Backspace}");
+    expect(digit0).toHaveValue("");
+    expect(document.activeElement).toBe(digit0);
+  });
+
+  it("auto-submits verification upon typing the 6th digit without clicking button", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ success: true, redirect: "/auth/new-password" }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<ResetCodePage />);
+
+    const digit0 = screen.getByLabelText("Digit 1 of 6");
+    await user.click(digit0);
+    await user.keyboard("123456");
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/auth/recovery/verify");
+    expect(JSON.parse(opts.body)).toEqual({
+      email: "recovery@example.test",
+      code: "123456",
+    });
+    expect(pushMock).toHaveBeenCalledWith("/auth/new-password");
+  });
+
+  it("handles paste of full 6-digit code and triggers auto-submit", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({ success: true, redirect: "/auth/new-password" }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        },
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<ResetCodePage />);
+
+    const digit0 = screen.getByLabelText("Digit 1 of 6");
+    await user.click(digit0);
+    await user.paste("842109");
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, opts] = fetchMock.mock.calls[0];
+    expect(url).toBe("/api/auth/recovery/verify");
+    expect(JSON.parse(opts.body)).toEqual({
+      email: "recovery@example.test",
+      code: "842109",
+    });
+    expect(pushMock).toHaveBeenCalledWith("/auth/new-password");
+  });
+
   it("validates and submits new password", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(
