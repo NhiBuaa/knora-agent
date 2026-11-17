@@ -126,7 +126,7 @@ export function DocumentDetail({
     if (!jobId || !controller || controller.signal.aborted) return;
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const poll = async () => {
+    const poll = async (retryCount = 0) => {
       try {
         const response = await browserRequest(
           `${path}/ingestion-jobs/${encodeURIComponent(jobId)}`,
@@ -134,9 +134,27 @@ export function DocumentDetail({
         );
         if (!active || controller.signal.aborted) return;
         if (!response.ok) {
+          if (response.status >= 500) {
+            const baseDelay =
+              retryCount < 5
+                ? Math.min(10000, 1500 * Math.pow(1.5, retryCount))
+                : 10000;
+            const delay = baseDelay + Math.random() * 500;
+            if (retryCount >= 5) {
+              setError(responseError("load ingestion job", response.status));
+            }
+            timer = setTimeout(
+              () => void poll(Math.min(5, retryCount + 1)),
+              delay,
+            );
+            return;
+          }
           setError(responseError("load ingestion job", response.status));
           return;
         }
+        setError((prev) =>
+          prev?.includes("load ingestion job") ? null : prev,
+        );
         const status = (await response.json()) as IngestionJobStatusResponse;
         if (!active || controller.signal.aborted) return;
         setJobStatus(status);
@@ -147,15 +165,27 @@ export function DocumentDetail({
           })
         )
           timer = setTimeout(
-            () => void poll(),
+            () => void poll(0),
             Math.max(1000, (status.poll_after_seconds || 2) * 1000),
           );
         else await load(controller);
       } catch {
-        if (active && !controller.signal.aborted)
-          setError(
-            "Unable to load ingestion job. Reload to see the latest state.",
+        if (active && !controller.signal.aborted) {
+          const baseDelay =
+            retryCount < 5
+              ? Math.min(10000, 1500 * Math.pow(1.5, retryCount))
+              : 10000;
+          const delay = baseDelay + Math.random() * 500;
+          if (retryCount >= 5) {
+            setError(
+              "Unable to load ingestion job. Reload to see the latest state.",
+            );
+          }
+          timer = setTimeout(
+            () => void poll(Math.min(5, retryCount + 1)),
+            delay,
           );
+        }
       }
     };
     void poll();

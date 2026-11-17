@@ -274,6 +274,118 @@ describe("document management", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("preserves polling error from failing job when another job's poll succeeds", async () => {
+    const docFailing = {
+      ...document,
+      document_id: "doc-fail",
+      source_name: "fail.pdf",
+      source_key: "fail.pdf",
+      ingestion_job_id: "fail-job",
+      ingestion_status: "processing" as const,
+      serving_state: "unavailable" as const,
+    };
+    const docSuccess = {
+      ...document,
+      document_id: "doc-ok",
+      source_name: "ok.pdf",
+      source_key: "ok.pdf",
+      ingestion_job_id: "ok-job",
+      ingestion_status: "processing" as const,
+      serving_state: "unavailable" as const,
+    };
+    const fetchMock = vi
+      .fn()
+      // Initial document list returns both documents
+      .mockResolvedValueOnce(
+        jsonResponse({ documents: [docFailing, docSuccess] }),
+      )
+      // Call for fail-job returns 404 client error
+      // Call for ok-job returns 200 succeeded
+      .mockImplementation(async (url: string) => {
+        if (url.includes("/ingestion-jobs/fail-job")) {
+          return jsonResponse({ detail: "Job Not Found" }, 404);
+        }
+        if (url.includes("/ingestion-jobs/ok-job")) {
+          return jsonResponse({
+            ingestion_job_id: "ok-job",
+            status: "succeeded",
+          });
+        }
+        if (url.includes("/documents")) {
+          return jsonResponse({
+            documents: [
+              docFailing,
+              {
+                ...docSuccess,
+                ingestion_status: "succeeded",
+                embedding_readiness: "ready",
+              },
+            ],
+          });
+        }
+        return jsonResponse({});
+      });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
+    );
+
+    // Error for fail-job must remain visible despite ok-job succeeding
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Unable to check ingestion status/i),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it("retries transient 502 in DocumentDetail and recovers when backend becomes available", async () => {
+    const activeDoc = {
+      ...document,
+      ingestion_job_id: "detail-job",
+      ingestion_status: "processing" as const,
+      serving_state: "unavailable" as const,
+    };
+    const fetchMock = vi
+      .fn()
+      // 1. Initial document load
+      .mockResolvedValueOnce(jsonResponse(activeDoc))
+      // 2. First job poll gets 502
+      .mockResolvedValueOnce(jsonResponse({ detail: "Bad Gateway" }, 502))
+      // 3. Second job poll gets 200 succeeded
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ingestion_job_id: "detail-job",
+          status: "succeeded",
+        }),
+      )
+      // 4. Reload after completion
+      .mockResolvedValueOnce(
+        jsonResponse({
+          ...activeDoc,
+          ingestion_status: "succeeded",
+          embedding_readiness: "ready",
+          serving_state: "current",
+        }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DocumentDetail
+        workspaceId="ws-1"
+        documentId="doc-1"
+        capabilities={["documents:write"]}
+      />,
+    );
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4), {
+      timeout: 5000,
+    });
+    expect(
+      screen.queryByText(/Unable to load ingestion job/i),
+    ).not.toBeInTheDocument();
+  });
+
   it("shows backend re-index readiness and reuses the key after an ambiguous failure", async () => {
     const outdated = {
       ...document,

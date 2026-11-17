@@ -75,6 +75,7 @@ export function DocumentList({
   const deletionKeys = useRef(new Map<string, string>());
   const inFlight = useRef(new Set<string>());
   const polling = useRef(new Set<string>());
+  const pollingErrors = useRef(new Map<string, string>());
   const completed = useRef(new Set<string>());
   const timers = useRef(new Set<ReturnType<typeof setTimeout>>());
   const canWrite =
@@ -149,6 +150,7 @@ export function DocumentList({
     deletionKeys.current.clear();
     inFlight.current.clear();
     polling.current.clear();
+    pollingErrors.current.clear();
     completed.current.clear();
     void load(controller, true);
     const ownedTimers = timers.current;
@@ -176,22 +178,45 @@ export function DocumentList({
         );
         if (controller.signal.aborted) return;
         if (!response.ok) {
-          if (response.status >= 500 && retryCount < 5) {
-            const delay = Math.min(10000, 1500 * Math.pow(1.5, retryCount));
+          if (response.status >= 500) {
+            const baseDelay =
+              retryCount < 5
+                ? Math.min(10000, 1500 * Math.pow(1.5, retryCount))
+                : 10000;
+            const delay = baseDelay + Math.random() * 500;
+            if (retryCount >= 5) {
+              const err = errorMessage(
+                "check ingestion status",
+                response.status,
+              );
+              pollingErrors.current.set(jobId, err);
+              setError(err);
+            }
             const timer = setTimeout(() => {
               timers.current.delete(timer);
-              void poll(documentId, jobId, controller, retryCount + 1);
+              void poll(
+                documentId,
+                jobId,
+                controller,
+                Math.min(5, retryCount + 1),
+              );
             }, delay);
             timers.current.add(timer);
             return;
           }
           polling.current.delete(jobId);
+          pollingErrors.current.delete(jobId);
           setError(errorMessage("check ingestion status", response.status));
           return;
         }
-        setError((previous) =>
-          previous?.includes("check ingestion status") ? null : previous,
-        );
+        pollingErrors.current.delete(jobId);
+        if (pollingErrors.current.size === 0) {
+          setError((previous) =>
+            previous?.includes("check ingestion status") ? null : previous,
+          );
+        } else {
+          setError(pollingErrors.current.values().next().value ?? null);
+        }
         const status = (await response.json()) as IngestionJobStatusResponse;
         if (controller.signal.aborted) return;
         setJobStates((previous) => ({ ...previous, [documentId]: status }));
@@ -209,6 +234,7 @@ export function DocumentList({
           })
         ) {
           polling.current.delete(jobId);
+          pollingErrors.current.delete(jobId);
           completed.current.add(jobId);
           await load(controller);
           return;
@@ -223,19 +249,27 @@ export function DocumentList({
         timers.current.add(timer);
       } catch {
         if (!controller.signal.aborted) {
-          if (retryCount < 5) {
-            const delay = Math.min(10000, 1500 * Math.pow(1.5, retryCount));
-            const timer = setTimeout(() => {
-              timers.current.delete(timer);
-              void poll(documentId, jobId, controller, retryCount + 1);
-            }, delay);
-            timers.current.add(timer);
-            return;
+          const baseDelay =
+            retryCount < 5
+              ? Math.min(10000, 1500 * Math.pow(1.5, retryCount))
+              : 10000;
+          const delay = baseDelay + Math.random() * 500;
+          if (retryCount >= 5) {
+            const err =
+              "Unable to check ingestion status. Reload to see the latest job state.";
+            pollingErrors.current.set(jobId, err);
+            setError(err);
           }
-          polling.current.delete(jobId);
-          setError(
-            "Unable to check ingestion status. Reload to see the latest job state.",
-          );
+          const timer = setTimeout(() => {
+            timers.current.delete(timer);
+            void poll(
+              documentId,
+              jobId,
+              controller,
+              Math.min(5, retryCount + 1),
+            );
+          }, delay);
+          timers.current.add(timer);
         }
       }
     },
