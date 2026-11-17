@@ -64,6 +64,21 @@ function errorMessage(action: string, status: number) {
     : `Unable to ${action} (${status})`;
 }
 
+function parseRetryAfter(response: Response, defaultDelayMs: number): number {
+  const retryAfter = response.headers.get("Retry-After");
+  if (!retryAfter) return defaultDelayMs;
+  const seconds = Number(retryAfter);
+  if (!Number.isNaN(seconds) && seconds >= 0) {
+    return Math.min(30000, seconds * 1000);
+  }
+  const date = Date.parse(retryAfter);
+  if (!Number.isNaN(date)) {
+    const diff = date - Date.now();
+    return Math.max(0, Math.min(30000, diff));
+  }
+  return defaultDelayMs;
+}
+
 export function DocumentList({
   workspaceId,
   workspaceName,
@@ -173,10 +188,6 @@ export function DocumentList({
   }, []);
 
   const isJobCurrent = useCallback((documentId: string, jobId: string) => {
-    const doc = documentsRef.current.find((d) => d.document_id === documentId);
-    if (doc) {
-      return Boolean(doc.ingestion_job_id && doc.ingestion_job_id === jobId);
-    }
     const upload = uploadStateRef.current;
     if (
       upload &&
@@ -186,6 +197,10 @@ export function DocumentList({
       upload.ingestion_job_id === jobId
     ) {
       return true;
+    }
+    const doc = documentsRef.current.find((d) => d.document_id === documentId);
+    if (doc) {
+      return Boolean(doc.ingestion_job_id && doc.ingestion_job_id === jobId);
     }
     return false;
   }, []);
@@ -200,23 +215,46 @@ export function DocumentList({
         });
         if (controller.signal.aborted) return;
         if (!response.ok) {
-          if (response.status === 403) {
-            setLimitedPermissions(true);
-            setActionError(null);
-            return;
-          }
-          setLimitedPermissions(false);
-          if (currentSeq >= lastAppliedSeq.current) {
-            setActionError(errorMessage("load documents", response.status));
+          if (currentSeq === loadSeq.current) {
+            if (response.status === 403) {
+              setLimitedPermissions(true);
+              setActionError(null);
+            } else {
+              setLimitedPermissions(false);
+              setActionError(errorMessage("load documents", response.status));
+            }
           }
           return;
         }
-        setLimitedPermissions(false);
+        if (currentSeq === loadSeq.current) {
+          setLimitedPermissions(false);
+          setActionError(null);
+        }
         const body = (await response.json()) as {
           documents?: DocumentResponse[];
         };
         if (controller.signal.aborted) return;
-        const loadedDocs = Array.isArray(body?.documents) ? body.documents : [];
+        const loadedDocs = (
+          Array.isArray(body?.documents) ? body.documents : []
+        ).map((doc) => {
+          const upload = uploadStateRef.current;
+          if (
+            upload &&
+            "document_id" in upload &&
+            upload.document_id === doc.document_id &&
+            "ingestion_job_id" in upload &&
+            upload.ingestion_job_id &&
+            jobIsActive(upload.status) &&
+            doc.ingestion_job_id !== upload.ingestion_job_id
+          ) {
+            return {
+              ...doc,
+              ingestion_job_id: upload.ingestion_job_id,
+              ingestion_status: upload.status,
+            };
+          }
+          return doc;
+        });
         if (currentSeq > lastAppliedSeq.current) {
           lastAppliedSeq.current = currentSeq;
           setDocuments(loadedDocs);
@@ -235,7 +273,7 @@ export function DocumentList({
           );
         }
       } catch {
-        if (!controller.signal.aborted && currentSeq >= lastAppliedSeq.current)
+        if (!controller.signal.aborted && currentSeq === loadSeq.current)
           setActionError("Unable to load documents. Retry this page.");
       } finally {
         if (!controller.signal.aborted && currentSeq === loadSeq.current)
@@ -327,13 +365,19 @@ export function DocumentList({
             cleanup();
             const err = errorMessage("check ingestion status", response.status);
             pollingErrors.current.set(jobId, err);
-            if (response.status >= 500 && retryCount < MAX_POLLING_RETRIES) {
+            const isRetryableStatus =
+              response.status >= 500 || response.status === 429;
+            if (isRetryableStatus && retryCount < MAX_POLLING_RETRIES) {
               syncPollingError();
               const baseDelay = Math.min(
                 10000,
                 1500 * Math.pow(1.5, retryCount),
               );
-              const delay = baseDelay + Math.random() * 500;
+              const defaultDelay = baseDelay + Math.random() * 500;
+              const delay =
+                response.status === 429
+                  ? parseRetryAfter(response, defaultDelay)
+                  : defaultDelay;
               const timer = setTimeout(() => {
                 timers.current.delete(timer);
                 if (jobTimers.current.get(jobId) === timer) {
@@ -439,45 +483,59 @@ export function DocumentList({
   const retryPolling = useCallback(() => {
     const controller = scope.current;
     if (!controller || controller.signal.aborted) return;
-    for (const doc of documentsRef.current) {
-      const jobId = doc.ingestion_job_id;
-      if (jobId && derivationIsActive(doc)) {
-        const existingTimer = jobTimers.current.get(jobId);
-        if (existingTimer) {
-          clearTimeout(existingTimer);
-          timers.current.delete(existingTimer);
-          jobTimers.current.delete(jobId);
-        }
-        exhausted.current.delete(jobId);
-        completed.current.delete(jobId);
-        if (!inFlightPolls.current.has(jobId)) {
-          polling.current.add(jobId);
-          void poll(doc.document_id, jobId, controller, 0);
-        }
+
+    let targetJobId: string | null = null;
+    for (const [id, msg] of pollingErrors.current.entries()) {
+      if (msg === pollingError) {
+        targetJobId = id;
+        break;
       }
     }
+    if (!targetJobId) {
+      targetJobId = pollingErrors.current.keys().next().value ?? null;
+    }
+    if (!targetJobId) return;
+
+    const doc = documentsRef.current.find(
+      (d) => d.ingestion_job_id === targetJobId,
+    );
+    if (doc && derivationIsActive(doc)) {
+      const existingTimer = jobTimers.current.get(targetJobId);
+      if (existingTimer) {
+        clearTimeout(existingTimer);
+        timers.current.delete(existingTimer);
+        jobTimers.current.delete(targetJobId);
+      }
+      exhausted.current.delete(targetJobId);
+      completed.current.delete(targetJobId);
+      if (!inFlightPolls.current.has(targetJobId)) {
+        polling.current.add(targetJobId);
+        void poll(doc.document_id, targetJobId, controller, 0);
+      }
+      return;
+    }
+
     const upload = uploadStateRef.current;
     if (
       upload &&
       "ingestion_job_id" in upload &&
-      upload.ingestion_job_id &&
+      upload.ingestion_job_id === targetJobId &&
       jobIsActive(upload.status)
     ) {
-      const jobId = upload.ingestion_job_id;
-      const existingTimer = jobTimers.current.get(jobId);
+      const existingTimer = jobTimers.current.get(targetJobId);
       if (existingTimer) {
         clearTimeout(existingTimer);
         timers.current.delete(existingTimer);
-        jobTimers.current.delete(jobId);
+        jobTimers.current.delete(targetJobId);
       }
-      exhausted.current.delete(jobId);
-      completed.current.delete(jobId);
-      if (!inFlightPolls.current.has(jobId)) {
-        polling.current.add(jobId);
-        void poll(upload.document_id, jobId, controller, 0);
+      exhausted.current.delete(targetJobId);
+      completed.current.delete(targetJobId);
+      if (!inFlightPolls.current.has(targetJobId)) {
+        polling.current.add(targetJobId);
+        void poll(upload.document_id, targetJobId, controller, 0);
       }
     }
-  }, [poll]);
+  }, [poll, pollingError]);
 
   useEffect(() => {
     const controller = scope.current;

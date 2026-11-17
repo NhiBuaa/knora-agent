@@ -990,6 +990,125 @@ describe("document management", () => {
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
   });
 
+  it("retries 429 rate limit responses honoring Retry-After header in DocumentList", async () => {
+    vi.useFakeTimers();
+    const doc = {
+      ...document,
+      document_id: "doc-429",
+      ingestion_job_id: "job-429",
+      ingestion_status: "processing" as const,
+      serving_state: "unavailable" as const,
+    };
+    let pollCount = 0;
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("/documents")) {
+        return jsonResponse({ documents: [doc] });
+      }
+      if (url.includes("/ingestion-jobs/job-429")) {
+        pollCount++;
+        if (pollCount === 1) {
+          return new Response(JSON.stringify({ detail: "Too Many Requests" }), {
+            status: 429,
+            headers: {
+              "content-type": "application/json",
+              "Retry-After": "3",
+            },
+          });
+        }
+        return jsonResponse({
+          ingestion_job_id: "job-429",
+          status: "succeeded",
+        });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(pollCount).toBe(1);
+    expect(
+      screen.getByText(/Unable to check ingestion status \(429\)/i),
+    ).toBeInTheDocument();
+
+    // Advance 3.5s to honor Retry-After
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3500);
+    });
+
+    expect(pollCount).toBe(2);
+  });
+
+  it("retrying a failed job does not interrupt or restart scheduled polls for unrelated active jobs in DocumentList", async () => {
+    vi.useFakeTimers();
+    const docFail = {
+      ...document,
+      document_id: "doc-fail-retry",
+      ingestion_job_id: "job-fail-retry",
+      ingestion_status: "processing" as const,
+      serving_state: "unavailable" as const,
+    };
+    const docHealthy = {
+      ...document,
+      document_id: "doc-healthy",
+      source_name: "healthy.pdf",
+      source_key: "healthy.pdf",
+      ingestion_job_id: "job-healthy",
+      ingestion_status: "processing" as const,
+      serving_state: "unavailable" as const,
+    };
+    let healthyPollCount = 0;
+    const fetchMock = vi.fn().mockImplementation(async (url: string) => {
+      if (url.includes("/documents")) {
+        return jsonResponse({ documents: [docFail, docHealthy] });
+      }
+      if (url.includes("/ingestion-jobs/job-fail-retry")) {
+        return jsonResponse({ detail: "Bad Gateway" }, 502);
+      }
+      if (url.includes("/ingestion-jobs/job-healthy")) {
+        healthyPollCount++;
+        return jsonResponse({
+          ingestion_job_id: "job-healthy",
+          status: "processing",
+          poll_after_seconds: 60,
+        });
+      }
+      return jsonResponse({});
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(
+      <DocumentList workspaceId="ws-1" capabilities={["documents:write"]} />,
+    );
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    // Advance timers so docFail exhausts its retries
+    for (let i = 0; i < 25; i++) {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15000);
+      });
+    }
+
+    const initialHealthyPolls = healthyPollCount;
+    const retryButton = screen.getByRole("button", { name: "Retry" });
+    await act(async () => {
+      retryButton.click();
+      await Promise.resolve();
+    });
+
+    // Only fail job was retried, healthy job was NOT retried immediately
+    expect(healthyPollCount).toBe(initialHealthyPolls);
+  });
+
   it("hides document write controls when documents:write is absent", async () => {
     vi.stubGlobal(
       "fetch",

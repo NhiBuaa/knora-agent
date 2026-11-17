@@ -67,6 +67,21 @@ function responseError(action: string, status: number) {
     : `Unable to ${action} (${status})`;
 }
 
+function parseRetryAfter(response: Response, defaultDelayMs: number): number {
+  const retryAfter = response.headers.get("Retry-After");
+  if (!retryAfter) return defaultDelayMs;
+  const seconds = Number(retryAfter);
+  if (!Number.isNaN(seconds) && seconds >= 0) {
+    return Math.min(30000, seconds * 1000);
+  }
+  const date = Date.parse(retryAfter);
+  if (!Number.isNaN(date)) {
+    const diff = date - Date.now();
+    return Math.max(0, Math.min(30000, diff));
+  }
+  return defaultDelayMs;
+}
+
 export function DocumentDetail({
   workspaceId,
   documentId,
@@ -123,6 +138,7 @@ export function DocumentDetail({
           setJobId(loaded.ingestion_job_id);
         else {
           setJobId(null);
+          setPollingError(null);
           if (loaded.ingestion_job_id && loaded.ingestion_status === "failed") {
             const diagnostic = await browserRequest(
               `${path}/ingestion-jobs/${encodeURIComponent(loaded.ingestion_job_id)}`,
@@ -185,9 +201,15 @@ export function DocumentDetail({
         if (!response.ok) {
           cleanup();
           setPollingError(responseError("load ingestion job", response.status));
-          if (response.status >= 500 && retryCount < MAX_POLLING_RETRIES) {
+          const isRetryableStatus =
+            response.status >= 500 || response.status === 429;
+          if (isRetryableStatus && retryCount < MAX_POLLING_RETRIES) {
             const baseDelay = Math.min(10000, 1500 * Math.pow(1.5, retryCount));
-            const delay = baseDelay + Math.random() * 500;
+            const defaultDelay = baseDelay + Math.random() * 500;
+            const delay =
+              response.status === 429
+                ? parseRetryAfter(response, defaultDelay)
+                : defaultDelay;
             timer = setTimeout(() => void poll(retryCount + 1), delay);
             return;
           }
@@ -487,13 +509,15 @@ export function DocumentDetail({
       {pollingError && (
         <p role="alert" className="m-0 text-sm text-status-error">
           <span>{pollingError}</span>
-          <button
-            type="button"
-            className="ml-2 font-medium underline hover:text-action-text cursor-pointer bg-transparent border-0 p-0 text-inherit"
-            onClick={retryPolling}
-          >
-            Retry
-          </button>
+          {Boolean(jobId) && (
+            <button
+              type="button"
+              className="ml-2 font-medium underline hover:text-action-text cursor-pointer bg-transparent border-0 p-0 text-inherit"
+              onClick={retryPolling}
+            >
+              Retry
+            </button>
+          )}
           {pollingError.includes("session expired") && (
             <>
               {" "}
