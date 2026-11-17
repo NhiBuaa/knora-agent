@@ -74,6 +74,8 @@ function ConversationPanelLayout({
     width: number;
     pointer: number;
   } | null>(null);
+  const rafId = useRef<number | null>(null);
+  const pendingWidth = useRef<number | null>(null);
   const inspectorWidth = Math.max(
     280,
     Math.min(
@@ -103,6 +105,13 @@ function ConversationPanelLayout({
     setStored({ key, value });
     writePanelPreferences(key, value);
   }
+  useEffect(() => {
+    return () => {
+      if (rafId.current !== null) {
+        cancelAnimationFrame(rafId.current);
+      }
+    };
+  }, []);
   useEffect(() => {
     setStored({ key, value: readPanelPreferences(key) });
     setOverlay(null);
@@ -227,22 +236,72 @@ function ConversationPanelLayout({
             width: value,
             pointer: event.pointerId,
           };
+          pendingWidth.current = value;
+          root.current?.setAttribute("data-resizing", "true");
           event.currentTarget.setPointerCapture?.(event.pointerId);
         }}
         onPointerMove={(event) => {
           const start = drag.current;
           if (start?.panel !== panel || start.pointer !== event.pointerId)
             return;
-          resize(
-            start.width +
-              (event.clientX - start.x) * (panel === "rail" ? 1 : -1),
+          const delta = (event.clientX - start.x) * (panel === "rail" ? 1 : -1);
+          const next = Math.max(
+            minimum,
+            Math.min(maximum, start.width + delta),
           );
+          pendingWidth.current = next;
+          event.currentTarget.setAttribute("aria-valuenow", String(next));
+          if (rafId.current === null) {
+            rafId.current = requestAnimationFrame(() => {
+              rafId.current = null;
+              if (root.current && pendingWidth.current !== null) {
+                const varName =
+                  panel === "rail" ? "--rail-width" : "--inspector-width";
+                root.current.style.setProperty(
+                  varName,
+                  `${pendingWidth.current}px`,
+                );
+              }
+            });
+          }
         }}
-        onPointerUp={() => {
+        onPointerUp={(event) => {
+          if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+            event.currentTarget.releasePointerCapture?.(event.pointerId);
+          }
+          if (rafId.current !== null) {
+            cancelAnimationFrame(rafId.current);
+            rafId.current = null;
+          }
+          root.current?.removeAttribute("data-resizing");
+          const finalWidth = pendingWidth.current;
+          const wasDragging = drag.current;
           drag.current = null;
+          pendingWidth.current = null;
+          if (wasDragging && finalWidth !== null) {
+            update(
+              panel === "rail"
+                ? { railWidth: finalWidth }
+                : { inspectorWidth: finalWidth },
+            );
+          }
         }}
-        onPointerCancel={() => {
+        onPointerCancel={(event) => {
+          if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+            event.currentTarget.releasePointerCapture?.(event.pointerId);
+          }
+          if (rafId.current !== null) {
+            cancelAnimationFrame(rafId.current);
+            rafId.current = null;
+          }
+          root.current?.removeAttribute("data-resizing");
+          if (root.current) {
+            const varName =
+              panel === "rail" ? "--rail-width" : "--inspector-width";
+            root.current.style.setProperty(varName, `${value}px`);
+          }
           drag.current = null;
+          pendingWidth.current = null;
         }}
       >
         <span className="h-9 w-0.5 rounded-sm bg-control-border" />

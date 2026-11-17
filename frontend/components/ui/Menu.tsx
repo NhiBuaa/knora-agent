@@ -13,17 +13,26 @@ export type MenuProps = {
   label: string;
   children: React.ReactNode;
   boundarySelector?: string;
+  locked?: boolean;
 };
 
-export function Menu({ label, children, boundarySelector }: MenuProps) {
+export function Menu({
+  label,
+  children,
+  boundarySelector,
+  locked = false,
+}: MenuProps) {
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const initialEnd = useRef(false);
+  const lockedRef = useRef(locked);
+  lockedRef.current = locked;
   const id = useId();
 
   function dismiss(returnFocus: boolean) {
+    if (lockedRef.current) return;
     setOpen(false);
     if (returnFocus) trigger.current?.focus();
   }
@@ -64,6 +73,7 @@ export function Menu({ label, children, boundarySelector }: MenuProps) {
     const items = panel.current ? focusableControls(panel.current) : [];
     (initialEnd.current ? items[items.length - 1] : items[0])?.focus();
     function outside(event: PointerEvent) {
+      if (lockedRef.current) return;
       if (!root.current?.contains(event.target as Node)) setOpen(false);
     }
     document.addEventListener("pointerdown", outside);
@@ -76,12 +86,14 @@ export function Menu({ label, children, boundarySelector }: MenuProps) {
       className="kn-menu relative"
       onKeyDown={(event) => {
         if (open && event.key === "Escape") {
+          if (lockedRef.current) return;
           event.preventDefault();
           event.stopPropagation();
           dismiss(true);
         }
       }}
       onBlur={(event) => {
+        if (lockedRef.current) return;
         if (!event.currentTarget.contains(event.relatedTarget as Node))
           setOpen(false);
       }}
@@ -95,6 +107,7 @@ export function Menu({ label, children, boundarySelector }: MenuProps) {
         aria-expanded={open}
         aria-controls={open ? id : undefined}
         onClick={() => {
+          if (lockedRef.current) return;
           initialEnd.current = false;
           setOpen(!open);
         }}
@@ -116,6 +129,7 @@ export function Menu({ label, children, boundarySelector }: MenuProps) {
           aria-label={label}
           className="kn-menu__panel absolute right-0 z-30 mt-2 min-w-52 rounded-lg border border-border bg-surface p-1.5 text-text-primary shadow-lg"
           onClick={(event) => {
+            if (lockedRef.current) return;
             const action = (event.target as Element).closest(
               'button, a[href], [role="menuitem"]',
             );
@@ -131,6 +145,10 @@ export function Menu({ label, children, boundarySelector }: MenuProps) {
           }}
           onKeyDown={(event) => {
             if (event.key === "Tab" && trigger.current) {
+              if (lockedRef.current) {
+                event.preventDefault();
+                return;
+              }
               event.preventDefault();
               const scope =
                 trigger.current.closest<HTMLElement>("dialog[open]") ??

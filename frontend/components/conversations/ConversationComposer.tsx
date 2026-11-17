@@ -148,8 +148,15 @@ export function ConversationComposer({
   const input = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     if (!input.current) return;
-    input.current.style.height = "0px";
-    input.current.style.height = `${Math.min(160, Math.max(44, input.current.scrollHeight))}px`;
+    if (
+      typeof CSS !== "undefined" &&
+      CSS.supports?.("field-sizing", "content")
+    ) {
+      return;
+    }
+    const target = input.current;
+    target.style.height = "auto";
+    target.style.height = `${Math.min(160, Math.max(44, target.scrollHeight))}px`;
   }, [draft]);
   return (
     <div className="flex min-h-[72px] items-center border-t border-border bg-surface px-4 py-2 min-[960px]:px-6 min-[960px]:py-[11px]">

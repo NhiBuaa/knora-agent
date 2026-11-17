@@ -66,6 +66,8 @@ export function documentStatus(document: DocumentResponse): DocumentStatusView {
   }
   if (document.archived)
     return { label: "Archived", tone: "warning", detail: null };
+  if (document.ingestion_status === "uploading")
+    return { label: "Uploading…", tone: "normal", detail: null };
   if (document.ingestion_status === "failed")
     return { label: "Processing failed", tone: "error", detail: null };
   if (document.ingestion_status === "queued")
