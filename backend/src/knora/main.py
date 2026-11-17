@@ -1,6 +1,9 @@
+import asyncio
+import logging
 from collections.abc import Mapping
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from datetime import timedelta
+from uuid import uuid4
 
 import httpx
 from fastapi import FastAPI, Request
@@ -76,6 +79,7 @@ from knora.infrastructure.settings import ObjectStoreSettings, settings
 from knora.ingestion.documents import DocumentLifecycleService, DocumentReader
 from knora.ingestion.job_processing import (
     AttemptTimingV1,
+    NoEligibleJob,
     PdfDerivationHandler,
     ProcessIngestionJob,
     RetryPolicyV1,
@@ -139,11 +143,14 @@ from knora.tools.proposals import ExecutionAuthorizer, WriteProposalWorkflow
 from knora.workspaces.ports import WorkspaceAdmissionStore
 from knora.workspaces.service import WorkspaceService
 
+logger = logging.getLogger("knora.embedded_workers")
+
 _DEFAULT_WORKSPACE_ADMISSIONS = object()
 
 
 def create_app(
     *,
+    embedded_workers: bool | None = None,
     ingest_document: IngestDocument | None = None,
     ingestion_jobs: IngestionJobs | None = None,
     document_reader: DocumentReader | None = None,
@@ -266,14 +273,70 @@ def create_app(
             client=lexical_client,
         )
 
+    use_embedded_workers = (
+        settings.embedded_workers if embedded_workers is None else embedded_workers
+    )
+
     @asynccontextmanager
     async def lifespan(application: FastAPI):
-        del application
+        stop_event = asyncio.Event()
+        worker_tasks: list[asyncio.Task[None]] = []
+
+        async def _embedded_ingestion_loop() -> None:
+            worker_id = f"embedded-ingest:{uuid4().hex[:8]}"
+            while not stop_event.is_set():
+                try:
+                    result = await asyncio.to_thread(
+                        application.state.ingestion_worker.run_once, worker_id
+                    )
+                    maintenance = getattr(application.state, "search_index_maintenance", None)
+                    if maintenance is not None:
+                        await asyncio.to_thread(maintenance.run_once)
+                    if isinstance(result, NoEligibleJob):
+                        with suppress(TimeoutError):
+                            await asyncio.wait_for(stop_event.wait(), timeout=2.0)
+                except asyncio.CancelledError:
+                    break
+                except Exception:
+                    logger.exception("Error in embedded ingestion worker")
+                    with suppress(TimeoutError):
+                        await asyncio.wait_for(stop_event.wait(), timeout=2.0)
+
+        async def _embedded_conversation_loop() -> None:
+            worker_id = f"embedded-conv:{uuid4().hex[:8]}"
+            runner = application.state.conversation_runner
+            while not stop_event.is_set():
+                try:
+                    worked = await runner.run_once(worker_id=worker_id)
+                    if not worked:
+                        with suppress(TimeoutError):
+                            await asyncio.wait_for(stop_event.wait(), timeout=0.5)
+                except asyncio.CancelledError:
+                    break
+                except Exception:
+                    logger.exception("Error in embedded conversation worker")
+                    with suppress(TimeoutError):
+                        await asyncio.wait_for(stop_event.wait(), timeout=2.0)
+
         try:
             if lexical_index is not None:
                 await run_in_threadpool(lexical_index.ensure_collection)
+            if use_embedded_workers:
+                worker_tasks.append(
+                    asyncio.create_task(_embedded_ingestion_loop(), name="knora-embedded-ingestion")
+                )
+                worker_tasks.append(
+                    asyncio.create_task(
+                        _embedded_conversation_loop(), name="knora-embedded-conversation"
+                    )
+                )
             yield
         finally:
+            if worker_tasks:
+                stop_event.set()
+                for task in worker_tasks:
+                    task.cancel()
+                await asyncio.gather(*worker_tasks, return_exceptions=True)
             if lexical_client is not None:
                 lexical_client.close()
             if selected_reranking_provider is not None:

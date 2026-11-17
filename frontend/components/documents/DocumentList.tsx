@@ -593,22 +593,37 @@ export function DocumentList({
     return key;
   }
   function canReprocess(document: DocumentResponse) {
+    const observed = jobStates[document.document_id];
+    const currentIngestionStatus =
+      observed?.status ?? document.ingestion_status;
+    const currentIndexingStatus =
+      observed && "indexing_status" in observed
+        ? (observed as IngestionJobStatusResponse).indexing_status
+        : document.indexing_status;
+
+    const jobId = document.ingestion_job_id;
+    const isExhaustedOrStuck = jobId
+      ? exhausted.current.has(jobId) || pollingErrors.current.has(jobId)
+      : false;
+    const isFailed =
+      currentIngestionStatus === "failed" || currentIndexingStatus === "failed";
+    const active = derivationIsActive({
+      ingestion_status: currentIngestionStatus,
+      indexing_status: currentIndexingStatus,
+    });
+
+    const versionId =
+      document.current_document_version_id ??
+      (observed && "current_document_version_id" in observed
+        ? (observed as IngestionJobStatusResponse).current_document_version_id
+        : null);
+
     return (
       canWrite &&
       reprocessConfiguration(document, "deployed") !== null &&
       !document.archived &&
-      Boolean(
-        document.current_document_version_id && document.reprocess_supported,
-      ) &&
-      !derivationIsActive(document) &&
-      !derivationIsActive({
-        ingestion_status: jobStates[document.document_id]?.status,
-        indexing_status:
-          "indexing_status" in (jobStates[document.document_id] ?? {})
-            ? (jobStates[document.document_id] as IngestionJobStatusResponse)
-                .indexing_status
-            : null,
-      }) &&
+      Boolean(versionId && document.reprocess_supported) &&
+      (!active || isExhaustedOrStuck || isFailed) &&
       !["requested", "processing", "succeeded"].includes(
         document.deletion_request?.state ?? "",
       )
@@ -617,11 +632,18 @@ export function DocumentList({
   async function reprocess(document: DocumentResponse) {
     const controller = scope.current;
     const id = document.document_id;
-    if (!controller || !canReprocess(document) || !begin(id)) return;
+    const observed = jobStates[id];
+    const versionId =
+      document.current_document_version_id ??
+      (observed && "current_document_version_id" in observed
+        ? (observed as IngestionJobStatusResponse).current_document_version_id
+        : null);
+    if (!controller || !canReprocess(document) || !versionId || !begin(id))
+      return;
     setActionError(null);
     try {
       const response = await browserRequest(
-        `${path}/document-versions/${encodeURIComponent(document.current_document_version_id!)}/reprocess`,
+        `${path}/document-versions/${encodeURIComponent(versionId)}/reprocess`,
         {
           method: "POST",
           headers: { "Idempotency-Key": identity(reprocessKeys.current, id) },
@@ -681,6 +703,8 @@ export function DocumentList({
       else if (!polling.current.has(result.ingestion_job_id)) {
         completed.current.delete(result.ingestion_job_id);
         exhausted.current.delete(result.ingestion_job_id);
+        pollingErrors.current.delete(result.ingestion_job_id);
+        syncPollingError();
         polling.current.add(result.ingestion_job_id);
         void poll(id, result.ingestion_job_id, controller);
       }
@@ -1184,12 +1208,19 @@ export function DocumentList({
                     : document;
               const view = documentStatus(projection);
               const serving = servingExplanation(projection);
+              const isStuckOrFailed =
+                projection.indexing_status === "failed" ||
+                projection.ingestion_status === "failed" ||
+                Boolean(
+                  document.ingestion_job_id &&
+                    (exhausted.current.has(document.ingestion_job_id) ||
+                      pollingErrors.current.has(document.ingestion_job_id)),
+                );
               const retry =
                 canReprocess(document) &&
-                (document.embedding_readiness === "reindex_required" ||
-                  document.lexical_readiness === "reindex_required" ||
-                  document.indexing_status === "failed" ||
-                  document.ingestion_status === "failed");
+                (projection.embedding_readiness === "reindex_required" ||
+                  projection.lexical_readiness === "reindex_required" ||
+                  isStuckOrFailed);
               return (
                 <li
                   key={document.document_id}
@@ -1242,15 +1273,12 @@ export function DocumentList({
                       <Button
                         variant="ghost"
                         className="min-h-8 border-0 px-0 py-0 text-xs !text-action-text"
-                        aria-label={`${document.ingestion_status === "failed" || document.indexing_status === "failed" ? "Try again" : "Re-index"} ${document.source_name}`}
+                        aria-label={`${isStuckOrFailed ? "Try again" : "Re-index"} ${document.source_name}`}
                         disabled={busy.includes(document.document_id)}
                         loading={busy.includes(document.document_id)}
                         onClick={() => void reprocess(document)}
                       >
-                        {document.ingestion_status === "failed" ||
-                        document.indexing_status === "failed"
-                          ? "Try again"
-                          : "Re-index"}
+                        {isStuckOrFailed ? "Try again" : "Re-index"}
                       </Button>
                     )}
                     {document.document_id.startsWith("optimistic-") ? (
