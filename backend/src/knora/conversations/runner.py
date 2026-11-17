@@ -111,37 +111,56 @@ class ConversationRunner:
             )
         )
         heartbeat_task = asyncio.create_task(self._heartbeat(claim))
-        done, _ = await asyncio.wait(
-            (answer_task, heartbeat_task),
-            timeout=_EXECUTION_DEADLINE_SECONDS,
-            return_when=asyncio.FIRST_COMPLETED,
-        )
+        try:
+            done, _ = await asyncio.wait(
+                (answer_task, heartbeat_task),
+                timeout=_EXECUTION_DEADLINE_SECONDS,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
 
-        if answer_task in done:
+            if answer_task in done:
+                heartbeat_task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await heartbeat_task
+                await self._wait_for_stage_updates(stage_tasks)
+                return await self._finalize_answer(claim, answer_task)
+
+            if heartbeat_task in done:
+                with suppress(Exception):
+                    heartbeat_task.result()
+                await self._recover_expired_turns()
+                await self._drain_answer(answer_task)
+                await self._wait_for_stage_updates(stage_tasks)
+                return False
+
+            # The deadline is advisory; PostgreSQL decides when the lease/deadline has expired.
+            # Keep this worker slot until the provider call physically returns, but never publish
+            # a late result after recovery has terminalized the Turn.
+            await self._wait_until_terminal(claim)
+            await self._drain_answer(answer_task)
+            await self._wait_for_stage_updates(stage_tasks)
             heartbeat_task.cancel()
             with suppress(asyncio.CancelledError):
                 await heartbeat_task
-            await self._wait_for_stage_updates(stage_tasks)
-            return await self._finalize_answer(claim, answer_task)
-
-        if heartbeat_task in done:
-            with suppress(Exception):
-                heartbeat_task.result()
-            await self._recover_expired_turns()
-            await self._drain_answer(answer_task)
-            await self._wait_for_stage_updates(stage_tasks)
             return False
-
-        # The deadline is advisory; PostgreSQL decides when the lease/deadline has expired.
-        # Keep this worker slot until the provider call physically returns, but never publish
-        # a late result after recovery has terminalized the Turn.
-        await self._wait_until_terminal(claim)
-        await self._drain_answer(answer_task)
-        await self._wait_for_stage_updates(stage_tasks)
-        heartbeat_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await heartbeat_task
-        return False
+        except asyncio.CancelledError:
+            with suppress(Exception):
+                await asyncio.to_thread(
+                    self._store.finish_turn,
+                    claim.turn.id,
+                    claim.claim_token,
+                    None,
+                    "CONVERSATION_EXECUTION_FAILED",
+                )
+            raise
+        finally:
+            if not answer_task.done():
+                answer_task.cancel()
+            if not heartbeat_task.done():
+                heartbeat_task.cancel()
+            with suppress(Exception):
+                await asyncio.gather(answer_task, heartbeat_task, return_exceptions=True)
+            await self._wait_for_stage_updates(stage_tasks)
 
     async def _heartbeat(self, claim: ClaimedTurn) -> bool:
         while True:

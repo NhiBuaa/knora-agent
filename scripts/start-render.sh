@@ -22,7 +22,16 @@ trap 'exit 0' SIGINT SIGTERM
 echo "==> [Knora Render] Running database migrations with Alembic..."
 alembic upgrade head
 
-if [ "${KNORA_EMBEDDED_WORKERS:-true}" = "true" ]; then
+if [ -z "${KNORA_EMBEDDED_WORKERS:-}" ]; then
+    if [ -f .env ] && grep -q -E '^[[:space:]]*KNORA_EMBEDDED_WORKERS[[:space:]]*=' .env 2>/dev/null; then
+        DOTENV_FLAG=$(grep -E '^[[:space:]]*KNORA_EMBEDDED_WORKERS[[:space:]]*=' .env | tail -n 1 | cut -d= -f2- | tr -d '[:space:]"'\''')
+        KNORA_EMBEDDED_WORKERS="$DOTENV_FLAG"
+    else
+        KNORA_EMBEDDED_WORKERS="true"
+    fi
+fi
+
+if [ "$KNORA_EMBEDDED_WORKERS" = "true" ]; then
     echo "==> [Knora Render] KNORA_EMBEDDED_WORKERS enabled. Starting consolidated process on 0.0.0.0:${PORT:-8000}..."
     export KNORA_EMBEDDED_WORKERS=true
     if [ "$(type -t uvicorn)" = "file" ]; then
