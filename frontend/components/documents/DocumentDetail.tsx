@@ -32,10 +32,54 @@ type Props = {
   capabilities?: string[];
   workspaceArchived?: boolean;
 };
+
+const MAX_POLLING_RETRIES = 7;
+const POLL_TIMEOUT_MS = 10000;
+const POLLING_NETWORK_ERROR =
+  "Unable to load ingestion job. Reload to see the latest state.";
+
+function createPollSignal(
+  parentSignal: AbortSignal,
+  timeoutMs = POLL_TIMEOUT_MS,
+) {
+  const timeoutController = new AbortController();
+  const timer = setTimeout(() => {
+    timeoutController.abort(new Error("Polling request timed out"));
+  }, timeoutMs);
+  const onParentAbort = () => timeoutController.abort(parentSignal.reason);
+  if (parentSignal.aborted) {
+    timeoutController.abort(parentSignal.reason);
+  } else {
+    parentSignal.addEventListener("abort", onParentAbort, { once: true });
+  }
+  return {
+    signal: timeoutController.signal,
+    cleanup: () => {
+      clearTimeout(timer);
+      parentSignal.removeEventListener("abort", onParentAbort);
+    },
+  };
+}
+
 function responseError(action: string, status: number) {
   return status === 401
     ? "Your session expired. Sign in again to continue."
     : `Unable to ${action} (${status})`;
+}
+
+function parseRetryAfter(response: Response, defaultDelayMs: number): number {
+  const retryAfter = response.headers.get("Retry-After");
+  if (!retryAfter) return defaultDelayMs;
+  const seconds = Number(retryAfter);
+  if (!Number.isNaN(seconds) && seconds >= 0) {
+    return Math.min(30000, seconds * 1000);
+  }
+  const date = Date.parse(retryAfter);
+  if (!Number.isNaN(date)) {
+    const diff = date - Date.now();
+    return Math.max(0, Math.min(30000, diff));
+  }
+  return defaultDelayMs;
 }
 
 export function DocumentDetail({
@@ -51,7 +95,9 @@ export function DocumentDetail({
         Partial<IngestionJobStatusResponse>)
     | null
   >(null);
-  const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [pollingError, setPollingError] = useState<string | null>(null);
+  const error = actionError || pollingError;
   const [deletionError, setDeletionError] = useState<string | null>(null);
   const [confirmDeletion, setConfirmDeletion] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -59,6 +105,14 @@ export function DocumentDetail({
   const mutation = useRef(false);
   const deletionKey = useRef<string | null>(null);
   const reprocessKey = useRef<string | null>(null);
+  const pollRef = useRef<(() => void) | null>(null);
+
+  const retryPolling = useCallback(() => {
+    if (pollRef.current) {
+      setPollingError(null);
+      pollRef.current();
+    }
+  }, []);
   const path = `/v1/workspaces/${encodeURIComponent(workspaceId)}`;
   const documentPath = `${path}/documents/${encodeURIComponent(documentId)}`;
   const canDelete =
@@ -74,7 +128,7 @@ export function DocumentDetail({
         });
         if (controller.signal.aborted) return;
         if (!response.ok) {
-          setError(responseError("load document", response.status));
+          setActionError(responseError("load document", response.status));
           return;
         }
         const loaded = (await response.json()) as DocumentResponse;
@@ -84,6 +138,7 @@ export function DocumentDetail({
           setJobId(loaded.ingestion_job_id);
         else {
           setJobId(null);
+          setPollingError(null);
           if (loaded.ingestion_job_id && loaded.ingestion_status === "failed") {
             const diagnostic = await browserRequest(
               `${path}/ingestion-jobs/${encodeURIComponent(loaded.ingestion_job_id)}`,
@@ -98,7 +153,7 @@ export function DocumentDetail({
         }
       } catch {
         if (!controller.signal.aborted)
-          setError("Unable to load document. Reload to try again.");
+          setActionError("Unable to load document. Reload to try again.");
       }
     },
     [documentPath, path],
@@ -110,7 +165,8 @@ export function DocumentDetail({
     setDocument(null);
     setJobId(null);
     setJobStatus(null);
-    setError(null);
+    setActionError(null);
+    setPollingError(null);
     setDeletionError(null);
     setConfirmDeletion(false);
     setBusy(false);
@@ -125,19 +181,43 @@ export function DocumentDetail({
     const controller = scope.current;
     if (!jobId || !controller || controller.signal.aborted) return;
     let active = true;
+    let inFlight = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const poll = async () => {
+    const poll = async (retryCount = 0) => {
+      if (inFlight) return;
+      inFlight = true;
+      const { signal: pollSignal, cleanup } = createPollSignal(
+        controller.signal,
+      );
       try {
         const response = await browserRequest(
           `${path}/ingestion-jobs/${encodeURIComponent(jobId)}`,
-          { signal: controller.signal },
+          { signal: pollSignal },
         );
-        if (!active || controller.signal.aborted) return;
-        if (!response.ok) {
-          setError(responseError("load ingestion job", response.status));
+        if (!active || controller.signal.aborted) {
+          cleanup();
           return;
         }
+        if (!response.ok) {
+          cleanup();
+          setPollingError(responseError("load ingestion job", response.status));
+          const isRetryableStatus =
+            response.status >= 500 || response.status === 429;
+          if (isRetryableStatus && retryCount < MAX_POLLING_RETRIES) {
+            const baseDelay = Math.min(10000, 1500 * Math.pow(1.5, retryCount));
+            const defaultDelay = baseDelay + Math.random() * 500;
+            const delay =
+              response.status === 429
+                ? parseRetryAfter(response, defaultDelay)
+                : defaultDelay;
+            timer = setTimeout(() => void poll(retryCount + 1), delay);
+            return;
+          }
+          return;
+        }
+        setPollingError(null);
         const status = (await response.json()) as IngestionJobStatusResponse;
+        cleanup();
         if (!active || controller.signal.aborted) return;
         setJobStatus(status);
         if (
@@ -147,20 +227,36 @@ export function DocumentDetail({
           })
         )
           timer = setTimeout(
-            () => void poll(),
+            () => void poll(0),
             Math.max(1000, (status.poll_after_seconds || 2) * 1000),
           );
         else await load(controller);
       } catch {
-        if (active && !controller.signal.aborted)
-          setError(
-            "Unable to load ingestion job. Reload to see the latest state.",
-          );
+        cleanup();
+        if (active && !controller.signal.aborted) {
+          setPollingError(POLLING_NETWORK_ERROR);
+          if (retryCount < MAX_POLLING_RETRIES) {
+            const baseDelay = Math.min(10000, 1500 * Math.pow(1.5, retryCount));
+            const delay = baseDelay + Math.random() * 500;
+            timer = setTimeout(() => void poll(retryCount + 1), delay);
+          }
+        }
+      } finally {
+        inFlight = false;
       }
+    };
+    pollRef.current = () => {
+      if (inFlight) return;
+      if (timer) {
+        clearTimeout(timer);
+        timer = undefined;
+      }
+      void poll(0);
     };
     void poll();
     return () => {
       active = false;
+      pollRef.current = null;
       if (timer) clearTimeout(timer);
     };
   }, [path, jobId, load]);
@@ -180,7 +276,7 @@ export function DocumentDetail({
     const controller = scope.current;
     if (!controller || !document || !canDelete || !begin()) return;
     setDeletionError(null);
-    setError(null);
+    setActionError(null);
     try {
       if (!deletionKey.current) deletionKey.current = crypto.randomUUID();
       const response = await browserRequest(
@@ -235,7 +331,7 @@ export function DocumentDetail({
       !begin()
     )
       return;
-    setError(null);
+    setActionError(null);
     try {
       if (!reprocessKey.current) reprocessKey.current = crypto.randomUUID();
       const response = await browserRequest(
@@ -254,7 +350,7 @@ export function DocumentDetail({
           await load(controller);
         }
         if (!controller.signal.aborted)
-          setError(
+          setActionError(
             response.status === 409
               ? "This document changed. Reload and try again."
               : responseError("reprocess document", response.status),
@@ -268,7 +364,7 @@ export function DocumentDetail({
       setJobId(result.ingestion_job_id);
     } catch {
       if (!controller.signal.aborted)
-        setError(
+        setActionError(
           "Unable to confirm reprocess submission. Retry with the same request key.",
         );
     } finally {
@@ -278,7 +374,7 @@ export function DocumentDetail({
   async function archive() {
     const controller = scope.current;
     if (!controller || !document || !canWrite || !begin()) return;
-    setError(null);
+    setActionError(null);
     try {
       const response = await browserRequest(
         `${documentPath}/${document.archived ? "unarchive" : "archive"}`,
@@ -292,18 +388,18 @@ export function DocumentDetail({
       if (response.status === 409) {
         await load(controller);
         if (!controller.signal.aborted)
-          setError("This document changed. Reload and try again.");
+          setActionError("This document changed. Reload and try again.");
         return;
       }
       if (!response.ok) {
-        setError(responseError("update document", response.status));
+        setActionError(responseError("update document", response.status));
         return;
       }
       const changed = (await response.json()) as DocumentResponse;
       if (!controller.signal.aborted) setDocument(changed);
     } catch {
       if (!controller.signal.aborted)
-        setError(
+        setActionError(
           "Unable to confirm the document change. Reload before retrying.",
         );
     } finally {
@@ -393,10 +489,36 @@ export function DocumentDetail({
           This Workspace is read-only.
         </p>
       )}
-      {error && (
+      {actionError && (
         <p role="alert" className="m-0 text-sm text-status-error">
-          {error}
-          {error.includes("session expired") && (
+          <span>{actionError}</span>
+          {actionError.includes("session expired") && (
+            <>
+              {" "}
+              <a
+                href="/api/auth/login"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Sign in
+              </a>
+            </>
+          )}
+        </p>
+      )}
+      {pollingError && (
+        <p role="alert" className="m-0 text-sm text-status-error">
+          <span>{pollingError}</span>
+          {Boolean(jobId) && (
+            <button
+              type="button"
+              className="ml-2 font-medium underline hover:text-action-text cursor-pointer bg-transparent border-0 p-0 text-inherit"
+              onClick={retryPolling}
+            >
+              Retry
+            </button>
+          )}
+          {pollingError.includes("session expired") && (
             <>
               {" "}
               <a
