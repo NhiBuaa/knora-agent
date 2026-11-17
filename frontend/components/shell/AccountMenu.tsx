@@ -5,6 +5,7 @@ import { ThemeControl } from "@/components/ui/ThemeControl";
 import { Menu } from "@/components/ui/Menu";
 import { Dialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
+import { LeafLoading } from "@/components/ui/LeafLoading";
 import { type ThemePreference } from "@/lib/theme";
 import { clearConversationPanelPreferences } from "@/lib/conversations/panel-preferences";
 import "./account-menu.css";
@@ -19,12 +20,27 @@ export function AccountMenu({
   const [appearanceOpen, setAppearanceOpen] = useState(false);
   const [appearancePreference, setAppearancePreference] =
     useState(themePreference);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   return (
-    <div className="account-menu-root">
-      <Menu label={`Account: ${subject}`}>
+    <div
+      className="account-menu-root"
+      data-logging-out={isLoggingOut ? "true" : undefined}
+    >
+      {isLoggingOut && (
+        <div
+          role="progressbar"
+          aria-label="Signing out"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          className="kn-logout-progress-bar"
+        />
+      )}
+      <Menu label={`Account: ${subject}`} locked={isLoggingOut}>
         <div className="account-menu">
           <h2 className="account-menu__title">Account</h2>
-          <span className="account-menu__status">Signed in</span>
+          <span className="account-menu__status">
+            {isLoggingOut ? "Signing out..." : "Signed in"}
+          </span>
           <span className="account-menu__identity">{subject}</span>
           <div className="account-menu__divider" />
           <button
@@ -32,7 +48,11 @@ export function AccountMenu({
             role="menuitem"
             aria-label="Appearance"
             className="account-menu__theme"
-            onClick={() => setAppearanceOpen(true)}
+            disabled={isLoggingOut}
+            aria-disabled={isLoggingOut ? "true" : undefined}
+            onClick={() => {
+              if (!isLoggingOut) setAppearanceOpen(true);
+            }}
           >
             <span>Theme</span>
             <span className="account-menu__preference">
@@ -46,16 +66,42 @@ export function AccountMenu({
           <form
             action="/api/auth/logout"
             method="post"
-            onSubmit={() => clearConversationPanelPreferences()}
+            onSubmit={(event) => {
+              if (isLoggingOut) {
+                event.preventDefault();
+                return;
+              }
+              setIsLoggingOut(true);
+              clearConversationPanelPreferences();
+            }}
           >
             <button
               type="submit"
               role="menuitem"
               className="account-menu__logout"
+              disabled={isLoggingOut}
+              aria-busy={isLoggingOut ? "true" : undefined}
+              data-loading={isLoggingOut ? "true" : undefined}
             >
-              Log out
+              {isLoggingOut ? (
+                <span className="account-menu__logout-loading">
+                  <LeafLoading
+                    compact
+                    label="Signing out"
+                    className="account-menu__logout-spinner"
+                  />
+                  <span>Signing out...</span>
+                </span>
+              ) : (
+                <span>Log out</span>
+              )}
             </button>
           </form>
+          {isLoggingOut && (
+            <span role="status" className="sr-only">
+              Signing out, please wait...
+            </span>
+          )}
         </div>
       </Menu>
       <span aria-hidden="true" className="kn-account-avatar">

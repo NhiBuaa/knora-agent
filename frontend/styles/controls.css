@@ -2,8 +2,11 @@
   --duration-control: 120ms;
   --duration-menu: 140ms;
   --duration-dialog: 180ms;
+  --duration-dialog-exit: 140ms;
   --duration-sheet: 200ms;
+  --duration-sheet-exit: 140ms;
   --ease-standard: cubic-bezier(0, 0, 0.2, 1);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 @layer components {
@@ -205,6 +208,14 @@
   .kn-dialog__content {
     animation: kn-dialog-enter var(--duration-dialog) var(--ease-standard);
   }
+  .kn-dialog[data-closing="true"] .kn-dialog__content {
+    animation: kn-dialog-exit var(--duration-dialog-exit, 140ms)
+      var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)) forwards;
+  }
+  .kn-dialog[data-closing="true"]::backdrop {
+    animation: kn-backdrop-exit var(--duration-dialog-exit, 140ms)
+      var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)) forwards;
+  }
   @keyframes kn-dialog-enter {
     from {
       opacity: 0.85;
@@ -213,6 +224,24 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+  @keyframes kn-dialog-exit {
+    from {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(4px) scale(0.98);
+    }
+  }
+  @keyframes kn-backdrop-exit {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
     }
   }
 
@@ -349,8 +378,10 @@
       transition: none;
     }
     .kn-dialog__content,
+    .kn-dialog[data-closing="true"] .kn-dialog__content,
+    .kn-dialog[data-closing="true"]::backdrop,
     .kn-menu__panel {
-      animation: none;
+      animation: none !important;
     }
   }
 }

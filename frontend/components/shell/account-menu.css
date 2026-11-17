@@ -23,6 +23,18 @@
   font-size: 12px;
   color: var(--text-muted);
 }
+.account-menu-root[data-logging-out="true"] .account-menu__status {
+  color: var(--signature);
+  font-weight: 500;
+  transition: color 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.account-menu-root[data-logging-out="true"] .kn-menu__panel {
+  box-shadow: 0 12px 28px rgb(15 31 26 / 18%);
+  border-color: color-mix(in srgb, var(--signature) 30%, var(--border));
+  transition:
+    box-shadow 200ms cubic-bezier(0.23, 1, 0.32, 1),
+    border-color 200ms cubic-bezier(0.23, 1, 0.32, 1);
+}
 .account-menu-root .account-menu__identity {
   font-size: 12px;
   font-weight: 400;
@@ -39,16 +51,127 @@
   align-items: center;
   justify-content: space-between;
   font-size: 13px;
+  transition: opacity 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.account-menu__theme:disabled,
+.account-menu__theme[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 .account-menu-root .account-menu__logout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   width: 100%;
   min-height: 38px;
+  padding: 0 16px;
   border: 1px solid var(--signature);
   border-radius: 8px;
   background: var(--surface);
   color: var(--signature);
   font-size: 14px;
   font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    border-color 140ms cubic-bezier(0.23, 1, 0.32, 1),
+    transform 100ms cubic-bezier(0.23, 1, 0.32, 1),
+    opacity 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.account-menu-root .account-menu__logout:hover:not(:disabled) {
+  background: var(--surface-subtle);
+}
+.account-menu-root .account-menu__logout:active:not(:disabled) {
+  transform: scale(0.98);
+}
+.account-menu-root .account-menu__logout:disabled,
+.account-menu-root .account-menu__logout[data-loading="true"] {
+  opacity: 0.8;
+  cursor: wait;
+}
+.account-menu__logout-loading {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  animation: kn-logout-fade-in 140ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+.account-menu__logout-spinner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--signature);
+}
+
+/* Top-of-screen indeterminate logout progress indicator */
+.kn-logout-progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2.5px;
+  background: linear-gradient(
+    90deg,
+    var(--signature) 0%,
+    color-mix(in srgb, var(--signature) 60%, var(--action, #10b981)) 50%,
+    var(--signature) 100%
+  );
+  background-size: 200% 100%;
+  z-index: 99999;
+  animation:
+    kn-progress-slide 1.2s cubic-bezier(0.23, 1, 0.32, 1) infinite,
+    kn-progress-glow 1.5s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes kn-logout-fade-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes kn-progress-slide {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes kn-progress-glow {
+  0% {
+    opacity: 0.85;
+    box-shadow: 0 0 6px color-mix(in srgb, var(--signature) 40%, transparent);
+  }
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 10px color-mix(in srgb, var(--signature) 70%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-menu-root .account-menu__logout,
+  .account-menu__theme,
+  .account-menu__logout-loading {
+    transition: none;
+    animation: none;
+  }
+  .account-menu-root .account-menu__logout:active:not(:disabled) {
+    transform: none;
+  }
+  .kn-logout-progress-bar {
+    animation: none;
+    opacity: 1;
+    box-shadow: none;
+  }
 }
 @media (pointer: coarse), (max-width: 768px) {
   .account-menu__theme {

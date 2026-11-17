@@ -7,6 +7,17 @@
     overflow: hidden;
     background: var(--page);
   }
+  .conversation-panels[data-resizing="true"] {
+    user-select: none;
+    cursor: col-resize;
+  }
+  .conversation-panels[data-resizing="true"] * {
+    user-select: none;
+    pointer-events: none;
+  }
+  .conversation-panels[data-resizing="true"] .conversation-divider {
+    pointer-events: auto;
+  }
   .conversation-rail-column {
     width: var(--rail-width);
     flex: 0 0 var(--rail-width);
@@ -62,6 +73,20 @@
       transform: translateX(0);
     }
   }
+  .conversation-rail-drawer[data-closing="true"] .kn-dialog__content {
+    animation: kn-rail-drawer-exit var(--duration-sheet-exit, 140ms)
+      var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)) forwards;
+  }
+  @keyframes kn-rail-drawer-exit {
+    from {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateX(-12px);
+    }
+  }
   .conversation-rail-drawer .kn-dialog__content > header {
     flex: 0 0 auto;
   }
@@ -88,6 +113,20 @@
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+  .conversation-evidence-sheet[data-closing="true"] .kn-dialog__content {
+    animation: kn-evidence-sheet-exit var(--duration-sheet-exit, 140ms)
+      var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)) forwards;
+  }
+  @keyframes kn-evidence-sheet-exit {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(16px);
     }
   }
   @media (max-width: 959px) {
@@ -177,6 +216,13 @@
       min-height: 44px !important;
     }
   }
+
+  .kn-composer-field textarea {
+    field-sizing: content;
+    min-height: 44px;
+    max-height: 160px;
+    resize: none;
+  }
 }
 
 .kn-processing-dots span {
@@ -209,8 +255,10 @@
     animation: none;
   }
   .conversation-rail-drawer .kn-dialog__content,
-  .conversation-evidence-sheet .kn-dialog__content {
-    animation: none;
+  .conversation-rail-drawer[data-closing="true"] .kn-dialog__content,
+  .conversation-evidence-sheet .kn-dialog__content,
+  .conversation-evidence-sheet[data-closing="true"] .kn-dialog__content {
+    animation: none !important;
   }
   .conversation-panel-tools button,
   .kn-turn-action,

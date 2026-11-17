@@ -255,10 +255,25 @@ export function DocumentList({
           }
           return doc;
         });
+        const upload = uploadStateRef.current;
+        let finalDocs = loadedDocs;
+        if (
+          upload &&
+          "document_id" in upload &&
+          !upload.document_archived &&
+          !loadedDocs.some((d) => d.document_id === upload.document_id)
+        ) {
+          const activeUploadDoc = documentsRef.current.find(
+            (d) => d.document_id === upload.document_id,
+          );
+          if (activeUploadDoc) {
+            finalDocs = [activeUploadDoc, ...loadedDocs];
+          }
+        }
         if (currentSeq > lastAppliedSeq.current) {
           lastAppliedSeq.current = currentSeq;
-          setDocuments(loadedDocs);
-          documentsRef.current = loadedDocs;
+          setDocuments(finalDocs);
+          documentsRef.current = finalDocs;
           syncPollingError();
           setJobStates((previous) =>
             Object.fromEntries(
@@ -406,14 +421,16 @@ export function DocumentList({
             syncPollingError();
             return;
           }
-          setJobStates((previous) => ({ ...previous, [documentId]: status }));
-          setUploadState((previous) =>
-            previous &&
-            "ingestion_job_id" in previous &&
-            previous.ingestion_job_id === jobId
-              ? { ...previous, status: status.status }
-              : previous,
-          );
+          if (status && status.status) {
+            setJobStates((previous) => ({ ...previous, [documentId]: status }));
+            setUploadState((previous) =>
+              previous &&
+              "ingestion_job_id" in previous &&
+              previous.ingestion_job_id === jobId
+                ? { ...previous, status: status.status }
+                : previous,
+            );
+          }
           if (
             !derivationIsActive({
               ingestion_status: status.status,
@@ -716,9 +733,9 @@ export function DocumentList({
     const controller = scope.current;
     if (!controller || !canWrite || !begin(documentId)) return;
     setActionError(null);
-    try {
-      let doc = documents.find((d) => d.document_id === documentId);
-      if (!doc) {
+    let doc = documents.find((d) => d.document_id === documentId);
+    if (!doc) {
+      try {
         const response = await browserRequest(
           `${path}/documents/${encodeURIComponent(documentId)}`,
           { signal: controller.signal },
@@ -726,11 +743,16 @@ export function DocumentList({
         if (response.ok) {
           doc = (await response.json()) as DocumentResponse;
         }
+      } catch {
+        // ignore
       }
-      if (!doc) {
-        setActionError("Unable to find document to restore.");
-        return;
-      }
+    }
+    if (!doc) {
+      setActionError("Unable to find document to restore.");
+      finish(documentId, controller);
+      return;
+    }
+    try {
       const response = await browserRequest(
         `${path}/documents/${encodeURIComponent(documentId)}/unarchive`,
         {
@@ -755,8 +777,9 @@ export function DocumentList({
       );
       await load(controller);
     } catch {
-      if (!controller.signal.aborted)
+      if (!controller.signal.aborted) {
         setActionError("Unable to restore document. Reload before retrying.");
+      }
     } finally {
       finish(documentId, controller);
     }
@@ -819,6 +842,28 @@ export function DocumentList({
     const controller = scope.current;
     if (!controller || !file || !canWrite || !begin("upload")) return;
     setUploadError(null);
+    const tempId = `optimistic-${typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Date.now()}`;
+    const optimisticDoc: DocumentResponse = {
+      document_id: tempId,
+      workspace_id: workspaceId,
+      source_key: file.name,
+      source_name: file.name,
+      archived: false,
+      revision: 1,
+      current_document_version_id: null,
+      serving_state: "unavailable",
+      ingestion_job_id: null,
+      ingestion_status: "uploading",
+      embedding_readiness: "not_indexed",
+      answer_availability: "unavailable",
+      served_document_version_id: null,
+      last_processed_at: null,
+      deletion_request: null,
+      reprocess_supported: false,
+    };
+    setDocuments((previous) => [optimisticDoc, ...(previous ?? [])]);
+    documentsRef.current = [optimisticDoc, ...documentsRef.current];
+
     try {
       const body = new FormData();
       body.set("source_key", file.name);
@@ -834,6 +879,12 @@ export function DocumentList({
       if (!response.ok) {
         if (response.status === 409) uploadKey.current = null;
         setUploadError(errorMessage("upload document", response.status));
+        setDocuments((previous) =>
+          previous.filter((doc) => doc.document_id !== tempId),
+        );
+        documentsRef.current = documentsRef.current.filter(
+          (doc) => doc.document_id !== tempId,
+        );
         return;
       }
       const result = (await response.json()) as
@@ -843,28 +894,54 @@ export function DocumentList({
       loadSeq.current++;
       lastAppliedSeq.current = loadSeq.current;
       setUploadState(result);
-      if ("ingestion_job_id" in result && result.ingestion_job_id) {
-        setDocuments((previous) =>
-          previous.map((doc) =>
-            doc.document_id === result.document_id
-              ? {
-                  ...doc,
-                  ingestion_job_id: result.ingestion_job_id,
-                  ingestion_status: result.status,
-                }
-              : doc,
-          ),
+      uploadStateRef.current = result;
+
+      const confirmedDoc: DocumentResponse = {
+        ...optimisticDoc,
+        document_id: result.document_id,
+        current_document_version_id: result.document_version_id,
+        ingestion_job_id:
+          "ingestion_job_id" in result ? result.ingestion_job_id : null,
+        ingestion_status: "status" in result ? result.status : "succeeded",
+        archived:
+          "document_archived" in result
+            ? Boolean(result.document_archived)
+            : false,
+        serving_state:
+          "status" in result && result.status === "succeeded"
+            ? "current"
+            : "unavailable",
+      };
+
+      setDocuments((previous) => {
+        const withoutTemp = previous.filter(
+          (doc) => doc.document_id !== tempId,
         );
-        documentsRef.current = documentsRef.current.map((doc) =>
+        const hasDoc = withoutTemp.some(
+          (doc) => doc.document_id === result.document_id,
+        );
+        if (!hasDoc) {
+          return [confirmedDoc, ...withoutTemp];
+        }
+        return withoutTemp.map((doc) =>
           doc.document_id === result.document_id
-            ? {
-                ...doc,
-                ingestion_job_id: result.ingestion_job_id,
-                ingestion_status: result.status,
-              }
+            ? { ...doc, ...confirmedDoc }
             : doc,
         );
-      }
+      });
+      const withoutTempRef = documentsRef.current.filter(
+        (doc) => doc.document_id !== tempId,
+      );
+      documentsRef.current = withoutTempRef.some(
+        (doc) => doc.document_id === result.document_id,
+      )
+        ? withoutTempRef.map((doc) =>
+            doc.document_id === result.document_id
+              ? { ...doc, ...confirmedDoc }
+              : doc,
+          )
+        : [confirmedDoc, ...withoutTempRef];
+
       uploadKey.current = null;
       setFile(null);
       setUploadOpen(false);
@@ -872,6 +949,7 @@ export function DocumentList({
       if (
         !controller.signal.aborted &&
         "ingestion_job_id" in result &&
+        result.ingestion_job_id &&
         jobIsActive(result.status) &&
         !polling.current.has(result.ingestion_job_id)
       ) {
@@ -881,10 +959,17 @@ export function DocumentList({
         void poll(result.document_id, result.ingestion_job_id, controller);
       }
     } catch {
-      if (!controller.signal.aborted)
+      if (!controller.signal.aborted) {
         setUploadError(
           "Unable to confirm upload submission. Retry with the same file and request key.",
         );
+        setDocuments((previous) =>
+          previous.filter((doc) => doc.document_id !== tempId),
+        );
+        documentsRef.current = documentsRef.current.filter(
+          (doc) => doc.document_id !== tempId,
+        );
+      }
     } finally {
       finish("upload", controller);
     }
@@ -1111,12 +1196,21 @@ export function DocumentList({
                   className="m-0 grid min-h-[72px] grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-2 border-t border-border py-3 pr-3 pl-[18px] first:rounded-t-lg last:rounded-b-lg md:grid-cols-[minmax(0,1fr)_220px_130px]"
                 >
                   <div className="col-span-2 flex min-w-0 flex-col gap-[5px] md:col-span-1">
-                    <Link
-                      className="text-sm leading-[18px] font-medium text-text-primary no-underline [overflow-wrap:anywhere] hover:text-action-text"
-                      href={routes.document(workspaceId, document.document_id)}
-                    >
-                      {document.source_name}
-                    </Link>
+                    {document.document_id.startsWith("optimistic-") ? (
+                      <span className="text-sm leading-[18px] font-medium text-text-primary [overflow-wrap:anywhere]">
+                        {document.source_name}
+                      </span>
+                    ) : (
+                      <Link
+                        className="text-sm leading-[18px] font-medium text-text-primary no-underline [overflow-wrap:anywhere] hover:text-action-text"
+                        href={routes.document(
+                          workspaceId,
+                          document.document_id,
+                        )}
+                      >
+                        {document.source_name}
+                      </Link>
+                    )}
                     <p className="m-0 text-xs leading-[15px] text-text-muted">
                       {sourceKind(document.source_name).label} document
                       {document.answer_availability === "unavailable"
@@ -1159,7 +1253,11 @@ export function DocumentList({
                           : "Re-index"}
                       </Button>
                     )}
-                    {canWrite || canDelete ? (
+                    {document.document_id.startsWith("optimistic-") ? (
+                      <span className="text-xs text-text-muted">
+                        Uploading…
+                      </span>
+                    ) : canWrite || canDelete ? (
                       <DocumentActionsMenu
                         document={document}
                         canWrite={canWrite}
