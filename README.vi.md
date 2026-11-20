@@ -18,7 +18,7 @@
 
 <p align="center"><strong>Upload PDF → Đặt câu hỏi → Trích dẫn / Từ chối</strong></p>
 
-> **Trạng thái hiện tại:** đã triển khai PDF ingestion cục bộ, Conversations và kiểm tra trích dẫn. Việc nghiệm thu chất lượng câu trả lời đang diễn ra. Chưa có public demo.
+> **Trạng thái hiện tại:** đã triển khai PDF ingestion cục bộ, Conversations và kiểm tra trích dẫn. Việc nghiệm thu chất lượng câu trả lời đang diễn ra. Bản demo trực tuyến có sẵn tại [knora.nhibuaa.space](https://knora.nhibuaa.space).
 
 <p align="center">
   <a href="#quy-trình-sử-dụng">Quy trình sử dụng</a> · <a href="#điểm-nổi-bật-kỹ-thuật">Điểm nổi bật kỹ thuật</a> · <a href="#kiến-trúc">Kiến trúc</a> · <a href="#chạy-cục-bộ">Chạy cục bộ</a> · <a href="#kiểm-chứng">Kiểm chứng</a>

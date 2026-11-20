@@ -18,7 +18,7 @@
 
 <p align="center"><strong>Upload PDF → Ask Question → Citation / Refusal</strong></p>
 
-> **Current status:** local PDF ingestion, Conversations and citation inspection are implemented. Answer-quality acceptance is in progress. No public demo is available.
+> **Current status:** local PDF ingestion, Conversations and citation inspection are implemented. Answer-quality acceptance is in progress. A hosted public demo is available at [knora.nhibuaa.space](https://knora.nhibuaa.space).
 
 <p align="center">
   <a href="#workflow">Workflow</a> · <a href="#engineering-highlights">Engineering Highlights</a> · <a href="#architecture">Architecture</a> · <a href="#run-locally">Run Locally</a> · <a href="#verification">Verification</a>
