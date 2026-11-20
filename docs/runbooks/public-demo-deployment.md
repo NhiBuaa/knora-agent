@@ -146,6 +146,7 @@ Chỉ dùng mục này khi chạy chế độ Keycloak. Khi chuyển portfolio s
    - `KNORA_SUPABASE_AUDIENCE`: `authenticated`
    - `KNORA_SUPABASE_JWKS_URL`: `https://<PROJECT_REF>.supabase.co/auth/v1/.well-known/jwks.json`
    - `KNORA_SUPABASE_JWT_ALGORITHM`: `ES256` hoặc `RS256`, khớp signing key đã xác nhận trên project.
+   - `KNORA_EMBEDDED_WORKERS`: Mặc định script `start-render.sh` tự động thiết lập là `true`. Cơ chế này gộp Ingestion Worker và Conversation Worker thành background task trong cùng tiến trình FastAPI, giảm mức tiêu thụ RAM cơ sở từ ~400 MB xuống ~150 MB để không chạm ngưỡng 512 MiB của Render Free Tier.
 
 ---
 
@@ -163,6 +164,11 @@ Chỉ dùng mục này khi chạy chế độ Keycloak. Khi chuyển portfolio s
    - `SUPABASE_JWT_ALGORITHM`: `ES256` hoặc `RS256`, khớp signing key và backend.
    - `SESSION_SECRET`: Một chuỗi ngẫu nhiên 32 ký tự (ví dụ: chạy `openssl rand -hex 32` để lấy).
 4. Nhấn **Deploy**.
+5. **Cấu hình Custom Domain & Chuyển hướng**:
+   - Vào **Project Settings** → **Domains** trên Vercel: Thêm tên miền tùy chỉnh `knora.nhibuaa.space`.
+   - Trên Cloudflare DNS của zone `nhibuaa.space`: Tạo bản ghi `CNAME` với Name `knora`, Target trỏ về máy chủ Vercel (chế độ **DNS only** trong quá trình cấp phát SSL).
+   - Trên Vercel Domains: Tại bản ghi mặc định `knora-public-demo.vercel.app`, chọn **Edit** → Bật **Redirect to** `knora.nhibuaa.space` (`308 Permanent Redirect`).
+   - Trên Supabase Dashboard: Vào **Authentication** → **URL Configuration** → Thêm `https://knora.nhibuaa.space/**` và `https://knora.nhibuaa.space/auth/callback` vào **Redirect URLs**.
 
 ---
 
